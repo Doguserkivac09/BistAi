@@ -3,7 +3,6 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,8 +29,7 @@ function GirisForm() {
         setError(err.message === 'Invalid login credentials' ? 'E-posta veya şifre hatalı.' : err.message);
         return;
       }
-      router.push(redirect);
-      router.refresh();
+      window.location.assign(redirect);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Giriş yapılamadı.');
     } finally {
@@ -41,7 +39,6 @@ function GirisForm() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="container mx-auto flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
         <Card className="w-full max-w-md border-border bg-surface/80 backdrop-blur-sm">
           <CardHeader>
@@ -101,7 +98,6 @@ export default function GirisPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-background">
-        <Navbar />
         <main className="container mx-auto flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
           <Card className="w-full max-w-md border-border bg-surface/80 backdrop-blur-sm">
             <CardContent className="flex items-center justify-center py-12">

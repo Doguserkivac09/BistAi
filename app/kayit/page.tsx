@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,7 +47,6 @@ export default function KayitPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="container mx-auto flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
         <Card className="w-full max-w-md border-border bg-surface/80 backdrop-blur-sm">
           <CardHeader>

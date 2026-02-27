@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { BarChart3, Sparkles, TrendingUp } from 'lucide-react';
@@ -7,7 +6,6 @@ import { BarChart3, Sparkles, TrendingUp } from 'lucide-react';
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="container mx-auto px-4 py-12 md:py-20">
         <section className="mx-auto max-w-3xl text-center">
           <h1 className="text-4xl font-bold tracking-tight text-text-primary md:text-5xl lg:text-6xl">

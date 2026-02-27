@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SignalBadge } from '@/components/SignalBadge';
@@ -127,7 +126,6 @@ export default function HisseDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="container mx-auto px-4 py-6">
         <div className="mb-4 flex items-center gap-2 text-text-secondary">
           <Link href="/tarama" className="hover:text-primary">

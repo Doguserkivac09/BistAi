@@ -92,10 +92,23 @@ export function StockChart({ candles, showRsi, height = 400 }: StockChartProps) 
       height,
     });
 
+    const normalizedCandles = Array.from(
+      new Map(
+        candles
+          .slice()
+          .sort((a, b) => {
+            const at = new Date(a.date as string).getTime();
+            const bt = new Date(b.date as string).getTime();
+            return at - bt;
+          })
+          .map((c) => [c.date as string, c] as const)
+      ).values()
+    );
+
     if (showRsi) {
-      const closes = candles.map((c) => c.close);
+      const closes = normalizedCandles.map((c) => c.close);
       const rsiValues = calculateRSI(closes, 14);
-      const rsiData = candles.map((c, i) => ({
+      const rsiData = normalizedCandles.map((c, i) => ({
         time: c.date as string,
         value: rsiValues[i] ?? 50,
       }));
@@ -112,7 +125,7 @@ export function StockChart({ candles, showRsi, height = 400 }: StockChartProps) 
       });
       chart.timeScale().fitContent();
     } else {
-      const cdlData: CandlestickData[] = candles.map((c) => ({
+      const cdlData: CandlestickData[] = normalizedCandles.map((c) => ({
         time: c.date as string,
         open: c.open,
         high: c.high,
@@ -127,7 +140,7 @@ export function StockChart({ candles, showRsi, height = 400 }: StockChartProps) 
       });
       candlestickSeries.setData(cdlData);
 
-      const closes = candles.map((c) => c.close);
+      const closes = normalizedCandles.map((c) => c.close);
       const ema9 = calculateEMA(closes, 9);
       const ema21 = calculateEMA(closes, 21);
 
@@ -137,7 +150,10 @@ export function StockChart({ candles, showRsi, height = 400 }: StockChartProps) 
         title: 'EMA 9',
       });
       ema9Series.setData(
-        candles.map((c, i) => ({ time: c.date as string, value: ema9[i] ?? c.close }))
+        normalizedCandles.map((c, i) => ({
+          time: c.date as string,
+          value: ema9[i] ?? c.close,
+        }))
       );
 
       const ema21Series = chart.addLineSeries({
@@ -146,7 +162,10 @@ export function StockChart({ candles, showRsi, height = 400 }: StockChartProps) 
         title: 'EMA 21',
       });
       ema21Series.setData(
-        candles.map((c, i) => ({ time: c.date as string, value: ema21[i] ?? c.close }))
+        normalizedCandles.map((c, i) => ({
+          time: c.date as string,
+          value: ema21[i] ?? c.close,
+        }))
       );
 
       chart.timeScale().fitContent();

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Navbar } from '@/components/Navbar';
 import { StockCard } from '@/components/StockCard';
 import { Button } from '@/components/ui/button';
 import {
@@ -132,7 +131,6 @@ export default function TaramaPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <main className="container mx-auto px-4 py-6">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-text-primary">Sinyal Tarama</h1>

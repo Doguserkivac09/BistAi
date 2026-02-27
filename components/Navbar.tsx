@@ -1,9 +1,7 @@
-'use client';
-
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getAuthenticatedUser, UnauthorizedError } from '@/lib/auth-server';
 
 const navItems = [
   { href: '/', label: 'Ana Sayfa' },
@@ -11,8 +9,15 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard' },
 ];
 
-export function Navbar() {
-  const pathname = usePathname();
+export async function Navbar() {
+  let user: { id: string; email: string | null } | null = null;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (error) {
+    if (!(error instanceof UnauthorizedError)) {
+      throw error;
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
@@ -27,8 +32,7 @@ export function Navbar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'text-sm font-medium transition-colors hover:text-primary',
-                pathname === item.href ? 'text-primary' : 'text-text-secondary'
+                'text-sm font-medium transition-colors hover:text-primary text-text-secondary'
               )}
             >
               {item.label}
@@ -36,12 +40,32 @@ export function Navbar() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/giris">Giriş Yap</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/kayit">Ücretsiz Başla</Link>
-          </Button>
+          {user ? (
+            <>
+              {user.email && (
+                <span className="hidden text-sm text-text-secondary md:inline">
+                  {user.email}
+                </span>
+              )}
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+              <form action="/auth/logout" method="post">
+                <Button variant="outline" size="sm" type="submit">
+                  Çıkış Yap
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/giris">Giriş Yap</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/kayit">Ücretsiz Başla</Link>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>
