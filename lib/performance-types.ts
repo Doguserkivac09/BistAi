@@ -12,6 +12,7 @@ export interface SignalPerformanceRecord {
   mfe: number | null;
   mae: number | null;
   evaluated: boolean;
+  regime?: string | null;
   created_at: string;
 }
 
