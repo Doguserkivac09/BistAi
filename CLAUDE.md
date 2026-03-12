@@ -124,3 +124,16 @@ git push -u origin feat/<feature-name>
 1. 1.2 tamamlandığında Berk import güncellemesi yapar
 2. 2.4 (Toast) Phase 2'de erken tamamlanmalı
 3. Phase 2'ye geçmek için Doğuş'un Phase 1 backend görevleri bitmeli
+
+## Test Kuralı (Her Değişiklik Sonrası)
+
+Her değişiklik tamamlandıktan sonra, test edilebilir ise şu adımlar uygulanır:
+
+1. **TypeScript**: `npx tsc --noEmit` — yeni hata eklenmediğinden emin ol
+2. **Build**: `npm run build` — production build başarılı mı?
+3. **Manuel test** (değişikliğe özel):
+   - Etkilenen sayfa/bileşeni tarayıcıda ziyaret et
+   - Eklenen özelliği test et (hover, click, responsive, vb.)
+   - Edge case'leri kontrol et (boş veri, hata durumları)
+4. **DevTools**: Console/Network'te yeni hata var mı?
+5. **Responsive**: Mobil ve desktop görünüm (UI değişikliği varsa)
