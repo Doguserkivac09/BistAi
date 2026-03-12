@@ -9,6 +9,8 @@ const BIST_SUFFIX = '.IS';
 
 function toYahooSymbol(sembol: string): string {
   const trimmed = sembol.trim().toUpperCase();
+  // Index sembolleri (^XU100 gibi) .IS almaz
+  if (trimmed.startsWith('^')) return trimmed;
   return trimmed.endsWith(BIST_SUFFIX) ? trimmed : `${trimmed}${BIST_SUFFIX}`;
 }
 
