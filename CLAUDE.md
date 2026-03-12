@@ -74,7 +74,7 @@ git push -u origin feat/<feature-name>
 | Phase | Berk (Frontend) | Doğuş (Backend) |
 |-------|----------------|-----------------|
 | **Phase 1** | ✅ 1.6 Mobil menü, ✅ 1.7 Progress bar, ✅ 1.8 Timeframe fix | ⬜ 1.1 Yahoo norm, ⬜ 1.2 Signal perf API, ⬜ 1.3 Stats filter, ⬜ 1.4 Schema, ⬜ 1.5 Error handling |
-| **Phase 2** | ✅ 2.4 Toast (sonner), ⬜ 2.5 Dashboard, ⬜ 2.6 Grafik | ⬜ 2.1 BIST100, ⬜ 2.2 Şifre sıfırlama, ⬜ 2.3 Batching |
+| **Phase 2** | ✅ 2.4 Toast (sonner), ✅ 2.5 Dashboard, ⬜ 2.6 Grafik | ⬜ 2.1 BIST100, ⬜ 2.2 Şifre sıfırlama, ⬜ 2.3 Batching |
 | **Phase 3** | ⬜ Loading, SEO, A11y, Perf | ⬜ Rate limit, Cache, Cron, Env |
 
 ## Phase 1 — Doğuş Backend Görevleri (SIRADA)

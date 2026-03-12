@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { removeFromWatchlist } from '@/app/dashboard/actions';
+import { toast } from 'sonner';
 
 interface DashboardWatchlistItemProps {
   sembol: string;
@@ -20,7 +21,11 @@ export function DashboardWatchlistItem({ sembol }: DashboardWatchlistItemProps) 
     setPending(true);
     try {
       await removeFromWatchlist(sembol);
+      toast.success(`${sembol} izleme listesinden çıkarıldı`);
       router.refresh();
+    } catch {
+      setRemoved(false);
+      toast.error('İşlem başarısız oldu');
     } finally {
       setPending(false);
     }
