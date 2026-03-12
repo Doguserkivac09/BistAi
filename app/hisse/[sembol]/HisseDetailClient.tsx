@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +13,13 @@ import { fetchOHLCVClient, fetchOHLCVByTimeframeClient, type TimeframeKey } from
 import { detectAllSignals } from '@/lib/signals';
 import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
-import { StockChart } from '@/components/StockChart';
 import { saveSignalPerformance } from '@/lib/performance';
 import { toast } from 'sonner';
+
+// Lazy-load chart component (lightweight-charts ~40KB gzipped)
+const StockChart = lazy(() =>
+  import('@/components/StockChart').then((mod) => ({ default: mod.StockChart }))
+);
 
 const TIMEFRAMES: { key: TimeframeKey; label: string; description: string }[] = [
   { key: '1H', label: '1H', description: '1 saat' },
@@ -156,7 +160,9 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </CardHeader>
               <CardContent className="p-0">
                 <div className="h-[400px] w-full">
-                  <StockChart candles={candles} height={400} />
+                  <Suspense fallback={<div className="flex h-[400px] w-full items-center justify-center bg-surface/50"><span className="text-sm text-text-secondary">Grafik yükleniyor...</span></div>}>
+                    <StockChart candles={candles} height={400} />
+                  </Suspense>
                 </div>
               </CardContent>
             </Card>
@@ -167,7 +173,9 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </CardHeader>
               <CardContent className="p-0">
                 <div className="h-[180px] w-full">
-                  <StockChart candles={candles} showRsi height={180} />
+                  <Suspense fallback={<div className="flex h-[180px] w-full items-center justify-center bg-surface/50"><span className="text-sm text-text-secondary">RSI yükleniyor...</span></div>}>
+                    <StockChart candles={candles} showRsi height={180} />
+                  </Suspense>
                 </div>
               </CardContent>
             </Card>

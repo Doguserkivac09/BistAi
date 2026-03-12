@@ -1,7 +1,13 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { BarChart3, Sparkles, TrendingUp } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'BistAI — BIST Hisselerinde AI Destekli Sinyal Analizi',
+  description: 'BIST hisse senetlerini tarayın, RSI uyumsuzluğu, hacim anomalisi ve trend sinyallerini yapay zeka açıklamalarıyla takip edin.',
+};
 
 export default function LandingPage() {
   return (

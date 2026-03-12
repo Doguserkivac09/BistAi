@@ -40,12 +40,13 @@ export function DashboardWatchlist({ watchlist }: DashboardWatchlistProps) {
       {watchlist.length > 0 && (
         <div className="mb-3 flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
             <Input
               placeholder="Sembol ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-8 border-border bg-background/50 pl-8 text-sm"
+              aria-label="İzleme listesinde sembol ara"
             />
           </div>
           <Button
