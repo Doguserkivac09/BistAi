@@ -35,7 +35,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav aria-label="Ana navigasyon" className="hidden items-center gap-6 md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -92,12 +92,15 @@ export function NavbarClient({ user }: NavbarClientProps) {
 
       {/* Mobile menu */}
       <div
+        role="region"
+        aria-label="Mobil menü"
+        aria-hidden={!mobileOpen}
         className={cn(
           'overflow-hidden border-t border-border transition-all duration-200 ease-in-out md:hidden',
           mobileOpen ? 'max-h-80' : 'max-h-0 border-t-0'
         )}
       >
-        <nav className="container mx-auto flex flex-col gap-1 px-4 py-3">
+        <nav aria-label="Mobil navigasyon" className="container mx-auto flex flex-col gap-1 px-4 py-3">
           {navItems.map((item) => (
             <Link
               key={item.href}

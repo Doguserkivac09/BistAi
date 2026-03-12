@@ -335,7 +335,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
           </>
         )}
       </div>
-      <div ref={containerRef} className="w-full" />
+      <div ref={containerRef} className="w-full" role="img" aria-label={showRsi ? 'RSI göstergesi grafiği' : 'Hisse fiyat grafiği'} />
     </div>
   );
 }
