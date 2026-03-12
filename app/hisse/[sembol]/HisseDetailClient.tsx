@@ -19,7 +19,7 @@ import { saveSignalPerformance } from '@/lib/performance';
 const TIMEFRAMES: { key: TimeframeKey; label: string; description: string }[] = [
   { key: '1H', label: '1H', description: '1 saat' },
   { key: '1G', label: '1G', description: '1 gün' },
-  { key: '1W', label: '1H', description: '1 hafta' },
+  { key: '1W', label: '1W', description: '1 hafta' },
   { key: '1A', label: '1A', description: '1 ay' },
   { key: '3A', label: '3A', description: '3 ay' },
   { key: '1Y', label: '1Y', description: '1 yıl' },

@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { BIST_SYMBOLS } from '@/types';
 import type {
   SignalTypeFilter,
@@ -23,6 +22,7 @@ import { fetchOHLCVClient } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
 import { Search } from 'lucide-react';
 import { saveSignalPerformance } from '@/lib/performance';
+import { ScanProgress } from '@/components/ScanProgress';
 
 const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
   { value: 'Tümü', label: 'Tümü' },
@@ -88,6 +88,7 @@ export default function TaramaPage() {
   const [results, setResults] = useState<ScanResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, symbol: '' });
 
   const runScan = useCallback(async () => {
   setLoading(true);
@@ -96,8 +97,12 @@ export default function TaramaPage() {
   try {
     const symbols = [...BIST_SYMBOLS];
     const all: ScanResult[] = [];
+    setScanProgress({ current: 0, total: symbols.length, symbol: '' });
 
-    for (const sembol of symbols) {
+    for (let i = 0; i < symbols.length; i++) {
+      const sembol = symbols[i];
+      setScanProgress({ current: i + 1, total: symbols.length, symbol: sembol });
+
       try {
         const candles = await fetchOHLCVClient(sembol, 90);
         const signals = detectAllSignals(sembol, candles);
@@ -176,16 +181,16 @@ export default function TaramaPage() {
         )}
 
         {loading && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-[280px] rounded-card" />
-            ))}
-          </div>
+          <ScanProgress
+            current={scanProgress.current}
+            total={scanProgress.total}
+            symbol={scanProgress.symbol}
+          />
         )}
 
         {!loading && displayList.length === 0 && results.length === 0 && (
           <div className="rounded-card border border-border bg-surface/50 p-8 text-center text-text-secondary">
-            &quot;Tümünü Tara&quot; butonuna tıklayarak 20 BIST hissesini tarayın ve sinyalleri
+            &quot;Tümünü Tara&quot; butonuna tıklayarak {BIST_SYMBOLS.length} BIST hissesini tarayın ve sinyalleri
             görüntüleyin.
           </div>
         )}
