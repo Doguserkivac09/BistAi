@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
 import { addToWatchlist, removeFromWatchlist } from '@/app/hisse/[sembol]/actions';
+import { toast } from 'sonner';
 
 interface WatchlistButtonProps {
   sembol: string;
@@ -22,11 +23,16 @@ export function WatchlistButton({ sembol, isInWatchlist }: WatchlistButtonProps)
       if (optimisticInList) {
         await removeFromWatchlist(sembol);
         setOptimisticInList(false);
+        toast.success(`${sembol} izleme listesinden çıkarıldı`);
       } else {
         await addToWatchlist(sembol);
         setOptimisticInList(true);
+        toast.success(`${sembol} izleme listesine eklendi`);
       }
       router.refresh();
+    } catch {
+      setOptimisticInList(isInWatchlist);
+      toast.error('İşlem başarısız oldu');
     } finally {
       setPending(false);
     }

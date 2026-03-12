@@ -20,9 +20,10 @@ import type {
 } from '@/types';
 import { fetchOHLCVClient } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
-import { Search } from 'lucide-react';
+import { Search, RefreshCw } from 'lucide-react';
 import { saveSignalPerformance } from '@/lib/performance';
 import { ScanProgress } from '@/components/ScanProgress';
+import { toast } from 'sonner';
 
 const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
   { value: 'Tümü', label: 'Tümü' },
@@ -89,47 +90,69 @@ export default function TaramaPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, symbol: '' });
+  const [failedSymbols, setFailedSymbols] = useState<string[]>([]);
 
-  const runScan = useCallback(async () => {
-  setLoading(true);
-  setError(null);
+  const scanSymbols = useCallback(async (symbols: string[]) => {
+    setLoading(true);
+    setError(null);
+    const failed: string[] = [];
 
-  try {
-    const symbols = [...BIST_SYMBOLS];
-    const all: ScanResult[] = [];
-    setScanProgress({ current: 0, total: symbols.length, symbol: '' });
+    try {
+      const all: ScanResult[] = [...results];
+      setScanProgress({ current: 0, total: symbols.length, symbol: '' });
 
-    for (let i = 0; i < symbols.length; i++) {
-      const sembol = symbols[i];
-      setScanProgress({ current: i + 1, total: symbols.length, symbol: sembol });
+      for (let i = 0; i < symbols.length; i++) {
+        const sembol = symbols[i];
+        setScanProgress({ current: i + 1, total: symbols.length, symbol: sembol });
 
-      try {
-        const candles = await fetchOHLCVClient(sembol, 90);
-        const signals = detectAllSignals(sembol, candles);
+        try {
+          const candles = await fetchOHLCVClient(sembol, 90);
+          const signals = detectAllSignals(sembol, candles);
 
-        if (signals.length > 0) {
-          for (const signal of signals) {
-            await saveSignalPerformance({
-              userId: null, // global istatistik
-              signal,
-              candles
-            });
+          if (signals.length > 0) {
+            for (const signal of signals) {
+              await saveSignalPerformance({
+                userId: null,
+                signal,
+                candles
+              });
+            }
+            // Mevcut sonuçlarda bu sembol varsa güncelle, yoksa ekle
+            const existingIdx = all.findIndex(r => r.sembol === sembol);
+            if (existingIdx >= 0) {
+              all[existingIdx] = { sembol, signals, candles };
+            } else {
+              all.push({ sembol, signals, candles });
+            }
           }
-
-          all.push({ sembol, signals, candles });
+        } catch {
+          failed.push(sembol);
         }
-
-      } catch {
-        // skip failed symbol
       }
+
+      setResults(all);
+      setFailedSymbols(failed);
+
+      const signalCount = all.reduce((sum, r) => sum + r.signals.length, 0);
+      if (failed.length > 0) {
+        toast.warning(`Tarama tamamlandı. ${failed.length} sembol başarısız oldu.`);
+      } else {
+        toast.success(`Tarama tamamlandı! ${signalCount} sinyal bulundu.`);
+      }
+    } finally {
+      setLoading(false);
     }
+  }, [results]);
 
-    setResults(all);
+  const runScan = useCallback(() => {
+    setResults([]);
+    setFailedSymbols([]);
+    scanSymbols([...BIST_SYMBOLS]);
+  }, [scanSymbols]);
 
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  const retryFailed = useCallback(() => {
+    scanSymbols(failedSymbols);
+  }, [scanSymbols, failedSymbols]);
 
   const filtered = filterResults(results, signalType, direction);
   const displayList = loading ? [] : filtered;
@@ -192,6 +215,23 @@ export default function TaramaPage() {
           <div className="rounded-card border border-border bg-surface/50 p-8 text-center text-text-secondary">
             &quot;Tümünü Tara&quot; butonuna tıklayarak {BIST_SYMBOLS.length} BIST hissesini tarayın ve sinyalleri
             görüntüleyin.
+          </div>
+        )}
+
+        {!loading && failedSymbols.length > 0 && (
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-yellow-500/50 bg-yellow-500/10 px-4 py-3">
+            <span className="text-sm text-yellow-400">
+              {failedSymbols.length} sembol taranamadı: {failedSymbols.join(', ')}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={retryFailed}
+              className="ml-3 gap-1 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/20"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Tekrar Dene
+            </Button>
           </div>
         )}
 
