@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
 import { StockChart } from '@/components/StockChart';
 import { saveSignalPerformance } from '@/lib/performance';
+import { toast } from 'sonner';
 
 const TIMEFRAMES: { key: TimeframeKey; label: string; description: string }[] = [
   { key: '1H', label: '1H', description: '1 saat' },
@@ -81,7 +82,10 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
         });
         if (!cancelled) setExplanations(next);
       } catch {
-        if (!cancelled) setSignals([]);
+        if (!cancelled) {
+          setSignals([]);
+          toast.error(`${sembol} verileri yüklenemedi.`);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

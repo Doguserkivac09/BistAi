@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { saveSignal } from '@/app/hisse/[sembol]/signal-actions';
+import { toast } from 'sonner';
 
 interface SaveSignalButtonProps {
   sembol: string;
@@ -35,9 +36,11 @@ export function SaveSignalButton({
         signalData,
         aiExplanation,
       });
+      toast.success(`${signalType} sinyali kaydedildi`);
       router.refresh();
     } catch {
       setSaved(false);
+      toast.error('Sinyal kaydedilemedi');
     } finally {
       setPending(false);
     }
