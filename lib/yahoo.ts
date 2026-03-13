@@ -7,6 +7,33 @@ import type { OHLCVCandle } from '@/types';
 
 const BIST_SUFFIX = '.IS';
 
+// --- In-memory OHLCV cache (5 dakika TTL) ---
+const CACHE_TTL_MS = 5 * 60 * 1000;
+interface CacheEntry {
+  data: OHLCVCandle[];
+  expiry: number;
+}
+const ohlcvCache = new Map<string, CacheEntry>();
+
+function getCached(key: string): OHLCVCandle[] | null {
+  const entry = ohlcvCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiry) {
+    ohlcvCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCache(key: string, data: OHLCVCandle[]): void {
+  // Bellek sızıntısını önle — max 500 entry
+  if (ohlcvCache.size > 500) {
+    const firstKey = ohlcvCache.keys().next().value;
+    if (firstKey) ohlcvCache.delete(firstKey);
+  }
+  ohlcvCache.set(key, { data, expiry: Date.now() + CACHE_TTL_MS });
+}
+
 function toYahooSymbol(sembol: string): string {
   const trimmed = sembol.trim().toUpperCase();
   // Index sembolleri (^XU100 gibi) .IS almaz
@@ -55,6 +82,11 @@ export async function fetchOHLCV(
 ): Promise<OHLCVCandle[]> {
   const yahooSymbol = toYahooSymbol(sembol);
   const range = days <= 5 ? '5d' : days <= 30 ? '1mo' : days <= 90 ? '3mo' : days <= 180 ? '6mo' : '1y';
+
+  const cacheKey = `ohlcv:${yahooSymbol}:${range}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${range}&interval=1d`;
 
   let res: Response;
@@ -128,6 +160,7 @@ export async function fetchOHLCV(
     });
   }
 
+  if (candles.length > 0) setCache(cacheKey, candles);
   return candles;
 }
 
@@ -140,6 +173,11 @@ export async function fetchOHLCVByTimeframe(
 ): Promise<OHLCVCandle[]> {
   const yahooSymbol = toYahooSymbol(sembol);
   const { range, interval } = getTimeframeParams(timeframe);
+
+  const cacheKey = `tf:${yahooSymbol}:${range}:${interval}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     yahooSymbol
   )}?range=${range}&interval=${interval}`;
@@ -215,6 +253,7 @@ export async function fetchOHLCVByTimeframe(
     });
   }
 
+  if (candles.length > 0) setCache(cacheKey, candles);
   return candles;
 }
 

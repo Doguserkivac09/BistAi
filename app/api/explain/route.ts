@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateSignalExplanation } from '@/lib/claude';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import type { StockSignal } from '@/types';
 
+// Claude API pahalı — IP başına dakikada 20 istek
+const RATE_LIMIT = 20;
+const WINDOW_MS = 60_000;
+
 export async function POST(request: NextRequest) {
+  const ip = getClientIP(request.headers);
+  const { allowed, resetMs } = checkRateLimit(`explain:${ip}`, RATE_LIMIT, WINDOW_MS);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Çok fazla açıklama isteği. Lütfen biraz bekleyin.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(resetMs / 1000)) } }
+    );
+  }
+
   try {
     const body = await request.json();
     const signal = body.signal as StockSignal;
