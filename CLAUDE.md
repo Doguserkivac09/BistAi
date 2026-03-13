@@ -76,9 +76,9 @@ git push -u origin feat/<feature-name>
 | **Phase 1** | ✅ | Temel altyapı düzeltmeleri (Yahoo norm, Signal perf API, Schema, Error handling) |
 | **Phase 2** | ✅ | Temel iyileştirmeler (BIST100, Şifre sıfırlama, Toast, Dashboard, Grafik) |
 | **Phase 3** | ✅ | Production hardening (Rate limit, Cache, Cron, SEO, A11y) |
-| **Phase 4** | ⬜ SIRADA | Makro Rüzgar Motoru (VIX, CDS, USD/TRY, FRED, TCMB) |
-| **Phase 5** | ⬜ | Sektör & Risk Motoru |
-| **Phase 6** | ⬜ | Kompozit Sinyal & Makro UI |
+| **Phase 4** | ✅ | Makro Rüzgar Motoru (VIX, CDS, USD/TRY, FRED, TCMB) |
+| **Phase 5** | ✅ | Sektör & Risk Motoru |
+| **Phase 6** | 🔄 Backend ✅, UI ⬜ (Berk) | Kompozit Sinyal & Makro UI |
 | **Phase 7** | ⬜ | İleri Seviye (Backtesting, ML, Alert) |
 
 ---
