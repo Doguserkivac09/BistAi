@@ -79,7 +79,7 @@ git push -u origin feat/<feature-name>
 | **Phase 4** | ✅ | Makro Rüzgar Motoru (VIX, CDS, USD/TRY, FRED, TCMB) |
 | **Phase 5** | ✅ | Sektör & Risk Motoru |
 | **Phase 6** | 🔄 Backend ✅, UI ⬜ (Berk) | Kompozit Sinyal & Makro UI |
-| **Phase 7** | ⬜ | İleri Seviye (Backtesting, ML, Alert) |
+| **Phase 7** | 🔄 Backend ✅, ML ⬜ (Python) | İleri Seviye (Backtesting, Alert, ML) |
 
 ---
 
