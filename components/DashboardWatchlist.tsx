@@ -4,7 +4,9 @@ import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DashboardWatchlistItem } from '@/components/DashboardWatchlistItem';
-import { Search, ArrowUpDown } from 'lucide-react';
+import { Search, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
+
+const PAGE_SIZE = 6;
 
 interface DashboardWatchlistProps {
   watchlist: { id: string; sembol: string; created_at: string }[];
@@ -15,6 +17,7 @@ type SortMode = 'date' | 'alpha';
 export function DashboardWatchlist({ watchlist }: DashboardWatchlistProps) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortMode>('date');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const filtered = useMemo(() => {
     let items = [...watchlist];
@@ -70,11 +73,37 @@ export function DashboardWatchlist({ watchlist }: DashboardWatchlistProps) {
           &quot;{search}&quot; ile eşleşen sembol bulunamadı.
         </p>
       ) : (
-        <ul className="space-y-2">
-          {filtered.map((item) => (
-            <DashboardWatchlistItem key={item.id} sembol={item.sembol} />
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-2">
+            {filtered.slice(0, visibleCount).map((item) => (
+              <DashboardWatchlistItem key={item.id} sembol={item.sembol} />
+            ))}
+          </ul>
+          <div className="mt-3 flex gap-2">
+            {visibleCount < filtered.length && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
+                className="flex-1 gap-1 text-text-secondary"
+              >
+                <ChevronDown className="h-4 w-4" />
+                Daha fazla göster ({filtered.length - visibleCount} kalan)
+              </Button>
+            )}
+            {visibleCount > PAGE_SIZE && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVisibleCount(PAGE_SIZE)}
+                className="flex-1 gap-1 text-text-secondary"
+              >
+                <ChevronUp className="h-4 w-4" />
+                Daha az göster
+              </Button>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
