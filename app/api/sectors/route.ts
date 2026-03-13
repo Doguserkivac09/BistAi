@@ -1,0 +1,147 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { getAllSectors, getSymbolsBySector, SECTORS } from '@/lib/sectors';
+import { analyzeSector, analyzeAllSectors } from '@/lib/sector-engine';
+import { fetchOHLCV } from '@/lib/yahoo';
+import { fetchAllMacroQuotes } from '@/lib/macro-data';
+import { fetchAllTurkeyMacro } from '@/lib/turkey-macro';
+import { fetchAllFredData } from '@/lib/fred';
+import { calculateMacroScore } from '@/lib/macro-score';
+import type { SectorId } from '@/lib/sectors';
+import type { OHLCVCandle } from '@/types';
+
+/**
+ * Sektör Momentum API.
+ *
+ * GET /api/sectors
+ *   → Tüm sektörlerin listesi + momentum skorları
+ *
+ * GET /api/sectors?id=banka
+ *   → Tek sektör detaylı analiz
+ *
+ * GET /api/sectors?list=true
+ *   → Sadece sektör listesi (hızlı, veri çekme yok)
+ *
+ * Rate limit: 20 req/min per IP
+ *
+ * Phase 5.4
+ */
+
+const MAX_REQUESTS = 20;
+const WINDOW_MS = 60 * 1000;
+
+export async function GET(request: NextRequest) {
+  const ip = getClientIP(request.headers);
+  const rl = checkRateLimit(`${ip}:sectors`, MAX_REQUESTS, WINDOW_MS);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Çok fazla istek. Lütfen bekleyin.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
+  const { searchParams } = request.nextUrl;
+
+  // Sadece sektör listesi
+  if (searchParams.get('list') === 'true') {
+    return NextResponse.json({ sectors: getAllSectors() });
+  }
+
+  // Tek sektör detay
+  const sectorId = searchParams.get('id') as SectorId | null;
+  if (sectorId && SECTORS[sectorId]) {
+    return handleSingleSector(sectorId);
+  }
+
+  // Tüm sektörler özet
+  return handleAllSectors();
+}
+
+async function handleSingleSector(sectorId: SectorId): Promise<NextResponse> {
+  try {
+    const symbols = getSymbolsBySector(sectorId);
+    if (symbols.length === 0) {
+      return NextResponse.json({ error: 'Sektörde hisse bulunamadı.' }, { status: 404 });
+    }
+
+    // Paralel: hisse verileri + makro veriler
+    const [sectorData, macroScore] = await Promise.all([
+      fetchSectorData(symbols),
+      fetchMacroScoreQuick(),
+    ]);
+
+    const analysis = analyzeSector(sectorId, sectorData, macroScore);
+    return NextResponse.json(analysis);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
+    console.error(`[api/sectors] Hata (${sectorId}):`, message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+async function handleAllSectors(): Promise<NextResponse> {
+  try {
+    const allSectors = getAllSectors();
+
+    // Makro skor
+    const macroScore = await fetchMacroScoreQuick();
+
+    // Her sektör için en fazla 3 hisse ile hızlı analiz
+    const sectorDataMap = {} as Record<SectorId, Record<string, OHLCVCandle[]>>;
+
+    // Tüm sektörlerin temsilci hisselerini paralel çek (max 3 per sektör)
+    const fetchPromises: Array<Promise<void>> = [];
+
+    for (const sector of allSectors) {
+      const symbols = sector.symbols.slice(0, 5); // En fazla 5 hisse per sektör
+      fetchPromises.push(
+        fetchSectorData(symbols).then((data) => {
+          sectorDataMap[sector.id] = data;
+        })
+      );
+    }
+
+    await Promise.all(fetchPromises);
+
+    const snapshot = analyzeAllSectors(sectorDataMap, macroScore);
+    return NextResponse.json(snapshot);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
+    console.error('[api/sectors] Hata:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// ── Yardımcı ────────────────────────────────────────────────────────
+
+async function fetchSectorData(
+  symbols: string[]
+): Promise<Record<string, OHLCVCandle[]>> {
+  const results = await Promise.allSettled(
+    symbols.map(async (s) => {
+      const data = await fetchOHLCV(s, 90);
+      return { symbol: s, data };
+    })
+  );
+
+  const out: Record<string, OHLCVCandle[]> = {};
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value.data.length > 0) {
+      out[r.value.symbol] = r.value.data;
+    }
+  }
+  return out;
+}
+
+async function fetchMacroScoreQuick() {
+  try {
+    const [macroSnapshot, turkeyData, fredData] = await Promise.all([
+      fetchAllMacroQuotes(),
+      fetchAllTurkeyMacro(),
+      fetchAllFredData(),
+    ]);
+    return calculateMacroScore(macroSnapshot, turkeyData, fredData);
+  } catch {
+    return null;
+  }
+}
