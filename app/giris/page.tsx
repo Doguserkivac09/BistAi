@@ -80,6 +80,11 @@ function GirisForm() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
               </Button>
+              <div className="text-right">
+                <Link href="/sifre-sifirla" className="text-sm text-primary hover:underline">
+                  Şifremi unuttum
+                </Link>
+              </div>
             </form>
             <p className="mt-4 text-center text-sm text-text-secondary">
               Hesabınız yok mu?{' '}

@@ -87,27 +87,46 @@ export type SignalTypeFilter =
 
 export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
 
+/**
+ * BIST100 sembol listesi (100 bileşen).
+ * Kaynak: Borsa İstanbul XU100 endeks bileşenleri.
+ * Not: Endeks her çeyrekte güncellenir; bu liste en yaygın bileşenleri içerir.
+ */
 export const BIST_SYMBOLS = [
-  'THYAO',
-  'AKBNK',
-  'GARAN',
-  'SISE',
-  'EREGL',
-  'KCHOL',
-  'SAHOL',
-  'TUPRS',
-  'ASELS',
-  'PGSUS',
-  'BIMAS',
-  'TCELL',
-  'FROTO',
-  'TOASO',
-  'HALKB',
-  'VAKBN',
-  'ISCTR',
-  'OYAKC',
-  'KOZAL',
-  'EKGYO',
+  // Bankacılık & Finans
+  'AKBNK', 'GARAN', 'HALKB', 'ISCTR', 'VAKBN', 'YKBNK', 'SKBNK', 'ALBRK', 'QNBFB', 'TSKB',
+  // Holding
+  'KCHOL', 'SAHOL', 'DOHOL', 'TAVHL', 'TKFEN',
+  // Havacılık & Savunma
+  'THYAO', 'PGSUS', 'ASELS',
+  // Enerji & Petrol
+  'TUPRS', 'AKSEN', 'AKENR', 'AKSA', 'ENKAI', 'ODAS', 'KONTR', 'ENJSA',
+  // Otomotiv
+  'FROTO', 'TOASO', 'OTKAR', 'DOAS',
+  // Perakende & Tüketici
+  'BIMAS', 'MGROS', 'SOKM', 'ULKER', 'CCOLA', 'TATGD', 'BIZIM', 'MAVI',
+  // Telekomünikasyon & Teknoloji
+  'TCELL', 'TTKOM', 'ASTOR', 'LOGO', 'ARDYZ', 'NETAS',
+  // Demir-Çelik & Madencilik
+  'EREGL', 'KRDMD', 'KOZAL', 'KOZAA', 'IPEKE',
+  // Cam & Kimya
+  'SISE', 'TRKCM', 'SODA', 'GUBRF', 'PETKM',
+  // İnşaat & GYO
+  'EKGYO', 'ENKA', 'KLGYO', 'ALGYO', 'ISGYO',
+  // Sigorta & Finansal
+  'HEKTS', 'ANHYT', 'AGROT', 'ISMEN',
+  // Sanayi & Üretim
+  'ARCLK', 'VESBE', 'VESTL', 'BRISA', 'CIMSA', 'OYAKC', 'GESAN', 'EGEEN',
+  // Ulaştırma & Lojistik
+  'CLEBI', 'RYSAS',
+  // Sağlık & İlaç
+  'SELEC', 'DEVA',
+  // Diğer BIST100 bileşenleri
+  'ALFAS', 'BERA', 'BTCIM', 'BUCIM', 'CEMAS', 'ECILC', 'GLYHO',
+  'KARSN', 'MPARK', 'PEKGY', 'SARKY', 'SMRTG', 'TMSN', 'TURSG',
+  'ALARK', 'AEFES', 'BAGFS', 'CWENE', 'EUPWR', 'HBCAG',
+  'INDES', 'KORDS', 'MEGAP', 'OBAMS', 'SILVR',
+  'ZOREN',
 ] as const;
 
 export type BistSymbol = (typeof BIST_SYMBOLS)[number];

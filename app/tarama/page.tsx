@@ -96,37 +96,52 @@ export default function TaramaPage() {
     setLoading(true);
     setError(null);
     const failed: string[] = [];
+    const BATCH_SIZE = 5;
+    const BATCH_DELAY_MS = 200;
 
     try {
       const all: ScanResult[] = [...results];
       setScanProgress({ current: 0, total: symbols.length, symbol: '' });
+      let completed = 0;
 
-      for (let i = 0; i < symbols.length; i++) {
-        const sembol = symbols[i];
-        setScanProgress({ current: i + 1, total: symbols.length, symbol: sembol });
+      for (let batchStart = 0; batchStart < symbols.length; batchStart += BATCH_SIZE) {
+        const batch = symbols.slice(batchStart, batchStart + BATCH_SIZE);
 
-        try {
-          const candles = await fetchOHLCVClient(sembol, 90);
-          const signals = detectAllSignals(sembol, candles);
+        const batchResults = await Promise.allSettled(
+          batch.map(async (sembol) => {
+            const candles = await fetchOHLCVClient(sembol, 90);
+            const signals = detectAllSignals(sembol, candles);
+            return { sembol, signals, candles };
+          })
+        );
 
-          if (signals.length > 0) {
-            for (const signal of signals) {
-              await saveSignalPerformance({
-                userId: null,
-                signal,
-                candles
-              });
+        for (const result of batchResults) {
+          completed++;
+          if (result.status === 'fulfilled') {
+            const { sembol, signals, candles } = result.value;
+            setScanProgress({ current: completed, total: symbols.length, symbol: sembol });
+
+            if (signals.length > 0) {
+              for (const signal of signals) {
+                saveSignalPerformance({ userId: null, signal, candles }).catch(() => {});
+              }
+              const existingIdx = all.findIndex(r => r.sembol === sembol);
+              if (existingIdx >= 0) {
+                all[existingIdx] = { sembol, signals, candles };
+              } else {
+                all.push({ sembol, signals, candles });
+              }
             }
-            // Mevcut sonuçlarda bu sembol varsa güncelle, yoksa ekle
-            const existingIdx = all.findIndex(r => r.sembol === sembol);
-            if (existingIdx >= 0) {
-              all[existingIdx] = { sembol, signals, candles };
-            } else {
-              all.push({ sembol, signals, candles });
-            }
+          } else {
+            const sembol = batch[batchResults.indexOf(result)] ?? '?';
+            failed.push(sembol);
+            setScanProgress({ current: completed, total: symbols.length, symbol: sembol });
           }
-        } catch {
-          failed.push(sembol);
+        }
+
+        // Batch arası rate limit — son batch'ten sonra bekleme
+        if (batchStart + BATCH_SIZE < symbols.length) {
+          await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
         }
       }
 
