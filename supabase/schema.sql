@@ -70,6 +70,41 @@ create policy "Signal performance update via service role"
   on public.signal_performance for update
   using (true);
 
+-- Macro snapshots: günlük makro gösterge kayıtları ve skor geçmişi
+create table if not exists public.macro_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  snapshot_date date not null,
+  macro_score integer not null,                    -- -100 ↔ +100
+  wind text not null check (wind in ('strong_positive', 'positive', 'neutral', 'negative', 'strong_negative')),
+  -- Bireysel gösterge değerleri
+  vix numeric,
+  dxy numeric,
+  us10y numeric,
+  usdtry numeric,
+  cds_5y numeric,
+  policy_rate numeric,
+  fed_funds_rate numeric,
+  -- Bileşen detayları (JSON)
+  components jsonb not null default '[]',
+  created_at timestamptz not null default now(),
+  unique(snapshot_date)
+);
+
+-- macro_snapshots RLS: herkes okuyabilir, service_role yazar
+alter table public.macro_snapshots enable row level security;
+
+create policy "Macro snapshots read for all authenticated"
+  on public.macro_snapshots for select
+  using (auth.role() = 'authenticated');
+
+create policy "Macro snapshots insert via service role"
+  on public.macro_snapshots for insert
+  with check (true);
+
+create policy "Macro snapshots update via service role"
+  on public.macro_snapshots for update
+  using (true);
+
 -- Indexes
 create index if not exists idx_watchlist_user_id on public.watchlist(user_id);
 create index if not exists idx_saved_signals_user_id on public.saved_signals(user_id);
@@ -77,3 +112,4 @@ create index if not exists idx_saved_signals_created_at on public.saved_signals(
 create index if not exists idx_signal_perf_sembol on public.signal_performance(sembol);
 create index if not exists idx_signal_perf_evaluated on public.signal_performance(evaluated);
 create index if not exists idx_signal_perf_entry_time on public.signal_performance(entry_time desc);
+create index if not exists idx_macro_snapshots_date on public.macro_snapshots(snapshot_date desc);

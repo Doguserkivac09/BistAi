@@ -12,11 +12,12 @@ Her session başında ekip üyesi kendini tanıtır. Claude, kişiye göre göre
 
 ## Proje Özeti
 
-Production-level BIST hisse sinyal analiz platformu. Teknik sinyaller tespit edilir, performansları izlenir, istatistiksel edge hesaplanır.
+BIST odaklı AI-destekli yatırım analiz platformu. Teknik sinyaller + makroekonomik bağlam + sektör momentum analizi ile aksiyon odaklı yatırım kararları üretir.
 
 - **Stack**: Next.js 14 App Router, TypeScript, React 18, Tailwind CSS, Supabase (Postgres + Auth)
-- **Veri**: Yahoo Finance OHLCV, Anthropic Claude AI açıklamalar
+- **Veri Kaynakları**: Yahoo Finance (OHLCV + VIX/DXY/US10Y/USDTRY), FRED API (makro), TCMB (Türkiye makro), Anthropic Claude AI (açıklamalar)
 - **Repo**: https://github.com/Doguserkivac09/BistAi.git
+- **Vizyon**: Teknik sinyal × Makro rüzgar × Sektör uyumu → Kompozit BUY/HOLD/SELL kararı
 
 ## Git Workflow (ZORUNLU)
 
@@ -46,24 +47,23 @@ git push -u origin feat/<feature-name>
 |-------|----------|
 | `lib/signals.ts` | Sinyal tespiti (RSI divergence, volume anomaly, trend start, S/R break) |
 | `lib/edge-engine.ts` | İstatistiksel edge hesaplama |
-| `lib/yahoo.ts` | Yahoo Finance OHLCV fetch |
-| `lib/performance.ts` | Signal performance DB writes (client-side → server'a taşınacak) |
+| `lib/yahoo.ts` | Yahoo Finance OHLCV fetch + cache |
+| `lib/regime-engine.ts` | Piyasa rejimi (bull/bear/sideways) |
+| `lib/performance.ts` | Signal performance server API client |
+| `lib/rate-limit.ts` | IP-based rate limiting |
+| `lib/confidence.ts` | Güven skoru hesaplama |
 | `app/api/evaluate-signals/route.ts` | Batch sinyal değerlendirme |
 | `app/api/signal-stats/route.ts` | Edge istatistik API |
-| `app/tarama/page.tsx` | Client-side tarama sayfası |
+| `app/api/signal-performance/route.ts` | Sinyal performans kayıt |
+| `app/api/ohlcv/route.ts` | OHLCV veri API |
+| `app/api/explain/route.ts` | AI açıklama API |
+| `app/tarama/page.tsx` | Tarama sayfası |
 | `app/hisse/[sembol]/HisseDetailClient.tsx` | Hisse detay sayfası |
-| `components/Navbar.tsx` | Server component (auth) |
-| `components/NavbarClient.tsx` | Client component (mobil menü) |
+| `app/dashboard/page.tsx` | Dashboard |
 
-## Bilinen Sorunlar
+## Bilinen Sorunlar (Phase 1-3'te Çözülenler)
 
-1. Yahoo sembol normalizasyonu - `.IS` suffix sorunları, 404 hataları
-2. `saveSignalPerformance()` client-side → RLS 403 hataları → server API'ye taşınmalı
-3. Sembol listesi küçük (~20) → BIST100'e genişletilmeli
-4. `signal-stats` tarih filtrelemesi çalışmıyor (cutoff hesaplanıyor ama query'de kullanılmıyor)
-5. `signal_performance` tablosu `schema.sql`'de yok
-6. Production'da console.log'lar var
-7. AI açıklamaları cache'lenmiyor
+> Phase 1-3'te tüm kritik sorunlar giderildi. Güncel sorunlar varsa buraya eklenecek.
 
 ---
 
@@ -71,69 +71,166 @@ git push -u origin feat/<feature-name>
 
 ## Durum Özeti
 
-| Phase | Berk (Frontend) | Doğuş (Backend) |
-|-------|----------------|-----------------|
-| **Phase 1** | ✅ 1.6 Mobil menü, ✅ 1.7 Progress bar, ✅ 1.8 Timeframe fix | ⬜ 1.1 Yahoo norm, ⬜ 1.2 Signal perf API, ⬜ 1.3 Stats filter, ⬜ 1.4 Schema, ⬜ 1.5 Error handling |
-| **Phase 2** | ✅ 2.4 Toast (sonner), ✅ 2.5 Dashboard, ✅ 2.6 Grafik | ⬜ 2.1 BIST100, ⬜ 2.2 Şifre sıfırlama, ⬜ 2.3 Batching |
-| **Phase 3** | ✅ Loading, SEO, A11y, Perf | ⬜ Rate limit, Cache, Cron, Env |
+| Phase | Durum | Açıklama |
+|-------|-------|----------|
+| **Phase 1** | ✅ | Temel altyapı düzeltmeleri (Yahoo norm, Signal perf API, Schema, Error handling) |
+| **Phase 2** | ✅ | Temel iyileştirmeler (BIST100, Şifre sıfırlama, Toast, Dashboard, Grafik) |
+| **Phase 3** | ✅ | Production hardening (Rate limit, Cache, Cron, SEO, A11y) |
+| **Phase 4** | ⬜ SIRADA | Makro Rüzgar Motoru (VIX, CDS, USD/TRY, FRED, TCMB) |
+| **Phase 5** | ⬜ | Sektör & Risk Motoru |
+| **Phase 6** | ⬜ | Kompozit Sinyal & Makro UI |
+| **Phase 7** | ⬜ | İleri Seviye (Backtesting, ML, Alert) |
 
-## Phase 1 — Doğuş Backend Görevleri (SIRADA)
+---
 
-### 1.1 Yahoo Sembol Normalizasyonu [S]
-- **Dosya**: `lib/yahoo.ts`
-- `toYahooSymbol()`: `^` ile başlayan index sembollerine `.IS` ekleme
-- `fetchOHLCV` ve `fetchOHLCVByTimeframe`: 404 → `[]` döndür (throw yerine)
-- `normalizeSymbol(raw)` export fonksiyonu ekle
+## Phase 1-3 — ✅ TAMAMLANDI
 
-### 1.2 saveSignalPerformance → Server API [M]
-- **Yeni**: `app/api/signal-performance/route.ts` (POST, service role ile DB write)
-- **Değişecek**: `lib/performance.ts`, `lib/api-client.ts`
-- Regime tespitini server tarafına taşı
-- `saveSignalPerformanceClient()` fonksiyonu ekle
+> Temel platform tamamlandı: Teknik sinyal tespiti, performans takibi, istatistiksel edge, BIST100 tarama, dashboard, grafik, auth, rate limiting, caching, cron, SEO.
 
-### 1.3 signal-stats Tarih Filtresi [S]
-- **Dosya**: `app/api/signal-stats/route.ts`
-- `.gte('entry_time', cutoff.toISOString())` ekle
+---
 
-### 1.4 signal_performance Schema [S]
-- **Dosya**: `supabase/schema.sql`
-- Tablo tanımını migration'lardan schema.sql'e ekle
+## Karar Motoru Mimarisi
 
-### 1.5 API Hata Yönetimi [M]
-- `ohlcv`: Yahoo 404 → `{ candles: [] }` (200)
-- `explain`: Claude API retry (1 kez, 1s delay)
-- `evaluate-signals`: catch bloğunda `console.error`
+```
+Katman 1: MAKRO RÜZGAR → Makro Skor (-100 / +100)
+├── USD/TRY trend & momentum
+├── Türkiye 5Y CDS spread değişimi
+├── VIX seviyesi
+├── DXY (Dolar Endeksi) trend
+├── US 10Y Yield
+├── TCMB politika faizi
+└── Fed Funds Rate, CPI, GDP (FRED)
 
-## Phase 2 — Temel İyileştirmeler
+Katman 2: SEKTÖR FİLTRE → Sektör Momentum Skoru
+├── Sektör bazlı fiyat momentum
+├── Makro-sektör uyum kuralları:
+│   • Faiz düşüşü → Bankalar avantajlı
+│   • TL zayıf → İhracatçılar avantajlı
+│   • Risk-off → Defansif sektörler avantajlı
+└── EEM (EM ETF) sentiment
 
-### Doğuş
-- **2.1** BIST100 sembol genişletme (1.1 sonrası)
-- **2.2** Şifre sıfırlama akışı
-- **2.3** Tarama batching / rate limiting (2.1 sonrası)
+Katman 3: TEKNİK SİNYAL (mevcut)
+├── RSI Divergence, Volume Anomaly
+├── Trend Start, S/R Break
+└── Teknik Skor
 
-### Berk
-- **2.4** Toast sistemi (`sonner` kütüphanesi)
-- **2.5** Dashboard iyileştirmeleri (pagination, search, sort)
-- **2.6** Grafik iyileştirmeleri (legend, RSI lines, responsive)
+Katman 4: KOMPOZİT KARAR
+├── Makro Skor × Sektör Uyumu × Teknik Skor
+└── → AL / TUT / SAT + Güven + AI Açıklama
+```
 
-## Phase 3 — Production Hardening
-- Doğuş: Rate limiting, Yahoo cache, Cron evaluation, Env validation
-- Berk: Loading states, SEO/metadata, Accessibility, Performance
+---
+
+## Phase 4 — Makro Rüzgar Motoru (SIRADA)
+
+### 4.1 Yahoo Makro Veri Çekme [S]
+- **Yeni dosya**: `lib/macro-data.ts`
+- Yahoo Finance'den: `^VIX`, `DX-Y.NYB` (DXY), `^TNX` (US10Y), `USDTRY=X`
+- Mevcut `yahoo.ts` fetch altyapısını kullan
+- 15dk cache TTL
+
+### 4.2 FRED API Entegrasyonu [M]
+- **Yeni dosya**: `lib/fred.ts`
+- FRED API (ücretsiz key): Fed Funds Rate, US CPI, GDP, PMI
+- Günlük/aylık veri çekme + cache
+- Env: `FRED_API_KEY`
+
+### 4.3 Türkiye Makro Veri [M]
+- **Yeni dosya**: `lib/turkey-macro.ts`
+- TCMB politika faizi, Türkiye CDS (5Y), TÜFE
+- Veri kaynağı: TCMB EVDS API veya scraping alternatifi
+- Env: `TCMB_API_KEY` (varsa)
+
+### 4.4 Makro Skor Motoru [L]
+- **Yeni dosya**: `lib/macro-score.ts`
+- Tüm makro verileri → tek bir skor: -100 (çok negatif) ↔ +100 (çok pozitif)
+- Ağırlıklar: USD/TRY (%25), CDS (%20), VIX (%15), DXY (%15), US10Y (%10), TCMB (%15)
+- Trend değişimi önemli (seviyeden çok, yön)
+
+### 4.5 Makro DB & Cron [M]
+- **Yeni tablo**: `macro_snapshots` (tarih, gösterge, değer, değişim)
+- Cron endpoint: `/api/cron/macro` — günlük snapshot kaydet
+- Tarihsel trend verisi için
+
+### 4.6 Makro API Endpoint [S]
+- **Yeni**: `app/api/macro/route.ts`
+- GET → güncel makro skor + tüm göstergeler + trend
+- Rate limited
+
+---
+
+## Phase 5 — Sektör & Risk Motoru
+
+### 5.1 BIST Sektör Mapping [S]
+- **Yeni dosya**: `lib/sectors.ts`
+- BIST100 hisseleri → sektör gruplandırma (Banka, Sanayi, Enerji, Perakende, Teknoloji, İhracat, Defansif)
+
+### 5.2 Sektör Momentum Engine [M]
+- **Yeni dosya**: `lib/sector-engine.ts`
+- Sektör bazlı fiyat momentum (20g/60g performans)
+- Makro-sektör uyum kuralları (faiz↓→banka🟢, TL↓→ihracatçı🟢)
+
+### 5.3 Risk Score Engine [M]
+- **Yeni dosya**: `lib/risk-engine.ts`
+- VIX + CDS + USD/TRY volatilite → 0-100 risk skoru
+- Seviye: Düşük (0-30), Orta (30-60), Yüksek (60-80), Kritik (80-100)
+
+### 5.4 Sektör & Risk API [S]
+- `/api/sectors` — sektör momentum verileri
+- `/api/risk` — güncel risk skoru
+
+---
+
+## Phase 6 — Kompozit Sinyal & Makro UI
+
+### 6.1 Kompozit Sinyal Motoru [L]
+- **Yeni dosya**: `lib/composite-signal.ts`
+- Teknik Skor × Makro Rüzgar × Sektör Uyumu → BUY / HOLD / SELL
+- Makro negatifken teknik AL sinyalinin güveni düşer
+- Sektör uyumsuzken sinyal zayıflar
+
+### 6.2 AI Açıklama v2 [S]
+- `lib/claude.ts` güncelleme — makro bağlam ekleme
+- "RSI divergence tespit edildi + makro rüzgar pozitif + sektör momentum güçlü → AL"
+
+### 6.3 Makro Dashboard Sayfası [L] (Berk)
+- `/makro` sayfası: gösterge tablosu + trend grafikleri + risk gauge
+- Makro skor büyük gösterge + yeşil/kırmızı renk kodu
+
+### 6.4 Sektör Heatmap [M] (Berk)
+- Sektör performans ısı haritası (grid, renk kodlu)
+- Tıklanabilir → sektör detayı
+
+### 6.5 Sinyal Kartlarına Makro Badge [S] (Berk)
+- Mevcut sinyal kartlarına: "Makro Rüzgar: 🟢 Pozitif" / "🔴 Negatif" etiketi
+- Güven skoru makro ile ayarlanmış hali
+
+---
+
+## Phase 7 — İleri Seviye (Opsiyonel)
+
+### 7.1 Backtesting Sayfası [L]
+- Geçmiş sinyallerin makro koşullara göre performans analizi
+
+### 7.2 Python ML Microservice [XL]
+- FastAPI + XGBoost/RandomForest
+- Feature: teknik + makro + sektör → BUY/SELL tahmin
+
+### 7.3 Alert Sistemi [M]
+- Makro skor kritik eşik geçince bildirim
+- Yeni sinyal + güçlü makro uyum → push notification
+
+---
 
 ## Koordinasyon
-1. 1.2 tamamlandığında Berk import güncellemesi yapar
-2. 2.4 (Toast) Phase 2'de erken tamamlanmalı
-3. Phase 2'ye geçmek için Doğuş'un Phase 1 backend görevleri bitmeli
+1. Phase 4 backend (Doğuş) tamamlanınca Phase 5'e geçilir
+2. Phase 6'da Berk makro UI sayfalarını yapar, Doğuş kompozit motoru yapar
+3. Phase 7 tüm ekip kararıyla başlar
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
-Her değişiklik tamamlandıktan sonra, test edilebilir ise şu adımlar uygulanır:
-
-1. **TypeScript**: `npx tsc --noEmit` — yeni hata eklenmediğinden emin ol
-2. **Build**: `npm run build` — production build başarılı mı?
-3. **Manuel test** (değişikliğe özel):
-   - Etkilenen sayfa/bileşeni tarayıcıda ziyaret et
-   - Eklenen özelliği test et (hover, click, responsive, vb.)
-   - Edge case'leri kontrol et (boş veri, hata durumları)
-4. **DevTools**: Console/Network'te yeni hata var mı?
-5. **Responsive**: Mobil ve desktop görünüm (UI değişikliği varsa)
+1. **TypeScript**: `npx tsc --noEmit`
+2. **Build**: `npm run build`
+3. **Manuel test**: Etkilenen sayfa/bileşeni test et
+4. **DevTools**: Console/Network hata kontrolü
+5. **Responsive**: Mobil ve desktop (UI değişikliği varsa)
