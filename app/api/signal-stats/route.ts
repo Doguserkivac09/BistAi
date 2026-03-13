@@ -27,19 +27,15 @@ export async function GET(request: NextRequest) {
   try {
     const days = parseDaysParam(request);
     const supabase = createAdminClient();
-    console.log('SUPABASE URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
-    console.log('TABLE NAME: signal_performance');
     const { data, error } = await supabase
       .from('signal_performance')
       .select('*')
-      .eq('evaluated', true);
-
-    const rows = data;
-    console.log('SUPABASE RAW ROW COUNT:', rows?.length);
+      .eq('evaluated', true)
+      .gte('entry_time', cutoff.toISOString());
 
     if (error) {
       return NextResponse.json(
@@ -69,7 +65,7 @@ export async function GET(request: NextRequest) {
     }
 
     const results: SignalTypeRegimeStatsResponse[] = [];
-    for (const { signalType, regime, rows } of groups.values()) {
+    for (const { signalType, regime, rows } of Array.from(groups.values())) {
       const edge = computeSignalEdge(rows);
       results.push({ signal_type: signalType, regime, ...edge });
     }

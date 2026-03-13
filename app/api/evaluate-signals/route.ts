@@ -214,14 +214,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
         const { mfe, mae } = computeMfeMae(entryPrice, afterEntry, direction);
 
-        console.log('evaluate-signals', {
-          afterEntry_length: afterEntry.length,
-          return_3d: returns.return_3d,
-          return_14d: returns.return_14d,
-          mfe,
-          mae,
-        });
-
         const { error: updateError } = await supabase
           .from('signal_performance')
           .update({
@@ -237,7 +229,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (updateError == null) {
           updatedCount += 1;
         }
-      } catch {
+      } catch (evalErr) {
+        console.error(`[evaluate-signals] ${rec.sembol} değerlendirme hatası:`, evalErr instanceof Error ? evalErr.message : evalErr);
         continue;
       }
     }

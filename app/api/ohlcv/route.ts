@@ -34,10 +34,7 @@ export async function GET(request: NextRequest) {
     const candles = await fetchOHLCV(trimmed, days);
     return NextResponse.json({ candles } as { candles: OHLCVCandle[] });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    console.error('[ohlcv] Hata:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ candles: [] });
   }
 }
