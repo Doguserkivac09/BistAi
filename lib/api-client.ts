@@ -4,6 +4,7 @@
  */
 
 import type { OHLCVCandle } from '@/types';
+import type { MacroSnapshot, MacroDataRow } from '@/types/macro';
 
 export async function fetchOHLCVClient(
   sembol: string,
@@ -13,12 +14,24 @@ export async function fetchOHLCVClient(
     symbol: sembol.trim(),
     days: String(days),
   });
-  const res = await fetch(`/api/ohlcv?${params}`);
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error ?? 'Veri alınamadı.');
+
+  const MAX_RETRIES = 2;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(`/api/ohlcv?${params}`);
+
+    if (res.status === 429 && attempt < MAX_RETRIES) {
+      const retryAfter = Number(res.headers.get('Retry-After') || '3');
+      await new Promise((r) => setTimeout(r, retryAfter * 1000));
+      continue;
+    }
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error ?? 'Veri alınamadı.');
+    }
+    return data.candles ?? [];
   }
-  return data.candles ?? [];
+  return [];
 }
 
 export type TimeframeKey = '1H' | '1G' | '1W' | '1A' | '3A' | '1Y';
@@ -37,4 +50,22 @@ export async function fetchOHLCVByTimeframeClient(
     throw new Error(data.error ?? 'Veri alınamadı.');
   }
   return data.candles ?? [];
+}
+
+// --- Macro API ---
+
+export async function fetchMacroSnapshot(): Promise<MacroSnapshot> {
+  const res = await fetch('/api/macro');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Makro verisi alınamadı.');
+  return data;
+}
+
+export async function fetchMacroHistory(
+  days: number = 30
+): Promise<MacroDataRow[]> {
+  const res = await fetch(`/api/macro?history=${days}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Makro geçmişi alınamadı.');
+  return data.history ?? [];
 }

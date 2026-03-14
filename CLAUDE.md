@@ -93,7 +93,7 @@ git push -u origin feat/<feature-name>
 
 | Phase | Görevler | Durum |
 |-------|----------|-------|
-| **Phase 1** | Macro Data Engine (FRED API, macro_data DB, /api/macro) | 🔄 Devam ediyor (1.1-1.4 ✅, 1.5-1.7 ⬜) |
+| **Phase 1** | Macro Data Engine (FRED API, macro_data DB, /api/macro) | ✅ Tamamlandı |
 | **Phase 2** | Risk Engine (VIX, yield curve, risk score 0-100) | ⬜ Bekliyor |
 | **Phase 3** | Sector Momentum (8 sektör, heatmap) | ⬜ Bekliyor |
 | **Phase 4** | AI Prediction (Claude → BUY/HOLD/SELL) | ⬜ Bekliyor |
@@ -107,9 +107,9 @@ git push -u origin feat/<feature-name>
 | 1.2 | Macro Types | `types/macro.ts` | ✅ |
 | 1.3 | macro_data DB tablosu | `supabase/schema.sql` | ✅ |
 | 1.4 | Macro Refresh Cron | `app/api/cron/macro-refresh/route.ts` | ✅ |
-| 1.5 | Macro API | `app/api/macro/route.ts` | ⬜ |
+| 1.5 | Macro API | `app/api/macro/route.ts` | ✅ |
 | 1.6 | Env güncelleme (FRED_API_KEY) | `lib/env.ts` | ✅ |
-| 1.7 | Macro API Client | `lib/api-client.ts` | ⬜ |
+| 1.7 | Macro API Client | `lib/api-client.ts` | ✅ |
 
 ### Phase 2 — Risk Engine
 
