@@ -4,18 +4,18 @@
 
 ## Ekip
 
-- **Berk** - Frontend (UI, components, client-side features)
-- **Doğuş** - Backend (API routes, database, server-side logic)
+- **Berk** - Karma (frontend + backend)
+- **Doğuş** - Karma (frontend + backend)
 - **Claude (AI)** - Development assistant
 
-Her session başında ekip üyesi kendini tanıtır. Claude, kişiye göre görev atar.
+Her session başında ekip üyesi kendini tanıtır. Her iki geliştirici de tüm görevlerde çalışabilir.
 
 ## Proje Özeti
 
-Production-level BIST hisse sinyal analiz platformu. Teknik sinyaller tespit edilir, performansları izlenir, istatistiksel edge hesaplanır.
+**Global Macro AI Yatırım Platformu.** Teknik sinyaller + global makro veriler + piyasa risk göstergeleri + sektör momentumu ile AI destekli yatırım sinyalleri üretir.
 
 - **Stack**: Next.js 14 App Router, TypeScript, React 18, Tailwind CSS, Supabase (Postgres + Auth)
-- **Veri**: Yahoo Finance OHLCV, Anthropic Claude AI açıklamalar
+- **Veri**: Yahoo Finance OHLCV, FRED API (makro), Anthropic Claude AI (açıklama + tahmin)
 - **Repo**: https://github.com/Doguserkivac09/BistAi.git
 
 ## Git Workflow (ZORUNLU)
@@ -69,61 +69,97 @@ git push -u origin feat/<feature-name>
 
 # Geliştirme Planı
 
-## Durum Özeti
+## Tamamlanan Görevler (v1)
 
-| Phase | Berk (Frontend) | Doğuş (Backend) |
-|-------|----------------|-----------------|
-| **Phase 1** | ✅ 1.6 Mobil menü, ✅ 1.7 Progress bar, ✅ 1.8 Timeframe fix | ⬜ 1.1 Yahoo norm, ⬜ 1.2 Signal perf API, ⬜ 1.3 Stats filter, ⬜ 1.4 Schema, ⬜ 1.5 Error handling |
-| **Phase 2** | ✅ 2.4 Toast (sonner), ✅ 2.5 Dashboard, ✅ 2.6 Grafik | ⬜ 2.1 BIST100, ⬜ 2.2 Şifre sıfırlama, ⬜ 2.3 Batching |
-| **Phase 3** | ✅ Loading, SEO, A11y, Perf | ⬜ Rate limit, Cache, Cron, Env |
+| Görev | Durum |
+|-------|-------|
+| Yahoo sembol normalizasyonu | ✅ |
+| Signal performance server API | ✅ |
+| Signal-stats tarih filtresi | ✅ |
+| Schema docs | ✅ |
+| API hata yönetimi | ✅ |
+| BIST100 sembol genişletme | ✅ |
+| Şifre sıfırlama | ✅ |
+| Rate limiting + batching | ✅ |
+| Mobil menü + progress bar + timeframe fix | ✅ |
+| Toast (sonner) + Dashboard + Grafik | ✅ |
+| Loading, SEO, A11y, Performance | ✅ |
 
-## Phase 1 — Doğuş Backend Görevleri (SIRADA)
+---
 
-### 1.1 Yahoo Sembol Normalizasyonu [S]
-- **Dosya**: `lib/yahoo.ts`
-- `toYahooSymbol()`: `^` ile başlayan index sembollerine `.IS` ekleme
-- `fetchOHLCV` ve `fetchOHLCVByTimeframe`: 404 → `[]` döndür (throw yerine)
-- `normalizeSymbol(raw)` export fonksiyonu ekle
+## Global Macro AI Platform (v2)
 
-### 1.2 saveSignalPerformance → Server API [M]
-- **Yeni**: `app/api/signal-performance/route.ts` (POST, service role ile DB write)
-- **Değişecek**: `lib/performance.ts`, `lib/api-client.ts`
-- Regime tespitini server tarafına taşı
-- `saveSignalPerformanceClient()` fonksiyonu ekle
+### Durum Özeti
 
-### 1.3 signal-stats Tarih Filtresi [S]
-- **Dosya**: `app/api/signal-stats/route.ts`
-- `.gte('entry_time', cutoff.toISOString())` ekle
+| Phase | Görevler | Durum |
+|-------|----------|-------|
+| **Phase 1** | Macro Data Engine (FRED API, macro_data DB, /api/macro) | ⬜ Başlamadı |
+| **Phase 2** | Risk Engine (VIX, yield curve, risk score 0-100) | ⬜ Bekliyor |
+| **Phase 3** | Sector Momentum (8 sektör, heatmap) | ⬜ Bekliyor |
+| **Phase 4** | AI Prediction (Claude → BUY/HOLD/SELL) | ⬜ Bekliyor |
+| **Phase 5** | Dashboard Entegrasyonu (Makro Radar sayfası) | ⬜ Bekliyor |
 
-### 1.4 signal_performance Schema [S]
-- **Dosya**: `supabase/schema.sql`
-- Tablo tanımını migration'lardan schema.sql'e ekle
+### Phase 1 — Macro Data Engine
 
-### 1.5 API Hata Yönetimi [M]
-- `ohlcv`: Yahoo 404 → `{ candles: [] }` (200)
-- `explain`: Claude API retry (1 kez, 1s delay)
-- `evaluate-signals`: catch bloğunda `console.error`
+| # | Görev | Dosya | Durum |
+|---|-------|-------|-------|
+| 1.1 | FRED API Client | `lib/fred.ts` | ⬜ |
+| 1.2 | Macro Types | `types/macro.ts` | ⬜ |
+| 1.3 | macro_data DB tablosu | `supabase/schema.sql` | ⬜ |
+| 1.4 | Macro Refresh Cron | `app/api/cron/macro-refresh/route.ts` | ⬜ |
+| 1.5 | Macro API | `app/api/macro/route.ts` | ⬜ |
+| 1.6 | Env güncelleme (FRED_API_KEY) | `lib/env.ts` | ⬜ |
+| 1.7 | Macro API Client | `lib/api-client.ts` | ⬜ |
 
-## Phase 2 — Temel İyileştirmeler
+### Phase 2 — Risk Engine
 
-### Doğuş
-- **2.1** BIST100 sembol genişletme (1.1 sonrası)
-- **2.2** Şifre sıfırlama akışı
-- **2.3** Tarama batching / rate limiting (2.1 sonrası)
+| # | Görev | Dosya | Durum |
+|---|-------|-------|-------|
+| 2.1 | Risk Score hesaplama | `lib/risk-engine.ts` | ⬜ |
+| 2.2 | Risk API | `app/api/risk/route.ts` | ⬜ |
+| 2.3 | risk_snapshots DB | `supabase/schema.sql` | ⬜ |
+| 2.4 | RiskGauge bileşeni | `components/RiskGauge.tsx` | ⬜ |
+| 2.5 | VIX Chart | `components/VixChart.tsx` | ⬜ |
+| 2.6 | Risk API Client | `lib/api-client.ts` | ⬜ |
 
-### Berk
-- **2.4** Toast sistemi (`sonner` kütüphanesi)
-- **2.5** Dashboard iyileştirmeleri (pagination, search, sort)
-- **2.6** Grafik iyileştirmeleri (legend, RSI lines, responsive)
+### Phase 3 — Sector Momentum Engine
 
-## Phase 3 — Production Hardening
-- Doğuş: Rate limiting, Yahoo cache, Cron evaluation, Env validation
-- Berk: Loading states, SEO/metadata, Accessibility, Performance
+| # | Görev | Dosya | Durum |
+|---|-------|-------|-------|
+| 3.1 | Sektör tanımları | `lib/sectors.ts` | ⬜ |
+| 3.2 | Sektör momentum hesaplama | `lib/sector-engine.ts` | ⬜ |
+| 3.3 | Sektör API | `app/api/sectors/route.ts` | ⬜ |
+| 3.4 | Sektör Heatmap | `components/SectorHeatmap.tsx` | ⬜ |
+| 3.5 | Sektör Kartı | `components/SectorCard.tsx` | ⬜ |
+| 3.6 | Sektör API Client | `lib/api-client.ts` | ⬜ |
 
-## Koordinasyon
-1. 1.2 tamamlandığında Berk import güncellemesi yapar
-2. 2.4 (Toast) Phase 2'de erken tamamlanmalı
-3. Phase 2'ye geçmek için Doğuş'un Phase 1 backend görevleri bitmeli
+### Phase 4 — AI Prediction Engine
+
+| # | Görev | Dosya | Durum |
+|---|-------|-------|-------|
+| 4.1 | Tahmin motoru (Claude API) | `lib/prediction-engine.ts` | ⬜ |
+| 4.2 | Tahmin API | `app/api/predict/route.ts` | ⬜ |
+| 4.3 | predictions DB | `supabase/schema.sql` | ⬜ |
+| 4.4 | Tahmin Kartı | `components/PredictionCard.tsx` | ⬜ |
+| 4.5 | Hisse detayda tahmin | `HisseDetailClient.tsx` | ⬜ |
+| 4.6 | Tahmin API Client | `lib/api-client.ts` | ⬜ |
+
+### Phase 5 — Dashboard Entegrasyonu
+
+| # | Görev | Dosya | Durum |
+|---|-------|-------|-------|
+| 5.1 | Gelişmiş AI açıklamaları | `lib/claude.ts` | ⬜ |
+| 5.2 | Açıklama cache | `explanation_cache` DB + explain route | ⬜ |
+| 5.3 | Cron güncellemeleri | `app/api/cron/evaluate/route.ts` | ⬜ |
+| 5.4 | Makro Radar sayfası | `app/makro/page.tsx` | ⬜ |
+| 5.5 | Dashboard genişletme | `app/dashboard/page.tsx` | ⬜ |
+| 5.6 | Navbar güncelleme | `NavbarClient.tsx` | ⬜ |
+| 5.7 | StockCard zenginleştirme | `StockCard.tsx` | ⬜ |
+
+### Koordinasyon
+- Berk ve Doğuş karma çalışıyor (frontend + backend)
+- Her phase sıralı ilerler (Phase 2, Phase 1'e bağımlı)
+- FRED_API_KEY gerekli (fred.stlouisfed.org'dan ücretsiz alınır)
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
