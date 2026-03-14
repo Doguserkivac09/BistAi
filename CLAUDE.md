@@ -183,49 +183,112 @@ Katman 4: KOMPOZİT KARAR
 
 ## Phase 6 — Kompozit Sinyal & Makro UI
 
-### 6.1 Kompozit Sinyal Motoru [L]
-- **Yeni dosya**: `lib/composite-signal.ts`
-- Teknik Skor × Makro Rüzgar × Sektör Uyumu → BUY / HOLD / SELL
-- Makro negatifken teknik AL sinyalinin güveni düşer
-- Sektör uyumsuzken sinyal zayıflar
+### ✅ 6.1 Kompozit Sinyal Motoru (Doğuş)
+- `lib/composite-signal.ts` — Teknik × Makro × Sektör → BUY/HOLD/SELL
 
-### 6.2 AI Açıklama v2 [S]
-- `lib/claude.ts` güncelleme — makro bağlam ekleme
-- "RSI divergence tespit edildi + makro rüzgar pozitif + sektör momentum güçlü → AL"
+### ✅ 6.2 AI Açıklama v2 (Doğuş)
+- `lib/claude.ts` — `generateCompositeExplanation()` makro bağlamlı açıklama
 
-### 6.3 Makro Dashboard Sayfası [L] (Berk)
-- `/makro` sayfası: gösterge tablosu + trend grafikleri + risk gauge
-- Makro skor büyük gösterge + yeşil/kırmızı renk kodu
+### ⬜ 6.3 Makro Dashboard Sayfası [L] (Berk — SIRADA)
+- **Yeni sayfa**: `app/makro/page.tsx`
+- **API**: `GET /api/macro` → makro skor + tüm göstergeler
+- **İçerik**:
+  - Büyük **Makro Skor Gauge** (-100 / +100, yeşil↔kırmızı daire/bar)
+  - Gösterge tablosu: VIX, DXY, US10Y, USD/TRY, CDS, Brent — her biri fiyat + değişim + renk
+  - **Risk Skoru** widget: `GET /api/risk` → 0-100 gauge + seviye etiketi + öneri
+  - Türkiye bölümü: TCMB faizi, TÜFE, CDS
+  - ABD bölümü: Fed faizi, GDP, İşsizlik (FRED verisi)
+  - (Opsiyonel) Tarihsel makro trend grafiği: `GET /api/macro?history=true&days=30`
+- **Navbar'a ekle**: `/makro` linki
+- **Responsive**: Mobil'de kartlar tek sütun
 
-### 6.4 Sektör Heatmap [M] (Berk)
-- Sektör performans ısı haritası (grid, renk kodlu)
-- Tıklanabilir → sektör detayı
+### ⬜ 6.4 Sektör Heatmap [M] (Berk — SIRADA)
+- **Konum**: `/makro` sayfasının alt kısmı veya ayrı tab
+- **API**: `GET /api/sectors` → tüm sektörlerin momentum skorları
+- **İçerik**:
+  - Grid yapısında sektör kutuları (her kutu = 1 sektör)
+  - Renk kodu: compositeScore'a göre (yeşil → kırmızı)
+  - Her kutuda: sektör adı, skor, 20g performans %
+  - Tıklanabilir: `GET /api/sectors?id=banka` → detay modal/sayfa
+  - Detayda: sektördeki hisseler, top/bottom performans, makro uyum açıklaması
+- **Responsive**: Mobil'de 2 sütun grid
 
-### 6.5 Sinyal Kartlarına Makro Badge [S] (Berk)
-- Mevcut sinyal kartlarına: "Makro Rüzgar: 🟢 Pozitif" / "🔴 Negatif" etiketi
-- Güven skoru makro ile ayarlanmış hali
+### ⬜ 6.5 Sinyal Kartlarına Makro Badge [S] (Berk — SIRADA)
+- **Değişecek dosyalar**: `components/SignalBadge.tsx`, `components/StockCard.tsx`, `app/tarama/page.tsx`
+- **API**: `/api/macro` yanıtından `score.score` ve `score.wind` kullanılacak
+- **Eklenenler**:
+  - Her sinyal kartının üstüne küçük badge: "Makro: 🟢 +35" veya "Makro: 🔴 -42"
+  - Kompozit karar badge'i: "Güçlü AL (%72)" — `lib/composite-signal.ts` kullanılarak
+  - Tooltip: "Teknik sinyal + makro rüzgar + sektör uyumu birlikte değerlendirildi"
+
+### ⬜ 6.6 Alert / Bildirim Paneli [M] (Berk — SIRADA)
+- **API**: `GET /api/alerts` → güncel uyarı listesi
+- **Konum**: Dashboard sayfasında veya Navbar'da çan ikonu
+- **İçerik**:
+  - Alert kartları: severity'ye göre renk (kırmızı/turuncu/mavi)
+  - Emoji + başlık + mesaj
+  - Zaman damgası
+- **Responsive**: Mobil'de slide-over panel
 
 ---
 
-## Phase 7 — İleri Seviye (Opsiyonel)
+## Phase 7 — İleri Seviye
 
-### 7.1 Backtesting Sayfası [L]
-- Geçmiş sinyallerin makro koşullara göre performans analizi
+### ✅ 7.1 Backtesting Engine (Doğuş)
+- `lib/backtesting.ts` — geçmiş sinyal performans analizi
 
-### 7.2 Python ML Microservice [XL]
+### ⬜ 7.2 Python ML Microservice [XL] (Opsiyonel — gelecekte)
 - FastAPI + XGBoost/RandomForest
 - Feature: teknik + makro + sektör → BUY/SELL tahmin
 
-### 7.3 Alert Sistemi [M]
-- Makro skor kritik eşik geçince bildirim
-- Yeni sinyal + güçlü makro uyum → push notification
+### ✅ 7.3 Alert Sistemi (Doğuş)
+- `lib/alerts.ts` + `app/api/alerts/route.ts`
+
+### ⬜ 7.4 Backtesting Sayfası [L] (Berk — İLERİDE)
+- Geçmiş sinyallerin performans tablosu
+- Sinyal tipi × rejim performans matrisi
+- `lib/backtesting.ts` fonksiyonlarını çağıracak API endpoint gerekebilir
+
+---
+
+## Berk Frontend Görev Özeti (Öncelik Sırasına Göre)
+
+| # | Görev | Zorluk | API Endpoint | Dosyalar |
+|---|-------|--------|-------------|----------|
+| 1 | `/makro` sayfası + Navbar linki | L | `GET /api/macro`, `GET /api/risk` | `app/makro/page.tsx`, `components/Navbar*.tsx` |
+| 2 | Sektör Heatmap | M | `GET /api/sectors` | `/makro` sayfası içinde veya ayrı bileşen |
+| 3 | Sinyal kartlarına Makro Badge | S | `/api/macro` (score) | `components/SignalBadge.tsx`, `StockCard.tsx` |
+| 4 | Alert / Bildirim paneli | M | `GET /api/alerts` | Dashboard veya Navbar |
+| 5 | Backtesting sayfası (ilerde) | L | Yeni API gerekebilir | `app/backtesting/page.tsx` |
+
+**API yanıt formatları test için**:
+```bash
+# Makro skor + göstergeler
+curl http://localhost:3000/api/macro
+
+# Risk skoru
+curl http://localhost:3000/api/risk
+
+# Sektör momentum
+curl http://localhost:3000/api/sectors
+
+# Tek sektör detay
+curl http://localhost:3000/api/sectors?id=banka
+
+# Alertler
+curl http://localhost:3000/api/alerts
+
+# Tarihsel makro (grafik için)
+curl http://localhost:3000/api/macro?history=true&days=30
+```
 
 ---
 
 ## Koordinasyon
-1. Phase 4 backend (Doğuş) tamamlanınca Phase 5'e geçilir
-2. Phase 6'da Berk makro UI sayfalarını yapar, Doğuş kompozit motoru yapar
-3. Phase 7 tüm ekip kararıyla başlar
+1. ✅ Phase 4-7 backend (Doğuş) tamamlandı
+2. ⬜ Berk: `/makro` sayfası → Sektör Heatmap → Makro Badge → Alert paneli sırasıyla
+3. Doğuş: `.env.local`'e FRED_API_KEY + TCMB_API_KEY ekleyecek, Supabase migration çalıştıracak
+4. `feat/macro-engine` branch'i develop'a merge edilecek
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
