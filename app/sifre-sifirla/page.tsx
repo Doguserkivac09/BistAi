@@ -85,11 +85,13 @@ export default function SifreSifirlaPage() {
                 </Button>
               </form>
             )}
-            <p className="mt-4 text-center text-sm text-text-secondary">
-              <Link href="/giris" className="text-primary hover:underline">
-                Giriş sayfasına dön
-              </Link>
-            </p>
+            {!sent && (
+              <p className="mt-4 text-center text-sm text-text-secondary">
+                <Link href="/giris" className="text-primary hover:underline">
+                  Giriş sayfasına dön
+                </Link>
+              </p>
+            )}
           </CardContent>
         </Card>
       </main>
