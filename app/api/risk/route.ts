@@ -1,83 +1,45 @@
-import { NextResponse } from 'next/server';
-import { computeRiskScore } from '@/lib/risk-engine';
-import { fetchAllMacroIndicators } from '@/lib/fred';
-import { fetchOHLCV } from '@/lib/yahoo';
-import { getMarketRegime } from '@/lib/regime-engine';
-import type { RiskInputs } from '@/types/macro';
-
-// In-memory cache (15 dakika TTL)
-let riskCache: { data: unknown; expiry: number } | null = null;
-const CACHE_TTL_MS = 15 * 60 * 1000;
+import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { fetchAllMacroQuotes } from '@/lib/macro-data';
+import { fetchAllTurkeyMacro } from '@/lib/turkey-macro';
+import { calculateRiskScore } from '@/lib/risk-engine';
 
 /**
- * VIX son 20 günlük SMA hesapla.
+ * Risk Score API.
+ *
+ * GET /api/risk
+ *   → Güncel piyasa risk skoru (0-100) + bileşenler + öneri
+ *
+ * Rate limit: 30 req/min per IP
+ *
+ * Phase 5.4
  */
-function computeVixSma20(candles: { close: number }[]): number | null {
-  if (!Array.isArray(candles) || candles.length < 20) return null;
-  const last20 = candles.slice(-20);
-  const sum = last20.reduce((acc, c) => acc + c.close, 0);
-  return sum / 20;
-}
 
-/**
- * GET /api/risk — Güncel risk skoru döndürür.
- * Cache: 15 dakika.
- */
-export async function GET() {
+const MAX_REQUESTS = 30;
+const WINDOW_MS = 60 * 1000;
+
+export async function GET(request: NextRequest) {
+  const ip = getClientIP(request.headers);
+  const rl = checkRateLimit(`${ip}:risk`, MAX_REQUESTS, WINDOW_MS);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Çok fazla istek. Lütfen bekleyin.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
   try {
-    // Cache kontrolü
-    if (riskCache && Date.now() < riskCache.expiry) {
-      return NextResponse.json(riskCache.data);
-    }
-
-    // Paralel veri çekimi
-    const [macro, vixCandles, bistCandles] = await Promise.all([
-      fetchAllMacroIndicators(),
-      fetchOHLCV('^VIX', 30),
-      fetchOHLCV('^XU100', 250),
+    const [macroSnapshot, turkeyData] = await Promise.all([
+      fetchAllMacroQuotes(),
+      fetchAllTurkeyMacro(),
     ]);
 
-    // VIX verisi
-    const latestVix =
-      vixCandles.length > 0 ? vixCandles[vixCandles.length - 1].close : null;
-    const vixSma20 = computeVixSma20(vixCandles);
+    const riskResult = calculateRiskScore(macroSnapshot, turkeyData);
 
-    // BIST rejimi
-    const bistRegime = getMarketRegime(bistCandles);
-
-    // Risk girdileri
-    const inputs: RiskInputs = {
-      vix: latestVix,
-      vix_sma20: vixSma20,
-      yield_10y: macro.us_10y_yield,
-      yield_curve: macro.yield_curve_10y2y,
-      dollar_index: macro.dollar_index,
-      bist_regime: bistRegime,
-    };
-
-    const riskScore = computeRiskScore(inputs);
-
-    const response = {
-      ...riskScore,
-      inputs: {
-        vix: latestVix,
-        vix_sma20: vixSma20 ? Math.round(vixSma20 * 100) / 100 : null,
-        yield_10y: macro.us_10y_yield,
-        yield_curve: macro.yield_curve_10y2y,
-        dollar_index: macro.dollar_index,
-        bist_regime: bistRegime,
-      },
-    };
-
-    // Cache'e yaz
-    riskCache = {
-      data: response,
-      expiry: Date.now() + CACHE_TTL_MS,
-    };
-
-    return NextResponse.json(response);
+    return NextResponse.json(riskResult);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
+    console.error('[api/risk] Hata:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

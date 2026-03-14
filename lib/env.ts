@@ -13,6 +13,7 @@ interface EnvConfig {
   INTERNAL_EVAL_TOKEN?: string;
   CRON_SECRET?: string;
   FRED_API_KEY?: string;
+  TCMB_API_KEY?: string;
 }
 
 const required = [
@@ -26,6 +27,7 @@ const optional = [
   'INTERNAL_EVAL_TOKEN',
   'CRON_SECRET',
   'FRED_API_KEY',
+  'TCMB_API_KEY',
 ] as const;
 
 export function validateEnv(): EnvConfig {
@@ -63,6 +65,7 @@ export function validateEnv(): EnvConfig {
     INTERNAL_EVAL_TOKEN: process.env.INTERNAL_EVAL_TOKEN,
     CRON_SECRET: process.env.CRON_SECRET,
     FRED_API_KEY: process.env.FRED_API_KEY,
+    TCMB_API_KEY: process.env.TCMB_API_KEY,
   };
 }
 
@@ -78,4 +81,5 @@ ANTHROPIC_API_KEY=sk-ant-...
 INTERNAL_EVAL_TOKEN=random-secret-for-evaluation
 CRON_SECRET=random-secret-for-cron
 FRED_API_KEY=your-fred-api-key
+TCMB_API_KEY=your-tcmb-api-key
 `;
