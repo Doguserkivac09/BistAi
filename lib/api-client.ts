@@ -4,7 +4,7 @@
  */
 
 import type { OHLCVCandle } from '@/types';
-import type { MacroSnapshot, MacroDataRow, RiskScore } from '@/types/macro';
+import type { MacroSnapshot, MacroDataRow, RiskScore, SectorMomentum } from '@/types/macro';
 
 export async function fetchOHLCVClient(
   sembol: string,
@@ -77,4 +77,13 @@ export async function fetchRiskScore(): Promise<RiskScore> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Risk skoru alınamadı.');
   return data;
+}
+
+// --- Sector API ---
+
+export async function fetchSectorMomentums(): Promise<SectorMomentum[]> {
+  const res = await fetch('/api/sectors');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Sektör verisi alınamadı.');
+  return data.sectors ?? [];
 }

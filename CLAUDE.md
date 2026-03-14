@@ -95,7 +95,7 @@ git push -u origin feat/<feature-name>
 |-------|----------|-------|
 | **Phase 1** | Macro Data Engine (FRED API, macro_data DB, /api/macro) | ✅ Tamamlandı |
 | **Phase 2** | Risk Engine (VIX, yield curve, risk score 0-100) | ✅ Tamamlandı |
-| **Phase 3** | Sector Momentum (8 sektör, heatmap) | ⬜ Bekliyor |
+| **Phase 3** | Sector Momentum (8 sektör, heatmap) | ✅ Tamamlandı |
 | **Phase 4** | AI Prediction (Claude → BUY/HOLD/SELL) | ⬜ Bekliyor |
 | **Phase 5** | Dashboard Entegrasyonu (Makro Radar sayfası) | ⬜ Bekliyor |
 
@@ -126,12 +126,12 @@ git push -u origin feat/<feature-name>
 
 | # | Görev | Dosya | Durum |
 |---|-------|-------|-------|
-| 3.1 | Sektör tanımları | `lib/sectors.ts` | ⬜ |
-| 3.2 | Sektör momentum hesaplama | `lib/sector-engine.ts` | ⬜ |
-| 3.3 | Sektör API | `app/api/sectors/route.ts` | ⬜ |
-| 3.4 | Sektör Heatmap | `components/SectorHeatmap.tsx` | ⬜ |
-| 3.5 | Sektör Kartı | `components/SectorCard.tsx` | ⬜ |
-| 3.6 | Sektör API Client | `lib/api-client.ts` | ⬜ |
+| 3.1 | Sektör tanımları | `lib/sectors.ts` | ✅ |
+| 3.2 | Sektör momentum hesaplama | `lib/sector-engine.ts` | ✅ |
+| 3.3 | Sektör API | `app/api/sectors/route.ts` | ✅ |
+| 3.4 | Sektör Heatmap | `components/SectorHeatmap.tsx` | ✅ |
+| 3.5 | Sektör Kartı | `components/SectorCard.tsx` | ✅ |
+| 3.6 | Sektör API Client | `lib/api-client.ts` | ✅ |
 
 ### Phase 4 — AI Prediction Engine
 
