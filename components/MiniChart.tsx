@@ -47,10 +47,11 @@ export function MiniChart({ data, height = 56, className, positive }: MiniChartP
       priceLineVisible: false,
     });
 
-    const seriesData = data.map((c) => ({
-      time: c.date as string,
-      value: c.close,
-    }));
+    // lightweight-charts requires data sorted asc by time, no duplicates
+    const seriesData = data
+      .map((c) => ({ time: c.date as string, value: c.close }))
+      .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+      .filter((item, i, arr) => i === 0 || item.time !== arr[i - 1].time);
 
     lineSeries.setData(seriesData);
     chart.timeScale().fitContent();
