@@ -77,3 +77,25 @@ create index if not exists idx_saved_signals_created_at on public.saved_signals(
 create index if not exists idx_signal_perf_sembol on public.signal_performance(sembol);
 create index if not exists idx_signal_perf_evaluated on public.signal_performance(evaluated);
 create index if not exists idx_signal_perf_entry_time on public.signal_performance(entry_time desc);
+
+-- =====================================================
+-- Global Macro AI Platform Tables (v2)
+-- =====================================================
+
+-- Macro data: FRED ve Yahoo'dan gelen makro ekonomik göstergeler
+create table if not exists public.macro_data (
+  id uuid primary key default gen_random_uuid(),
+  indicator_key text not null,
+  value numeric not null,
+  observation_date date not null,
+  source text not null default 'fred',
+  fetched_at timestamptz not null default now(),
+  unique(indicator_key, observation_date)
+);
+
+create index if not exists idx_macro_data_key_date on public.macro_data(indicator_key, observation_date desc);
+
+alter table public.macro_data enable row level security;
+create policy "Macro data read for all" on public.macro_data for select using (true);
+create policy "Macro data insert via service role" on public.macro_data for insert with check (true);
+create policy "Macro data update via service role" on public.macro_data for update using (true);
