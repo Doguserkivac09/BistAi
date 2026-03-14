@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { StockCard } from '@/components/StockCard';
 import { Button } from '@/components/ui/button';
 import {
@@ -91,6 +91,17 @@ export default function TaramaPage() {
   const [error, setError] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, symbol: '' });
   const [failedSymbols, setFailedSymbols] = useState<string[]>([]);
+  const [macroScore, setMacroScore] = useState<{ score: number; wind: string } | null>(null);
+
+  // Makro skoru bir kez çek
+  useEffect(() => {
+    fetch('/api/macro')
+      .then(r => r.json())
+      .then(data => {
+        if (data.score) setMacroScore({ score: data.score.score, wind: data.score.wind });
+      })
+      .catch(() => {});
+  }, []);
 
   const scanSymbols = useCallback(async (symbols: string[]) => {
     setLoading(true);
@@ -260,7 +271,7 @@ export default function TaramaPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {displayList.flatMap((r) =>
               r.signals.map((sig) => (
-                <StockCard key={`${r.sembol}-${sig.type}`} signal={sig} candleData={r.candles} />
+                <StockCard key={`${r.sembol}-${sig.type}`} signal={sig} candleData={r.candles} macroScore={macroScore} />
               ))
             )}
           </div>

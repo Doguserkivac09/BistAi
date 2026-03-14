@@ -78,7 +78,7 @@ git push -u origin feat/<feature-name>
 | **Phase 3** | ✅ | Production hardening (Rate limit, Cache, Cron, SEO, A11y) |
 | **Phase 4** | ✅ | Makro Rüzgar Motoru (VIX, CDS, USD/TRY, FRED, TCMB) |
 | **Phase 5** | ✅ | Sektör & Risk Motoru |
-| **Phase 6** | 🔄 Backend ✅, UI ⬜ (Berk) | Kompozit Sinyal & Makro UI |
+| **Phase 6** | ✅ | Kompozit Sinyal & Makro UI |
 | **Phase 7** | 🔄 Backend ✅, ML ⬜ (Python) | İleri Seviye (Backtesting, Alert, ML) |
 
 ---
@@ -189,7 +189,7 @@ Katman 4: KOMPOZİT KARAR
 ### ✅ 6.2 AI Açıklama v2 (Doğuş)
 - `lib/claude.ts` — `generateCompositeExplanation()` makro bağlamlı açıklama
 
-### ⬜ 6.3 Makro Dashboard Sayfası [L] (Berk — SIRADA)
+### ✅ 6.3 Makro Dashboard Sayfası [L] (Berk)
 - **Yeni sayfa**: `app/makro/page.tsx`
 - **API**: `GET /api/macro` → makro skor + tüm göstergeler
 - **İçerik**:
@@ -202,7 +202,7 @@ Katman 4: KOMPOZİT KARAR
 - **Navbar'a ekle**: `/makro` linki
 - **Responsive**: Mobil'de kartlar tek sütun
 
-### ⬜ 6.4 Sektör Heatmap [M] (Berk — SIRADA)
+### ✅ 6.4 Sektör Heatmap [M] (Berk)
 - **Konum**: `/makro` sayfasının alt kısmı veya ayrı tab
 - **API**: `GET /api/sectors` → tüm sektörlerin momentum skorları
 - **İçerik**:
@@ -213,7 +213,7 @@ Katman 4: KOMPOZİT KARAR
   - Detayda: sektördeki hisseler, top/bottom performans, makro uyum açıklaması
 - **Responsive**: Mobil'de 2 sütun grid
 
-### ⬜ 6.5 Sinyal Kartlarına Makro Badge [S] (Berk — SIRADA)
+### ✅ 6.5 Sinyal Kartlarına Makro Badge [S] (Berk)
 - **Değişecek dosyalar**: `components/SignalBadge.tsx`, `components/StockCard.tsx`, `app/tarama/page.tsx`
 - **API**: `/api/macro` yanıtından `score.score` ve `score.wind` kullanılacak
 - **Eklenenler**:
@@ -221,7 +221,7 @@ Katman 4: KOMPOZİT KARAR
   - Kompozit karar badge'i: "Güçlü AL (%72)" — `lib/composite-signal.ts` kullanılarak
   - Tooltip: "Teknik sinyal + makro rüzgar + sektör uyumu birlikte değerlendirildi"
 
-### ⬜ 6.6 Alert / Bildirim Paneli [M] (Berk — SIRADA)
+### ✅ 6.6 Alert / Bildirim Paneli [M] (Berk)
 - **API**: `GET /api/alerts` → güncel uyarı listesi
 - **Konum**: Dashboard sayfasında veya Navbar'da çan ikonu
 - **İçerik**:
@@ -286,9 +286,9 @@ curl http://localhost:3000/api/macro?history=true&days=30
 
 ## Koordinasyon
 1. ✅ Phase 4-7 backend (Doğuş) tamamlandı
-2. ⬜ Berk: `/makro` sayfası → Sektör Heatmap → Makro Badge → Alert paneli sırasıyla
-3. Doğuş: `.env.local`'e FRED_API_KEY + TCMB_API_KEY ekleyecek, Supabase migration çalıştıracak
-4. `feat/macro-engine` branch'i develop'a merge edilecek
+2. ✅ Berk: `/makro` sayfası + Sektör Heatmap + Makro Badge + Alert paneli tamamlandı
+3. ✅ FRED_API_KEY + Supabase tabloları oluşturuldu
+4. ⬜ Backtesting sayfası (Phase 7.4) — ileride
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
