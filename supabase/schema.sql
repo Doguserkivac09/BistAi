@@ -99,3 +99,21 @@ alter table public.macro_data enable row level security;
 create policy "Macro data read for all" on public.macro_data for select using (true);
 create policy "Macro data insert via service role" on public.macro_data for insert with check (true);
 create policy "Macro data update via service role" on public.macro_data for update using (true);
+
+-- =============================================
+-- risk_snapshots: Günlük risk skoru geçmişi
+-- =============================================
+create table if not exists public.risk_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  score integer not null,
+  status text not null check (status in ('risk-off', 'neutral', 'risk-on')),
+  components jsonb not null default '{}',
+  inputs jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_risk_snapshots_date on public.risk_snapshots(created_at desc);
+
+alter table public.risk_snapshots enable row level security;
+create policy "Risk snapshots read for all" on public.risk_snapshots for select using (true);
+create policy "Risk snapshots insert via service role" on public.risk_snapshots for insert with check (true);
