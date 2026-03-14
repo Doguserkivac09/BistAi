@@ -94,7 +94,7 @@ git push -u origin feat/<feature-name>
 | Phase | Görevler | Durum |
 |-------|----------|-------|
 | **Phase 1** | Macro Data Engine (FRED API, macro_data DB, /api/macro) | ✅ Tamamlandı |
-| **Phase 2** | Risk Engine (VIX, yield curve, risk score 0-100) | ⬜ Bekliyor |
+| **Phase 2** | Risk Engine (VIX, yield curve, risk score 0-100) | ✅ Tamamlandı |
 | **Phase 3** | Sector Momentum (8 sektör, heatmap) | ⬜ Bekliyor |
 | **Phase 4** | AI Prediction (Claude → BUY/HOLD/SELL) | ⬜ Bekliyor |
 | **Phase 5** | Dashboard Entegrasyonu (Makro Radar sayfası) | ⬜ Bekliyor |
@@ -115,12 +115,12 @@ git push -u origin feat/<feature-name>
 
 | # | Görev | Dosya | Durum |
 |---|-------|-------|-------|
-| 2.1 | Risk Score hesaplama | `lib/risk-engine.ts` | ⬜ |
-| 2.2 | Risk API | `app/api/risk/route.ts` | ⬜ |
-| 2.3 | risk_snapshots DB | `supabase/schema.sql` | ⬜ |
-| 2.4 | RiskGauge bileşeni | `components/RiskGauge.tsx` | ⬜ |
-| 2.5 | VIX Chart | `components/VixChart.tsx` | ⬜ |
-| 2.6 | Risk API Client | `lib/api-client.ts` | ⬜ |
+| 2.1 | Risk Score hesaplama | `lib/risk-engine.ts` | ✅ |
+| 2.2 | Risk API | `app/api/risk/route.ts` | ✅ |
+| 2.3 | risk_snapshots DB | `supabase/schema.sql` | ✅ |
+| 2.4 | RiskGauge bileşeni | `components/RiskGauge.tsx` | ✅ |
+| 2.5 | VIX Chart | `components/VixChart.tsx` | ✅ |
+| 2.6 | Risk API Client | `lib/api-client.ts` | ✅ |
 
 ### Phase 3 — Sector Momentum Engine
 

@@ -4,7 +4,7 @@
  */
 
 import type { OHLCVCandle } from '@/types';
-import type { MacroSnapshot, MacroDataRow } from '@/types/macro';
+import type { MacroSnapshot, MacroDataRow, RiskScore } from '@/types/macro';
 
 export async function fetchOHLCVClient(
   sembol: string,
@@ -68,4 +68,13 @@ export async function fetchMacroHistory(
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Makro geçmişi alınamadı.');
   return data.history ?? [];
+}
+
+// --- Risk API ---
+
+export async function fetchRiskScore(): Promise<RiskScore> {
+  const res = await fetch('/api/risk');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Risk skoru alınamadı.');
+  return data;
 }
