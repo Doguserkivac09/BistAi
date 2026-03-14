@@ -1,7 +1,9 @@
+import { unstable_noStore as noStore } from 'next/cache';
 import { getAuthenticatedUser, UnauthorizedError } from '@/lib/auth-server';
 import { NavbarClient } from '@/components/NavbarClient';
 
 export async function Navbar() {
+  noStore();
   let user: { id: string; email: string | null } | null = null;
   try {
     user = await getAuthenticatedUser();
