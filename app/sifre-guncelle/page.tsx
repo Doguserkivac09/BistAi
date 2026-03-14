@@ -54,7 +54,7 @@ export default function SifreGuncellePage() {
         return;
       }
       setSuccess(true);
-      setTimeout(() => router.push('/dashboard'), 2000);
+      setTimeout(() => window.location.assign('/dashboard'), 2000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bir hata oluştu.');
     } finally {
