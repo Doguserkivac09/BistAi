@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, User, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/tarama', label: 'Tarama' },
   { href: '/makro', label: 'Makro Radar' },
   { href: '/backtesting', label: 'Backtest' },
+  { href: '/topluluk', label: 'Topluluk' },
   { href: '/dashboard', label: 'Dashboard' },
 ];
 
@@ -113,6 +114,13 @@ export function NavbarClient({ user }: NavbarClientProps) {
                       >
                         <LayoutDashboard className="h-4 w-4" />
                         Dashboard
+                      </Link>
+                      <Link
+                        href="/topluluk"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors"
+                      >
+                        <Users className="h-4 w-4" />
+                        Topluluk
                       </Link>
                     </div>
                     <div className="border-t border-border py-1">
