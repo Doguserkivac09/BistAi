@@ -29,7 +29,7 @@ export async function GET(
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, display_name, avatar_url, tier)
+        author:profiles!posts_author_profile_fkey(id, display_name, avatar_url, tier)
       `)
       .eq('id', id)
       .eq('is_deleted', false)
@@ -44,7 +44,7 @@ export async function GET(
       .from('comments')
       .select(`
         *,
-        author:profiles!comments_author_id_fkey(id, display_name, avatar_url, tier)
+        author:profiles!comments_author_profile_fkey(id, display_name, avatar_url, tier)
       `)
       .eq('post_id', id)
       .eq('is_deleted', false)
@@ -117,7 +117,7 @@ export async function PATCH(
       .eq('author_id', user.id)
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, display_name, avatar_url, tier)
+        author:profiles!posts_author_profile_fkey(id, display_name, avatar_url, tier)
       `)
       .single();
 
