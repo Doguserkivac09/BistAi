@@ -108,8 +108,64 @@ function getFredApiKey(): string | null {
   return process.env.FRED_API_KEY || null;
 }
 
+function getFredTimeout(): number {
+  const val = parseInt(process.env.FRED_TIMEOUT_MS ?? '10000', 10);
+  return isNaN(val) ? 10000 : val;
+}
+
+function getFredMaxRetries(): number {
+  const val = parseInt(process.env.FRED_MAX_RETRIES ?? '2', 10);
+  return isNaN(val) ? 2 : Math.min(val, 5);
+}
+
+/**
+ * Fetch with timeout and exponential backoff retry.
+ * Handles: timeout (AbortError), network errors, 429 rate limit.
+ */
+async function fetchWithRetry(
+  url: string,
+  timeoutMs: number,
+  maxRetries: number
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      const res = await fetch(url, {
+        signal: controller.signal,
+        next: { revalidate: 3600 },
+      });
+
+      clearTimeout(timer);
+
+      // Rate limit (429) → bekle ve tekrar dene
+      if (res.status === 429 && attempt < maxRetries) {
+        const retryAfter = parseInt(res.headers.get('Retry-After') ?? '5', 10);
+        await new Promise((r) => setTimeout(r, retryAfter * 1000));
+        continue;
+      }
+
+      return res;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      if (attempt < maxRetries) {
+        const backoff = Math.min(1000 * Math.pow(2, attempt), 8000);
+        await new Promise((r) => setTimeout(r, backoff));
+        continue;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('FRED fetch failed');
+}
+
 /**
  * Tek bir FRED serisi için veri çeker.
+ * Timeout ve retry mekanizmalı.
  * @param key FRED_SERIES key'i
  * @param limit Son kaç gözlem (varsayılan: 60)
  */
@@ -136,9 +192,11 @@ export async function fetchFredSeries(
   url.searchParams.set('limit', String(limit));
 
   try {
-    const res = await fetch(url.toString(), {
-      next: { revalidate: 3600 }, // 1 saat
-    });
+    const res = await fetchWithRetry(
+      url.toString(),
+      getFredTimeout(),
+      getFredMaxRetries()
+    );
 
     if (!res.ok) {
       console.error(`[FRED] HTTP ${res.status} (${key}/${series.id})`);
