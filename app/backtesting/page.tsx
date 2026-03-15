@@ -15,6 +15,7 @@ import {
   Minus,
   Filter,
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import type {
   BacktestResult,
   BacktestComparison,
@@ -139,9 +140,22 @@ export default function BacktestingPage() {
 
       {/* Loading */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-20 text-text-secondary">
-          <RefreshCw className="mb-3 h-8 w-8 animate-spin" />
-          <p>Backtest verileri yükleniyor...</p>
+        <div className="space-y-6">
+          {/* Summary cards skeleton */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 rounded-lg" />
+            ))}
+          </div>
+          {/* Matrix skeleton */}
+          <Skeleton className="h-6 w-64 mb-2" />
+          <Skeleton className="h-48 rounded-lg" />
+          {/* Comparison skeleton */}
+          <Skeleton className="h-6 w-48 mb-2" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Skeleton className="h-40 rounded-lg" />
+            <Skeleton className="h-40 rounded-lg" />
+          </div>
         </div>
       )}
 

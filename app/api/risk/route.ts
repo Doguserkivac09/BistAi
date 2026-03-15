@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { fetchAllMacroQuotes } from '@/lib/macro-data';
-import { fetchAllTurkeyMacro } from '@/lib/turkey-macro';
-import { calculateRiskScore } from '@/lib/risk-engine';
+import { getRiskScore } from '@/lib/macro-service';
 
 /**
  * Risk Score API.
@@ -29,13 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [macroSnapshot, turkeyData] = await Promise.all([
-      fetchAllMacroQuotes(),
-      fetchAllTurkeyMacro(),
-    ]);
-
-    const riskResult = calculateRiskScore(macroSnapshot, turkeyData);
-
+    const riskResult = await getRiskScore();
     return NextResponse.json(riskResult);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';

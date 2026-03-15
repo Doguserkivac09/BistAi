@@ -3,10 +3,7 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { getAllSectors, getSymbolsBySector, SECTORS } from '@/lib/sectors';
 import { analyzeSector, analyzeAllSectors } from '@/lib/sector-engine';
 import { fetchOHLCV } from '@/lib/yahoo';
-import { fetchAllMacroQuotes } from '@/lib/macro-data';
-import { fetchAllTurkeyMacro } from '@/lib/turkey-macro';
-import { fetchAllFredData } from '@/lib/fred';
-import { calculateMacroScore } from '@/lib/macro-score';
+import { getMacroScore } from '@/lib/macro-service';
 import type { SectorId } from '@/lib/sectors';
 import type { OHLCVCandle } from '@/types';
 
@@ -64,10 +61,9 @@ async function handleSingleSector(sectorId: SectorId): Promise<NextResponse> {
       return NextResponse.json({ error: 'Sektörde hisse bulunamadı.' }, { status: 404 });
     }
 
-    // Paralel: hisse verileri + makro veriler
     const [sectorData, macroScore] = await Promise.all([
       fetchSectorData(symbols),
-      fetchMacroScoreQuick(),
+      getMacroScore().catch(() => null),
     ]);
 
     const analysis = analyzeSector(sectorId, sectorData, macroScore);
@@ -82,18 +78,13 @@ async function handleSingleSector(sectorId: SectorId): Promise<NextResponse> {
 async function handleAllSectors(): Promise<NextResponse> {
   try {
     const allSectors = getAllSectors();
+    const macroScore = await getMacroScore().catch(() => null);
 
-    // Makro skor
-    const macroScore = await fetchMacroScoreQuick();
-
-    // Her sektör için en fazla 3 hisse ile hızlı analiz
     const sectorDataMap = {} as Record<SectorId, Record<string, OHLCVCandle[]>>;
-
-    // Tüm sektörlerin temsilci hisselerini paralel çek (max 3 per sektör)
     const fetchPromises: Array<Promise<void>> = [];
 
     for (const sector of allSectors) {
-      const symbols = sector.symbols.slice(0, 5); // En fazla 5 hisse per sektör
+      const symbols = sector.symbols.slice(0, 5);
       fetchPromises.push(
         fetchSectorData(symbols).then((data) => {
           sectorDataMap[sector.id] = data;
@@ -131,17 +122,4 @@ async function fetchSectorData(
     }
   }
   return out;
-}
-
-async function fetchMacroScoreQuick() {
-  try {
-    const [macroSnapshot, turkeyData, fredData] = await Promise.all([
-      fetchAllMacroQuotes(),
-      fetchAllTurkeyMacro(),
-      fetchAllFredData(),
-    ]);
-    return calculateMacroScore(macroSnapshot, turkeyData, fredData);
-  } catch {
-    return null;
-  }
 }
