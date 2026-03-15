@@ -81,6 +81,7 @@ git push -u origin feat/<feature-name>
 | **Phase 6** | ✅ | Kompozit Sinyal & Makro UI |
 | **Phase 7** | ✅ (ML ⬜ Python opsiyonel) | İleri Seviye (Backtesting, Alert, ML) |
 | **Phase 8** | ✅ | Teknik Borç & UI Temeli (macroService, time-align, AI cache, skeleton) |
+| **Phase 9** | ⬜ (9.4 Berk) | Profil & Kişiselleştirme (profiles tablo, API, sayfa, navbar dropdown) |
 
 ---
 
@@ -265,18 +266,18 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Phase 9 — Profil & Kişiselleştirilmiş Ana Sayfa (~1 hafta) ⬜
+## Phase 9 — Profil & Kişiselleştirilmiş Ana Sayfa ⬜ (9.4 kaldı)
 
 **Tema:** Giriş yapan kullanıcıya özel deneyim. Maliyet: $0
 
 | # | Görev | Zorluk | Kim | Durum |
 |---|-------|--------|-----|-------|
-| 9.1 | `profiles` tablosu (user_id, display_name, avatar_url, bio, tier) + RLS | S | Doğuş | ⬜ |
-| 9.2 | Profil API (`/api/profile` GET + PATCH) | M | Doğuş | ⬜ |
-| 9.3 | Profil sayfası (`/profil`) | M | Berk | ⬜ |
+| 9.1 | `profiles` tablosu + RLS + auto-create trigger | S | Doğuş | ✅ |
+| 9.2 | Profil API (`/api/profile` GET + PATCH) | M | Doğuş | ✅ |
+| 9.3 | Profil sayfası (`/profil`) — skeleton, form, tier badge | M | Doğuş | ✅ |
 | 9.4 | Kişiselleştirilmiş ana sayfa (login → dashboard-home, logout → landing) | L | Berk | ⬜ |
-| 9.5 | Navbar profil dropdown (avatar + menü) | S | Berk | ⬜ |
-| 9.6 | Middleware `/profil` guard | S | Herhangi biri | ⬜ |
+| 9.5 | Navbar profil dropdown (avatar + dropdown menü) | S | Doğuş | ✅ |
+| 9.6 | Middleware `/profil` guard | S | Doğuş | ✅ |
 
 ---
 
@@ -396,10 +397,10 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 
 ## Koordinasyon
 1. ✅ Phase 1-8 tamamlandı
-2. ✅ Teknik borç #3 (Zod env) ve #4 (FRED retry) çözüldü
-3. ✅ Phase 8 tamamlandı (2026-03-15): macroService, time-align, AI cache, skeleton UI
-4. ⬜ Doğuş: `ai_cache` migration'ı Supabase'de çalıştır
-5. Sıradaki: Phase 9 — Profil & Kişiselleştirilmiş Ana Sayfa
+2. ✅ Phase 9 backend tamamlandı (2026-03-15): profiles tablo, API, profil sayfası, navbar dropdown, middleware guard
+3. ⬜ Doğuş: `profiles` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_profiles.sql`)
+4. ⬜ Berk: 9.4 Kişiselleştirilmiş ana sayfa (login → dashboard, logout → landing)
+5. Sıradaki: Phase 10 — Topluluk Platformu
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
