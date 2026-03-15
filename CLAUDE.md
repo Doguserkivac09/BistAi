@@ -83,6 +83,7 @@ git push -u origin feat/<feature-name>
 | **Phase 8** | ✅ | Teknik Borç & UI Temeli (macroService, time-align, AI cache, skeleton) |
 | **Phase 9** | ⬜ (9.4 Berk) | Profil & Kişiselleştirme (profiles tablo, API, sayfa, navbar dropdown) |
 | **Phase 10** | ✅ | Topluluk Platformu (posts, comments, likes, realtime, moderation) |
+| **Phase 11** | ✅ | Ödeme & Abonelik (Stripe checkout, webhook, tier-gating, fiyatlandırma) |
 
 ---
 
@@ -307,19 +308,19 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Phase 11 — Ödeme & Abonelik Sistemi (~1-2 hafta) ⬜
+## Phase 11 — Ödeme & Abonelik Sistemi ✅
 
 **Tema:** Monetizasyon. Maliyet: Stripe işlem başı %2.9 + 30¢
 
 | # | Görev | Zorluk | Kim | Durum |
 |---|-------|--------|-----|-------|
-| 11.1 | Stripe kurulumu (`lib/stripe.ts`) | M | Doğuş | ⬜ |
-| 11.2 | Abonelik DB (stripe_customer_id, tier_expires_at) | S | Doğuş | ⬜ |
-| 11.3 | Checkout API (`/api/stripe/checkout`) | M | Doğuş | ⬜ |
-| 11.4 | Webhook handler (`/api/stripe/webhook`) | L | Doğuş | ⬜ |
-| 11.5 | Fiyatlandırma sayfası (`/fiyatlandirma`) | M | Berk | ⬜ |
-| 11.6 | Tier-gating helper (`lib/tier-guard.ts`) | S | Doğuş | ⬜ |
-| 11.7 | Profil abonelik bölümü | S | Berk | ⬜ |
+| 11.1 | Stripe kurulumu (`lib/stripe.ts`) | M | Doğuş | ✅ |
+| 11.2 | Abonelik DB (stripe_customer_id, tier_expires_at) | S | Doğuş | ✅ |
+| 11.3 | Checkout API (`/api/stripe/checkout` + `/api/stripe/portal`) | M | Doğuş | ✅ |
+| 11.4 | Webhook handler (`/api/stripe/webhook`) | L | Doğuş | ✅ |
+| 11.5 | Fiyatlandırma sayfası (`/fiyatlandirma`) | M | Doğuş | ✅ |
+| 11.6 | Tier-gating helper (`lib/tier-guard.ts`) | S | Doğuş | ✅ |
+| 11.7 | Profil abonelik bölümü | S | Doğuş | ✅ |
 
 **Paket Matrisi:**
 
@@ -404,7 +405,10 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 5. ✅ Phase 10 tamamlandı (2026-03-15): topluluk posts/comments/likes DB + API + feed/detay/oluşturma sayfaları + realtime + moderation
 6. ⬜ Doğuş: `community` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_community.sql`)
 7. ⬜ Supabase Realtime'ı etkinleştir: Dashboard → Database → Replication → `comments` tablosuna realtime ekle
-8. Sıradaki: Phase 11 — Ödeme & Abonelik Sistemi
+8. ✅ Phase 11 tamamlandı (2026-03-15): Stripe checkout/webhook/portal, fiyatlandırma sayfası, tier-gating, profil abonelik bölümü
+9. ⬜ Doğuş: `subscriptions` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_subscriptions.sql`)
+10. ⬜ Stripe hesabı aç → test key'leri `.env.local`'e ekle: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_PREMIUM`
+11. Sıradaki: Phase 12 — AI Topluluk Botu
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 

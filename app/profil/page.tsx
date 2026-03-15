@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { User, Save, AlertTriangle, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { User, Save, AlertTriangle, CheckCircle, CreditCard, ExternalLink } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -29,6 +31,8 @@ export default function ProfilPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const searchParams = useSearchParams();
 
   // Form state
   const [displayName, setDisplayName] = useState('');
@@ -52,6 +56,32 @@ export default function ProfilPage() {
   }, []);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
+
+  // Checkout success mesajı
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      setSuccess('Aboneliğiniz başarıyla oluşturuldu! Profil bilgileriniz güncelleniyor...');
+      // Profili yeniden yükle (webhook'tan tier güncellemesi gelmiş olabilir)
+      setTimeout(() => fetchProfile(), 2000);
+    }
+  }, [searchParams, fetchProfile]);
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error ?? 'Portal açılamadı.');
+      }
+    } catch {
+      setError('Portal açılamadı.');
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -239,6 +269,44 @@ export default function ProfilPage() {
                   day: 'numeric',
                 })}
               </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Abonelik Yönetimi */}
+        <Card className="border-border mt-6">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-text-secondary flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Abonelik
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-text-secondary">Mevcut Plan</span>
+              <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${tier.color}`}>
+                {tier.label}
+              </span>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              {profile.tier === 'free' ? (
+                <Button size="sm" asChild>
+                  <Link href="/fiyatlandirma">
+                    Planını Yükselt
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleManageSubscription}
+                  disabled={portalLoading}
+                >
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                  {portalLoading ? 'Yönlendiriliyor...' : 'Aboneliği Yönet'}
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

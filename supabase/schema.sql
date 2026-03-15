@@ -8,6 +8,10 @@ create table if not exists public.profiles (
   avatar_url text,
   bio text check (char_length(bio) <= 500),
   tier text not null default 'free' check (tier in ('free', 'pro', 'premium')),
+  stripe_customer_id text unique,
+  stripe_subscription_id text,
+  tier_expires_at timestamptz,
+  subscription_status text default 'none' check (subscription_status in ('none', 'active', 'past_due', 'canceled', 'trialing')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
