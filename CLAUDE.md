@@ -82,6 +82,7 @@ git push -u origin feat/<feature-name>
 | **Phase 7** | ✅ (ML ⬜ Python opsiyonel) | İleri Seviye (Backtesting, Alert, ML) |
 | **Phase 8** | ✅ | Teknik Borç & UI Temeli (macroService, time-align, AI cache, skeleton) |
 | **Phase 9** | ⬜ (9.4 Berk) | Profil & Kişiselleştirme (profiles tablo, API, sayfa, navbar dropdown) |
+| **Phase 10** | ✅ | Topluluk Platformu (posts, comments, likes, realtime, moderation) |
 
 ---
 
@@ -281,7 +282,7 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Phase 10 — Topluluk Platformu (~2 hafta) ⬜
+## Phase 10 — Topluluk Platformu ✅
 
 **Tema:** Kullanıcılar analiz paylaşır, yorum yapar, beğenir. Maliyet: $0
 
@@ -289,20 +290,20 @@ Katman 4: KOMPOZİT KARAR
 
 | # | Görev | Zorluk | Kim | Durum |
 |---|-------|--------|-----|-------|
-| 10.1 | Topluluk DB şeması (posts, comments, likes tabloları + RLS) | L | Doğuş | ⬜ |
-| 10.2 | Topluluk API (CRUD + pagination + rate limit) | L | Doğuş | ⬜ |
-| 10.3 | Topluluk feed sayfası (`/topluluk`) | L | Berk | ⬜ |
-| 10.4 | Post detay sayfası (`/topluluk/[id]`) | M | Berk | ⬜ |
+| 10.1 | Topluluk DB şeması (posts, comments, likes tabloları + RLS) | L | Doğuş | ✅ |
+| 10.2 | Topluluk API (CRUD + pagination + rate limit) | L | Doğuş | ✅ |
+| 10.3 | Topluluk feed sayfası (`/topluluk`) | L | Doğuş | ✅ |
+| 10.4 | Post detay sayfası (`/topluluk/[id]`) | M | Doğuş | ✅ |
 
 ### Sprint 2: Etkileşim + Realtime
 
 | # | Görev | Zorluk | Kim | Durum |
 |---|-------|--------|-----|-------|
-| 10.5 | Post oluşturma (`/topluluk/yeni`) | M | Berk | ⬜ |
-| 10.6 | Beğeni/yorum etkileşimleri (optimistic update) | M | Berk | ⬜ |
-| 10.7 | Realtime yorumlar (Supabase Realtime) | M | Doğuş | ⬜ |
-| 10.8 | Navbar + middleware güncelleme | S | Herhangi biri | ⬜ |
-| 10.9 | İçerik moderasyonu (şikayet + admin kontrol) | S | Doğuş | ⬜ |
+| 10.5 | Post oluşturma (`/topluluk/yeni`) | M | Doğuş | ✅ |
+| 10.6 | Beğeni/yorum etkileşimleri (optimistic update) | M | Doğuş | ✅ |
+| 10.7 | Realtime yorumlar (Supabase Realtime) | M | Doğuş | ✅ |
+| 10.8 | Navbar + middleware güncelleme | S | Doğuş | ✅ |
+| 10.9 | İçerik moderasyonu (şikayet + admin kontrol) | S | Doğuş | ✅ |
 
 ---
 
@@ -400,7 +401,10 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 2. ✅ Phase 9 backend tamamlandı (2026-03-15): profiles tablo, API, profil sayfası, navbar dropdown, middleware guard
 3. ⬜ Doğuş: `profiles` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_profiles.sql`)
 4. ⬜ Berk: 9.4 Kişiselleştirilmiş ana sayfa (login → dashboard, logout → landing)
-5. Sıradaki: Phase 10 — Topluluk Platformu
+5. ✅ Phase 10 tamamlandı (2026-03-15): topluluk posts/comments/likes DB + API + feed/detay/oluşturma sayfaları + realtime + moderation
+6. ⬜ Doğuş: `community` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_community.sql`)
+7. ⬜ Supabase Realtime'ı etkinleştir: Dashboard → Database → Replication → `comments` tablosuna realtime ekle
+8. Sıradaki: Phase 11 — Ödeme & Abonelik Sistemi
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 

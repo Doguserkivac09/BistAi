@@ -168,6 +168,77 @@ create policy "AI cache insert via service role" on public.ai_cache for insert w
 create policy "AI cache update via service role" on public.ai_cache for update using (true);
 create policy "AI cache delete via service role" on public.ai_cache for delete using (true);
 
+-- ========== COMMUNITY / TOPLULUK ==========
+
+-- Posts: kullanıcı paylaşımları
+create table if not exists public.posts (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references auth.users(id) on delete cascade,
+  title text not null check (char_length(title) between 3 and 200),
+  body text not null check (char_length(body) between 10 and 5000),
+  sembol text,
+  category text not null default 'genel' check (category in ('genel', 'analiz', 'haber', 'soru', 'strateji')),
+  like_count integer not null default 0,
+  comment_count integer not null default 0,
+  is_pinned boolean not null default false,
+  is_deleted boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.posts enable row level security;
+create policy "Posts read for all authenticated" on public.posts for select using (auth.role() = 'authenticated' and is_deleted = false);
+create policy "Users can create own posts" on public.posts for insert with check (auth.uid() = author_id);
+create policy "Users can update own posts" on public.posts for update using (auth.uid() = author_id) with check (auth.uid() = author_id);
+
+-- Comments: yorum ve yanıtlar
+create table if not exists public.comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts(id) on delete cascade,
+  author_id uuid not null references auth.users(id) on delete cascade,
+  parent_id uuid references public.comments(id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 2000),
+  is_deleted boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.comments enable row level security;
+create policy "Comments read for all authenticated" on public.comments for select using (auth.role() = 'authenticated' and is_deleted = false);
+create policy "Users can create comments" on public.comments for insert with check (auth.uid() = author_id);
+create policy "Users can update own comments" on public.comments for update using (auth.uid() = author_id) with check (auth.uid() = author_id);
+
+-- Likes: beğeni
+create table if not exists public.likes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  post_id uuid not null references public.posts(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique(user_id, post_id)
+);
+
+alter table public.likes enable row level security;
+create policy "Likes read for all authenticated" on public.likes for select using (auth.role() = 'authenticated');
+create policy "Users can like posts" on public.likes for insert with check (auth.uid() = user_id);
+create policy "Users can unlike posts" on public.likes for delete using (auth.uid() = user_id);
+
+-- Reports: şikayet
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references auth.users(id) on delete cascade,
+  post_id uuid references public.posts(id) on delete cascade,
+  comment_id uuid references public.comments(id) on delete cascade,
+  reason text not null check (reason in ('spam', 'hakaret', 'yaniltici', 'diger')),
+  detail text check (char_length(detail) <= 500),
+  status text not null default 'pending' check (status in ('pending', 'reviewed', 'resolved')),
+  created_at timestamptz not null default now(),
+  check (post_id is not null or comment_id is not null)
+);
+
+alter table public.reports enable row level security;
+create policy "Users can create reports" on public.reports for insert with check (auth.uid() = reporter_id);
+create policy "Reports read via service role" on public.reports for select using (true);
+
 -- Indexes
 create index if not exists idx_ai_cache_key on public.ai_cache(cache_key);
 create index if not exists idx_ai_cache_expires on public.ai_cache(expires_at);
@@ -180,3 +251,12 @@ create index if not exists idx_signal_perf_entry_time on public.signal_performan
 create index if not exists idx_macro_snapshots_date on public.macro_snapshots(snapshot_date desc);
 create index if not exists idx_macro_data_key_date on public.macro_data(indicator_key, observation_date desc);
 create index if not exists idx_risk_snapshots_date on public.risk_snapshots(created_at desc);
+create index if not exists idx_posts_author on public.posts(author_id);
+create index if not exists idx_posts_created_at on public.posts(created_at desc);
+create index if not exists idx_posts_category on public.posts(category);
+create index if not exists idx_posts_sembol on public.posts(sembol) where sembol is not null;
+create index if not exists idx_comments_post_id on public.comments(post_id);
+create index if not exists idx_comments_author on public.comments(author_id);
+create index if not exists idx_likes_post_id on public.likes(post_id);
+create index if not exists idx_likes_user_id on public.likes(user_id);
+create index if not exists idx_reports_status on public.reports(status) where status = 'pending';
