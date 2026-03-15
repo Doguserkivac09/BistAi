@@ -64,7 +64,7 @@ export async function POST(
       })
       .select(`
         *,
-        author:profiles!comments_author_id_fkey(id, display_name, avatar_url, tier)
+        author:profiles!comments_author_profile_fkey(id, display_name, avatar_url, tier)
       `)
       .single();
 
