@@ -406,8 +406,15 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 6. ⬜ Doğuş: `community` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_community.sql`)
 7. ⬜ Supabase Realtime'ı etkinleştir: Dashboard → Database → Replication → `comments` tablosuna realtime ekle
 8. ✅ Phase 11 tamamlandı (2026-03-15): Stripe checkout/webhook/portal, fiyatlandırma sayfası, tier-gating, profil abonelik bölümü
-9. ⬜ Doğuş: `subscriptions` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_subscriptions.sql`)
-10. ⬜ Stripe hesabı aç → test key'leri `.env.local`'e ekle: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_PREMIUM`
+9. ✅ Doğuş: `subscriptions` migration'ı Supabase'de çalıştırıldı
+10. ⬜ **Stripe `.env.local` key'leri eklenecek** (hesap açılınca):
+    - `STRIPE_SECRET_KEY=sk_test_...`
+    - `STRIPE_WEBHOOK_SECRET=whsec_...`
+    - `STRIPE_PRICE_PRO=price_...` (Stripe Dashboard → Products → Pro plan price ID)
+    - `STRIPE_PRICE_PREMIUM=price_...` (Premium plan price ID)
+    - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`
+    - `SUPABASE_SERVICE_ROLE_KEY=...` (webhook handler için, Supabase → Settings → API → service_role key)
+    - `NEXT_PUBLIC_SITE_URL=http://localhost:3000` (veya production URL)
 11. Sıradaki: Phase 12 — AI Topluluk Botu
 
 ## Test Kuralı (Her Değişiklik Sonrası)
