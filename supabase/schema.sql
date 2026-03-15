@@ -1,6 +1,22 @@
 -- BistAI Supabase schema
 -- users are handled by Supabase Auth (auth.users)
 
+-- Profiles: kullanıcı profil bilgileri (auth.users ile 1:1)
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  display_name text,
+  avatar_url text,
+  bio text check (char_length(bio) <= 500),
+  tier text not null default 'free' check (tier in ('free', 'pro', 'premium')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+create policy "Profiles are viewable by everyone" on public.profiles for select using (true);
+create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
+create policy "Profiles insert via service role or self" on public.profiles for insert with check (auth.uid() = id);
+
 -- Watchlist: kullanıcının izlediği hisse sembolleri
 create table if not exists public.watchlist (
   id uuid primary key default gen_random_uuid(),
