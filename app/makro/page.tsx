@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, BarChart3, Globe, Building2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // ── Türler ──────────────────────────────────────────────────────────
 
@@ -260,11 +261,40 @@ export default function MakroPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-text-secondary text-sm">Makro veriler yükleniyor...</p>
-        </div>
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          {/* Header skeleton */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <Skeleton className="h-8 w-48 mb-2" />
+              <Skeleton className="h-4 w-72" />
+            </div>
+            <Skeleton className="h-9 w-20" />
+          </div>
+          {/* Score cards skeleton */}
+          <div className="grid gap-4 md:grid-cols-2 mb-6">
+            <Skeleton className="h-64 rounded-lg" />
+            <Skeleton className="h-64 rounded-lg" />
+          </div>
+          {/* Indicators skeleton */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 rounded-lg" />
+            ))}
+          </div>
+          {/* Country cards skeleton */}
+          <div className="grid gap-4 md:grid-cols-2 mb-6">
+            <Skeleton className="h-40 rounded-lg" />
+            <Skeleton className="h-40 rounded-lg" />
+          </div>
+          {/* Sector grid skeleton */}
+          <Skeleton className="h-6 w-40 mb-3" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-lg" />
+            ))}
+          </div>
+        </main>
       </div>
     );
   }

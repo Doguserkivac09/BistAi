@@ -3,11 +3,64 @@
  * Model: claude-3-5-haiku (maliyet verimliliği için)
  *
  * v2 (Phase 6.2): Makro bağlam + sektör + risk bilgisi eklendi.
+ * v3 (Phase 8.3): Supabase ai_cache entegrasyonu — aynı sinyal için
+ *   24 saat içinde tekrar API çağrısı yapılmaz.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { StockSignal } from '@/types';
 import type { CompositeContext } from './composite-signal';
+
+// ── AI Cache (Supabase) ─────────────────────────────────────────────
+
+function createCacheKey(signal: StockSignal, version: 1 | 2): string {
+  return `${signal.sembol}:${signal.type}:${signal.direction}:${signal.severity}:v${version}`;
+}
+
+async function getCachedExplanation(cacheKey: string): Promise<string | null> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) return null;
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    const { data } = await supabase
+      .from('ai_cache')
+      .select('explanation')
+      .eq('cache_key', cacheKey)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    return data?.explanation ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function setCachedExplanation(cacheKey: string, explanation: string, version: 1 | 2): Promise<void> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) return;
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    await supabase.from('ai_cache').upsert({
+      cache_key: cacheKey,
+      explanation,
+      version,
+      hit_count: 0,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    }, { onConflict: 'cache_key' });
+  } catch {
+    // Cache yazma başarısız olursa sessizce devam et
+  }
+}
+
+// ── System Prompts ──────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `Sen BistAI'ın borsa analiz asistanısın. Türk bireysel yatırımcılara ve traderlara teknik analiz sinyallerini sade, anlaşılır Türkçe ile açıklıyorsun. Jargonu minimumda tut, somut ol. Cevabın maksimum 3 cümle olsun.`;
 
@@ -31,6 +84,11 @@ export async function generateSignalExplanation(
     return 'AI açıklaması için ANTHROPIC_API_KEY ortam değişkeni tanımlanmalı.';
   }
 
+  // Cache kontrol
+  const cacheKey = createCacheKey(signal, 1);
+  const cached = await getCachedExplanation(cacheKey);
+  if (cached) return cached;
+
   const userPrompt = `Hisse: ${signal.sembol}
 Sinyal tipi: ${signal.type}
 Sinyal yönü: ${signal.direction}
@@ -38,7 +96,14 @@ Sinyal şiddeti: ${signal.severity}
 Ek veri: ${JSON.stringify(signal.data)}
 Bu sinyali yatırımcıya kısaca açıkla.`;
 
-  return callClaude(apiKey, SYSTEM_PROMPT, userPrompt);
+  const result = await callClaude(apiKey, SYSTEM_PROMPT, userPrompt);
+
+  // Başarılı sonucu cache'le
+  if (!result.startsWith('AI açıklaması')) {
+    setCachedExplanation(cacheKey, result, 1);
+  }
+
+  return result;
 }
 
 /**
@@ -55,6 +120,11 @@ export async function generateCompositeExplanation(
   if (!apiKey) {
     return 'AI açıklaması için ANTHROPIC_API_KEY ortam değişkeni tanımlanmalı.';
   }
+
+  // Cache kontrol
+  const cacheKey = createCacheKey(signal, 2);
+  const cached = await getCachedExplanation(cacheKey);
+  if (cached) return cached;
 
   const userPrompt = `Hisse: ${signal.sembol}
 Sinyal: ${signal.type} (${signal.direction}, ${signal.severity})
@@ -76,7 +146,14 @@ Temel faktörler: ${compositeContext.keyFactors.join('; ')}
 
 Bu bilgiler ışığında yatırımcıya kısa ve somut bir açıklama yap.`;
 
-  return callClaude(apiKey, SYSTEM_PROMPT_V2, userPrompt, 384);
+  const result = await callClaude(apiKey, SYSTEM_PROMPT_V2, userPrompt, 384);
+
+  // Başarılı sonucu cache'le
+  if (!result.startsWith('AI açıklaması')) {
+    setCachedExplanation(cacheKey, result, 2);
+  }
+
+  return result;
 }
 
 // ── Ortak Claude API çağrısı ────────────────────────────────────────

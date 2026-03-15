@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { fetchAllMacroQuotes } from '@/lib/macro-data';
-import { fetchAllTurkeyMacro } from '@/lib/turkey-macro';
-import { fetchAllFredData } from '@/lib/fred';
-import { calculateMacroScore } from '@/lib/macro-score';
-import { calculateRiskScore } from '@/lib/risk-engine';
+import { getMacroFull } from '@/lib/macro-service';
 import { generateMacroAlerts, generateRiskAlerts } from '@/lib/alerts';
 
 /**
@@ -32,20 +28,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Makro + risk verilerini çek
-    const [macroSnapshot, turkeyData, fredData] = await Promise.all([
-      fetchAllMacroQuotes(),
-      fetchAllTurkeyMacro(),
-      fetchAllFredData(),
-    ]);
+    const { macroScore, riskScore } = await getMacroFull();
 
-    const macroScore = calculateMacroScore(macroSnapshot, turkeyData, fredData);
-    const riskScore = calculateRiskScore(macroSnapshot, turkeyData);
-
-    // Alert üret (önceki veri olmadan — sadece güncel durum bazlı)
     const macroAlerts = generateMacroAlerts(macroScore, null);
     const riskAlerts = generateRiskAlerts(riskScore, null);
-
     const allAlerts = [...macroAlerts, ...riskAlerts];
 
     return NextResponse.json({

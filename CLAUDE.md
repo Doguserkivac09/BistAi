@@ -80,6 +80,7 @@ git push -u origin feat/<feature-name>
 | **Phase 5** | ✅ | Sektör & Risk Motoru |
 | **Phase 6** | ✅ | Kompozit Sinyal & Makro UI |
 | **Phase 7** | ✅ (ML ⬜ Python opsiyonel) | İleri Seviye (Backtesting, Alert, ML) |
+| **Phase 8** | ✅ | Teknik Borç & UI Temeli (macroService, time-align, AI cache, skeleton) |
 
 ---
 
@@ -251,16 +252,16 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Phase 8 — Teknik Borç & UI Temeli (~1 hafta) ⬜
+## Phase 8 — Teknik Borç & UI Temeli ✅
 
 **Tema:** Yeni özellikler öncesi altyapıyı sağlamlaştır. Maliyet: $0
 
 | # | Görev | Zorluk | Kim | Durum |
 |---|-------|--------|-----|-------|
-| 8.1 | macroService katmanı (`lib/macro-service.ts`) | M | Doğuş | ⬜ |
-| 8.2 | Time alignment (`lib/time-align.ts`) | M | Doğuş | ⬜ |
-| 8.3 | AI açıklama cache (`ai_cache` tablo) | S | Doğuş | ⬜ |
-| 8.4 | Genel UI polish (skeleton, spacing, responsive) | M | Berk | ⬜ |
+| 8.1 | macroService katmanı (`lib/macro-service.ts`) | M | Doğuş | ✅ |
+| 8.2 | Time alignment (`lib/time-align.ts`) | M | Doğuş | ✅ |
+| 8.3 | AI açıklama cache (`ai_cache` tablo + `lib/claude.ts` cache) | S | Doğuş | ✅ |
+| 8.4 | Genel UI polish (skeleton loading, spacing) | M | Doğuş | ✅ |
 
 ---
 
@@ -394,10 +395,11 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 ---
 
 ## Koordinasyon
-1. ✅ Phase 1-7 tamamlandı
+1. ✅ Phase 1-8 tamamlandı
 2. ✅ Teknik borç #3 (Zod env) ve #4 (FRED retry) çözüldü
-3. ⬜ Phase 8-13 yol haritası planlandı (2026-03-15)
-4. Sıradaki: Phase 8 — Teknik Borç & UI Temeli
+3. ✅ Phase 8 tamamlandı (2026-03-15): macroService, time-align, AI cache, skeleton UI
+4. ⬜ Doğuş: `ai_cache` migration'ı Supabase'de çalıştır
+5. Sıradaki: Phase 9 — Profil & Kişiselleştirilmiş Ana Sayfa
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 

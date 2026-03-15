@@ -135,7 +135,26 @@ alter table public.risk_snapshots enable row level security;
 create policy "Risk snapshots read for all" on public.risk_snapshots for select using (true);
 create policy "Risk snapshots insert via service role" on public.risk_snapshots for insert with check (true);
 
+-- AI Cache: Claude API yanıtlarını 24 saat cache'ler (maliyet tasarrufu)
+create table if not exists public.ai_cache (
+  id uuid primary key default gen_random_uuid(),
+  cache_key text not null unique,
+  explanation text not null,
+  version smallint not null default 1,
+  hit_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '24 hours')
+);
+
+alter table public.ai_cache enable row level security;
+create policy "AI cache read for all" on public.ai_cache for select using (true);
+create policy "AI cache insert via service role" on public.ai_cache for insert with check (true);
+create policy "AI cache update via service role" on public.ai_cache for update using (true);
+create policy "AI cache delete via service role" on public.ai_cache for delete using (true);
+
 -- Indexes
+create index if not exists idx_ai_cache_key on public.ai_cache(cache_key);
+create index if not exists idx_ai_cache_expires on public.ai_cache(expires_at);
 create index if not exists idx_watchlist_user_id on public.watchlist(user_id);
 create index if not exists idx_saved_signals_user_id on public.saved_signals(user_id);
 create index if not exists idx_saved_signals_created_at on public.saved_signals(created_at desc);

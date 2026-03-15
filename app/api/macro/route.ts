@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { fetchAllMacroQuotes } from '@/lib/macro-data';
-import { fetchAllTurkeyMacro } from '@/lib/turkey-macro';
-import { fetchAllFredData } from '@/lib/fred';
-import { calculateMacroScore, calculateUSEconomyHealth } from '@/lib/macro-score';
+import { getMacroFull, formatMacroResponse } from '@/lib/macro-service';
 
 /**
  * Makro veri API endpoint.
@@ -51,50 +48,8 @@ export async function GET(request: NextRequest) {
 
 async function handleCurrentRequest(): Promise<NextResponse> {
   try {
-    // Tüm makro verileri paralel çek
-    const [macroSnapshot, turkeyData, fredData] = await Promise.all([
-      fetchAllMacroQuotes(),
-      fetchAllTurkeyMacro(),
-      fetchAllFredData(),
-    ]);
-
-    // Makro skor hesapla
-    const scoreResult = calculateMacroScore(macroSnapshot, turkeyData, fredData);
-    const usHealth = calculateUSEconomyHealth(fredData);
-
-    return NextResponse.json({
-      score: scoreResult,
-      indicators: {
-        vix: macroSnapshot.vix,
-        dxy: macroSnapshot.dxy,
-        us10y: macroSnapshot.us10y,
-        usdtry: macroSnapshot.usdtry,
-        eem: macroSnapshot.eem,
-        brent: macroSnapshot.brent,
-      },
-      turkey: {
-        policyRate: turkeyData?.policyRate ?? null,
-        cds5y: turkeyData?.cds5y ?? null,
-        inflation: turkeyData?.inflation ?? null,
-      },
-      fred: {
-        fedFundsRate: fredData?.fedFundsRate ? {
-          value: fredData.fedFundsRate.latestValue,
-          date: fredData.fedFundsRate.latestDate,
-          change: fredData.fedFundsRate.change,
-        } : null,
-        gdpGrowth: fredData?.gdpGrowth ? {
-          value: fredData.gdpGrowth.latestValue,
-          date: fredData.gdpGrowth.latestDate,
-        } : null,
-        unemployment: fredData?.unemployment ? {
-          value: fredData.unemployment.latestValue,
-          date: fredData.unemployment.latestDate,
-        } : null,
-      },
-      usEconomy: usHealth,
-      fetchedAt: new Date().toISOString(),
-    });
+    const full = await getMacroFull();
+    return NextResponse.json(formatMacroResponse(full));
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
     console.error('[api/macro] Hata:', message);
