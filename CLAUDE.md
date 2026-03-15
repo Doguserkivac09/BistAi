@@ -79,7 +79,7 @@ git push -u origin feat/<feature-name>
 | **Phase 4** | ✅ | Makro Rüzgar Motoru (VIX, CDS, USD/TRY, FRED, TCMB) |
 | **Phase 5** | ✅ | Sektör & Risk Motoru |
 | **Phase 6** | ✅ | Kompozit Sinyal & Makro UI |
-| **Phase 7** | 🔄 Backend ✅, ML ⬜ (Python) | İleri Seviye (Backtesting, Alert, ML) |
+| **Phase 7** | ✅ (ML ⬜ Python opsiyonel) | İleri Seviye (Backtesting, Alert, ML) |
 
 ---
 
@@ -244,10 +244,11 @@ Katman 4: KOMPOZİT KARAR
 ### ✅ 7.3 Alert Sistemi (Doğuş)
 - `lib/alerts.ts` + `app/api/alerts/route.ts`
 
-### ⬜ 7.4 Backtesting Sayfası [L] (Berk — İLERİDE)
-- Geçmiş sinyallerin performans tablosu
-- Sinyal tipi × rejim performans matrisi
-- `lib/backtesting.ts` fonksiyonlarını çağıracak API endpoint gerekebilir
+### ✅ 7.4 Backtesting Sayfası [L] (Berk)
+- **Yeni API**: `app/api/backtesting/route.ts` — Supabase'den evaluated sinyalleri çeker, `lib/backtesting.ts` fonksiyonlarını çağırır
+- **Yeni sayfa**: `app/backtesting/page.tsx` — Performans matrisi (sinyal tipi × rejim heatmap), özet kartlar, karşılaştırma kartları
+- **Filtreler**: Dönem (30g/90g/180g/1y) + Yön (Tümü/AL/SAT)
+- **Navbar**: `/backtesting` "Backtest" linki eklendi
 
 ---
 
@@ -259,7 +260,7 @@ Katman 4: KOMPOZİT KARAR
 | 2 | Sektör Heatmap | M | `GET /api/sectors` | `/makro` sayfası içinde veya ayrı bileşen |
 | 3 | Sinyal kartlarına Makro Badge | S | `/api/macro` (score) | `components/SignalBadge.tsx`, `StockCard.tsx` |
 | 4 | Alert / Bildirim paneli | M | `GET /api/alerts` | Dashboard veya Navbar |
-| 5 | Backtesting sayfası (ilerde) | L | Yeni API gerekebilir | `app/backtesting/page.tsx` |
+| 5 | ✅ Backtesting sayfası | L | `GET /api/backtesting` | `app/backtesting/page.tsx` |
 
 **API yanıt formatları test için**:
 ```bash
@@ -280,6 +281,9 @@ curl http://localhost:3000/api/alerts
 
 # Tarihsel makro (grafik için)
 curl http://localhost:3000/api/macro?history=true&days=30
+
+# Backtesting analizi
+curl http://localhost:3000/api/backtesting?days=90
 ```
 
 ---
@@ -288,7 +292,7 @@ curl http://localhost:3000/api/macro?history=true&days=30
 1. ✅ Phase 4-7 backend (Doğuş) tamamlandı
 2. ✅ Berk: `/makro` sayfası + Sektör Heatmap + Makro Badge + Alert paneli tamamlandı
 3. ✅ FRED_API_KEY + Supabase tabloları oluşturuldu
-4. ⬜ Backtesting sayfası (Phase 7.4) — ileride
+4. ✅ Backtesting sayfası (Phase 7.4) tamamlandı
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
