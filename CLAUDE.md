@@ -237,9 +237,8 @@ Katman 4: KOMPOZİT KARAR
 ### ✅ 7.1 Backtesting Engine (Doğuş)
 - `lib/backtesting.ts` — geçmiş sinyal performans analizi
 
-### ⬜ 7.2 Python ML Microservice [XL] (Opsiyonel — gelecekte)
-- FastAPI + XGBoost/RandomForest
-- Feature: teknik + makro + sektör → BUY/SELL tahmin
+### ⬜ 7.2 Python ML Microservice [XL] (→ Phase 13.5'e taşındı)
+- FastAPI + XGBoost/RandomForest — Phase 13'te planlandı
 
 ### ✅ 7.3 Alert Sistemi (Doğuş)
 - `lib/alerts.ts` + `app/api/alerts/route.ts`
@@ -252,47 +251,153 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Berk Frontend Görev Özeti (Öncelik Sırasına Göre)
+## Phase 8 — Teknik Borç & UI Temeli (~1 hafta) ⬜
 
-| # | Görev | Zorluk | API Endpoint | Dosyalar |
-|---|-------|--------|-------------|----------|
-| 1 | `/makro` sayfası + Navbar linki | L | `GET /api/macro`, `GET /api/risk` | `app/makro/page.tsx`, `components/Navbar*.tsx` |
-| 2 | Sektör Heatmap | M | `GET /api/sectors` | `/makro` sayfası içinde veya ayrı bileşen |
-| 3 | Sinyal kartlarına Makro Badge | S | `/api/macro` (score) | `components/SignalBadge.tsx`, `StockCard.tsx` |
-| 4 | Alert / Bildirim paneli | M | `GET /api/alerts` | Dashboard veya Navbar |
-| 5 | ✅ Backtesting sayfası | L | `GET /api/backtesting` | `app/backtesting/page.tsx` |
+**Tema:** Yeni özellikler öncesi altyapıyı sağlamlaştır. Maliyet: $0
 
-**API yanıt formatları test için**:
-```bash
-# Makro skor + göstergeler
-curl http://localhost:3000/api/macro
+| # | Görev | Zorluk | Kim | Durum |
+|---|-------|--------|-----|-------|
+| 8.1 | macroService katmanı (`lib/macro-service.ts`) | M | Doğuş | ⬜ |
+| 8.2 | Time alignment (`lib/time-align.ts`) | M | Doğuş | ⬜ |
+| 8.3 | AI açıklama cache (`ai_cache` tablo) | S | Doğuş | ⬜ |
+| 8.4 | Genel UI polish (skeleton, spacing, responsive) | M | Berk | ⬜ |
 
-# Risk skoru
-curl http://localhost:3000/api/risk
+---
 
-# Sektör momentum
-curl http://localhost:3000/api/sectors
+## Phase 9 — Profil & Kişiselleştirilmiş Ana Sayfa (~1 hafta) ⬜
 
-# Tek sektör detay
-curl http://localhost:3000/api/sectors?id=banka
+**Tema:** Giriş yapan kullanıcıya özel deneyim. Maliyet: $0
 
-# Alertler
-curl http://localhost:3000/api/alerts
+| # | Görev | Zorluk | Kim | Durum |
+|---|-------|--------|-----|-------|
+| 9.1 | `profiles` tablosu (user_id, display_name, avatar_url, bio, tier) + RLS | S | Doğuş | ⬜ |
+| 9.2 | Profil API (`/api/profile` GET + PATCH) | M | Doğuş | ⬜ |
+| 9.3 | Profil sayfası (`/profil`) | M | Berk | ⬜ |
+| 9.4 | Kişiselleştirilmiş ana sayfa (login → dashboard-home, logout → landing) | L | Berk | ⬜ |
+| 9.5 | Navbar profil dropdown (avatar + menü) | S | Berk | ⬜ |
+| 9.6 | Middleware `/profil` guard | S | Herhangi biri | ⬜ |
 
-# Tarihsel makro (grafik için)
-curl http://localhost:3000/api/macro?history=true&days=30
+---
 
-# Backtesting analizi
-curl http://localhost:3000/api/backtesting?days=90
+## Phase 10 — Topluluk Platformu (~2 hafta) ⬜
+
+**Tema:** Kullanıcılar analiz paylaşır, yorum yapar, beğenir. Maliyet: $0
+
+### Sprint 1: Backend + Okuma UI
+
+| # | Görev | Zorluk | Kim | Durum |
+|---|-------|--------|-----|-------|
+| 10.1 | Topluluk DB şeması (posts, comments, likes tabloları + RLS) | L | Doğuş | ⬜ |
+| 10.2 | Topluluk API (CRUD + pagination + rate limit) | L | Doğuş | ⬜ |
+| 10.3 | Topluluk feed sayfası (`/topluluk`) | L | Berk | ⬜ |
+| 10.4 | Post detay sayfası (`/topluluk/[id]`) | M | Berk | ⬜ |
+
+### Sprint 2: Etkileşim + Realtime
+
+| # | Görev | Zorluk | Kim | Durum |
+|---|-------|--------|-----|-------|
+| 10.5 | Post oluşturma (`/topluluk/yeni`) | M | Berk | ⬜ |
+| 10.6 | Beğeni/yorum etkileşimleri (optimistic update) | M | Berk | ⬜ |
+| 10.7 | Realtime yorumlar (Supabase Realtime) | M | Doğuş | ⬜ |
+| 10.8 | Navbar + middleware güncelleme | S | Herhangi biri | ⬜ |
+| 10.9 | İçerik moderasyonu (şikayet + admin kontrol) | S | Doğuş | ⬜ |
+
+---
+
+## Phase 11 — Ödeme & Abonelik Sistemi (~1-2 hafta) ⬜
+
+**Tema:** Monetizasyon. Maliyet: Stripe işlem başı %2.9 + 30¢
+
+| # | Görev | Zorluk | Kim | Durum |
+|---|-------|--------|-----|-------|
+| 11.1 | Stripe kurulumu (`lib/stripe.ts`) | M | Doğuş | ⬜ |
+| 11.2 | Abonelik DB (stripe_customer_id, tier_expires_at) | S | Doğuş | ⬜ |
+| 11.3 | Checkout API (`/api/stripe/checkout`) | M | Doğuş | ⬜ |
+| 11.4 | Webhook handler (`/api/stripe/webhook`) | L | Doğuş | ⬜ |
+| 11.5 | Fiyatlandırma sayfası (`/fiyatlandirma`) | M | Berk | ⬜ |
+| 11.6 | Tier-gating helper (`lib/tier-guard.ts`) | S | Doğuş | ⬜ |
+| 11.7 | Profil abonelik bölümü | S | Berk | ⬜ |
+
+**Paket Matrisi:**
+
+| Özellik | Free | Pro | Premium |
+|---------|------|-----|---------|
+| Sinyal tarama | 5/gün | Sınırsız | Sınırsız |
+| Makro Radar | Görüntüleme | Tam + tarihsel | Tam + tarihsel |
+| Backtesting | 30 gün | Tam geçmiş | Tam geçmiş |
+| Topluluk | Okuma | Okuma + Yazma | Okuma + Yazma + AI Bot |
+| AI Açıklamalar | 5/gün | 50/gün | Sınırsız |
+
+> **Not:** Fiyatlar Phase 11'e gelindiğinde rakip analizi + gelir/gider hesabı ile belirlenecek.
+
+---
+
+## Phase 12 — AI Topluluk Botu (~1 hafta) ⬜
+
+**Tema:** Premium kullanıcı paylaşımlarını analiz eden AI. Maliyet: ~$3-10/ay (Claude API)
+
+| # | Görev | Zorluk | Kim | Durum |
+|---|-------|--------|-----|-------|
+| 12.1 | AI bot system prompt (`lib/community-ai.ts`) | M | Doğuş | ⬜ |
+| 12.2 | AI bot trigger (post create → Claude → AI yorum) | L | Doğuş | ⬜ |
+| 12.3 | AI yorum UI ("AI Analist" badge) | S | Berk | ⬜ |
+| 12.4 | Rate limiting (1 AI yorum/post, 100/gün global) | S | Doğuş | ⬜ |
+| 12.5 | Premium gate (non-premium → bulanık + upgrade CTA) | S | Berk | ⬜ |
+
+---
+
+## Phase 13 — Ek Veri Kaynakları & ML Temeli (~2 hafta, opsiyonel) ⬜
+
+**Tema:** Veri genişletme + ML hazırlığı. Maliyet: $0-57/ay
+
+| # | Görev | Zorluk | Kim | Durum |
+|---|-------|--------|-----|-------|
+| 13.1 | AlphaVantage entegrasyonu | M | Doğuş | ⬜ |
+| 13.2 | TradingEconomics (maliyet değerlendirilecek) | M | Doğuş | ⬜ |
+| 13.3 | Veri kaynak abstraksiyonu (`lib/data-providers.ts`) | L | Doğuş | ⬜ |
+| 13.4 | Feature engineering (`lib/ml-features.ts`) | L | Doğuş | ⬜ |
+| 13.5 | Python ML microservice (FastAPI + XGBoost) | XL | İkisi | ⬜ |
+| 13.6 | ML prediction API proxy | M | Doğuş | ⬜ |
+
+---
+
+## Bağımlılık Grafiği
+
+```
+Phase 8 (Teknik Borç) ← bağımsız, hemen başla
+    ↓
+Phase 9 (Profil + Ana Sayfa) ← 8.4 UI polish idealde önce
+    ↓
+Phase 10 (Topluluk) ← 9.1 profiles tablosu gerekli
+    ↓
+Phase 11 (Ödeme) ← 9.1 profiles.tier gerekli
+    ↓
+Phase 12 (AI Bot) ← 10.x topluluk + 11.x tier gating
+    ↓
+Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 ```
 
 ---
 
+## Maliyet Özeti
+
+| Kaynak | Phase | Aylık | Not |
+|--------|-------|-------|-----|
+| Supabase | Tümü | $0 | Free tier |
+| Claude API (mevcut) | — | ~$5-15 | Zaten kullanılıyor |
+| Stripe | 11+ | İşlem başı | Sabit maliyet yok |
+| Claude API (AI bot) | 12+ | ~$3-10 | Post hacmine bağlı |
+| AlphaVantage | 13+ | $0-50 | Free tier olabilir |
+| ML hosting | 13+ | $0-7 | Railway/Render |
+| **Toplam yeni** | | **$3-72/ay** | |
+
+---
+
 ## Koordinasyon
-1. ✅ Phase 4-7 backend (Doğuş) tamamlandı
-2. ✅ Berk: `/makro` sayfası + Sektör Heatmap + Makro Badge + Alert paneli tamamlandı
-3. ✅ FRED_API_KEY + Supabase tabloları oluşturuldu
-4. ✅ Backtesting sayfası (Phase 7.4) tamamlandı
+1. ✅ Phase 1-7 tamamlandı
+2. ✅ Teknik borç #3 (Zod env) ve #4 (FRED retry) çözüldü
+3. ⬜ Phase 8-13 yol haritası planlandı (2026-03-15)
+4. Sıradaki: Phase 8 — Teknik Borç & UI Temeli
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
