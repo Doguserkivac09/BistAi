@@ -81,7 +81,7 @@ git push -u origin feat/<feature-name>
 | **Phase 6** | ✅ | Kompozit Sinyal & Makro UI |
 | **Phase 7** | ✅ (ML ⬜ Python opsiyonel) | İleri Seviye (Backtesting, Alert, ML) |
 | **Phase 8** | ✅ | Teknik Borç & UI Temeli (macroService, time-align, AI cache, skeleton) |
-| **Phase 9** | ⬜ (9.4 Berk) | Profil & Kişiselleştirme (profiles tablo, API, sayfa, navbar dropdown) |
+| **Phase 9** | ✅ | Profil & Kişiselleştirme (profiles tablo, API, sayfa, navbar dropdown, home redirect) |
 | **Phase 10** | ✅ | Topluluk Platformu (posts, comments, likes, realtime, moderation) |
 | **Phase 11** | ✅ | Ödeme & Abonelik (Stripe checkout, webhook, tier-gating, fiyatlandırma) |
 
@@ -268,7 +268,7 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Phase 9 — Profil & Kişiselleştirilmiş Ana Sayfa ⬜ (9.4 kaldı)
+## Phase 9 — Profil & Kişiselleştirilmiş Ana Sayfa ✅
 
 **Tema:** Giriş yapan kullanıcıya özel deneyim. Maliyet: $0
 
@@ -277,7 +277,7 @@ Katman 4: KOMPOZİT KARAR
 | 9.1 | `profiles` tablosu + RLS + auto-create trigger | S | Doğuş | ✅ |
 | 9.2 | Profil API (`/api/profile` GET + PATCH) | M | Doğuş | ✅ |
 | 9.3 | Profil sayfası (`/profil`) — skeleton, form, tier badge | M | Doğuş | ✅ |
-| 9.4 | Kişiselleştirilmiş ana sayfa (login → dashboard-home, logout → landing) | L | Berk | ⬜ |
+| 9.4 | Kişiselleştirilmiş ana sayfa (login → dashboard-home, logout → landing) | L | Doğuş | ✅ |
 | 9.5 | Navbar profil dropdown (avatar + dropdown menü) | S | Doğuş | ✅ |
 | 9.6 | Middleware `/profil` guard | S | Doğuş | ✅ |
 
@@ -336,17 +336,17 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Phase 12 — AI Topluluk Botu (~1 hafta) ⬜
+## Phase 12 — AI Topluluk Botu ✅
 
 **Tema:** Premium kullanıcı paylaşımlarını analiz eden AI. Maliyet: ~$3-10/ay (Claude API)
 
 | # | Görev | Zorluk | Kim | Durum |
 |---|-------|--------|-----|-------|
-| 12.1 | AI bot system prompt (`lib/community-ai.ts`) | M | Doğuş | ⬜ |
-| 12.2 | AI bot trigger (post create → Claude → AI yorum) | L | Doğuş | ⬜ |
-| 12.3 | AI yorum UI ("AI Analist" badge) | S | Berk | ⬜ |
-| 12.4 | Rate limiting (1 AI yorum/post, 100/gün global) | S | Doğuş | ⬜ |
-| 12.5 | Premium gate (non-premium → bulanık + upgrade CTA) | S | Berk | ⬜ |
+| 12.1 | AI bot system prompt (`lib/community-ai.ts`) | M | Doğuş | ✅ |
+| 12.2 | AI bot trigger (`/api/community/ai-comment`) | L | Doğuş | ✅ |
+| 12.3 | AI yorum UI ("AI Analist" badge, post detay sayfası) | S | Doğuş | ✅ |
+| 12.4 | Rate limiting (1 AI yorum/post, 100/gün global) | S | Doğuş | ✅ |
+| 12.5 | Premium gate (non-premium → upgrade CTA) | S | Doğuş | ✅ |
 
 ---
 
@@ -415,7 +415,9 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
     - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`
     - `SUPABASE_SERVICE_ROLE_KEY=...` (webhook handler için, Supabase → Settings → API → service_role key)
     - `NEXT_PUBLIC_SITE_URL=http://localhost:3000` (veya production URL)
-11. Sıradaki: Phase 9.4 (Berk) → Phase 12 — AI Topluluk Botu
+11. ✅ Phase 9.4 tamamlandı (login → /dashboard, logout → landing)
+12. ✅ Phase 12 tamamlandı (AI Topluluk Botu: lib/community-ai.ts, /api/community/ai-comment, badge UI)
+13. Sıradaki: Phase 13 — Ek Veri Kaynakları & ML Temeli
 12. ⬜ Berk: 9.4 planı hazır (auth kontrolü + AuthHome component), implementasyon bekliyor
 
 ## Token Tasarruf Modu (19 Mart 2026'ya kadar)

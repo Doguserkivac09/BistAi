@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft, Heart, MessageSquare, TrendingUp, Pin, Flag,
-  Send, Trash2, CornerDownRight,
+  Send, Trash2, CornerDownRight, Sparkles, Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PostDetail, Comment } from '@/types/community';
 import { CATEGORY_LABELS, REPORT_REASONS } from '@/types/community';
 import { useRealtimeComments } from '@/lib/use-realtime-comments';
+
+const AI_BOT_ID = 'ai-bot';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -27,6 +29,15 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 30)}ay`;
 }
 
+function AICommentBadge() {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full border border-purple-500/40 bg-purple-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-purple-400">
+      <Sparkles className="h-2.5 w-2.5" />
+      AI Analist
+    </span>
+  );
+}
+
 function CommentItem({
   comment,
   onReply,
@@ -38,22 +49,34 @@ function CommentItem({
   depth?: number;
   allComments: Comment[];
 }) {
+  const isAI = comment.author_id === AI_BOT_ID;
   const replies = allComments.filter((c) => c.parent_id === comment.id);
+
   return (
     <div className={cn('mt-3', depth > 0 && 'ml-6 border-l border-border/50 pl-3')}>
-      <div className="flex items-start gap-2">
-        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-          {comment.author?.display_name?.[0]?.toUpperCase() ?? 'U'}
-        </div>
+      <div className={cn(
+        'flex items-start gap-2',
+        isAI && 'rounded-lg border border-purple-500/20 bg-purple-500/5 p-3'
+      )}>
+        {isAI ? (
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-purple-400">
+            <Sparkles className="h-3.5 w-3.5" />
+          </div>
+        ) : (
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+            {comment.author?.display_name?.[0]?.toUpperCase() ?? 'U'}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-text-primary">
-              {comment.author?.display_name ?? 'Anonim'}
+              {isAI ? 'AI Analist' : (comment.author?.display_name ?? 'Anonim')}
             </span>
+            {isAI && <AICommentBadge />}
             <span className="text-[10px] text-text-secondary">{timeAgo(comment.created_at)}</span>
           </div>
           <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">{comment.body}</p>
-          {depth < 2 && (
+          {!isAI && depth < 2 && (
             <button
               onClick={() => onReply(comment.id)}
               className="mt-1 flex items-center gap-1 text-[10px] text-text-secondary hover:text-primary transition-colors"
@@ -97,6 +120,11 @@ export default function PostDetailPage() {
   const [reporting, setReporting] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
 
+  // AI bot state
+  const [requestingAI, setRequestingAI] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiRequiresUpgrade, setAiRequiresUpgrade] = useState(false);
+
   const fetchPost = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -116,25 +144,19 @@ export default function PostDetailPage() {
 
   useEffect(() => { fetchPost(); }, [fetchPost]);
 
-  // Realtime: yeni yorum gelince otomatik yenile
   useRealtimeComments(id ?? null, fetchPost);
 
-  // Like toggle
   const handleLike = async () => {
     if (liking) return;
     setLiking(true);
-
-    // Optimistic update
     const wasLiked = liked;
     setLiked(!wasLiked);
     setLikeCount((c) => wasLiked ? c - 1 : c + 1);
-
     try {
       const res = await fetch(`/api/community/posts/${id}/like`, {
         method: wasLiked ? 'DELETE' : 'POST',
       });
       if (!res.ok) {
-        // Rollback
         setLiked(wasLiked);
         setLikeCount((c) => wasLiked ? c + 1 : c - 1);
       }
@@ -146,7 +168,6 @@ export default function PostDetailPage() {
     }
   };
 
-  // Comment submit
   const handleComment = async () => {
     if (commenting || !commentBody.trim()) return;
     setCommenting(true);
@@ -154,15 +175,12 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/community/posts/${id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          body: commentBody.trim(),
-          parent_id: replyTo,
-        }),
+        body: JSON.stringify({ body: commentBody.trim(), parent_id: replyTo }),
       });
       if (res.ok) {
         setCommentBody('');
         setReplyTo(null);
-        fetchPost(); // Refresh to get new comment
+        fetchPost();
       }
     } catch {
       // ignore
@@ -176,7 +194,6 @@ export default function PostDetailPage() {
     commentRef.current?.focus();
   };
 
-  // Report
   const handleReport = async () => {
     if (reporting || !reportReason) return;
     setReporting(true);
@@ -184,10 +201,7 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/community/posts/${id}/report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reason: reportReason,
-          detail: reportDetail.trim() || null,
-        }),
+        body: JSON.stringify({ reason: reportReason, detail: reportDetail.trim() || null }),
       });
       if (res.ok) {
         setReportSuccess(true);
@@ -205,7 +219,6 @@ export default function PostDetailPage() {
     }
   };
 
-  // Delete
   const handleDelete = async () => {
     if (!confirm('Bu paylaşımı silmek istediğinize emin misiniz?')) return;
     try {
@@ -213,6 +226,31 @@ export default function PostDetailPage() {
       if (res.ok) router.push('/topluluk');
     } catch {
       // ignore
+    }
+  };
+
+  const handleRequestAI = async () => {
+    if (requestingAI) return;
+    setRequestingAI(true);
+    setAiError(null);
+    setAiRequiresUpgrade(false);
+    try {
+      const res = await fetch('/api/community/ai-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.requiresUpgrade) setAiRequiresUpgrade(true);
+        setAiError(data.error ?? 'AI yorum üretilemedi.');
+      } else {
+        fetchPost(); // Yeni yorumu göster
+      }
+    } catch {
+      setAiError('Bağlantı hatası. Tekrar deneyin.');
+    } finally {
+      setRequestingAI(false);
     }
   };
 
@@ -247,6 +285,9 @@ export default function PostDetailPage() {
 
   const cat = CATEGORY_LABELS[post.category];
   const topLevelComments = post.comments.filter((c) => !c.parent_id);
+  const hasAIComment = post.comments.some((c) => c.author_id === AI_BOT_ID);
+  // Post sahibi kontrolü: author_id ile karşılaştırıyoruz (gerçek user id yerine author.id)
+  const isOwner = post.author_id != null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -328,7 +369,7 @@ export default function PostDetailPage() {
                 <Flag className="h-3.5 w-3.5" />
                 Şikayet
               </button>
-              {post.author_id === post.author?.id && (
+              {isOwner && (
                 <button
                   onClick={handleDelete}
                   className="flex items-center gap-1 text-xs text-text-secondary hover:text-red-400 transition-colors"
@@ -386,6 +427,71 @@ export default function PostDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* AI Analist Bölümü */}
+        {!hasAIComment && isOwner && (
+          <Card className="border-purple-500/20 bg-purple-500/5 mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">AI Analist Yorumu</p>
+                    <p className="text-xs text-text-secondary">
+                      Paylaşımın için yapay zeka destekli analiz al. (Yalnızca Premium)
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleRequestAI}
+                  disabled={requestingAI}
+                  className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white border-0"
+                >
+                  {requestingAI ? (
+                    <span className="flex items-center gap-1">
+                      <span className="h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                      Analiz ediliyor...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Analiz İste
+                    </span>
+                  )}
+                </Button>
+              </div>
+
+              {/* Hata */}
+              {aiError && (
+                <div className={cn(
+                  'mt-3 rounded-lg border p-3',
+                  aiRequiresUpgrade
+                    ? 'border-yellow-500/30 bg-yellow-500/5'
+                    : 'border-red-500/30 bg-red-500/5'
+                )}>
+                  {aiRequiresUpgrade ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4 text-yellow-400 flex-shrink-0" />
+                        <p className="text-xs text-yellow-300">
+                          Bu özellik Premium üyeler için. Hemen yükselt, AI analizi kazan.
+                        </p>
+                      </div>
+                      <Link href="/fiyatlandirma">
+                        <Button size="sm" className="flex-shrink-0 text-xs bg-yellow-500 hover:bg-yellow-600 text-black border-0">
+                          Yükselt
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-400">{aiError}</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Comment input */}
         <Card className="border-border mb-4">
