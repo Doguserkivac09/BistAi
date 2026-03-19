@@ -14,9 +14,32 @@ import { saveSignalPerformance } from '@/lib/performance';
 interface StockCardProps {
   signal: StockSignal;
   candleData: OHLCVCandle[];
+  macroScore?: { score: number; wind: string } | null;
 }
 
-export function StockCard({ signal, candleData }: StockCardProps) {
+function MacroBadge({ score, wind }: { score: number; wind: string }) {
+  const color = score >= 30 ? 'text-green-400 bg-green-500/10 border-green-500/30'
+    : score >= 0 ? 'text-green-300 bg-green-500/5 border-green-500/20'
+    : score >= -30 ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30'
+    : 'text-red-400 bg-red-500/10 border-red-500/30';
+
+  const windLabel = wind === 'strong_positive' ? 'Güçlü Pozitif'
+    : wind === 'positive' ? 'Pozitif'
+    : wind === 'neutral' ? 'Nötr'
+    : wind === 'negative' ? 'Negatif'
+    : 'Güçlü Negatif';
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${color}`}
+      title={`Makro Rüzgar: ${windLabel} (${score > 0 ? '+' : ''}${score})`}
+    >
+      Makro: {score > 0 ? '+' : ''}{score}
+    </span>
+  );
+}
+
+export function StockCard({ signal, candleData, macroScore }: StockCardProps) {
   const [explanation, setExplanation] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,9 +96,12 @@ export function StockCard({ signal, candleData }: StockCardProps) {
     <Card className="overflow-hidden transition hover:border-primary/50">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-lg font-semibold text-text-primary">
-            {signal.sembol}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-lg font-semibold text-text-primary">
+              {signal.sembol}
+            </span>
+            {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
+          </div>
           <SignalBadge
             type={signal.type}
             direction={signal.direction}

@@ -27,7 +27,6 @@ export async function GET(request: NextRequest) {
   try {
     const days = parseDaysParam(request);
     const supabase = createAdminClient();
-    console.log('SUPABASE URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
@@ -69,7 +68,7 @@ export async function GET(request: NextRequest) {
     }
 
     const results: SignalTypeRegimeStatsResponse[] = [];
-    for (const { signalType, regime, rows } of groups.values()) {
+    for (const { signalType, regime, rows } of Array.from(groups.values())) {
       const edge = computeSignalEdge(rows);
       results.push({ signal_type: signalType, regime, ...edge });
     }

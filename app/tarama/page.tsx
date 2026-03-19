@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { StockCard } from '@/components/StockCard';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { BIST_SYMBOLS } from '@/types';
 import type {
   SignalTypeFilter,
@@ -21,8 +20,10 @@ import type {
 } from '@/types';
 import { fetchOHLCVClient } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
-import { Search } from 'lucide-react';
+import { Search, RefreshCw } from 'lucide-react';
 import { saveSignalPerformance } from '@/lib/performance';
+import { ScanProgress } from '@/components/ScanProgress';
+import { toast } from 'sonner';
 
 const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
   { value: 'Tümü', label: 'Tümü' },
@@ -88,43 +89,96 @@ export default function TaramaPage() {
   const [results, setResults] = useState<ScanResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, symbol: '' });
+  const [failedSymbols, setFailedSymbols] = useState<string[]>([]);
+  const [macroScore, setMacroScore] = useState<{ score: number; wind: string } | null>(null);
 
-  const runScan = useCallback(async () => {
-  setLoading(true);
-  setError(null);
+  // Makro skoru bir kez çek
+  useEffect(() => {
+    fetch('/api/macro')
+      .then(r => r.json())
+      .then(data => {
+        if (data.score) setMacroScore({ score: data.score.score, wind: data.score.wind });
+      })
+      .catch(() => {});
+  }, []);
 
-  try {
-    const symbols = [...BIST_SYMBOLS];
-    const all: ScanResult[] = [];
+  const scanSymbols = useCallback(async (symbols: string[]) => {
+    setLoading(true);
+    setError(null);
+    const failed: string[] = [];
+    const BATCH_SIZE = 5;
+    const BATCH_DELAY_MS = 200;
 
-    for (const sembol of symbols) {
-      try {
-        const candles = await fetchOHLCVClient(sembol, 90);
-        const signals = detectAllSignals(sembol, candles);
+    try {
+      const all: ScanResult[] = [...results];
+      setScanProgress({ current: 0, total: symbols.length, symbol: '' });
+      let completed = 0;
 
-        if (signals.length > 0) {
-          for (const signal of signals) {
-            await saveSignalPerformance({
-              userId: null, // global istatistik
-              signal,
-              candles
-            });
+      for (let batchStart = 0; batchStart < symbols.length; batchStart += BATCH_SIZE) {
+        const batch = symbols.slice(batchStart, batchStart + BATCH_SIZE);
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (sembol) => {
+            const candles = await fetchOHLCVClient(sembol, 90);
+            const signals = detectAllSignals(sembol, candles);
+            return { sembol, signals, candles };
+          })
+        );
+
+        for (const result of batchResults) {
+          completed++;
+          if (result.status === 'fulfilled') {
+            const { sembol, signals, candles } = result.value;
+            setScanProgress({ current: completed, total: symbols.length, symbol: sembol });
+
+            if (signals.length > 0) {
+              for (const signal of signals) {
+                saveSignalPerformance({ userId: null, signal, candles }).catch(() => {});
+              }
+              const existingIdx = all.findIndex(r => r.sembol === sembol);
+              if (existingIdx >= 0) {
+                all[existingIdx] = { sembol, signals, candles };
+              } else {
+                all.push({ sembol, signals, candles });
+              }
+            }
+          } else {
+            const sembol = batch[batchResults.indexOf(result)] ?? '?';
+            failed.push(sembol);
+            setScanProgress({ current: completed, total: symbols.length, symbol: sembol });
           }
-
-          all.push({ sembol, signals, candles });
         }
 
-      } catch {
-        // skip failed symbol
+        // Batch arası rate limit — son batch'ten sonra bekleme
+        if (batchStart + BATCH_SIZE < symbols.length) {
+          await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
+        }
       }
+
+      setResults(all);
+      setFailedSymbols(failed);
+
+      const signalCount = all.reduce((sum, r) => sum + r.signals.length, 0);
+      if (failed.length > 0) {
+        toast.warning(`Tarama tamamlandı. ${failed.length} sembol başarısız oldu.`);
+      } else {
+        toast.success(`Tarama tamamlandı! ${signalCount} sinyal bulundu.`);
+      }
+    } finally {
+      setLoading(false);
     }
+  }, [results]);
 
-    setResults(all);
+  const runScan = useCallback(() => {
+    setResults([]);
+    setFailedSymbols([]);
+    scanSymbols([...BIST_SYMBOLS]);
+  }, [scanSymbols]);
 
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  const retryFailed = useCallback(() => {
+    scanSymbols(failedSymbols);
+  }, [scanSymbols, failedSymbols]);
 
   const filtered = filterResults(results, signalType, direction);
   const displayList = loading ? [] : filtered;
@@ -176,17 +230,34 @@ export default function TaramaPage() {
         )}
 
         {loading && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-[280px] rounded-card" />
-            ))}
-          </div>
+          <ScanProgress
+            current={scanProgress.current}
+            total={scanProgress.total}
+            symbol={scanProgress.symbol}
+          />
         )}
 
         {!loading && displayList.length === 0 && results.length === 0 && (
           <div className="rounded-card border border-border bg-surface/50 p-8 text-center text-text-secondary">
-            &quot;Tümünü Tara&quot; butonuna tıklayarak 20 BIST hissesini tarayın ve sinyalleri
+            &quot;Tümünü Tara&quot; butonuna tıklayarak {BIST_SYMBOLS.length} BIST hissesini tarayın ve sinyalleri
             görüntüleyin.
+          </div>
+        )}
+
+        {!loading && failedSymbols.length > 0 && (
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-yellow-500/50 bg-yellow-500/10 px-4 py-3">
+            <span className="text-sm text-yellow-400">
+              {failedSymbols.length} sembol taranamadı: {failedSymbols.join(', ')}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={retryFailed}
+              className="ml-3 gap-1 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/20"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Tekrar Dene
+            </Button>
           </div>
         )}
 
@@ -200,7 +271,7 @@ export default function TaramaPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {displayList.flatMap((r) =>
               r.signals.map((sig) => (
-                <StockCard key={`${r.sembol}-${sig.type}`} signal={sig} candleData={r.candles} />
+                <StockCard key={`${r.sembol}-${sig.type}`} signal={sig} candleData={r.candles} macroScore={macroScore} />
               ))
             )}
           </div>
