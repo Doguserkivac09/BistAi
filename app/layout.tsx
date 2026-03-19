@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'BistAI — BIST Hisselerinde AI Destekli Sinyal Analizi',
@@ -17,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body className={`${inter.variable} antialiased min-h-screen bg-background text-text-primary`}>
+      <body className="antialiased min-h-screen bg-background text-text-primary">
         <Navbar />
         {children}
       </body>
