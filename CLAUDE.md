@@ -84,6 +84,7 @@ git push -u origin feat/<feature-name>
 | **Phase 9** | ✅ | Profil & Kişiselleştirme (profiles tablo, API, sayfa, navbar dropdown) |
 | **Phase 10** | ✅ | Topluluk Platformu (posts, comments, likes, realtime, moderation) |
 | **Phase 11** | ✅ | Ödeme & Abonelik (Stripe checkout, webhook, tier-gating, fiyatlandırma) |
+| **Phase 12** | ✅ | AI Topluluk Botu (AI Analist badge, premium gate, rate limit) |
 
 ---
 
@@ -336,17 +337,19 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Phase 12 — AI Topluluk Botu (~1 hafta) ⬜
+## Phase 12 — AI Topluluk Botu ✅
 
 **Tema:** Premium kullanıcı paylaşımlarını analiz eden AI. Maliyet: ~$3-10/ay (Claude API)
 
-| # | Görev | Zorluk | Kim | Durum |
-|---|-------|--------|-----|-------|
-| 12.1 | AI bot system prompt (`lib/community-ai.ts`) | M | Doğuş | ⬜ |
-| 12.2 | AI bot trigger (post create → Claude → AI yorum) | L | Doğuş | ⬜ |
-| 12.3 | AI yorum UI ("AI Analist" badge) | S | Berk | ⬜ |
-| 12.4 | Rate limiting (1 AI yorum/post, 100/gün global) | S | Doğuş | ⬜ |
-| 12.5 | Premium gate (non-premium → bulanık + upgrade CTA) | S | Berk | ⬜ |
+| # | Görev | Zorluk | Durum |
+|---|-------|--------|-------|
+| 12.1 | AI bot system prompt (`lib/community-ai.ts`) | M | ✅ |
+| 12.2 | AI bot trigger (post create → Claude → AI yorum) | L | ✅ |
+| 12.3 | AI yorum UI ("AI Analist" badge, Bot ikonu, mor renk) | S | ✅ |
+| 12.4 | Rate limiting (1 AI yorum/post via DB flag, 100/gün global) | S | ✅ |
+| 12.5 | Premium gate (non-premium → blur + upgrade CTA) | S | ✅ |
+
+> **DB Migration gerekli:** `supabase/migrations/20260320_community_ai.sql` — Supabase SQL Editor'da çalıştırılmalı
 
 ---
 
@@ -417,7 +420,8 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
     - `NEXT_PUBLIC_SITE_URL=http://localhost:3000` (veya production URL)
 11. ✅ Auth fix tamamlandı (2026-03-20): emailRedirectTo /auth/callback, email onay hatası Türkçe
 12. ✅ Supabase email onayı development için kapatıldı (test hesabı oluşturulabilir)
-13. ⬜ **Sıradaki: Phase 12 — AI Topluluk Botu**
+13. ✅ Phase 12 tamamlandı (2026-03-20): AI Topluluk Botu — community-ai.ts, AI Analist badge, premium gate, rate limit
+14. ⬜ **Sıradaki: Phase 13 — Ek Veri Kaynakları & ML Temeli (opsiyonel)** veya Stripe canlıya alma
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
