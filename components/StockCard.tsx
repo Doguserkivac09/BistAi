@@ -93,7 +93,7 @@ export function StockCard({ signal, candleData, macroScore }: StockCardProps) {
   const isDown = signal.direction === 'asagi';
 
   return (
-    <Card className="overflow-hidden transition hover:border-primary/50">
+    <Card className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
