@@ -6,6 +6,7 @@ import {
   ColorType,
   type IChartApi,
   type CandlestickData,
+  type Time,
 } from 'lightweight-charts';
 import type { OHLCVCandle } from '@/types';
 
@@ -109,16 +110,15 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       height: computedHeight,
     });
 
+    const toMs = (d: string | number) =>
+      typeof d === 'number' ? d * 1000 : new Date(d).getTime();
+
     const normalizedCandles = Array.from(
       new Map(
         candles
           .slice()
-          .sort((a, b) => {
-            const at = new Date(a.date as string).getTime();
-            const bt = new Date(b.date as string).getTime();
-            return at - bt;
-          })
-          .map((c) => [c.date as string, c] as const)
+          .sort((a, b) => toMs(a.date) - toMs(b.date))
+          .map((c) => [String(c.date), c] as const)
       ).values()
     );
 
@@ -129,7 +129,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       const lastRsi = rsiValues[rsiValues.length - 1] ?? 50;
 
       const rsiData = normalizedCandles.map((c, i) => ({
-        time: c.date as string,
+        time: c.date as Time,
         value: rsiValues[i] ?? 50,
       }));
 
@@ -193,7 +193,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       chart.timeScale().fitContent();
     } else {
       const cdlData: CandlestickData[] = normalizedCandles.map((c) => ({
-        time: c.date as string,
+        time: c.date as Time,
         open: c.open,
         high: c.high,
         low: c.low,
@@ -216,7 +216,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       });
       volumeSeries.setData(
         normalizedCandles.map((c) => ({
-          time: c.date as string,
+          time: c.date as Time,
           value: c.volume ?? 0,
           color: c.close >= c.open ? '#22c55e28' : '#ef444428',
         }))
@@ -238,7 +238,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       });
       ema9Series.setData(
         normalizedCandles.map((c, i) => ({
-          time: c.date as string,
+          time: c.date as Time,
           value: ema9[i] ?? c.close,
         }))
       );
@@ -252,7 +252,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       });
       ema21Series.setData(
         normalizedCandles.map((c, i) => ({
-          time: c.date as string,
+          time: c.date as Time,
           value: ema21[i] ?? c.close,
         }))
       );
@@ -336,33 +336,36 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
 
   if (!candles.length) return null;
 
-  // RSI renk zonu
   const rsiVal = legend.rsi ? parseFloat(legend.rsi) : 50;
-  const rsiColor = rsiVal >= 70 ? '#ef4444' : rsiVal <= 30 ? '#22c55e' : '#6366f1';
-  const rsiZoneLabel = rsiVal >= 70 ? 'AŞIRI ALIM' : rsiVal <= 30 ? 'AŞIRI SATIM' : 'NÖTR BÖLGE';
+  const rsiColor = rsiVal >= 70 ? '#ef4444' : rsiVal <= 30 ? '#22c55e' : '#818cf8';
+  const rsiZone = rsiVal >= 70 ? 'Aşırı Alım' : rsiVal <= 30 ? 'Aşırı Satım' : '';
 
   return (
     <div className={`relative ${className ?? ''}`}>
       {/* Legend overlay */}
       <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-background/80 px-2 py-1 text-xs backdrop-blur-sm">
         {showRsi ? (
-          <span className="text-text-secondary/60 text-[10px]">RSI(14)</span>
+          <>
+            <span className="text-text-secondary/60">RSI(14)</span>
+            <span className="font-mono font-semibold" style={{ color: rsiColor }}>
+              {legend.rsi ?? '—'}
+            </span>
+            {rsiZone && (
+              <span className="text-[10px] font-medium" style={{ color: rsiColor + 'bb' }}>
+                {rsiZone}
+              </span>
+            )}
+          </>
         ) : (
           <>
             {legend.price && (
               <>
                 <span className="text-text-secondary">Fiyat</span>
-                <span className="font-mono font-medium text-text-primary">
-                  {legend.price}
-                </span>
+                <span className="font-mono font-medium text-text-primary">{legend.price}</span>
               </>
             )}
             {legend.change && (
-              <span
-                className={`font-mono font-medium ${
-                  legend.changePositive ? 'text-bullish' : 'text-bearish'
-                }`}
-              >
+              <span className={`font-mono font-medium ${legend.changePositive ? 'text-bullish' : 'text-bearish'}`}>
                 {legend.changePositive ? '+' : ''}{legend.change}%
               </span>
             )}
@@ -387,38 +390,6 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
           </>
         )}
       </div>
-
-      {/* RSI büyük değer overlay */}
-      {showRsi && legend.rsi && (
-        <div className="pointer-events-none absolute bottom-10 right-4 z-10 text-right">
-          <div
-            className="font-mono text-4xl font-bold tabular-nums leading-none"
-            style={{ color: rsiColor }}
-          >
-            {legend.rsi}
-          </div>
-          <div
-            className="mt-1 text-[10px] font-semibold uppercase tracking-widest"
-            style={{ color: rsiColor + 'aa' }}
-          >
-            {rsiZoneLabel}
-          </div>
-        </div>
-      )}
-
-      {/* RSI zone etiketleri */}
-      {showRsi && (
-        <>
-          <div className="pointer-events-none absolute right-14 z-10 text-[9px] font-semibold uppercase tracking-widest text-red-400/50"
-            style={{ top: `${computedHeight * 0.25 + 2}px` }}>
-            70 — Aşırı Alım
-          </div>
-          <div className="pointer-events-none absolute right-14 z-10 text-[9px] font-semibold uppercase tracking-widest text-green-400/50"
-            style={{ bottom: `${computedHeight * 0.05 + 24}px` }}>
-            30 — Aşırı Satım
-          </div>
-        </>
-      )}
 
       <div
         ref={containerRef}

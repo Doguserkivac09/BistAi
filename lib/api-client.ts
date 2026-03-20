@@ -34,7 +34,7 @@ export async function fetchOHLCVClient(
   return [];
 }
 
-export type TimeframeKey = '1H' | '1G' | '1W' | '1A' | '3A' | '1Y';
+export type TimeframeKey = '15m' | '30m' | '1h' | '1d' | '1wk' | '1mo';
 
 export async function fetchOHLCVByTimeframeClient(
   sembol: string,

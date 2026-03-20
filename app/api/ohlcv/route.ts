@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     if (tfParam) {
       const tf = tfParam.toUpperCase() as YahooTimeframe;
-      const allowed: YahooTimeframe[] = ['1H', '1G', '1W', '1A', '3A', '1Y'];
+      const allowed: YahooTimeframe[] = ['15m', '30m', '1h', '1d', '1wk', '1mo'];
       if (!allowed.includes(tf)) {
         return NextResponse.json(
           { error: 'Geçersiz timeframe parametresi.' },

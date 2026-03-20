@@ -9,7 +9,7 @@ import { SignalExplanation } from '@/components/SignalExplanation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WatchlistButton } from '@/components/WatchlistButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
-import { fetchOHLCVClient, fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
+import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
 import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
@@ -21,13 +21,13 @@ const StockChart = lazy(() =>
   import('@/components/StockChart').then((mod) => ({ default: mod.StockChart }))
 );
 
-const TIMEFRAMES: { key: TimeframeKey; label: string; description: string }[] = [
-  { key: '1H', label: '1H', description: '1 saat' },
-  { key: '1G', label: '1G', description: '1 gün' },
-  { key: '1W', label: '1W', description: '1 hafta' },
-  { key: '1A', label: '1A', description: '1 ay' },
-  { key: '3A', label: '3A', description: '3 ay' },
-  { key: '1Y', label: '1Y', description: '1 yıl' },
+const TIMEFRAMES: { key: TimeframeKey; label: string; description: string; group: 'intraday' | 'daily' }[] = [
+  { key: '15m',  label: '15D',  description: '15 dakika',  group: 'intraday' },
+  { key: '30m',  label: '30D',  description: '30 dakika',  group: 'intraday' },
+  { key: '1h',   label: '1S',   description: '1 saat',     group: 'intraday' },
+  { key: '1d',   label: '1G',   description: '1 gün',      group: 'daily' },
+  { key: '1wk',  label: '1H',   description: '1 hafta',    group: 'daily' },
+  { key: '1mo',  label: '1A',   description: '1 ay',       group: 'daily' },
 ];
 
 interface HisseDetailClientProps {
@@ -41,7 +41,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [signals, setSignals] = useState<StockSignal[]>([]);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState<TimeframeKey>('1A');
+  const [timeframe, setTimeframe] = useState<TimeframeKey>('1d');
 
   useEffect(() => {
     if (!sembol) return;
@@ -49,10 +49,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     (async () => {
       setLoading(true);
       try {
-        const data =
-          timeframe === '1A'
-            ? await fetchOHLCVClient(sembol, 30)
-            : await fetchOHLCVByTimeframeClient(sembol, timeframe);
+        const data = await fetchOHLCVByTimeframeClient(sembol, timeframe);
         if (cancelled) return;
         setCandles(data);
         const sigs = detectAllSignals(sembol, data);
@@ -133,22 +130,29 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-text-primary">{sembol}</h1>
-                <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface/80 p-1 text-xs text-text-secondary">
-                  {TIMEFRAMES.map((tf) => (
-                    <button
-                      key={tf.key}
-                      type="button"
-                      onClick={() => setTimeframe(tf.key)}
-                      className={`px-2.5 py-1 rounded-lg transition-colors ${
-                        timeframe === tf.key
-                          ? 'bg-primary text-white'
-                          : 'bg-surface text-text-secondary hover:bg-surface/80'
-                      }`}
-                      aria-label={tf.description}
-                    >
-                      {tf.label}
-                    </button>
-                  ))}
+                <div className="inline-flex items-center rounded-lg border border-border bg-surface/80 p-1 text-xs text-text-secondary">
+                  {TIMEFRAMES.map((tf, i) => {
+                    const prev = TIMEFRAMES[i - 1];
+                    const showSep = prev && prev.group !== tf.group;
+                    return (
+                      <span key={tf.key} className="flex items-center">
+                        {showSep && <span className="mx-1 h-4 w-px bg-border" />}
+                        <button
+                          type="button"
+                          onClick={() => setTimeframe(tf.key)}
+                          className={`rounded-md px-2.5 py-1 transition-colors ${
+                            timeframe === tf.key
+                              ? 'bg-primary text-white'
+                              : 'text-text-secondary hover:text-text-primary'
+                          }`}
+                          aria-label={tf.description}
+                          title={tf.description}
+                        >
+                          {tf.label}
+                        </button>
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
               <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />

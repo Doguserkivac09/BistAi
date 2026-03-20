@@ -4,7 +4,7 @@ export type SignalSeverity = 'güçlü' | 'orta' | 'zayıf';
 export type SignalDirection = 'yukari' | 'asagi' | 'nötr';
 
 export interface OHLCVCandle {
-  date: string; // YYYY-MM-DD
+  date: string | number; // YYYY-MM-DD (günlük) | Unix timestamp saniye (intraday)
   open: number;
   high: number;
   low: number;
