@@ -18,3 +18,127 @@ body {
   color: var(--text-primary);
   font-family: var(--font-inter), system-ui, sans-serif;
 }
+
+/* ── Smooth scroll ────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Gradient orb animations ──────────────────────────────────── */
+@keyframes orb-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(60px, -80px) scale(1.1); }
+  66%       { transform: translate(-40px, 40px) scale(0.95); }
+}
+
+@keyframes orb-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-70px, 50px) scale(1.05); }
+  66%       { transform: translate(50px, -60px) scale(1.1); }
+}
+
+@keyframes orb-float-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(40px, 80px) scale(0.9); }
+}
+
+.orb-1 { animation: orb-float-1 18s ease-in-out infinite; }
+.orb-2 { animation: orb-float-2 24s ease-in-out infinite; }
+.orb-3 { animation: orb-float-3 20s ease-in-out infinite; }
+
+/* ── Dot grid background ──────────────────────────────────────── */
+.dot-grid {
+  background-image: radial-gradient(circle, #1e1e2e 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ── Glow effects ─────────────────────────────────────────────── */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px 4px rgba(99, 102, 241, 0.3); }
+  50%       { box-shadow: 0 0 40px 12px rgba(99, 102, 241, 0.5); }
+}
+
+.glow-btn {
+  animation: glow-pulse 2.5s ease-in-out infinite;
+}
+
+/* ── Ticker scroll ────────────────────────────────────────────── */
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-track {
+  animation: ticker-scroll 30s linear infinite;
+  width: max-content;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+/* ── Gradient text ────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-text-animated {
+  background: linear-gradient(135deg, #6366f1, #a855f7, #06b6d4, #6366f1);
+  background-size: 300% 300%;
+  animation: gradient-shift 5s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Card glow on hover ───────────────────────────────────────── */
+.card-glow {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+}
+
+.card-glow:hover {
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.15), 0 8px 32px rgba(0,0,0,0.4);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-4px);
+}
+
+/* ── Side label (vertical text) ──────────────────────────────── */
+.side-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.2em;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0.25;
+  user-select: none;
+}
+
+/* ── Scan line effect ─────────────────────────────────────────── */
+@keyframes scan {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+
+.scan-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.5), transparent);
+  animation: scan 4s linear infinite;
+  pointer-events: none;
+}
+
+/* ── Number counter glow ──────────────────────────────────────── */
+.stat-number {
+  text-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+}
