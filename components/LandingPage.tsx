@@ -73,6 +73,22 @@ const GLOBE_MARKERS = [
   { x: 175, y: 148 }, { x: 252, y: 315 }, { x: 330, y: 200 }, { x: 130, y: 290 },
 ];
 
+// Altın açı dağılımlı yıldız alanı
+const STAR_FIELD = Array.from({ length: 26 }, (_, i) => {
+  const angle = i * 137.508 * (Math.PI / 180);
+  const dist = 16 + (i % 9) * 16;
+  return {
+    x: Math.round((210 + Math.cos(angle) * dist) * 10) / 10,
+    y: Math.round((210 + Math.sin(angle) * dist) * 10) / 10,
+    r: i % 5 === 0 ? 1.5 : i % 3 === 0 ? 1.0 : 0.55,
+    delay: (i * 0.19) % 3.2,
+  };
+});
+
+const CONNECTIONS: [number, number][] = [
+  [0, 2], [1, 5], [3, 4], [2, 4], [6, 1], [0, 5], [3, 0], [4, 6],
+];
+
 function AnimatedGlobe() {
   const R = 190;
   const CX = 210, CY = 210;
@@ -151,69 +167,73 @@ function AnimatedGlobe() {
           </g>
         ))}
 
-        {/* ── Floating Astronaut ── */}
-        <motion.g
-          animate={{ y: [0, -13, 2, -13, 0], rotate: [-5, 5, -2, 5, -5] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ originX: `${CX}px`, originY: `${CY - 10}px` }}
-        >
-          {/* Soft glow */}
-          <circle cx={CX} cy={CY - 10} r={26} fill="rgba(99,102,241,0.09)" />
+        {/* ── Star field ── */}
+        <g clipPath="url(#gc)">
+          {STAR_FIELD.map((s, i) => (
+            <motion.circle
+              key={i} cx={s.x} cy={s.y} r={s.r} fill="white"
+              animate={{ opacity: [0.15, 0.85, 0.15] }}
+              transition={{ duration: 2.0 + (i % 7) * 0.38, repeat: Infinity, ease: 'easeInOut', delay: s.delay }}
+            />
+          ))}
+        </g>
 
-          {/* Left leg */}
-          <rect x={CX - 11} y={CY + 14} width={9} height={12} rx={3}
-            fill="rgba(215,215,238,0.93)" stroke="rgba(150,150,200,0.3)" strokeWidth="0.5" />
-          {/* Right leg */}
-          <rect x={CX + 2} y={CY + 14} width={9} height={12} rx={3}
-            fill="rgba(215,215,238,0.93)" stroke="rgba(150,150,200,0.3)" strokeWidth="0.5" />
+        {/* ── Connection lines ── */}
+        <g clipPath="url(#gc)" fill="none">
+          {CONNECTIONS.map(([a, b], i) => (
+            <line
+              key={i}
+              x1={GLOBE_MARKERS[a].x} y1={GLOBE_MARKERS[a].y}
+              x2={GLOBE_MARKERS[b].x} y2={GLOBE_MARKERS[b].y}
+              stroke={i % 2 === 0 ? 'rgba(99,102,241,0.25)' : 'rgba(139,92,246,0.2)'}
+              strokeWidth="0.9"
+            />
+          ))}
+        </g>
 
-          {/* Body */}
-          <rect x={CX - 14} y={CY - 5} width={28} height={21} rx={6}
-            fill="rgba(225,225,245,0.95)" stroke="rgba(150,150,200,0.35)" strokeWidth="0.6" />
-          {/* Chest panel */}
-          <rect x={CX - 7} y={CY} width={14} height={9} rx={2}
-            fill="rgba(80,80,160,0.65)" />
-          {/* Panel lights */}
-          <motion.circle cx={CX - 3} cy={CY + 4} r={1.8} fill="#4ade80"
-            animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
-          <motion.circle cx={CX + 1} cy={CY + 4} r={1.8} fill="#f87171"
-            animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2.2, repeat: Infinity }} />
-          <motion.circle cx={CX + 5} cy={CY + 4} r={1.8} fill="#fbbf24"
-            animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
-
-          {/* Left arm */}
-          <rect x={CX - 23} y={CY - 4} width={10} height={7} rx={3}
-            fill="rgba(215,215,238,0.93)" stroke="rgba(150,150,200,0.3)" strokeWidth="0.5" />
-          {/* Right arm */}
-          <rect x={CX + 13} y={CY - 4} width={10} height={7} rx={3}
-            fill="rgba(215,215,238,0.93)" stroke="rgba(150,150,200,0.3)" strokeWidth="0.5" />
-          {/* Gloves */}
-          <circle cx={CX - 18} cy={CY + 1} r={3.5} fill="rgba(180,180,215,0.9)" />
-          <circle cx={CX + 18} cy={CY + 1} r={3.5} fill="rgba(180,180,215,0.9)" />
-
-          {/* Backpack */}
-          <rect x={CX + 12} y={CY - 9} width={6} height={14} rx={2}
-            fill="rgba(140,140,190,0.85)" />
-
-          {/* Helmet */}
-          <circle cx={CX} cy={CY - 21} r={16}
-            fill="rgba(225,225,245,0.95)" stroke="rgba(150,150,200,0.35)" strokeWidth="0.8" />
-          {/* Visor */}
-          <ellipse cx={CX} cy={CY - 21} rx={11} ry={10}
-            fill="rgba(50,55,180,0.82)" />
-          {/* Visor shine */}
-          <ellipse cx={CX - 3.5} cy={CY - 25} rx={4} ry={2.5}
-            fill="rgba(255,255,255,0.22)" />
-          <ellipse cx={CX + 3} cy={CY - 17} rx={2} ry={1.2}
-            fill="rgba(255,255,255,0.1)" />
-
-          {/* Tether */}
-          <path
-            d={`M ${CX + 12} ${CY - 6} Q ${CX + 38} ${CY - 28} ${CX + 55} ${CY - 50}`}
-            stroke="rgba(160,160,220,0.35)" strokeWidth="1.2" fill="none"
-            strokeDasharray="4 3"
+        {/* ── Data flow dots (ileri) ── */}
+        {CONNECTIONS.map(([a, b], i) => (
+          <motion.circle
+            key={`f${i}`} r={2.2}
+            fill={i % 3 === 0 ? 'rgba(167,139,250,0.95)' : i % 3 === 1 ? 'rgba(99,102,241,0.9)' : 'rgba(196,181,253,0.85)'}
+            animate={{
+              cx: [GLOBE_MARKERS[a].x, GLOBE_MARKERS[b].x],
+              cy: [GLOBE_MARKERS[a].y, GLOBE_MARKERS[b].y],
+              opacity: [0, 1, 1, 0],
+            }}
+            transition={{ duration: 2.6 + i * 0.42, repeat: Infinity, ease: 'easeInOut', delay: i * 0.6 }}
           />
-        </motion.g>
+        ))}
+
+        {/* ── Data flow dots (geri) ── */}
+        {CONNECTIONS.slice(0, 5).map(([a, b], i) => (
+          <motion.circle
+            key={`r${i}`} r={1.5}
+            fill="rgba(196,181,253,0.7)"
+            animate={{
+              cx: [GLOBE_MARKERS[b].x, GLOBE_MARKERS[a].x],
+              cy: [GLOBE_MARKERS[b].y, GLOBE_MARKERS[a].y],
+              opacity: [0, 0.75, 0.75, 0],
+            }}
+            transition={{ duration: 3.1 + i * 0.35, repeat: Infinity, ease: 'easeInOut', delay: 1.4 + i * 0.5 }}
+          />
+        ))}
+
+        {/* ── Pulsing core ── */}
+        {/* Dış hale */}
+        <motion.circle cx={CX} cy={CY} r={32} fill="rgba(99,102,241,0.06)"
+          animate={{ r: [26, 42, 26], opacity: [0.08, 0, 0.08] }}
+          transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }} />
+        {/* Orta hale */}
+        <motion.circle cx={CX} cy={CY} r={17} fill="rgba(99,102,241,0.15)"
+          animate={{ r: [14, 22, 14], opacity: [0.2, 0.04, 0.2] }}
+          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} />
+        {/* İç çekirdek */}
+        <motion.circle cx={CX} cy={CY} r={7} fill="rgba(167,139,250,0.65)"
+          animate={{ r: [6, 9.5, 6], opacity: [0.65, 1, 0.65] }}
+          transition={{ duration: 2.0, repeat: Infinity, ease: 'easeInOut' }} />
+        {/* Merkez nokta */}
+        <circle cx={CX} cy={CY} r={3.5} fill="rgba(225,215,255,0.98)" />
 
         {/* Orbit ring */}
         <motion.circle
