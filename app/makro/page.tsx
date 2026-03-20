@@ -127,6 +127,22 @@ function riskTextClass(score: number): string {
   return 'text-red-400';
 }
 
+function translateWind(wind: string): string {
+  const map: Record<string, string> = {
+    'neutral':        'NÖTR',
+    'nötr':           'NÖTR',
+    'bullish':        'YÜKSELİŞ',
+    'yükseliş':       'YÜKSELİŞ',
+    'bearish':        'DÜŞÜŞ',
+    'düşüş':          'DÜŞÜŞ',
+    'strong bullish': 'GÜÇLÜ YÜKSELİŞ',
+    'güçlü yükseliş': 'GÜÇLÜ YÜKSELİŞ',
+    'strong bearish': 'GÜÇLÜ DÜŞÜŞ',
+    'güçlü düşüş':    'GÜÇLÜ DÜŞÜŞ',
+  };
+  return map[wind.toLowerCase()] ?? wind.toUpperCase();
+}
+
 function heroGradient(score: number): string {
   if (score >= 30)  return 'radial-gradient(ellipse at top left, rgba(34,197,94,0.12) 0%, transparent 60%)';
   if (score >= -10) return 'radial-gradient(ellipse at top left, rgba(234,179,8,0.10) 0%, transparent 60%)';
@@ -215,8 +231,8 @@ function TickerBar({ indicators }: { indicators: MacroResponse['indicators'] }) 
             const up = (item.data?.changePercent ?? 0) > 0;
             const dn = (item.data?.changePercent ?? 0) < 0;
             return (
-              <span key={i} className="inline-flex items-center gap-2 px-5 text-xs font-mono">
-                <span className="text-white/35 tracking-widest uppercase text-[10px]">{item.label}</span>
+              <span key={i} className="inline-flex items-center gap-2 px-5 text-sm font-mono">
+                <span className="text-white/35 tracking-widest uppercase text-xs">{item.label}</span>
                 <span className="text-white font-semibold">
                   {item.data ? item.data.price.toFixed(2) + item.suffix : '—'}
                 </span>
@@ -301,7 +317,7 @@ function MacroGauge({ score }: { score: number }) {
 
       {/* Skor */}
       <text x={cx} y={cy - 20} textAnchor="middle"
-        fill={col} fontSize="28" fontWeight="800" fontFamily="monospace"
+        fill={col} fontSize="32" fontWeight="800" fontFamily="monospace"
         filter="url(#mgGlow)">
         {score > 0 ? '+' : ''}{score}
       </text>
@@ -341,7 +357,7 @@ function RiskCircle({ score, label, emoji }: { score: number; label: string; emo
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-black text-white leading-none">{score}</span>
         <span className="text-lg leading-none mt-1">{emoji}</span>
-        <span className={`text-[10px] font-semibold mt-1 uppercase tracking-widest ${riskTextClass(score)}`}>{label}</span>
+        <span className={`text-xs font-semibold mt-1 uppercase tracking-widest ${riskTextClass(score)}`}>{label}</span>
       </div>
     </div>
   );
@@ -367,7 +383,7 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-white/5">
         {/* Sol — Makro Gauge */}
         <div className="flex flex-col items-center justify-center py-8 px-6 gap-4">
-          <p className="text-[10px] text-white/35 uppercase tracking-[0.2em] font-mono">Makro Rüzgar Skoru</p>
+          <p className="text-sm text-white/40 uppercase tracking-[0.18em] font-mono">Makro Rüzgar Skoru</p>
           <MacroGauge score={score} />
           <div className="w-full space-y-1.5 mt-1">
             {macro.score.components.map((c) => {
@@ -375,11 +391,11 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
               const barCol = c.rawScore >= 0 ? '#22c55e' : '#ef4444';
               return (
                 <div key={c.name} className="flex items-center gap-2">
-                  <span className={`text-[10px] w-3 ${c.signal === 'positive' ? 'text-green-400' : c.signal === 'negative' ? 'text-red-400' : 'text-yellow-400'}`}>
+                  <span className={`text-sm w-3 ${c.signal === 'positive' ? 'text-green-400' : c.signal === 'negative' ? 'text-red-400' : 'text-yellow-400'}`}>
                     {c.signal === 'positive' ? '↑' : c.signal === 'negative' ? '↓' : '→'}
                   </span>
-                  <span className="text-[10px] text-white/40 w-20 truncate">{c.name}</span>
-                  <div className="flex-1 h-1 rounded-full bg-white/8 overflow-hidden">
+                  <span className="text-sm text-white/45 w-24 truncate">{c.name}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-white/8 overflow-hidden">
                     <motion.div
                       className="h-full rounded-full"
                       style={{ backgroundColor: barCol }}
@@ -388,7 +404,7 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
                       transition={{ duration: 0.8, delay: 0.3 }}
                     />
                   </div>
-                  <span className={`text-[10px] font-mono w-7 text-right ${c.rawScore >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <span className={`text-sm font-mono w-8 text-right ${c.rawScore >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {c.rawScore > 0 ? '+' : ''}{c.rawScore.toFixed(0)}
                   </span>
                 </div>
@@ -399,22 +415,22 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
 
         {/* Orta — Durum */}
         <div className="flex flex-col items-center justify-center py-10 px-6 text-center gap-3">
-          <div className="flex items-center gap-2 text-[10px] text-white/30 uppercase tracking-[0.25em] font-mono">
-            <Activity className="h-3 w-3" /> Piyasa Durumu
+          <div className="flex items-center gap-2 text-sm text-white/35 uppercase tracking-[0.2em] font-mono">
+            <Activity className="h-3.5 w-3.5" /> Piyasa Durumu
           </div>
           <motion.div
-            className="text-5xl font-black tracking-tight leading-none"
+            className="text-6xl font-black tracking-tight leading-none"
             style={{ color: col }}
             initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 200, delay: 0.15 }}
           >
-            {macro.score.wind}
+            {translateWind(macro.score.wind)}
           </motion.div>
-          <div className="text-sm text-white/50 font-medium">{macro.score.label}</div>
+          <div className="text-base text-white/50 font-medium">{macro.score.label}</div>
 
           {/* Kısa açıklama satırı */}
-          <div className="mt-2 px-4 py-2 rounded-lg bg-white/4 border border-white/6 text-xs text-white/50 max-w-[220px]">
+          <div className="mt-2 px-4 py-2.5 rounded-lg bg-white/4 border border-white/6 text-sm text-white/55 max-w-[240px]">
             {score >= 30
               ? 'Makro koşullar güçlü. Yükseliş için zemin uygun.'
               : score >= 0
@@ -425,7 +441,7 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
           </div>
 
           {/* Son güncelleme */}
-          <div className="text-[10px] text-white/20 font-mono mt-1">
+          <div className="text-sm text-white/25 font-mono mt-1">
             {new Date(macro.score.calculatedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
@@ -433,16 +449,16 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
         {/* Sağ — Risk Circle */}
         {risk && (
           <div className="flex flex-col items-center justify-center py-8 px-6 gap-4">
-            <p className="text-[10px] text-white/35 uppercase tracking-[0.2em] font-mono">Piyasa Risk Skoru</p>
+            <p className="text-sm text-white/40 uppercase tracking-[0.18em] font-mono">Piyasa Risk Skoru</p>
             <RiskCircle score={risk.score} label={risk.label} emoji={risk.emoji} />
-            <p className="text-xs text-white/40 text-center max-w-[200px] leading-relaxed">
+            <p className="text-sm text-white/45 text-center max-w-[210px] leading-relaxed">
               {risk.recommendation}
             </p>
             <div className="w-full space-y-1.5 mt-1">
               {risk.components.map((c) => (
                 <div key={c.name} className="flex items-center gap-2">
-                  <span className="text-[10px] text-white/40 w-[72px] truncate">{c.name}</span>
-                  <div className="flex-1 h-1 rounded-full bg-white/8 overflow-hidden">
+                  <span className="text-sm text-white/45 w-20 truncate">{c.name}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-white/8 overflow-hidden">
                     <motion.div
                       className="h-full rounded-full"
                       style={{ backgroundColor: riskColor(c.score) }}
@@ -451,7 +467,7 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
                       transition={{ duration: 0.8, delay: 0.4 }}
                     />
                   </div>
-                  <span className="text-[10px] font-mono w-6 text-right" style={{ color: riskColor(c.score) }}>
+                  <span className="text-sm font-mono w-7 text-right" style={{ color: riskColor(c.score) }}>
                     {c.score}
                   </span>
                 </div>
@@ -493,19 +509,19 @@ function IndicatorCard({
       }}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] text-white/35 font-mono uppercase tracking-widest">{label}</span>
-        <span className={`text-[10px] font-semibold ${sig.cls}`}>{sig.text}</span>
+        <span className="text-xs text-white/35 font-mono uppercase tracking-widest">{label}</span>
+        <span className={`text-sm font-semibold ${sig.cls}`}>{sig.text}</span>
       </div>
-      <p className="text-2xl font-bold text-white font-mono leading-none">
+      <p className="text-3xl font-bold text-white font-mono leading-none">
         {data ? `${data.price.toFixed(2)}${suffix}` : '—'}
       </p>
       <div className="flex items-center gap-1 mt-2.5">
         {data ? (
-          up ? <TrendingUp className="h-3 w-3 text-green-400" /> :
-          dn ? <TrendingDown className="h-3 w-3 text-red-400" /> :
-          <Minus className="h-3 w-3 text-white/30" />
+          up ? <TrendingUp className="h-3.5 w-3.5 text-green-400" /> :
+          dn ? <TrendingDown className="h-3.5 w-3.5 text-red-400" /> :
+          <Minus className="h-3.5 w-3.5 text-white/30" />
         ) : null}
-        <span className={`text-xs font-mono ${up ? 'text-green-400' : dn ? 'text-red-400' : 'text-white/30'}`}>
+        <span className={`text-sm font-mono ${up ? 'text-green-400' : dn ? 'text-red-400' : 'text-white/30'}`}>
           {data ? `${data.changePercent > 0 ? '+' : ''}${data.changePercent.toFixed(2)}%` : '—'}
         </span>
       </div>
@@ -522,14 +538,14 @@ function MetricRow({
 }) {
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
-      <span className="text-sm text-white/50">{label}</span>
+      <span className="text-base text-white/55">{label}</span>
       <div className="flex items-center gap-2">
         {context && (
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white/5 ${contextCls ?? 'text-white/40'}`}>
+          <span className={`text-sm font-semibold px-2 py-0.5 rounded-md bg-white/5 ${contextCls ?? 'text-white/40'}`}>
             {context}
           </span>
         )}
-        <span className="text-sm font-semibold text-white font-mono">{value}</span>
+        <span className="text-base font-semibold text-white font-mono">{value}</span>
       </div>
     </div>
   );
@@ -587,9 +603,9 @@ function SectorHeatmap({ sectors }: { sectors: SectorItem[] }) {
             style={cellStyle(s.compositeScore)}
           >
             <div className="flex items-start justify-between mb-2">
-              <span className="text-sm font-semibold text-white leading-tight">{s.shortName}</span>
+              <span className="text-base font-semibold text-white leading-tight">{s.shortName}</span>
               <span
-                className="text-sm font-black font-mono leading-none"
+                className="text-base font-black font-mono leading-none"
                 style={{ color: scoreCol(s.compositeScore) }}
               >
                 {s.compositeScore > 0 ? '+' : ''}{s.compositeScore.toFixed(0)}
@@ -616,11 +632,11 @@ function SectorHeatmap({ sectors }: { sectors: SectorItem[] }) {
                 ) : (
                   <Minus className="h-3 w-3 text-white/30" />
                 )}
-                <span className={`text-[11px] font-mono ${s.perf20d > 0 ? 'text-green-400' : s.perf20d < 0 ? 'text-red-400' : 'text-white/30'}`}>
+                <span className={`text-sm font-mono ${s.perf20d > 0 ? 'text-green-400' : s.perf20d < 0 ? 'text-red-400' : 'text-white/30'}`}>
                   {s.perf20d > 0 ? '+' : ''}{s.perf20d.toFixed(1)}%
                 </span>
               </div>
-              <span className={`text-[10px] font-semibold ${
+              <span className={`text-sm font-semibold ${
                 s.signal.includes('buy') ? 'text-green-400' :
                 s.signal.includes('sell') ? 'text-red-400' : 'text-yellow-400'
               }`}>
@@ -640,10 +656,10 @@ function SectorHeatmap({ sectors }: { sectors: SectorItem[] }) {
                   style={{ background: 'rgba(10,10,24,0.92)', backdropFilter: 'blur(8px)' }}
                 >
                   <div>
-                    <p className="text-xs font-semibold text-white mb-1">{s.sectorName}</p>
-                    <p className="text-[11px] text-white/50 leading-relaxed line-clamp-4">{s.reasoning}</p>
+                    <p className="text-sm font-semibold text-white mb-1">{s.sectorName}</p>
+                    <p className="text-sm text-white/55 leading-relaxed line-clamp-4">{s.reasoning}</p>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-white/30 mt-2">
+                  <div className="flex items-center justify-between text-sm text-white/35 mt-2">
                     <span>{s.symbolCount} hisse</span>
                     <span className="font-mono">20g: {s.perf20d > 0 ? '+' : ''}{s.perf20d.toFixed(1)}%</span>
                   </div>
@@ -742,11 +758,11 @@ export default function MakroPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary" />
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Globe className="h-6 w-6 text-primary" />
               Makro Radar
             </h1>
-            <p className="text-white/35 text-xs mt-0.5 font-mono">
+            <p className="text-white/40 text-sm mt-1 font-mono">
               Global piyasa koşulları · Risk analizi · Sektör momentum
             </p>
           </div>
@@ -768,8 +784,8 @@ export default function MakroPage() {
               <div key={a.id} className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${severityStyle(a.severity)}`}>
                 <span className="text-base mt-0.5">{a.emoji}</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-white">{a.title}</p>
-                  <p className="text-xs text-white/50 mt-0.5">{a.message}</p>
+                  <p className="text-base font-medium text-white">{a.title}</p>
+                  <p className="text-sm text-white/55 mt-0.5">{a.message}</p>
                 </div>
               </div>
             ))}
@@ -783,7 +799,7 @@ export default function MakroPage() {
         <section className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Zap className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-white/70 uppercase tracking-widest">Piyasa Göstergeleri</h2>
+            <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Piyasa Göstergeleri</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
@@ -810,7 +826,7 @@ export default function MakroPage() {
           >
             <div className="flex items-center gap-2 mb-4">
               <span className="text-base">🇹🇷</span>
-              <h3 className="text-sm font-semibold text-white">Türkiye Makro</h3>
+              <h3 className="text-base font-semibold text-white">Türkiye Makro</h3>
             </div>
             <MetricRow
               label="TCMB Politika Faizi"
@@ -841,9 +857,9 @@ export default function MakroPage() {
           >
             <div className="flex items-center gap-2 mb-4">
               <span className="text-base">🇺🇸</span>
-              <h3 className="text-sm font-semibold text-white">ABD Ekonomisi</h3>
+              <h3 className="text-base font-semibold text-white">ABD Ekonomisi</h3>
               {macro.usEconomy && (
-                <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/5 ${
+                <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-md bg-white/5 ${
                   macro.usEconomy.color === 'green' ? 'text-green-400' :
                   macro.usEconomy.color === 'red'   ? 'text-red-400'   : 'text-yellow-400'
                 }`}>
@@ -877,7 +893,7 @@ export default function MakroPage() {
           <section className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-white/70 uppercase tracking-widest">Sektör Momentum</h2>
+              <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Sektör Momentum</h2>
               {sectors.bestSector && (
                 <span className="ml-auto text-xs text-white/30">
                   En iyi:{' '}
@@ -895,7 +911,7 @@ export default function MakroPage() {
         )}
 
         {/* Footer */}
-        <p className="text-[10px] text-white/20 text-center mt-8 font-mono">
+        <p className="text-sm text-white/25 text-center mt-8 font-mono">
           Güncelleme: {new Date(macro.fetchedAt).toLocaleString('tr-TR')} &nbsp;·&nbsp; Yahoo Finance · FRED · TCMB
         </p>
       </main>
