@@ -410,23 +410,14 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 10. ⬜ **Stripe `.env.local` key'leri eklenecek** (hesap açılınca):
     - `STRIPE_SECRET_KEY=sk_test_...`
     - `STRIPE_WEBHOOK_SECRET=whsec_...`
-    - `STRIPE_PRICE_PRO
+    - `STRIPE_PRICE_PRO=price_...` (Pro plan price ID)
     - `STRIPE_PRICE_PREMIUM=price_...` (Premium plan price ID)
     - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`
     - `SUPABASE_SERVICE_ROLE_KEY=...` (webhook handler için, Supabase → Settings → API → service_role key)
     - `NEXT_PUBLIC_SITE_URL=http://localhost:3000` (veya production URL)
-11. Sıradaki: Phase 9.4 (Berk) → Phase 12 — AI Topluluk Botu
-12. ⬜ Berk: 9.4 planı hazır (auth kontrolü + AuthHome component), implementasyon bekliyor
-
-## Token Tasarruf Modu (19 Mart 2026'ya kadar)
-
-> **Geçerlilik:** 15-19 Mart 2026. 19 Mart'ta limit yenilenince bu bölüm kaldırılabilir.
-
-- Dosya/klasör 1'den fazla kez okunmaz (zorunlu olmadıkça)
-- Fazla token harcayacak işlemler (büyük dosya okuma, çoklu dosya tarama, plan oluşturma) öncesinde kullanıcıdan izin alınır
-- Öncelik: az token harcayan, küçük ve odaklı değişiklikler
-- Büyük refactor/yeni sayfa oluşturma → 19 Mart sonrasına bırakılır (kullanıcı istemediği sürece)
-- Bu kurallar 19 Mart'ta otomatik sona erer, normal akışa dönülür
+11. ✅ Auth fix tamamlandı (2026-03-20): emailRedirectTo /auth/callback, email onay hatası Türkçe
+12. ✅ Supabase email onayı development için kapatıldı (test hesabı oluşturulabilir)
+13. ⬜ **Sıradaki: Phase 12 — AI Topluluk Botu**
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
