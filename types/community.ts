@@ -25,17 +25,19 @@ export interface Post {
 export interface Comment {
   id: string;
   post_id: string;
-  author_id: string;
+  author_id: string | null; // null = AI bot
   parent_id: string | null;
   body: string;
+  is_ai: boolean;
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
-  author: PostAuthor;
+  author: PostAuthor | null; // null = AI bot
 }
 
 export interface PostDetail extends Post {
   comments: Comment[];
+  user_tier: 'free' | 'pro' | 'premium';
 }
 
 export interface PostsResponse {

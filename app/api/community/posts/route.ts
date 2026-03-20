@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+import { postAIComment } from '@/lib/community-ai';
 
 /**
  * Topluluk Posts API
@@ -151,6 +152,14 @@ export async function POST(request: NextRequest) {
       console.error('[community/posts] POST error:', error.message, error.details, error.hint);
       return NextResponse.json({ error: 'Post oluşturulamadı.', debug: error.message }, { status: 500 });
     }
+
+    // Phase 12: AI bot yorumunu async tetikle (yanıtı beklemiyoruz)
+    void postAIComment(post.id, {
+      title: post.title,
+      body: post.body,
+      sembol: post.sembol,
+      category: post.category,
+    }).catch(() => {});
 
     return NextResponse.json(post, { status: 201 });
   } catch (err) {

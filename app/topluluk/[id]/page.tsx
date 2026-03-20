@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft, Heart, MessageSquare, TrendingUp, Pin, Flag,
-  Send, Trash2, CornerDownRight,
+  Send, Trash2, CornerDownRight, Bot, Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PostDetail, Comment } from '@/types/community';
@@ -32,28 +32,72 @@ function CommentItem({
   onReply,
   depth = 0,
   allComments,
+  userTier,
 }: {
   comment: Comment;
   onReply: (parentId: string) => void;
   depth?: number;
   allComments: Comment[];
+  userTier: 'free' | 'pro' | 'premium';
 }) {
   const replies = allComments.filter((c) => c.parent_id === comment.id);
+  const isPremiumLocked = comment.is_ai && userTier !== 'premium';
+
   return (
     <div className={cn('mt-3', depth > 0 && 'ml-6 border-l border-border/50 pl-3')}>
       <div className="flex items-start gap-2">
-        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-          {comment.author?.display_name?.[0]?.toUpperCase() ?? 'U'}
+        {/* Avatar */}
+        <div className={cn(
+          'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
+          comment.is_ai
+            ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+            : 'bg-primary/10 text-primary'
+        )}>
+          {comment.is_ai
+            ? <Bot className="h-3.5 w-3.5" />
+            : (comment.author?.display_name?.[0]?.toUpperCase() ?? 'U')}
         </div>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-text-primary">
-              {comment.author?.display_name ?? 'Anonim'}
-            </span>
+            {comment.is_ai ? (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-violet-400">
+                AI Analist
+                <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">
+                  BETA
+                </span>
+              </span>
+            ) : (
+              <span className="text-xs font-medium text-text-primary">
+                {comment.author?.display_name ?? 'Anonim'}
+              </span>
+            )}
             <span className="text-[10px] text-text-secondary">{timeAgo(comment.created_at)}</span>
           </div>
-          <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">{comment.body}</p>
-          {depth < 2 && (
+
+          {/* Premium gate için blur + CTA */}
+          {isPremiumLocked ? (
+            <div className="relative mt-1 rounded-lg overflow-hidden">
+              <p className="text-sm text-text-secondary whitespace-pre-wrap select-none blur-sm">
+                {comment.body}
+              </p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-background/70 backdrop-blur-[3px] rounded-lg">
+                <Lock className="h-4 w-4 text-violet-400" />
+                <span className="text-xs font-semibold text-violet-300">Premium İçerik</span>
+                <Link
+                  href="/fiyatlandirma"
+                  className="text-[11px] text-primary hover:underline font-medium"
+                >
+                  Premium&apos;a Yükselt →
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">{comment.body}</p>
+          )}
+
+          {/* AI yorumlarına yanıt yapılamaz */}
+          {depth < 2 && !comment.is_ai && (
             <button
               onClick={() => onReply(comment.id)}
               className="mt-1 flex items-center gap-1 text-[10px] text-text-secondary hover:text-primary transition-colors"
@@ -65,7 +109,7 @@ function CommentItem({
         </div>
       </div>
       {replies.map((r) => (
-        <CommentItem key={r.id} comment={r} onReply={onReply} depth={depth + 1} allComments={allComments} />
+        <CommentItem key={r.id} comment={r} onReply={onReply} depth={depth + 1} allComments={allComments} userTier={userTier} />
       ))}
     </div>
   );
@@ -90,6 +134,9 @@ export default function PostDetailPage() {
   const [commenting, setCommenting] = useState(false);
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
+  // User tier (premium gate için)
+  const [userTier, setUserTier] = useState<'free' | 'pro' | 'premium'>('free');
+
   // Report state
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -107,6 +154,7 @@ export default function PostDetailPage() {
       setPost(data);
       setLiked(data.is_liked);
       setLikeCount(data.like_count);
+      setUserTier(data.user_tier ?? 'free');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Post yüklenemedi');
     } finally {
@@ -432,6 +480,7 @@ export default function PostDetailPage() {
                 comment={comment}
                 onReply={handleReply}
                 allComments={post.comments}
+                userTier={userTier}
               />
             ))}
           </div>

@@ -58,10 +58,18 @@ export async function GET(
       .eq('post_id', id)
       .maybeSingle();
 
+    // Kullanıcının tier bilgisi (premium gate için)
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('tier')
+      .eq('id', user.id)
+      .single();
+
     return NextResponse.json({
       ...post,
       is_liked: !!likeData,
       comments: comments ?? [],
+      user_tier: profileData?.tier ?? 'free',
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
