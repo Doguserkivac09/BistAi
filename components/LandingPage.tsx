@@ -70,9 +70,9 @@ const FEATURES = [
 // ── Animated Globe — borsa şehirleri + yay bağlantıları ──────────
 
 const G_CX = 210, G_CY = 210, G_R = 190;
-// Ortografik projeksiyon merkezi: 15°K enlem, 0° boylam (Atlantik ortası)
-const VIEW_LAT = 15 * Math.PI / 180;
-const VIEW_LON = 0 * Math.PI / 180;
+// Ortografik projeksiyon merkezi: İstanbul koordinatları → BIST tam göbekte
+const VIEW_LAT = 41 * Math.PI / 180;
+const VIEW_LON = 29 * Math.PI / 180;
 
 function project(lat: number, lon: number) {
   const φ = lat * Math.PI / 180;
@@ -113,7 +113,7 @@ const EXCH_RAW = [
   { id: 'BSE',   lat:  19.1,  lon:  72.8, main: false }, // Mumbai
   { id: 'DFM',   lat:  25.2,  lon:  55.3, main: false }, // Dubai
   { id: 'JSE',   lat: -26.2,  lon:  28.0, main: false }, // Johannesburg
-  { id: 'B3',    lat: -23.5,  lon: -46.6, main: false }, // São Paulo
+  { id: 'HKEX',  lat:  22.3,  lon: 114.2, main: false }, // Hong Kong
 ] as const;
 
 const EXCH = EXCH_RAW.map(e => ({ ...e, ...project(e.lat, e.lon) }));
@@ -254,8 +254,8 @@ function AnimatedGlobe() {
                   />
                   <circle cx={ex.x} cy={ex.y} r={5.5} fill="rgba(139,92,246,0.9)" />
                   <circle cx={ex.x} cy={ex.y} r={2.5} fill="rgba(225,215,255,0.98)" />
-                  <text x={ex.x + 9} y={ex.y - 7}
-                    fontSize="9" fontFamily="monospace" fontWeight="bold"
+                  <text x={ex.x + 11} y={ex.y - 9}
+                    fontSize="12" fontFamily="monospace" fontWeight="bold"
                     fill="rgba(196,181,253,1)" textAnchor="start"
                   >BIST ★</text>
                 </>
@@ -272,8 +272,8 @@ function AnimatedGlobe() {
                   <text
                     x={ex.x + (lRight ? 7 : -7)}
                     y={ex.y + (lBelow ? 13 : -5)}
-                    fontSize="7.5" fontFamily="monospace"
-                    fill="rgba(148,163,184,0.85)"
+                    fontSize="9.5" fontFamily="monospace"
+                    fill="rgba(148,163,184,0.9)"
                     textAnchor={lRight ? 'start' : 'end'}
                   >{ex.id}</text>
                 </>
