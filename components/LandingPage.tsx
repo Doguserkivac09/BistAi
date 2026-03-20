@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import {
+  AnimatePresence,
   motion,
   useScroll,
   useTransform,
@@ -92,6 +93,13 @@ const CONNECTIONS: [number, number][] = [
 function AnimatedGlobe() {
   const R = 190;
   const CX = 210, CY = 210;
+  const [coreHovered, setCoreHovered] = useState(false);
+
+  // 8 yönde patlayan parçacıklar
+  const BURST = Array.from({ length: 8 }, (_, i) => {
+    const rad = (i * 45) * Math.PI / 180;
+    return { tx: CX + Math.cos(rad) * 88, ty: CY + Math.sin(rad) * 88 };
+  });
   const latOffsets = [-152, -114, -76, -38, 0, 38, 76, 114, 152];
   const longAngles = [0, 30, 60, 90, 120, 150];
 
@@ -219,21 +227,86 @@ function AnimatedGlobe() {
           />
         ))}
 
+        {/* ── Hover: bağlantı parlaması ── */}
+        <AnimatePresence>
+          {coreHovered && (
+            <motion.g
+              key="conn-glow"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              clipPath="url(#gc)" fill="none"
+            >
+              {CONNECTIONS.map(([a, b], i) => (
+                <line key={i}
+                  x1={GLOBE_MARKERS[a].x} y1={GLOBE_MARKERS[a].y}
+                  x2={GLOBE_MARKERS[b].x} y2={GLOBE_MARKERS[b].y}
+                  stroke="rgba(196,181,253,0.55)" strokeWidth="1.4"
+                />
+              ))}
+            </motion.g>
+          )}
+        </AnimatePresence>
+
         {/* ── Pulsing core ── */}
-        {/* Dış hale */}
-        <motion.circle cx={CX} cy={CY} r={32} fill="rgba(99,102,241,0.06)"
-          animate={{ r: [26, 42, 26], opacity: [0.08, 0, 0.08] }}
-          transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }} />
+        {/* Dış hale — hover'da genişler */}
+        <motion.circle cx={CX} cy={CY} fill="rgba(99,102,241,0.06)"
+          animate={coreHovered
+            ? { r: 52, opacity: 0.18 }
+            : { r: [26, 42, 26], opacity: [0.08, 0, 0.08] }}
+          transition={coreHovered
+            ? { duration: 0.35, ease: 'easeOut' }
+            : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }} />
         {/* Orta hale */}
-        <motion.circle cx={CX} cy={CY} r={17} fill="rgba(99,102,241,0.15)"
-          animate={{ r: [14, 22, 14], opacity: [0.2, 0.04, 0.2] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} />
+        <motion.circle cx={CX} cy={CY} fill="rgba(99,102,241,0.15)"
+          animate={coreHovered
+            ? { r: 24, opacity: 0.3 }
+            : { r: [14, 22, 14], opacity: [0.2, 0.04, 0.2] }}
+          transition={coreHovered
+            ? { duration: 0.25, ease: 'easeOut' }
+            : { duration: 2.5, repeat: Infinity, ease: 'easeInOut' }} />
+
+        {/* ── Hover: sonar scan halkaları ── */}
+        <AnimatePresence>
+          {coreHovered && [0, 1, 2].map(i => (
+            <motion.circle key={`scan${i}`}
+              cx={CX} cy={CY}
+              fill="none"
+              stroke={i === 0 ? 'rgba(196,181,253,0.75)' : i === 1 ? 'rgba(139,92,246,0.5)' : 'rgba(99,102,241,0.35)'}
+              strokeWidth={1.8 - i * 0.3}
+              initial={{ r: 10, opacity: 0.9 }}
+              animate={{ r: 70 + i * 22, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.0, ease: 'easeOut', repeat: Infinity, repeatDelay: 0.15, delay: i * 0.32 }}
+            />
+          ))}
+        </AnimatePresence>
+
+        {/* ── Hover: 8 yönlü patlama parçacıkları ── */}
+        <AnimatePresence>
+          {coreHovered && BURST.map((b, i) => (
+            <motion.circle key={`bp${i}`}
+              r={2.5} fill="rgba(196,181,253,0.95)"
+              initial={{ cx: CX, cy: CY, opacity: 1, scale: 1 }}
+              animate={{ cx: b.tx, cy: b.ty, opacity: 0, scale: 0.2 }}
+              exit={{}}
+              transition={{ duration: 0.6, ease: 'easeOut', delay: i * 0.028 }}
+            />
+          ))}
+        </AnimatePresence>
+
         {/* İç çekirdek */}
-        <motion.circle cx={CX} cy={CY} r={7} fill="rgba(167,139,250,0.65)"
-          animate={{ r: [6, 9.5, 6], opacity: [0.65, 1, 0.65] }}
-          transition={{ duration: 2.0, repeat: Infinity, ease: 'easeInOut' }} />
+        <motion.circle cx={CX} cy={CY} fill="rgba(167,139,250,0.65)"
+          animate={coreHovered
+            ? { r: 13, opacity: 1 }
+            : { r: [6, 9.5, 6], opacity: [0.65, 1, 0.65] }}
+          transition={coreHovered
+            ? { duration: 0.2, ease: 'easeOut' }
+            : { duration: 2.0, repeat: Infinity, ease: 'easeInOut' }} />
         {/* Merkez nokta */}
-        <circle cx={CX} cy={CY} r={3.5} fill="rgba(225,215,255,0.98)" />
+        <motion.circle cx={CX} cy={CY}
+          fill="rgba(225,215,255,0.98)"
+          animate={coreHovered ? { r: 6 } : { r: 3.5 }}
+          transition={{ duration: 0.2 }} />
 
         {/* Orbit ring */}
         <motion.circle
@@ -250,6 +323,15 @@ function AnimatedGlobe() {
           transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
           style={{ originX: `${CX}px`, originY: `${CY}px` }}
           cx={CX} cy={CY - R - 30}
+        />
+
+        {/* ── Hover hedef alanı (şeffaf, en üstte) ── */}
+        <circle
+          cx={CX} cy={CY} r={50}
+          fill="transparent"
+          style={{ cursor: 'crosshair' }}
+          onMouseEnter={() => setCoreHovered(true)}
+          onMouseLeave={() => setCoreHovered(false)}
         />
       </svg>
     </div>
