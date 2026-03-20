@@ -151,6 +151,70 @@ function AnimatedGlobe() {
           </g>
         ))}
 
+        {/* ── Floating Astronaut ── */}
+        <motion.g
+          animate={{ y: [0, -13, 2, -13, 0], rotate: [-5, 5, -2, 5, -5] }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ originX: `${CX}px`, originY: `${CY - 10}px` }}
+        >
+          {/* Soft glow */}
+          <circle cx={CX} cy={CY - 10} r={26} fill="rgba(99,102,241,0.09)" />
+
+          {/* Left leg */}
+          <rect x={CX - 11} y={CY + 14} width={9} height={12} rx={3}
+            fill="rgba(215,215,238,0.93)" stroke="rgba(150,150,200,0.3)" strokeWidth="0.5" />
+          {/* Right leg */}
+          <rect x={CX + 2} y={CY + 14} width={9} height={12} rx={3}
+            fill="rgba(215,215,238,0.93)" stroke="rgba(150,150,200,0.3)" strokeWidth="0.5" />
+
+          {/* Body */}
+          <rect x={CX - 14} y={CY - 5} width={28} height={21} rx={6}
+            fill="rgba(225,225,245,0.95)" stroke="rgba(150,150,200,0.35)" strokeWidth="0.6" />
+          {/* Chest panel */}
+          <rect x={CX - 7} y={CY} width={14} height={9} rx={2}
+            fill="rgba(80,80,160,0.65)" />
+          {/* Panel lights */}
+          <motion.circle cx={CX - 3} cy={CY + 4} r={1.8} fill="#4ade80"
+            animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
+          <motion.circle cx={CX + 1} cy={CY + 4} r={1.8} fill="#f87171"
+            animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2.2, repeat: Infinity }} />
+          <motion.circle cx={CX + 5} cy={CY + 4} r={1.8} fill="#fbbf24"
+            animate={{ opacity: [1, 0.5, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
+
+          {/* Left arm */}
+          <rect x={CX - 23} y={CY - 4} width={10} height={7} rx={3}
+            fill="rgba(215,215,238,0.93)" stroke="rgba(150,150,200,0.3)" strokeWidth="0.5" />
+          {/* Right arm */}
+          <rect x={CX + 13} y={CY - 4} width={10} height={7} rx={3}
+            fill="rgba(215,215,238,0.93)" stroke="rgba(150,150,200,0.3)" strokeWidth="0.5" />
+          {/* Gloves */}
+          <circle cx={CX - 18} cy={CY + 1} r={3.5} fill="rgba(180,180,215,0.9)" />
+          <circle cx={CX + 18} cy={CY + 1} r={3.5} fill="rgba(180,180,215,0.9)" />
+
+          {/* Backpack */}
+          <rect x={CX + 12} y={CY - 9} width={6} height={14} rx={2}
+            fill="rgba(140,140,190,0.85)" />
+
+          {/* Helmet */}
+          <circle cx={CX} cy={CY - 21} r={16}
+            fill="rgba(225,225,245,0.95)" stroke="rgba(150,150,200,0.35)" strokeWidth="0.8" />
+          {/* Visor */}
+          <ellipse cx={CX} cy={CY - 21} rx={11} ry={10}
+            fill="rgba(50,55,180,0.82)" />
+          {/* Visor shine */}
+          <ellipse cx={CX - 3.5} cy={CY - 25} rx={4} ry={2.5}
+            fill="rgba(255,255,255,0.22)" />
+          <ellipse cx={CX + 3} cy={CY - 17} rx={2} ry={1.2}
+            fill="rgba(255,255,255,0.1)" />
+
+          {/* Tether */}
+          <path
+            d={`M ${CX + 12} ${CY - 6} Q ${CX + 38} ${CY - 28} ${CX + 55} ${CY - 50}`}
+            stroke="rgba(160,160,220,0.35)" strokeWidth="1.2" fill="none"
+            strokeDasharray="4 3"
+          />
+        </motion.g>
+
         {/* Orbit ring */}
         <motion.circle
           cx={CX} cy={CY} r={R + 30}
