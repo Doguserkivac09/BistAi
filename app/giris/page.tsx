@@ -26,7 +26,13 @@ function GirisForm() {
       const supabase = createClient();
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) {
-        setError(err.message === 'Invalid login credentials' ? 'E-posta veya şifre hatalı.' : err.message);
+        const msg =
+          err.message === 'Invalid login credentials'
+            ? 'E-posta veya şifre hatalı.'
+            : err.message === 'Email not confirmed'
+              ? 'E-posta adresinizi doğrulamanız gerekiyor. Gelen kutunuzu kontrol edin.'
+              : err.message;
+        setError(msg);
         return;
       }
       window.location.assign(redirect);

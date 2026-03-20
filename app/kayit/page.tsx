@@ -26,7 +26,7 @@ export default function KayitPage() {
       const { error: err } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/dashboard` },
+        options: { emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback` },
       });
       if (err) {
         setError(
