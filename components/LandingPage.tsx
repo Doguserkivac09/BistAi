@@ -67,41 +67,73 @@ const FEATURES = [
   { icon: Sparkles,   title: 'AI Topluluk Botu', desc: 'Analistlerle fikir paylaş. AI Analist her paylaşımı otomatik yorumlar ve bağlam sunar.',                  gradient: 'from-pink-500/20 to-rose-500/5'     },
 ];
 
-// ── Animated Globe ────────────────────────────────────────────────
+// ── Animated Globe — borsa şehirleri + yay bağlantıları ──────────
 
-const GLOBE_MARKERS = [
-  { x: 285, y: 155 }, { x: 148, y: 235 }, { x: 318, y: 295 },
-  { x: 175, y: 148 }, { x: 252, y: 315 }, { x: 330, y: 200 }, { x: 130, y: 290 },
-];
+const G_CX = 210, G_CY = 210, G_R = 190;
+// Ortografik projeksiyon merkezi: 15°K enlem, 0° boylam (Atlantik ortası)
+const VIEW_LAT = 15 * Math.PI / 180;
+const VIEW_LON = 0 * Math.PI / 180;
 
-// Altın açı dağılımlı yıldız alanı
-const STAR_FIELD = Array.from({ length: 26 }, (_, i) => {
-  const angle = i * 137.508 * (Math.PI / 180);
-  const dist = 16 + (i % 9) * 16;
+function project(lat: number, lon: number) {
+  const φ = lat * Math.PI / 180;
+  const λ = lon * Math.PI / 180;
+  const Δλ = λ - VIEW_LON;
+  const depth =
+    Math.sin(VIEW_LAT) * Math.sin(φ) +
+    Math.cos(VIEW_LAT) * Math.cos(φ) * Math.cos(Δλ);
   return {
-    x: Math.round((210 + Math.cos(angle) * dist) * 10) / 10,
-    y: Math.round((210 + Math.sin(angle) * dist) * 10) / 10,
-    r: i % 5 === 0 ? 1.5 : i % 3 === 0 ? 1.0 : 0.55,
-    delay: (i * 0.19) % 3.2,
+    x: G_CX + G_R * Math.cos(φ) * Math.sin(Δλ),
+    y: G_CY - G_R * (Math.cos(VIEW_LAT) * Math.sin(φ) - Math.sin(VIEW_LAT) * Math.cos(φ) * Math.cos(Δλ)),
+    depth,
   };
-});
+}
 
-const CONNECTIONS: [number, number][] = [
-  [0, 2], [1, 5], [3, 4], [2, 4], [6, 1], [0, 5], [3, 0], [4, 6],
-];
+// Kuadratik bezier eğrisi üzerinde n+1 nokta örnekle (animasyon keyframe'leri için)
+function arcKeyframes(x1: number, y1: number, x2: number, y2: number, n = 18) {
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  // Kontrol noktasını küre merkezine %35 çek → iç bükey yay
+  const cpx = mx - (mx - G_CX) * 0.35;
+  const cpy = my - (my - G_CY) * 0.35;
+  const kfx: number[] = [], kfy: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, mt = 1 - t;
+    kfx.push(mt * mt * x1 + 2 * mt * t * cpx + t * t * x2);
+    kfy.push(mt * mt * y1 + 2 * mt * t * cpy + t * t * y2);
+  }
+  // Baş ve son noktada opacity = 0, ortada 0.9 (fade in/out)
+  return { kfx, kfy, kfo: [0, ...Array(n - 1).fill(0.9), 0] as number[] };
+}
+
+// Dünya borsaları (lat/lon gerçek koordinatlar)
+const EXCH_RAW = [
+  { id: 'BIST',  lat:  41.0,  lon:  28.9, main: true  }, // İstanbul
+  { id: 'NYSE',  lat:  40.7,  lon: -74.0, main: false }, // New York
+  { id: 'LSE',   lat:  51.5,  lon:  -0.1, main: false }, // Londra
+  { id: 'MOEX',  lat:  55.75, lon:  37.6, main: false }, // Moskova
+  { id: 'BSE',   lat:  19.1,  lon:  72.8, main: false }, // Mumbai
+  { id: 'DFM',   lat:  25.2,  lon:  55.3, main: false }, // Dubai
+  { id: 'JSE',   lat: -26.2,  lon:  28.0, main: false }, // Johannesburg
+  { id: 'B3',    lat: -23.5,  lon: -46.6, main: false }, // São Paulo
+] as const;
+
+const EXCH = EXCH_RAW.map(e => ({ ...e, ...project(e.lat, e.lon) }));
+const BIST_PT = EXCH.find(e => e.id === 'BIST')!;
+
+// ── AnimatedGlobe ─────────────────────────────────────────────────
 
 function AnimatedGlobe() {
-  const R = 190;
-  const CX = 210, CY = 210;
   const [coreHovered, setCoreHovered] = useState(false);
 
-  // 8 yönde patlayan parçacıklar
-  const BURST = Array.from({ length: 8 }, (_, i) => {
-    const rad = (i * 45) * Math.PI / 180;
-    return { tx: CX + Math.cos(rad) * 88, ty: CY + Math.sin(rad) * 88 };
-  });
   const latOffsets = [-152, -114, -76, -38, 0, 38, 76, 114, 152];
-  const longAngles = [0, 30, 60, 90, 120, 150];
+  const longAngles  = [0, 30, 60, 90, 120, 150];
+
+  // Hover: 8 yönlü patlama parçacıkları
+  const BURST = Array.from({ length: 8 }, (_, i) => {
+    const rad = i * 45 * Math.PI / 180;
+    return { tx: G_CX + Math.cos(rad) * 88, ty: G_CY + Math.sin(rad) * 88 };
+  });
+
+  const visibleOthers = EXCH.filter(e => !e.main && e.depth > 0.05);
 
   return (
     <div className="relative flex h-[420px] w-[420px] items-center justify-center">
@@ -112,7 +144,7 @@ function AnimatedGlobe() {
       <svg viewBox="0 0 420 420" className="relative h-full w-full" overflow="visible">
         <defs>
           <clipPath id="gc">
-            <circle cx={CX} cy={CY} r={R} />
+            <circle cx={G_CX} cy={G_CY} r={G_R} />
           </clipPath>
           <radialGradient id="gb" cx="38%" cy="32%" r="70%">
             <stop offset="0%"   stopColor="#1e1b4b" stopOpacity="0.8" />
@@ -126,138 +158,139 @@ function AnimatedGlobe() {
         </defs>
 
         {/* Globe base */}
-        <circle cx={CX} cy={CY} r={R} fill="url(#gb)" />
-        <circle cx={CX} cy={CY} r={R} fill="url(#gs)" />
+        <circle cx={G_CX} cy={G_CY} r={G_R} fill="url(#gb)" />
+        <circle cx={G_CX} cy={G_CY} r={G_R} fill="url(#gs)" />
 
         {/* Grid lines */}
         <g clipPath="url(#gc)" fill="none">
-          {/* Latitude */}
           {latOffsets.map((dy, i) => {
-            const rx = Math.sqrt(Math.max(0, R * R - dy * dy));
-            return <ellipse key={i} cx={CX} cy={CY + dy} rx={rx} ry={rx * 0.28} stroke="rgba(99,102,241,0.18)" strokeWidth="0.7" />;
+            const rx = Math.sqrt(Math.max(0, G_R * G_R - dy * dy));
+            return (
+              <ellipse key={i} cx={G_CX} cy={G_CY + dy} rx={rx} ry={rx * 0.28}
+                stroke="rgba(99,102,241,0.14)" strokeWidth="0.6" />
+            );
           })}
-          {/* Longitude — animasyonlu */}
           {longAngles.map((angle, i) => (
-            <motion.ellipse
-              key={i}
-              cx={CX} cy={CY} rx={48} ry={R}
-              stroke="rgba(99,102,241,0.18)" strokeWidth="0.7"
+            <motion.ellipse key={i}
+              cx={G_CX} cy={G_CY} rx={48} ry={G_R}
+              stroke="rgba(99,102,241,0.14)" strokeWidth="0.6"
               animate={{ rotate: [angle, angle + 360] }}
               transition={{ duration: 18 + i * 3, repeat: Infinity, ease: 'linear' }}
-              style={{ originX: `${CX}px`, originY: `${CY}px` }}
+              style={{ originX: `${G_CX}px`, originY: `${G_CY}px` }}
             />
           ))}
-          {/* Equator highlight */}
-          <ellipse cx={CX} cy={CY} rx={R} ry={R * 0.28} stroke="rgba(99,102,241,0.35)" strokeWidth="1" />
+          <ellipse cx={G_CX} cy={G_CY} rx={G_R} ry={G_R * 0.28}
+            stroke="rgba(99,102,241,0.30)" strokeWidth="1" />
         </g>
 
         {/* Outer rings */}
-        <circle cx={CX} cy={CY} r={R}     stroke="rgba(99,102,241,0.35)" strokeWidth="1"   fill="none" />
-        <circle cx={CX} cy={CY} r={R + 6} stroke="rgba(99,102,241,0.12)" strokeWidth="4"   fill="none" />
-        <circle cx={CX} cy={CY} r={R + 18} stroke="rgba(99,102,241,0.06)" strokeWidth="8"  fill="none" />
+        <circle cx={G_CX} cy={G_CY} r={G_R}      stroke="rgba(99,102,241,0.35)" strokeWidth="1"  fill="none" />
+        <circle cx={G_CX} cy={G_CY} r={G_R + 6}  stroke="rgba(99,102,241,0.12)" strokeWidth="4"  fill="none" />
+        <circle cx={G_CX} cy={G_CY} r={G_R + 18} stroke="rgba(99,102,241,0.06)" strokeWidth="8"  fill="none" />
 
-        {/* Markers */}
-        {GLOBE_MARKERS.map((m, i) => (
-          <g key={i}>
-            <motion.circle
-              cx={m.x} cy={m.y} r={2.5}
-              fill="rgba(99,102,241,0.9)"
-              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
-              transition={{ duration: 2 + i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ originX: `${m.x}px`, originY: `${m.y}px` }}
-            />
-            <motion.circle
-              cx={m.x} cy={m.y} r={7}
-              fill="none" stroke="rgba(99,102,241,0.4)"
-              animate={{ r: [6, 14], opacity: [0.5, 0] }}
-              transition={{ duration: 2 + i * 0.35, repeat: Infinity, ease: 'easeOut', delay: i * 0.2 }}
-            />
-          </g>
-        ))}
-
-        {/* ── Star field ── */}
-        <g clipPath="url(#gc)">
-          {STAR_FIELD.map((s, i) => (
-            <motion.circle
-              key={i} cx={s.x} cy={s.y} r={s.r} fill="white"
-              animate={{ opacity: [0.15, 0.85, 0.15] }}
-              transition={{ duration: 2.0 + (i % 7) * 0.38, repeat: Infinity, ease: 'easeInOut', delay: s.delay }}
-            />
-          ))}
-        </g>
-
-        {/* ── Connection lines ── */}
+        {/* ── Arc connections: BIST → diğer borsalar ── */}
         <g clipPath="url(#gc)" fill="none">
-          {CONNECTIONS.map(([a, b], i) => (
-            <line
-              key={i}
-              x1={GLOBE_MARKERS[a].x} y1={GLOBE_MARKERS[a].y}
-              x2={GLOBE_MARKERS[b].x} y2={GLOBE_MARKERS[b].y}
-              stroke={i % 2 === 0 ? 'rgba(99,102,241,0.25)' : 'rgba(139,92,246,0.2)'}
-              strokeWidth="0.9"
-            />
-          ))}
+          {visibleOthers.map((ex, i) => {
+            const mx = (BIST_PT.x + ex.x) / 2, my = (BIST_PT.y + ex.y) / 2;
+            const cpx = mx - (mx - G_CX) * 0.35;
+            const cpy = my - (my - G_CY) * 0.35;
+            return (
+              <path key={ex.id}
+                d={`M ${BIST_PT.x.toFixed(1)} ${BIST_PT.y.toFixed(1)} Q ${cpx.toFixed(1)} ${cpy.toFixed(1)} ${ex.x.toFixed(1)} ${ex.y.toFixed(1)}`}
+                stroke={i % 2 === 0 ? 'rgba(99,102,241,0.28)' : 'rgba(139,92,246,0.22)'}
+                strokeWidth="0.9" strokeDasharray="5 4"
+              />
+            );
+          })}
         </g>
 
-        {/* ── Data flow dots (ileri) ── */}
-        {CONNECTIONS.map(([a, b], i) => (
-          <motion.circle
-            key={`f${i}`} r={2.2}
-            fill={i % 3 === 0 ? 'rgba(167,139,250,0.95)' : i % 3 === 1 ? 'rgba(99,102,241,0.9)' : 'rgba(196,181,253,0.85)'}
-            animate={{
-              cx: [GLOBE_MARKERS[a].x, GLOBE_MARKERS[b].x],
-              cy: [GLOBE_MARKERS[a].y, GLOBE_MARKERS[b].y],
-              opacity: [0, 1, 1, 0],
-            }}
-            transition={{ duration: 2.6 + i * 0.42, repeat: Infinity, ease: 'easeInOut', delay: i * 0.6 }}
-          />
-        ))}
-
-        {/* ── Data flow dots (geri) ── */}
-        {CONNECTIONS.slice(0, 5).map(([a, b], i) => (
-          <motion.circle
-            key={`r${i}`} r={1.5}
-            fill="rgba(196,181,253,0.7)"
-            animate={{
-              cx: [GLOBE_MARKERS[b].x, GLOBE_MARKERS[a].x],
-              cy: [GLOBE_MARKERS[b].y, GLOBE_MARKERS[a].y],
-              opacity: [0, 0.75, 0.75, 0],
-            }}
-            transition={{ duration: 3.1 + i * 0.35, repeat: Infinity, ease: 'easeInOut', delay: 1.4 + i * 0.5 }}
-          />
-        ))}
-
-        {/* ── Hover: bağlantı parlaması ── */}
+        {/* ── Hover: arc parlaması ── */}
         <AnimatePresence>
           {coreHovered && (
-            <motion.g
-              key="conn-glow"
+            <motion.g key="conn-glow"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              clipPath="url(#gc)" fill="none"
+              transition={{ duration: 0.25 }} clipPath="url(#gc)" fill="none"
             >
-              {CONNECTIONS.map(([a, b], i) => (
-                <line key={i}
-                  x1={GLOBE_MARKERS[a].x} y1={GLOBE_MARKERS[a].y}
-                  x2={GLOBE_MARKERS[b].x} y2={GLOBE_MARKERS[b].y}
-                  stroke="rgba(196,181,253,0.55)" strokeWidth="1.4"
-                />
-              ))}
+              {visibleOthers.map((ex) => {
+                const mx = (BIST_PT.x + ex.x) / 2, my = (BIST_PT.y + ex.y) / 2;
+                const cpx = mx - (mx - G_CX) * 0.35;
+                const cpy = my - (my - G_CY) * 0.35;
+                return (
+                  <path key={ex.id}
+                    d={`M ${BIST_PT.x.toFixed(1)} ${BIST_PT.y.toFixed(1)} Q ${cpx.toFixed(1)} ${cpy.toFixed(1)} ${ex.x.toFixed(1)} ${ex.y.toFixed(1)}`}
+                    stroke="rgba(196,181,253,0.65)" strokeWidth="1.5"
+                  />
+                );
+              })}
             </motion.g>
           )}
         </AnimatePresence>
 
+        {/* ── Veri akışı: BIST'ten diğer borsalara akan noktalar ── */}
+        {visibleOthers.map((ex, i) => {
+          const { kfx, kfy, kfo } = arcKeyframes(BIST_PT.x, BIST_PT.y, ex.x, ex.y);
+          return (
+            <motion.circle key={ex.id + '_dot'} r={2.2}
+              fill={i % 2 === 0 ? 'rgba(167,139,250,0.95)' : 'rgba(99,102,241,0.85)'}
+              animate={{ cx: kfx, cy: kfy, opacity: kfo }}
+              transition={{ duration: 2.8 + i * 0.45, repeat: Infinity, ease: 'linear', delay: i * 0.6 }}
+            />
+          );
+        })}
+
+        {/* ── Borsa şehir marker'ları + etiketler ── */}
+        {EXCH.filter(e => e.depth > 0.05).map((ex, i) => {
+          const lRight = ex.x > G_CX;
+          const lBelow = ex.y > G_CY;
+          return (
+            <g key={ex.id}>
+              {ex.main ? (
+                <>
+                  {/* BIST: büyük nabız atan marker */}
+                  <motion.circle cx={ex.x} cy={ex.y} r={10}
+                    fill="rgba(99,102,241,0.15)"
+                    animate={{ r: [8, 20, 8], opacity: [0.5, 0, 0.5] }}
+                    transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                  <circle cx={ex.x} cy={ex.y} r={5.5} fill="rgba(139,92,246,0.9)" />
+                  <circle cx={ex.x} cy={ex.y} r={2.5} fill="rgba(225,215,255,0.98)" />
+                  <text x={ex.x + 9} y={ex.y - 7}
+                    fontSize="9" fontFamily="monospace" fontWeight="bold"
+                    fill="rgba(196,181,253,1)" textAnchor="start"
+                  >BIST ★</text>
+                </>
+              ) : (
+                <>
+                  {/* Diğer borsalar: küçük marker */}
+                  <motion.circle cx={ex.x} cy={ex.y} r={5}
+                    fill="rgba(99,102,241,0.1)"
+                    animate={{ r: [4, 9, 4], opacity: [0.3, 0, 0.3] }}
+                    transition={{ duration: 2.5 + i * 0.3, repeat: Infinity, ease: 'easeInOut', delay: i * 0.22 }}
+                  />
+                  <circle cx={ex.x} cy={ex.y} r={3} fill="rgba(99,102,241,0.8)" />
+                  <circle cx={ex.x} cy={ex.y} r={1.3} fill="rgba(196,181,253,0.95)" />
+                  <text
+                    x={ex.x + (lRight ? 7 : -7)}
+                    y={ex.y + (lBelow ? 13 : -5)}
+                    fontSize="7.5" fontFamily="monospace"
+                    fill="rgba(148,163,184,0.85)"
+                    textAnchor={lRight ? 'start' : 'end'}
+                  >{ex.id}</text>
+                </>
+              )}
+            </g>
+          );
+        })}
+
         {/* ── Pulsing core ── */}
-        {/* Dış hale — hover'da genişler */}
-        <motion.circle cx={CX} cy={CY} fill="rgba(99,102,241,0.06)"
+        <motion.circle cx={G_CX} cy={G_CY} fill="rgba(99,102,241,0.06)"
           animate={coreHovered
             ? { r: 52, opacity: 0.18 }
             : { r: [26, 42, 26], opacity: [0.08, 0, 0.08] }}
           transition={coreHovered
             ? { duration: 0.35, ease: 'easeOut' }
             : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }} />
-        {/* Orta hale */}
-        <motion.circle cx={CX} cy={CY} fill="rgba(99,102,241,0.15)"
+        <motion.circle cx={G_CX} cy={G_CY} fill="rgba(99,102,241,0.15)"
           animate={coreHovered
             ? { r: 24, opacity: 0.3 }
             : { r: [14, 22, 14], opacity: [0.2, 0.04, 0.2] }}
@@ -268,8 +301,7 @@ function AnimatedGlobe() {
         {/* ── Hover: sonar scan halkaları ── */}
         <AnimatePresence>
           {coreHovered && [0, 1, 2].map(i => (
-            <motion.circle key={`scan${i}`}
-              cx={CX} cy={CY}
+            <motion.circle key={`scan${i}`} cx={G_CX} cy={G_CY}
               fill="none"
               stroke={i === 0 ? 'rgba(196,181,253,0.75)' : i === 1 ? 'rgba(139,92,246,0.5)' : 'rgba(99,102,241,0.35)'}
               strokeWidth={1.8 - i * 0.3}
@@ -281,12 +313,11 @@ function AnimatedGlobe() {
           ))}
         </AnimatePresence>
 
-        {/* ── Hover: 8 yönlü patlama parçacıkları ── */}
+        {/* ── Hover: 8 yönlü patlama ── */}
         <AnimatePresence>
           {coreHovered && BURST.map((b, i) => (
-            <motion.circle key={`bp${i}`}
-              r={2.5} fill="rgba(196,181,253,0.95)"
-              initial={{ cx: CX, cy: CY, opacity: 1, scale: 1 }}
+            <motion.circle key={`bp${i}`} r={2.5} fill="rgba(196,181,253,0.95)"
+              initial={{ cx: G_CX, cy: G_CY, opacity: 1, scale: 1 }}
               animate={{ cx: b.tx, cy: b.ty, opacity: 0, scale: 0.2 }}
               exit={{}}
               transition={{ duration: 0.6, ease: 'easeOut', delay: i * 0.028 }}
@@ -295,39 +326,35 @@ function AnimatedGlobe() {
         </AnimatePresence>
 
         {/* İç çekirdek */}
-        <motion.circle cx={CX} cy={CY} fill="rgba(167,139,250,0.65)"
+        <motion.circle cx={G_CX} cy={G_CY} fill="rgba(167,139,250,0.65)"
           animate={coreHovered
             ? { r: 13, opacity: 1 }
             : { r: [6, 9.5, 6], opacity: [0.65, 1, 0.65] }}
           transition={coreHovered
             ? { duration: 0.2, ease: 'easeOut' }
             : { duration: 2.0, repeat: Infinity, ease: 'easeInOut' }} />
-        {/* Merkez nokta */}
-        <motion.circle cx={CX} cy={CY}
+        <motion.circle cx={G_CX} cy={G_CY}
           fill="rgba(225,215,255,0.98)"
           animate={coreHovered ? { r: 6 } : { r: 3.5 }}
           transition={{ duration: 0.2 }} />
 
         {/* Orbit ring */}
-        <motion.circle
-          cx={CX} cy={CY} r={R + 30}
+        <motion.circle cx={G_CX} cy={G_CY} r={G_R + 30}
           fill="none" stroke="rgba(99,102,241,0.2)" strokeWidth="1" strokeDasharray="8 6"
           animate={{ rotate: 360 }}
           transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-          style={{ originX: `${CX}px`, originY: `${CY}px` }}
+          style={{ originX: `${G_CX}px`, originY: `${G_CY}px` }}
         />
         {/* Orbit dot */}
-        <motion.circle
-          r={4} fill="rgba(167,139,250,0.9)"
+        <motion.circle r={4} fill="rgba(167,139,250,0.9)"
           animate={{ rotate: 360 }}
           transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-          style={{ originX: `${CX}px`, originY: `${CY}px` }}
-          cx={CX} cy={CY - R - 30}
+          style={{ originX: `${G_CX}px`, originY: `${G_CY}px` }}
+          cx={G_CX} cy={G_CY - G_R - 30}
         />
 
-        {/* ── Hover hedef alanı (şeffaf, en üstte) ── */}
-        <circle
-          cx={CX} cy={CY} r={50}
+        {/* Hover hedef alanı (şeffaf, en üstte) */}
+        <circle cx={G_CX} cy={G_CY} r={50}
           fill="transparent"
           style={{ cursor: 'crosshair' }}
           onMouseEnter={() => setCoreHovered(true)}
