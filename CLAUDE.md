@@ -85,6 +85,7 @@ git push -u origin feat/<feature-name>
 | **Phase 10** | ✅ | Topluluk Platformu (posts, comments, likes, realtime, moderation) |
 | **Phase 11** | ✅ | Ödeme & Abonelik (Stripe checkout, webhook, tier-gating, fiyatlandırma) |
 | **Phase 12** | ✅ | AI Topluluk Botu (AI Analist badge, premium gate, rate limit) |
+| **Phase 13** | ✅ | Ek Veri & ML Temeli (AlphaVantage, data-providers, ML features, FastAPI+XGBoost) |
 
 ---
 
@@ -353,18 +354,21 @@ Katman 4: KOMPOZİT KARAR
 
 ---
 
-## Phase 13 — Ek Veri Kaynakları & ML Temeli (~2 hafta, opsiyonel) ⬜
+## Phase 13 — Ek Veri Kaynakları & ML Temeli ✅
 
 **Tema:** Veri genişletme + ML hazırlığı. Maliyet: $0-57/ay
 
-| # | Görev | Zorluk | Kim | Durum |
-|---|-------|--------|-----|-------|
-| 13.1 | AlphaVantage entegrasyonu | M | Doğuş | ⬜ |
-| 13.2 | TradingEconomics (maliyet değerlendirilecek) | M | Doğuş | ⬜ |
-| 13.3 | Veri kaynak abstraksiyonu (`lib/data-providers.ts`) | L | Doğuş | ⬜ |
-| 13.4 | Feature engineering (`lib/ml-features.ts`) | L | Doğuş | ⬜ |
-| 13.5 | Python ML microservice (FastAPI + XGBoost) | XL | İkisi | ⬜ |
-| 13.6 | ML prediction API proxy | M | Doğuş | ⬜ |
+| # | Görev | Zorluk | Durum |
+|---|-------|--------|-------|
+| 13.1 | AlphaVantage entegrasyonu (`lib/alpha-vantage.ts`) | M | ✅ |
+| 13.2 | TradingEconomics | M | ⏭️ Atlandı (free tier 2 call/ay — yetersiz) |
+| 13.3 | Veri kaynak abstraksiyonu (`lib/data-providers.ts`) | L | ✅ |
+| 13.4 | Feature engineering (`lib/ml-features.ts`) | L | ✅ |
+| 13.5 | Python ML microservice (`python-ml/`) FastAPI + XGBoost | XL | ✅ |
+| 13.6 | ML prediction API proxy (`/api/ml/predict`) | M | ✅ |
+
+> **Deploy notu:** `python-ml/` klasörü Railway/Render'a ayrı servis olarak deploy edilmeli.
+> ML_SERVICE_URL env değişkeni ayarlanana kadar heuristic fallback aktif.
 
 ---
 
