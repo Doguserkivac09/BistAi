@@ -15,6 +15,7 @@ interface StockCardProps {
   signal: StockSignal;
   candleData: OHLCVCandle[];
   macroScore?: { score: number; wind: string } | null;
+  delay?: number; // ms — kademeli yükleme için
 }
 
 function MacroBadge({ score, wind }: { score: number; wind: string }) {
@@ -39,7 +40,7 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
   );
 }
 
-export function StockCard({ signal, candleData, macroScore }: StockCardProps) {
+export function StockCard({ signal, candleData, macroScore, delay = 0 }: StockCardProps) {
   const [explanation, setExplanation] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export function StockCard({ signal, candleData, macroScore }: StockCardProps) {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
       setError(null);
       try {
         const lastCandle = candleData[candleData.length - 1];

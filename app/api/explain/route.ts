@@ -3,8 +3,8 @@ import { generateSignalExplanation } from '@/lib/claude';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import type { StockSignal } from '@/types';
 
-// Claude API pahalı — IP başına dakikada 20 istek
-const RATE_LIMIT = 20;
+// Claude API — IP başına dakikada 100 istek (tarama sonuçları eş zamanlı gelir)
+const RATE_LIMIT = 100;
 const WINDOW_MS = 60_000;
 
 export async function POST(request: NextRequest) {

@@ -452,18 +452,23 @@ export default function TaramaPage() {
           >
             <AnimatePresence>
               {displayList.flatMap((r) =>
-                r.signals.map((sig) => (
-                  <motion.div
-                    key={`${r.sembol}-${sig.type}`}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <StockCard signal={sig} candleData={r.candles} macroScore={macroScore} />
-                  </motion.div>
-                ))
-              )}
+                r.signals.map((sig) => ({ sig, candles: r.candles }))
+              ).map(({ sig, candles }, idx) => (
+                <motion.div
+                  key={`${sig.sembol}-${sig.type}`}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <StockCard
+                    signal={sig}
+                    candleData={candles}
+                    macroScore={macroScore}
+                    delay={idx * 250}
+                  />
+                </motion.div>
+              ))}
             </AnimatePresence>
           </motion.div>
         )}
