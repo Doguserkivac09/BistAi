@@ -81,7 +81,7 @@ git push -u origin feat/<feature-name>
 | **Phase 6** | ✅ | Kompozit Sinyal & Makro UI |
 | **Phase 7** | ✅ (ML ⬜ Python opsiyonel) | İleri Seviye (Backtesting, Alert, ML) |
 | **Phase 8** | ✅ | Teknik Borç & UI Temeli (macroService, time-align, AI cache, skeleton) |
-| **Phase 9** | ⬜ (9.4 Berk) | Profil & Kişiselleştirme (profiles tablo, API, sayfa, navbar dropdown) |
+| **Phase 9** | ✅ | Profil & Kişiselleştirme (profiles tablo, API, sayfa, navbar dropdown) |
 | **Phase 10** | ✅ | Topluluk Platformu (posts, comments, likes, realtime, moderation) |
 | **Phase 11** | ✅ | Ödeme & Abonelik (Stripe checkout, webhook, tier-gating, fiyatlandırma) |
 
@@ -277,7 +277,7 @@ Katman 4: KOMPOZİT KARAR
 | 9.1 | `profiles` tablosu + RLS + auto-create trigger | S | Doğuş | ✅ |
 | 9.2 | Profil API (`/api/profile` GET + PATCH) | M | Doğuş | ✅ |
 | 9.3 | Profil sayfası (`/profil`) — skeleton, form, tier badge | M | Doğuş | ✅ |
-| 9.4 | Kişiselleştirilmiş ana sayfa (login → dashboard-home, logout → landing) | L | Berk | ⬜ |
+| 9.4 | Kişiselleştirilmiş ana sayfa (login → dashboard-home, logout → landing) | L | Berk | ✅ |
 | 9.5 | Navbar profil dropdown (avatar + dropdown menü) | S | Doğuş | ✅ |
 | 9.6 | Middleware `/profil` guard | S | Doğuş | ✅ |
 
@@ -400,17 +400,17 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 ## Koordinasyon
 1. ✅ Phase 1-8 tamamlandı
 2. ✅ Phase 9 backend tamamlandı (2026-03-15): profiles tablo, API, profil sayfası, navbar dropdown, middleware guard
-3. ⬜ Doğuş: `profiles` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_profiles.sql`)
-4. ⬜ Berk: 9.4 Kişiselleştirilmiş ana sayfa (login → dashboard, logout → landing)
+3. ✅ Doğuş: `profiles` migration'ı Supabase'de çalıştırıldı
+4. ✅ Berk: 9.4 Kişiselleştirilmiş ana sayfa — middleware.ts ile yapıldı (giris/kayit → dashboard, anonim → landing)
 5. ✅ Phase 10 tamamlandı (2026-03-15): topluluk posts/comments/likes DB + API + feed/detay/oluşturma sayfaları + realtime + moderation
-6. ⬜ Doğuş: `community` migration'ı Supabase'de çalıştır (`supabase/migrations/20260315_community.sql`)
-7. ⬜ Supabase Realtime'ı etkinleştir: Dashboard → Database → Replication → `comments` tablosuna realtime ekle
+6. ✅ Doğuş: `community` migration'ı Supabase'de çalıştırıldı
+7. ✅ Supabase Realtime etkinleştirildi: `comments` tablosu realtime yayınına eklendi
 8. ✅ Phase 11 tamamlandı (2026-03-15): Stripe checkout/webhook/portal, fiyatlandırma sayfası, tier-gating, profil abonelik bölümü
 9. ✅ Doğuş: `subscriptions` migration'ı Supabase'de çalıştırıldı
 10. ⬜ **Stripe `.env.local` key'leri eklenecek** (hesap açılınca):
     - `STRIPE_SECRET_KEY=sk_test_...`
     - `STRIPE_WEBHOOK_SECRET=whsec_...`
-    - `STRIPE_PRICE_PRO=price_...` (Stripe Dashboard → Products → Pro plan price ID)
+    - `STRIPE_PRICE_PRO
     - `STRIPE_PRICE_PREMIUM=price_...` (Premium plan price ID)
     - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...`
     - `SUPABASE_SERVICE_ROLE_KEY=...` (webhook handler için, Supabase → Settings → API → service_role key)
