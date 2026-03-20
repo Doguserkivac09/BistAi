@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       .from('posts')
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, display_name, avatar_url, tier)
+        author:profiles!posts_author_profile_fkey(id, display_name, avatar_url, tier)
       `, { count: 'exact' })
       .eq('is_deleted', false);
 
@@ -143,12 +143,13 @@ export async function POST(request: NextRequest) {
       })
       .select(`
         *,
-        author:profiles!posts_author_id_fkey(id, display_name, avatar_url, tier)
+        author:profiles!posts_author_profile_fkey(id, display_name, avatar_url, tier)
       `)
       .single();
 
     if (error) {
-      return NextResponse.json({ error: 'Post oluşturulamadı.' }, { status: 500 });
+      console.error('[community/posts] POST error:', error.message, error.details, error.hint);
+      return NextResponse.json({ error: 'Post oluşturulamadı.', debug: error.message }, { status: 500 });
     }
 
     return NextResponse.json(post, { status: 201 });
