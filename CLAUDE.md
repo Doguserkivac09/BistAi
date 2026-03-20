@@ -421,7 +421,15 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 11. ✅ Auth fix tamamlandı (2026-03-20): emailRedirectTo /auth/callback, email onay hatası Türkçe
 12. ✅ Supabase email onayı development için kapatıldı (test hesabı oluşturulabilir)
 13. ✅ Phase 12 tamamlandı (2026-03-20): AI Topluluk Botu — community-ai.ts, AI Analist badge, premium gate, rate limit
-14. ⬜ **Sıradaki: Phase 13 — Ek Veri Kaynakları & ML Temeli (opsiyonel)** veya Stripe canlıya alma
+14. ⬜ **API Key'ler — Tüm phase'ler bitince eklenecek:**
+    - `ANTHROPIC_API_KEY=sk-ant-...` → console.anthropic.com → API Keys
+    - `STRIPE_SECRET_KEY=sk_test_...` → dashboard.stripe.com → Developers → API Keys
+    - `STRIPE_WEBHOOK_SECRET=whsec_...` → Stripe → Webhooks → endpoint secret
+    - `STRIPE_PRICE_PRO=price_...` → Stripe → Products → Pro plan price ID
+    - `STRIPE_PRICE_PREMIUM=price_...` → Stripe → Products → Premium plan price ID
+    - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...` → Stripe → API Keys
+    - `NEXT_PUBLIC_SITE_URL=http://localhost:3000` (prod'da gerçek URL)
+15. ⬜ **Sıradaki: Phase 13 — Ek Veri Kaynakları & ML Temeli (opsiyonel)**
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
