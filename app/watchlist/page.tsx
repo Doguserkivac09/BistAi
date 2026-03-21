@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star, Plus, Trash2, RefreshCw, TrendingUp, TrendingDown,
@@ -303,6 +303,12 @@ export default function WatchlistPage() {
   const [error, setError]         = useState<string | null>(null);
   const [fiyatlar, setFiyatlar]   = useState<Record<string, FiyatInfo>>({});
   const [sinyalMap, setSinyalMap] = useState<Record<string, SinvalInfo[]>>({});
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // ── Veri yükle ────────────────────────────────────────────────────────────
 
@@ -345,7 +351,7 @@ export default function WatchlistPage() {
       if (semboller.length > 0) {
         fetch(`/api/portfolyo/sinyaller?semboller=${semboller.join(',')}`)
           .then((r) => r.json())
-          .then((d: Record<string, SinvalInfo[]>) => setSinyalMap(d))
+          .then((d: Record<string, SinvalInfo[]>) => { if (mountedRef.current) setSinyalMap(d); })
           .catch(() => {});
       }
     } catch (e) {

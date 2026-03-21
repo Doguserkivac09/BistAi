@@ -62,14 +62,20 @@ export default function ProfilPage() {
 
   // Bildirim tercihlerini yükle
   useEffect(() => {
-    fetch('/api/user/alert-preferences')
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch('/api/user/alert-preferences', { signal: controller.signal })
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
-        if (!d) return;
+        if (cancelled || !d) return;
         setEmailEnabled(d.email_enabled ?? true);
         setMinSeverity(d.min_severity ?? 'orta');
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, []);
 
   async function savePref(enabled: boolean, severity: 'güçlü' | 'orta' | 'zayıf') {
