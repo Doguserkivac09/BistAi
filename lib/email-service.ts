@@ -6,7 +6,10 @@
 import { Resend } from 'resend';
 import type { StockSignal } from '@/types';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy init — build sırasında env var olmayabilir, runtime'da oluştur
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 const FROM = process.env.RESEND_FROM ?? 'BistAI <bildirim@bistai.app>';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bistai.vercel.app';
@@ -145,7 +148,7 @@ export async function sendSignalAlert(params: {
   const symbols = stocks.map((x) => x.sembol).join(', ');
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM,
       to,
       subject: `📊 ${symbols} — ${totalSignals} yeni sinyal`,
