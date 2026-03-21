@@ -70,6 +70,7 @@ export async function GET(
       is_liked: !!likeData,
       comments: comments ?? [],
       user_tier: profileData?.tier ?? 'free',
+      current_user_id: user.id,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
@@ -154,14 +155,21 @@ export async function DELETE(
     }
 
     // Soft delete
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('posts')
       .update({ is_deleted: true })
       .eq('id', id)
-      .eq('author_id', user.id);
+      .eq('author_id', user.id)
+      .select('id');
+
+    console.error('[community/posts] DELETE debug:', { id, userId: user.id, error: error?.message, data });
 
     if (error) {
-      return NextResponse.json({ error: 'Post silinemedi.' }, { status: 403 });
+      return NextResponse.json({ error: 'Post silinemedi.', debug: error.message }, { status: 403 });
+    }
+
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: 'Post bulunamadı veya yetkiniz yok.' }, { status: 403 });
     }
 
     return NextResponse.json({ success: true });
