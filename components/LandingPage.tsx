@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createBrowserClient } from '@supabase/ssr';
 import {
   AnimatePresence,
   motion,
@@ -451,17 +452,18 @@ function FeatureCard({ f, index }: { f: typeof FEATURES[0]; index: number }) {
 
 // ── Signal row ────────────────────────────────────────────────────
 
-function SignalRow({ sig, index }: { sig: typeof MOCK_SIGNALS[0]; index: number }) {
+function SignalRow({ sig, index, isLoggedIn }: { sig: typeof MOCK_SIGNALS[0]; index: number; isLoggedIn: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true });
   const isAl = sig.dir === 'AL';
-  return (
+
+  const content = (
     <motion.div
       ref={ref}
       initial={{ opacity: 0, x: -20 }}
       animate={isInView ? { opacity: 1, x: 0 } : {}}
       transition={{ duration: 0.45, delay: index * 0.06 }}
-      className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface/40 px-4 py-3 backdrop-blur-sm transition-colors hover:border-primary/30 hover:bg-surface/60"
+      className={`flex items-center gap-3 rounded-xl border border-border/60 bg-surface/40 px-4 py-3 backdrop-blur-sm transition-colors hover:border-primary/30 hover:bg-surface/60 ${isLoggedIn ? 'cursor-pointer' : ''}`}
     >
       {/* Sembol */}
       <span className="w-14 text-xs font-bold text-text-primary">{sig.sembol}</span>
@@ -492,6 +494,12 @@ function SignalRow({ sig, index }: { sig: typeof MOCK_SIGNALS[0]; index: number 
       </span>
     </motion.div>
   );
+
+  return (
+    <Link href={isLoggedIn ? `/hisse/${sig.sembol}` : '/giris'}>
+      {content}
+    </Link>
+  );
 }
 
 // ── Main Component ────────────────────────────────────────────────
@@ -501,6 +509,18 @@ export default function LandingPage() {
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
   const heroOpacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
   const heroY = useTransform(scrollYProgress, [0, 1], [0, -60]);
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   return (
     // overflow-x: clip — scroll'u kilitlemez, sadece yatay taşmayı keser
@@ -603,15 +623,31 @@ export default function LandingPage() {
                 transition={{ duration: 0.65, delay: 1.15 }}
                 className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
               >
-                <Button size="lg" className="glow-btn px-7 py-6 text-sm font-semibold" asChild>
-                  <Link href="/kayit">
-                    Ücretsiz Başla
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" className="border-border/60 px-7 py-6 text-sm hover:border-primary/40 hover:bg-primary/5" asChild>
-                  <Link href="/giris">Giriş Yap</Link>
-                </Button>
+                {isLoggedIn ? (
+                  <>
+                    <Button size="lg" className="glow-btn px-7 py-6 text-sm font-semibold" asChild>
+                      <Link href="/tarama">
+                        Hisseleri Tara
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button size="lg" variant="outline" className="border-border/60 px-7 py-6 text-sm hover:border-primary/40 hover:bg-primary/5" asChild>
+                      <Link href="/dashboard">Dashboard</Link>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button size="lg" className="glow-btn px-7 py-6 text-sm font-semibold" asChild>
+                      <Link href="/kayit">
+                        Ücretsiz Başla
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button size="lg" variant="outline" className="border-border/60 px-7 py-6 text-sm hover:border-primary/40 hover:bg-primary/5" asChild>
+                      <Link href="/giris">Giriş Yap</Link>
+                    </Button>
+                  </>
+                )}
               </motion.div>
 
               {/* Mini stats */}
@@ -689,7 +725,9 @@ export default function LandingPage() {
               <span className="gradient-text">gerçek zamanlı</span>
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-text-secondary">
-              Şu an aktif olan sinyallerin bir önizlemesi. Tam analiz için hesap oluştur.
+              {isLoggedIn
+                ? 'Şu an aktif olan sinyaller. Detay için tıkla.'
+                : 'Şu an aktif olan sinyallerin bir önizlemesi. Tam analiz için hesap oluştur.'}
             </p>
           </DepthSection>
 
@@ -704,7 +742,7 @@ export default function LandingPage() {
               <span>Karar</span>
             </div>
 
-            {MOCK_SIGNALS.map((sig, i) => <SignalRow key={i} sig={sig} index={i} />)}
+            {MOCK_SIGNALS.map((sig, i) => <SignalRow key={i} sig={sig} index={i} isLoggedIn={isLoggedIn} />)}
 
             <motion.div
               initial={{ opacity: 0 }}
@@ -713,8 +751,8 @@ export default function LandingPage() {
               className="pt-4 text-center"
             >
               <Button variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/10" asChild>
-                <Link href="/kayit">
-                  Tüm Sinyalleri Gör
+                <Link href="/tarama">
+                  Tüm Hisseleri Tara
                   <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                 </Link>
               </Button>
@@ -824,15 +862,26 @@ export default function LandingPage() {
               <p className="mx-auto mt-3 max-w-sm text-text-secondary">
                 Kredi kartı gerekmez. 5 dakikada hesap oluştur, sinyalleri taramaya başla.
               </p>
-              <Button size="lg" className="glow-btn mt-7 px-9 py-6 text-sm font-semibold" asChild>
-                <Link href="/kayit">
-                  Ücretsiz Hesap Oluştur
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <p className="mt-3 text-xs text-text-secondary opacity-50">
-                Free plan · Kredi kartı yok · İstediğin zaman iptal
-              </p>
+              {isLoggedIn ? (
+                <Button size="lg" className="glow-btn mt-7 px-9 py-6 text-sm font-semibold" asChild>
+                  <Link href="/tarama">
+                    Hisseleri Tara
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <>
+                  <Button size="lg" className="glow-btn mt-7 px-9 py-6 text-sm font-semibold" asChild>
+                    <Link href="/kayit">
+                      Ücretsiz Hesap Oluştur
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <p className="mt-3 text-xs text-text-secondary opacity-50">
+                    Free plan · Kredi kartı yok · İstediğin zaman iptal
+                  </p>
+                </>
+              )}
             </motion.div>
           </div>
         </DepthSection>
