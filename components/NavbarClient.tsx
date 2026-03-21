@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,12 +15,12 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/tarama', label: 'Tarama' },
-  { href: '/karsilastir', label: 'Karşılaştır' },
   {
     label: 'Portföy',
     dropdown: [
-      { href: '/portfolyo', label: 'Portföyüm',    icon: Briefcase },
-      { href: '/watchlist', label: 'Watchlist',     icon: Star },
+      { href: '/portfolyo',   label: 'Portföyüm',    icon: Briefcase },
+      { href: '/watchlist',   label: 'Watchlist',     icon: Star },
+      { href: '/karsilastir', label: 'Karşılaştır',  icon: GitCompare },
     ],
   },
   {
