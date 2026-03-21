@@ -219,14 +219,14 @@ function AddModal({
               }}
               onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
               placeholder="THYAO"
-              className="w-full rounded-lg border border-border bg-surface-alt px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-primary focus:outline-none"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
             />
             {showDropdown && filtered.length > 0 && (
               <div className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg">
                 {filtered.map((s) => (
                   <button
                     key={s}
-                    className="w-full px-3 py-2 text-left text-sm text-white hover:bg-surface-alt"
+                    className="w-full px-3 py-2 text-left text-sm text-zinc-900 hover:bg-zinc-100"
                     onMouseDown={() => { set('sembol', s); setShowDropdown(false); setQuery(s); }}
                   >
                     {s}
@@ -247,7 +247,7 @@ function AddModal({
                 value={form.miktar}
                 onChange={(e) => set('miktar', e.target.value)}
                 placeholder="100"
-                className="w-full rounded-lg border border-border bg-surface-alt px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
               />
             </div>
             <div>
@@ -259,7 +259,7 @@ function AddModal({
                 value={form.alis_fiyati}
                 onChange={(e) => set('alis_fiyati', e.target.value)}
                 placeholder="45.20"
-                className="w-full rounded-lg border border-border bg-surface-alt px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -271,7 +271,7 @@ function AddModal({
               type="date"
               value={form.alis_tarihi}
               onChange={(e) => set('alis_tarihi', e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface-alt px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-primary focus:outline-none"
             />
           </div>
 
@@ -283,7 +283,7 @@ function AddModal({
               value={form.notlar}
               onChange={(e) => set('notlar', e.target.value)}
               placeholder="Örn: Temettü için aldım"
-              className="w-full rounded-lg border border-border bg-surface-alt px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:border-primary focus:outline-none"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
             />
           </div>
         </div>
