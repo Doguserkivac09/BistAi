@@ -70,13 +70,45 @@ function EmptyPortfolio({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+// ─── Sinyal badge ────────────────────────────────────────────────────────────
+
+interface SinvalInfo { type: string; direction: string; severity: string }
+
+function SinyalBadge({ sinyaller }: { sinyaller: SinvalInfo[] }) {
+  if (sinyaller.length === 0) return null;
+
+  // En güçlü sinyali göster
+  const order = ['güçlü', 'orta', 'zayıf'];
+  const best = [...sinyaller].sort(
+    (a, b) => order.indexOf(a.severity) - order.indexOf(b.severity)
+  )[0]!;
+
+  const isUp = best.direction === 'yukari';
+  const color = isUp ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : 'bg-red-500/15 text-red-400 border-red-500/30';
+  const arrow = isUp ? '↑' : '↓';
+
+  return (
+    <div className="mt-0.5 flex items-center gap-1">
+      <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${color}`}>
+        {arrow} {best.type}
+      </span>
+      {sinyaller.length > 1 && (
+        <span className="text-[10px] text-text-muted">+{sinyaller.length - 1}</span>
+      )}
+    </div>
+  );
+}
+
 // ─── Pozisyon satırı ──────────────────────────────────────────────────────────
 
 function PozisyonRow({
   poz,
+  sinyaller,
   onDelete,
 }: {
   poz: PortfolyoPozisyonWithStats;
+  sinyaller: SinvalInfo[];
   onDelete: (id: string) => void;
 }) {
   const profit = (poz.kar_zarar ?? 0) >= 0;
@@ -97,7 +129,7 @@ function PozisyonRow({
           </div>
           <div>
             <div className="font-semibold text-text-primary text-sm">{poz.sembol}</div>
-            <div className="text-xs text-text-muted">{poz.alis_tarihi}</div>
+            <SinyalBadge sinyaller={sinyaller} />
           </div>
         </div>
       </td>
@@ -329,6 +361,7 @@ export default function PortfolyoPage() {
   const [saving, setSaving]           = useState(false);
   const [error, setError]             = useState<string | null>(null);
   const [fiyatlar, setFiyatlar]       = useState<Record<string, number>>({});
+  const [sinyalMap, setSinyalMap]     = useState<Record<string, SinvalInfo[]>>({});
 
   // ── Veri çek ──────────────────────────────────────────────────────────────
 
@@ -360,6 +393,14 @@ export default function PortfolyoPage() {
       );
 
       setFiyatlar(fiyatMap);
+
+      // Sinyalleri çek — arka planda, UI'ı bloklamadan
+      if (semboller.length > 0) {
+        fetch(`/api/portfolyo/sinyaller?semboller=${semboller.join(',')}`)
+          .then((r) => r.json())
+          .then((d: Record<string, SinvalInfo[]>) => setSinyalMap(d))
+          .catch(() => {});
+      }
 
       const withStats: PortfolyoPozisyonWithStats[] = data.map((p) => {
         const guncel = fiyatMap[p.sembol] ?? null;
@@ -550,7 +591,7 @@ export default function PortfolyoPage() {
                     <tbody>
                       <AnimatePresence>
                         {pozisyonlar.map((poz) => (
-                          <PozisyonRow key={poz.id} poz={poz} onDelete={handleDelete} />
+                          <PozisyonRow key={poz.id} poz={poz} sinyaller={sinyalMap[poz.sembol] ?? []} onDelete={handleDelete} />
                         ))}
                       </AnimatePresence>
                     </tbody>
