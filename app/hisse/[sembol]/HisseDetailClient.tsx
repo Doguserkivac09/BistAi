@@ -248,7 +248,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
             {/* ── Haberler ──────────────────────────────────────────────────── */}
             <h2 className="mb-4 mt-8 text-lg font-semibold text-text-primary">
-              📋 {sembol} KAP Bildirimleri
+              📰 {sembol} Haberleri
             </h2>
             {haberLoading ? (
               <div className="space-y-3">
@@ -258,7 +258,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </div>
             ) : haberler.length === 0 ? (
               <p className="text-sm text-text-secondary">
-                Bu hisse için KAP bildirimi bulunamadı.
+                Bu hisse için güncel haber bulunamadı.
               </p>
             ) : (
               <div className="space-y-3">
