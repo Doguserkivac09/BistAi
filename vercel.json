@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/evaluate",
       "schedule": "0 17 * * 1-5"
+    },
+    {
+      "path": "/api/cron/alerts",
+      "schedule": "0 7 * * 1-5"
     }
   ]
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Plus, Trash2, RefreshCw,
-  Briefcase, AlertCircle, X, ChevronUp, ChevronDown,
+  Briefcase, AlertCircle, X, ChevronUp, ChevronDown, Bell, BellOff,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import type { PortfolyoPozisyonWithStats } from '@/types';
@@ -354,14 +354,17 @@ function AddModal({
 // ─── Ana sayfa ────────────────────────────────────────────────────────────────
 
 export default function PortfolyoPage() {
-  const [pozisyonlar, setPozisyonlar] = useState<PortfolyoPozisyonWithStats[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [refreshing, setRefreshing]   = useState(false);
-  const [showModal, setShowModal]     = useState(false);
-  const [saving, setSaving]           = useState(false);
-  const [error, setError]             = useState<string | null>(null);
-  const [fiyatlar, setFiyatlar]       = useState<Record<string, number>>({});
-  const [sinyalMap, setSinyalMap]     = useState<Record<string, SinvalInfo[]>>({});
+  const [pozisyonlar, setPozisyonlar]   = useState<PortfolyoPozisyonWithStats[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [showModal, setShowModal]       = useState(false);
+  const [saving, setSaving]             = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [fiyatlar, setFiyatlar]         = useState<Record<string, number>>({});
+  const [sinyalMap, setSinyalMap]       = useState<Record<string, SinvalInfo[]>>({});
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [minSeverity, setMinSeverity]   = useState<'güçlü' | 'orta' | 'zayıf'>('orta');
+  const [prefSaving, setPrefSaving]     = useState(false);
 
   // ── Veri çek ──────────────────────────────────────────────────────────────
 
@@ -432,6 +435,31 @@ export default function PortfolyoPage() {
 
   useEffect(() => { loadPozisyonlar(); }, [loadPozisyonlar]);
 
+  // ── Bildirim tercihleri yükle ──────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/user/alert-preferences')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d) return;
+        setEmailEnabled(d.email_enabled ?? true);
+        setMinSeverity(d.min_severity ?? 'orta');
+      })
+      .catch(() => {});
+  }, []);
+
+  async function savePref(enabled: boolean, severity: 'güçlü' | 'orta' | 'zayıf') {
+    setPrefSaving(true);
+    try {
+      await fetch('/api/user/alert-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_enabled: enabled, min_severity: severity }),
+      });
+    } catch {} finally {
+      setPrefSaving(false);
+    }
+  }
+
   // ── Pozisyon ekle ─────────────────────────────────────────────────────────
 
   async function handleSave(form: FormData) {
@@ -497,6 +525,41 @@ export default function PortfolyoPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Bildirim toggle */}
+            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2">
+              <button
+                onClick={() => {
+                  const next = !emailEnabled;
+                  setEmailEnabled(next);
+                  savePref(next, minSeverity);
+                }}
+                className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
+                title={emailEnabled ? 'Bildirimleri kapat' : 'Bildirimleri aç'}
+              >
+                {emailEnabled
+                  ? <Bell className="h-3.5 w-3.5 text-primary" />
+                  : <BellOff className="h-3.5 w-3.5 text-text-muted" />}
+                <span className={emailEnabled ? 'text-primary' : 'text-text-muted'}>
+                  {prefSaving ? '…' : emailEnabled ? 'Bildirim Açık' : 'Bildirim Kapalı'}
+                </span>
+              </button>
+              {emailEnabled && (
+                <select
+                  value={minSeverity}
+                  onChange={(e) => {
+                    const v = e.target.value as 'güçlü' | 'orta' | 'zayıf';
+                    setMinSeverity(v);
+                    savePref(emailEnabled, v);
+                  }}
+                  className="border-l border-border pl-2 bg-transparent text-xs text-text-secondary focus:outline-none cursor-pointer"
+                >
+                  <option value="zayıf">Tümü</option>
+                  <option value="orta">Orta+</option>
+                  <option value="güçlü">Sadece Güçlü</option>
+                </select>
+              )}
+            </div>
+
             <button
               onClick={() => loadPozisyonlar(true)}
               disabled={refreshing}
