@@ -257,9 +257,19 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 ))}
               </div>
             ) : haberler.length === 0 ? (
-              <p className="text-sm text-text-secondary">
-                Bu hisse için güncel haber bulunamadı.
-              </p>
+              <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-surface py-8 text-center">
+                <p className="text-sm text-text-secondary">
+                  {sembol} için güncel haber bulunamadı.
+                </p>
+                <Link
+                  href="/haberler"
+                  className="group relative inline-flex items-center gap-2 overflow-hidden rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40"
+                >
+                  <span className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-300 group-hover:translate-x-0" />
+                  <span>📰 Günün Tüm Haberlerini Gör</span>
+                  <span className="transition-transform group-hover:translate-x-1">→</span>
+                </Link>
+              </div>
             ) : (
               <div className="space-y-3">
                 {haberler.map((h, i) => {

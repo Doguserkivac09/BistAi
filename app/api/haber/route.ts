@@ -118,11 +118,64 @@ async function fetchTurkishNews(sembol: string): Promise<HaberItem[]> {
   return sort(combined).slice(0, 6);
 }
 
+// ── Genel ekonomi haberleri (haberler sayfası için) ───────────────────────────
+async function fetchGenelHaberler(): Promise<HaberItem[]> {
+  const results: HaberItem[] = [];
+
+  await Promise.allSettled(
+    RSS_SOURCES.map(async ({ url, kaynak }) => {
+      try {
+        const res = await fetch(url, {
+          headers: { 'User-Agent': UA },
+          next: { revalidate: 900 }, // 15 dk cache
+        });
+        if (!res.ok) return;
+        const xml = await res.text();
+        const items = parseRSS(xml).slice(0, 5).map((h) => ({ ...h, kaynak: h.kaynak || kaynak }));
+        results.push(...items);
+      } catch {}
+    })
+  );
+
+  return results
+    .sort((a, b) => (new Date(b.tarih).getTime() || 0) - (new Date(a.tarih).getTime() || 0))
+    .filter((h, i, arr) => arr.findIndex((x) => x.baslik === h.baslik) === i) // duplicate önle
+    .slice(0, 20);
+}
+
 // ── Ana handler ───────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const sembol = req.nextUrl.searchParams.get('sembol')?.toUpperCase() ?? '';
-  if (!sembol) return NextResponse.json({ error: 'sembol gerekli' }, { status: 400 });
 
-  const haberler = await fetchTurkishNews(sembol);
+  // Genel haberler sayfası
+  if (!sembol) {
+    const haberler = await fetchGenelHaberler();
+    return NextResponse.json({ haberler });
+  }
+
+  // Hisse bazlı haberler — sadece şirkete özel, fallback YOK
+  const anahtarlar = SEMBOL_ANAHTAR[sembol] ?? [sembol];
+  const specific: HaberItem[] = [];
+
+  await Promise.allSettled(
+    RSS_SOURCES.map(async ({ url, kaynak }) => {
+      try {
+        const res = await fetch(url, {
+          headers: { 'User-Agent': UA },
+          next: { revalidate: 1800 },
+        });
+        if (!res.ok) return;
+        const xml = await res.text();
+        parseRSS(xml)
+          .filter((h) => ilgiliMi(h.baslik, anahtarlar))
+          .forEach((h) => specific.push({ ...h, kaynak: h.kaynak || kaynak }));
+      } catch {}
+    })
+  );
+
+  const haberler = specific
+    .sort((a, b) => (new Date(b.tarih).getTime() || 0) - (new Date(a.tarih).getTime() || 0))
+    .slice(0, 6);
+
   return NextResponse.json({ sembol, haberler });
 }
