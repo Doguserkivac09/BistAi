@@ -196,6 +196,7 @@ export async function fetchOHLCVByTimeframe(
     res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
       next: { revalidate: 120 },
+      signal: AbortSignal.timeout(8_000),
     });
   } catch {
     console.error(`[Yahoo] fetchOHLCVByTimeframe ağ hatası (${sembol})`);

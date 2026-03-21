@@ -90,10 +90,12 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             });
             const j = await r.json();
 
-            try {
-              await saveSignalPerformance({ userId, signal: sig, candles: data });
-            } catch {
-              // ignore
+            if (!cancelled) {
+              try {
+                await saveSignalPerformance({ userId, signal: sig, candles: data });
+              } catch {
+                // ignore
+              }
             }
 
             return { key: `${sig.type}`, text: r.ok ? j.explanation : j.error };

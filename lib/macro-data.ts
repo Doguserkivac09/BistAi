@@ -167,6 +167,7 @@ export async function fetchMacroHistory(
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT },
       next: { revalidate: 900 },
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!res.ok) {

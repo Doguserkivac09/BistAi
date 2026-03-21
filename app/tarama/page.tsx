@@ -329,12 +329,18 @@ export default function TaramaPage() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/macro')
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch('/api/macro', { signal: controller.signal })
       .then(r => r.json())
       .then(data => {
-        if (data.score) setMacroScore({ score: data.score.score, wind: data.score.wind });
+        if (!cancelled && data.score) setMacroScore({ score: data.score.score, wind: data.score.wind });
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, []);
 
   const scanSymbols = useCallback(async (symbols: string[], types: string[]) => {
