@@ -50,7 +50,7 @@ const MOCK_SIGNALS = [
 // ── Stats ─────────────────────────────────────────────────────────
 
 const STATS = [
-  { value: '150+', label: 'BIST Hissesi'   },
+  { value: '160+', label: 'BIST Hissesi'   },
   { value: '7',    label: 'Sinyal Tipi'    },
   { value: '7',    label: 'Makro Gösterge' },
   { value: '7/24', label: 'Canlı Analiz'   },
@@ -59,7 +59,7 @@ const STATS = [
 // ── Features ──────────────────────────────────────────────────────
 
 const FEATURES = [
-  { icon: BarChart3,  title: 'Sinyal Tarama',    desc: 'RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi ve daha fazlası — 150+ BIST hissesinde tek seferde.',        gradient: 'from-indigo-500/20 to-violet-500/5'  },
+  { icon: BarChart3,  title: 'Sinyal Tarama',    desc: 'RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi ve daha fazlası — 160+ BIST hissesinde tek seferde.',        gradient: 'from-indigo-500/20 to-violet-500/5'  },
   { icon: Brain,      title: 'AI Açıklamalar',   desc: 'Her sinyal için Claude AI ile üretilen sade Türkçe analiz. Ne olduğunu değil, ne anlama geldiğini öğren.', gradient: 'from-violet-500/20 to-fuchsia-500/5' },
   { icon: TrendingUp, title: 'Makro Radar',      desc: 'VIX, DXY, USD/TRY, TCMB faizi — tüm makro rüzgarları tek panelde. BIST\'in nabzını hisset.',              gradient: 'from-cyan-500/20 to-blue-500/5'      },
   { icon: Shield,     title: 'Risk Skoru',       desc: 'Kompozit motor sektörü, makroyu ve teknik sinyali birleştirir. AL / TUT / SAT kararı + güven yüzdesi.',    gradient: 'from-emerald-500/20 to-teal-500/5'  },
@@ -622,7 +622,7 @@ export default function LandingPage() {
                 className="mt-10 flex flex-wrap items-center justify-center gap-6 lg:justify-start"
               >
                 {[
-                  { icon: Globe2,   text: '150+ hisse' },
+                  { icon: Globe2,   text: '160+ hisse' },
                   { icon: Activity, text: '7 sinyal tipi' },
                   { icon: Users,    text: 'Topluluk' },
                 ].map((item, i) => (

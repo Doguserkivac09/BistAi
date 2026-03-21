@@ -96,12 +96,16 @@ export async function fetchOHLCV(
 
   let res: Response;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
     res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
       next: { revalidate: 300 },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
   } catch {
-    console.error(`[Yahoo] fetchOHLCV ağ hatası (${sembol})`);
+    console.error(`[Yahoo] fetchOHLCV ağ hatası / timeout (${sembol})`);
     return [];
   }
 

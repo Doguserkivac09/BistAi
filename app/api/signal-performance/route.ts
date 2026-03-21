@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase-server';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { getMarketRegime } from '@/lib/regime-engine';
 
@@ -23,6 +24,13 @@ interface SignalPerformanceBody {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // ── Auth kontrolü ────────────────────────────────────────────────
+    const authClient = await createServerClient();
+    const { data: { user } } = await authClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Giriş gerekli.' }, { status: 401 });
+    }
+
     const body = (await request.json()) as SignalPerformanceBody;
 
     if (!body.sembol || !body.signal_type || !body.direction || !body.entry_price || !body.entry_time) {
@@ -47,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .from('signal_performance')
       .upsert(
         {
-          user_id: body.user_id,
+          user_id: user.id, // Body'den gelen user_id değil, doğrulanmış session user_id
           sembol: body.sembol,
           signal_type: body.signal_type,
           direction: body.direction,

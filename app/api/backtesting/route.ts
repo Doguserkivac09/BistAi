@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase-server';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 import {
   runBacktest,
@@ -48,6 +49,13 @@ export interface BacktestingResponse {
 
 export async function GET(request: NextRequest) {
   try {
+    // ── Auth kontrolü ────────────────────────────────────────────────
+    const authClient = await createServerClient();
+    const { data: { user } } = await authClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Giriş gerekli.' }, { status: 401 });
+    }
+
     const days = parseDaysParam(request);
     const direction = parseDirectionParam(request);
     const supabase = createAdminClient();

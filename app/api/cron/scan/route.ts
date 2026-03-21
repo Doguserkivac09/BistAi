@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
+import type { StockSignal } from '@/types';
 import { getMarketRegime } from '@/lib/regime-engine';
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -73,10 +74,10 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    for (const result of results) {
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j]!;
       if (result.status === 'rejected') {
-        const sembol = batch[results.indexOf(result)] ?? '?';
-        failedSymbols.push(sembol);
+        failedSymbols.push(batch[j] ?? '?');
         continue;
       }
 
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
       totalSignals += signals.length;
 
       // Her sinyal için DB'ye kaydet
-      const rows = signals.map((sig) => ({
+      const rows = signals.map((sig: StockSignal) => ({
         user_id:     null,
         sembol,
         signal_type: sig.type,

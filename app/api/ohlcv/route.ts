@@ -31,8 +31,16 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Sembol validasyonu: sadece harf, rakam, ^, ., - karakterlerine izin ver
+  const trimmed = symbol.trim().toUpperCase();
+  if (!/^[\w^.\-]{1,20}$/i.test(trimmed)) {
+    return NextResponse.json(
+      { error: 'Geçersiz sembol formatı.' },
+      { status: 400 }
+    );
+  }
+
   try {
-    const trimmed = symbol.trim();
 
     if (tfParam) {
       const tf = tfParam.toLowerCase() as YahooTimeframe;
