@@ -31,11 +31,14 @@ export async function GET(request: NextRequest) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
+    console.log('TABLE NAME: signal_performance');
     const { data, error } = await supabase
       .from('signal_performance')
       .select('*')
-      .eq('evaluated', true)
-      .gte('entry_time', cutoff.toISOString());
+      .eq('evaluated', true);
+
+    const rows = data;
+    console.log('SUPABASE RAW ROW COUNT:', rows?.length);
 
     if (error) {
       return NextResponse.json(
