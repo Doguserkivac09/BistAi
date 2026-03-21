@@ -98,9 +98,9 @@ Bu sinyali yatırımcıya kısaca açıkla.`;
 
   const result = await callClaude(apiKey, SYSTEM_PROMPT, userPrompt);
 
-  // Başarılı sonucu cache'le
+  // Başarılı sonucu cache'le (fire-and-forget, hata kritik değil)
   if (!result.startsWith('AI açıklaması')) {
-    setCachedExplanation(cacheKey, result, 1);
+    setCachedExplanation(cacheKey, result, 1).catch(() => {});
   }
 
   return result;

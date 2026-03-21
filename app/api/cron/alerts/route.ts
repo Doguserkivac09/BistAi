@@ -42,8 +42,12 @@ async function sleep(ms: number) {
 
 export async function GET(req: NextRequest) {
   // ── Yetkilendirme ──────────────────────────────────────────────────────────
+  if (!CRON_SECRET) {
+    console.error('[cron/alerts] CRON_SECRET env değişkeni tanımlı değil!');
+    return NextResponse.json({ error: 'Sunucu yapılandırma hatası' }, { status: 500 });
+  }
   const auth = req.headers.get('authorization') ?? '';
-  if (!CRON_SECRET || auth !== `Bearer ${CRON_SECRET}`) {
+  if (auth !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -51,16 +55,18 @@ export async function GET(req: NextRequest) {
   const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
   // ── 1. Portföy + Watchlist hisselerini çek ────────────────────────────────
-  const [{ data: pozisyonlar }, { data: watchItems }] = await Promise.all([
+  const [
+    { data: pozisyonlar, error: pozErr },
+    { data: watchItems, error: watchErr },
+  ] = await Promise.all([
     admin.from('portfolyo_pozisyonlar').select('user_id, sembol'),
     admin.from('watchlist').select('user_id, sembol'),
   ]);
 
-  const allRows = [
-    ...(pozisyonlar ?? []),
-    ...(watchItems ?? []),
-  ];
+  if (pozErr) console.error('[cron/alerts] portfolyo sorgu hatası:', pozErr.message);
+  if (watchErr) console.error('[cron/alerts] watchlist sorgu hatası:', watchErr.message);
 
+  const allRows = [...(pozisyonlar ?? []), ...(watchItems ?? [])];
   if (!allRows.length) {
     return NextResponse.json({ ok: true, message: 'Takip edilen hisse yok', sent: 0 });
   }
@@ -73,7 +79,6 @@ export async function GET(req: NextRequest) {
 
   for (let i = 0; i < uniqueSymbols.length; i += 5) {
     const batch = uniqueSymbols.slice(i, i + 5);
-
     await Promise.allSettled(
       batch.map(async (sembol) => {
         try {
@@ -82,11 +87,10 @@ export async function GET(req: NextRequest) {
           const signals = detectAllSignals(sembol, candles);
           if (signals.length > 0) signalMap[sembol] = signals;
         } catch {
-          // Sessizce devam
+          // sessizce devam
         }
       })
     );
-
     if (i + 5 < uniqueSymbols.length) await sleep(400);
   }
 
@@ -95,43 +99,64 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 4. Kullanıcıları grupla ────────────────────────────────────────────────
-  // user_id → semboller[]
   const userSymbols: Record<string, string[]> = {};
   for (const { user_id, sembol } of allRows) {
     if (!userSymbols[user_id]) userSymbols[user_id] = [];
     if (signalMap[sembol]) userSymbols[user_id].push(sembol);
   }
 
-  // ── 5. Bildirim gönder ─────────────────────────────────────────────────────
+  const userIds = Object.keys(userSymbols).filter((id) => userSymbols[id].length > 0);
+  if (!userIds.length) {
+    return NextResponse.json({ ok: true, message: 'Gönderilecek sinyal yok', sent: 0 });
+  }
+
+  // ── 5. Batch: tüm tercihleri + geçmişi tek sorguda çek ────────────────────
+  const [{ data: allPrefs }, { data: allHistory }] = await Promise.all([
+    admin
+      .from('alert_subscriptions')
+      .select('user_id, email_enabled, min_severity')
+      .in('user_id', userIds),
+    admin
+      .from('alert_history')
+      .select('user_id, sembol, signal_type')
+      .in('user_id', userIds)
+      .gte('sent_at', today + 'T00:00:00Z'),
+  ]);
+
+  const prefsMap = new Map((allPrefs ?? []).map((p) => [p.user_id, p]));
+
+  // Bugün gönderilenleri user bazında grupla
+  const historyMap = new Map<string, Set<string>>();
+  for (const row of allHistory ?? []) {
+    if (!historyMap.has(row.user_id)) historyMap.set(row.user_id, new Set());
+    historyMap.get(row.user_id)!.add(`${row.sembol}::${row.signal_type}`);
+  }
+
+  // ── 6. Bildirim gönder ─────────────────────────────────────────────────────
   let sentCount = 0;
 
-  for (const [userId, semboller] of Object.entries(userSymbols)) {
-    if (!semboller.length) continue;
+  // Kullanıcı e-postalarını paralel çek
+  const emailResults = await Promise.allSettled(
+    userIds.map((id) => admin.auth.admin.getUserById(id))
+  );
+  const emailMap = new Map<string, string>();
+  userIds.forEach((id, idx) => {
+    const r = emailResults[idx];
+    if (r?.status === 'fulfilled') {
+      const email = r.value.data?.user?.email;
+      if (email) emailMap.set(id, email);
+    }
+  });
 
-    // Kullanıcı tercihleri
-    const { data: prefs } = await admin
-      .from('alert_subscriptions')
-      .select('email_enabled, min_severity')
-      .eq('user_id', userId)
-      .single();
-
+  for (const userId of userIds) {
+    const prefs       = prefsMap.get(userId);
     const emailEnabled = prefs?.email_enabled ?? true;
     const minSeverity  = prefs?.min_severity  ?? 'orta';
-
     if (!emailEnabled) continue;
 
-    // Daha önce bugün gönderildi mi? (alert_history)
-    const { data: sentToday } = await admin
-      .from('alert_history')
-      .select('sembol, signal_type')
-      .eq('user_id', userId)
-      .gte('sent_at', today + 'T00:00:00Z');
+    const sentSet = historyMap.get(userId) ?? new Set<string>();
+    const semboller = userSymbols[userId] ?? [];
 
-    const sentSet = new Set(
-      (sentToday ?? []).map((r) => `${r.sembol}::${r.signal_type}`)
-    );
-
-    // Gönderilebilecek sinyaller
     const stocksToSend: Array<{ sembol: string; signals: StockSignal[] }> = [];
     const newHistoryRows: Array<{ user_id: string; sembol: string; signal_type: string }> = [];
 
@@ -151,18 +176,17 @@ export async function GET(req: NextRequest) {
 
     if (!stocksToSend.length) continue;
 
-    // Kullanıcı e-postasını çek
-    const { data: authUser } = await admin.auth.admin.getUserById(userId);
-    const email = authUser?.user?.email;
+    const email = emailMap.get(userId);
     if (!email) continue;
 
-    // E-posta gönder
-    const result = await sendSignalAlert({ to: email, stocks: stocksToSend });
-
-    if (result.success) {
-      // History kayıt
-      await admin.from('alert_history').insert(newHistoryRows);
-      sentCount++;
+    try {
+      const result = await sendSignalAlert({ to: email, stocks: stocksToSend });
+      if (result?.success) {
+        await admin.from('alert_history').insert(newHistoryRows);
+        sentCount++;
+      }
+    } catch (emailErr) {
+      console.error(`[cron/alerts] E-posta gönderilemedi (${userId}):`, emailErr);
     }
   }
 

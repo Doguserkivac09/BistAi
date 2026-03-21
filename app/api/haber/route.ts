@@ -16,6 +16,21 @@ export interface HaberItem {
 }
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+const FETCH_TIMEOUT_MS = 5_000;
+
+/** XML entity decode + HTML tag temizleme (XSS önleme) */
+function decodeXMLEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/<[^>]*>/g, '') // HTML tag'lerini temizle
+    .trim();
+}
 
 const SEMBOL_ANAHTAR: Record<string, string[]> = {
   THYAO: ['Türk Hava Yolları', 'THY', 'THYAO'],
@@ -52,9 +67,10 @@ function parseRSS(xml: string): HaberItem[] {
   let m;
   while ((m = re.exec(xml)) !== null) {
     const b = m[1] ?? '';
-    const baslik =
+    const baslik = decodeXMLEntities(
       (b.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) ??
-       b.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim().replace(/&amp;/g, '&').replace(/&quot;/g, '"') ?? '';
+       b.match(/<title>([\s\S]*?)<\/title>/))?.[1] ?? ''
+    );
     const link =
       (b.match(/<link>([\s\S]*?)<\/link>/))?.[1]?.trim() ??
       (b.match(/<guid[^>]*>(https?[^<]+)<\/guid>/))?.[1]?.trim() ?? '';
@@ -92,6 +108,7 @@ async function fetchTurkishNews(sembol: string): Promise<HaberItem[]> {
         const res = await fetch(url, {
           headers: { 'User-Agent': UA },
           next: { revalidate: 1800 },
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
         if (!res.ok) return;
         const xml = await res.text();
@@ -127,7 +144,8 @@ async function fetchGenelHaberler(): Promise<HaberItem[]> {
       try {
         const res = await fetch(url, {
           headers: { 'User-Agent': UA },
-          next: { revalidate: 900 }, // 15 dk cache
+          next: { revalidate: 900 },
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
         if (!res.ok) return;
         const xml = await res.text();
@@ -163,6 +181,7 @@ export async function GET(req: NextRequest) {
         const res = await fetch(url, {
           headers: { 'User-Agent': UA },
           next: { revalidate: 1800 },
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
         if (!res.ok) return;
         const xml = await res.text();
