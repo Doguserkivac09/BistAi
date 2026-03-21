@@ -108,7 +108,7 @@ function WatchRow({
       <td className="py-3 px-3 text-right">
         {fiyat ? (
           <div>
-            <div className="text-sm font-medium text-text-primary">
+            <div className="text-xs sm:text-sm font-medium text-text-primary">
               ₺{fiyat.fiyat.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
             </div>
             <div className={`flex items-center justify-end gap-0.5 text-xs ${up ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -122,7 +122,7 @@ function WatchRow({
       </td>
 
       {/* Sinyaller */}
-      <td className="py-3 px-3">
+      <td className="hidden sm:table-cell py-3 px-3">
         {sinyaller.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {sinyaller.slice(0, 2).map((sig, i) => (
@@ -465,7 +465,7 @@ export default function WatchlistPage() {
                       <tr className="border-b border-border/60 text-xs text-text-muted">
                         <th className="py-3 pl-4 pr-3 text-left font-medium">Hisse</th>
                         <th className="py-3 px-3 text-right font-medium">Fiyat</th>
-                        <th className="py-3 px-3 text-left font-medium">Aktif Sinyaller</th>
+                        <th className="hidden sm:table-cell py-3 px-3 text-left font-medium">Aktif Sinyaller</th>
                         <th className="py-3 pl-3 pr-4 text-right font-medium"></th>
                       </tr>
                     </thead>

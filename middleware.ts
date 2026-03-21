@@ -41,7 +41,8 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith('/portfolyo') ||
       pathname.startsWith('/watchlist') ||
       pathname.startsWith('/backtesting') ||
-      pathname.startsWith('/topluluk'))
+      pathname.startsWith('/topluluk') ||
+      pathname.startsWith('/karsilastir'))
   ) {
     const redirectTo = `${pathname}${request.nextUrl.search}`;
     const loginUrl = new URL('/giris', request.url);
@@ -53,6 +54,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard', '/tarama', '/hisse/:path*', '/profil', '/portfolyo', '/watchlist', '/backtesting', '/topluluk/:path*', '/giris', '/kayit'],
+  matcher: ['/dashboard', '/tarama', '/hisse/:path*', '/profil', '/portfolyo', '/watchlist', '/backtesting', '/topluluk/:path*', '/karsilastir', '/giris', '/kayit'],
 };
 

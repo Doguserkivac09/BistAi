@@ -459,7 +459,7 @@ export default function TaramaPage() {
               ))}
             </div>
 
-            <div className="h-5 w-px bg-border" />
+            <div className="hidden sm:block h-5 w-px bg-border" />
 
             {/* Yön chip'leri */}
             <div className="flex gap-1.5">
@@ -477,7 +477,7 @@ export default function TaramaPage() {
               ))}
             </div>
 
-            <div className="h-5 w-px bg-border" />
+            <div className="hidden sm:block h-5 w-px bg-border" />
 
             {/* Tara butonu */}
             <Button onClick={runScan} disabled={loading} className="gap-2">

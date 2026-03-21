@@ -1,16 +1,24 @@
 {
   "crons": [
     {
-      "path": "/api/cron/scan",
+      "path": "/api/cron/macro",
+      "schedule": "0 6 * * 1-5"
+    },
+    {
+      "path": "/api/cron/macro-refresh",
       "schedule": "30 6 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scan",
+      "schedule": "0 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/alerts",
+      "schedule": "30 7 * * 1-5"
     },
     {
       "path": "/api/cron/evaluate",
       "schedule": "0 17 * * 1-5"
-    },
-    {
-      "path": "/api/cron/alerts",
-      "schedule": "0 7 * * 1-5"
     }
   ]
 }

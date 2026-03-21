@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/tarama', label: 'Tarama' },
+  { href: '/karsilastir', label: 'Karşılaştır' },
   {
     label: 'Portföy',
     dropdown: [
@@ -53,7 +54,7 @@ interface NavbarClientProps {
 function UserAvatar({ email }: { email: string | null }) {
   const initial = email ? email[0].toUpperCase() : 'U';
   return (
-    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
+    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
       {initial}
     </div>
   );
@@ -240,7 +241,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
         aria-hidden={!mobileOpen}
         className={cn(
           'overflow-hidden border-t border-border transition-all duration-200 ease-in-out md:hidden',
-          mobileOpen ? 'max-h-[500px]' : 'max-h-0 border-t-0'
+          mobileOpen ? 'max-h-[600px]' : 'max-h-0 border-t-0'
         )}
       >
         <nav className="container mx-auto flex flex-col gap-1 px-4 py-3">

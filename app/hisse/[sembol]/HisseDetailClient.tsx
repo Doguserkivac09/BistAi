@@ -154,7 +154,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-text-primary">{sembol}</h1>
-                <div className="inline-flex items-center rounded-lg border border-border bg-surface/80 p-1 text-xs text-text-secondary">
+                <div className="overflow-x-auto">
+                <div className="inline-flex items-center rounded-lg border border-border bg-surface/80 p-1 text-xs text-text-secondary whitespace-nowrap">
                   {TIMEFRAMES.map((tf, i) => {
                     const prev = TIMEFRAMES[i - 1];
                     const showSep = prev && prev.group !== tf.group;
@@ -177,6 +178,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                       </span>
                     );
                   })}
+                </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">

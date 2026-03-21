@@ -135,17 +135,17 @@ function PozisyonRow({
       </td>
 
       {/* Miktar */}
-      <td className="py-3.5 px-3 text-right text-sm text-text-secondary">
+      <td className="hidden sm:table-cell py-3.5 px-3 text-right text-xs sm:text-sm text-text-secondary">
         {fmt(poz.miktar, 0)} lot
       </td>
 
       {/* Alış fiyatı */}
-      <td className="py-3.5 px-3 text-right text-sm text-text-secondary">
+      <td className="hidden sm:table-cell py-3.5 px-3 text-right text-xs sm:text-sm text-text-secondary">
         {fmtTL(poz.alis_fiyati)}
       </td>
 
       {/* Güncel fiyat */}
-      <td className="py-3.5 px-3 text-right text-sm">
+      <td className="py-3.5 px-3 text-right text-xs sm:text-sm">
         {hasPrice ? (
           <span className="text-text-primary">{fmtTL(poz.guncel_fiyat!)}</span>
         ) : (
@@ -154,12 +154,12 @@ function PozisyonRow({
       </td>
 
       {/* Maliyet */}
-      <td className="py-3.5 px-3 text-right text-sm text-text-secondary">
+      <td className="py-3.5 px-3 text-right text-xs sm:text-sm text-text-secondary">
         {fmtTL(poz.maliyet)}
       </td>
 
       {/* Güncel değer */}
-      <td className="py-3.5 px-3 text-right text-sm">
+      <td className="py-3.5 px-3 text-right text-xs sm:text-sm">
         {hasPrice ? fmtTL(poz.guncel_deger!) : <span className="text-text-muted">—</span>}
       </td>
 
@@ -642,8 +642,8 @@ export default function PortfolyoPage() {
                     <thead>
                       <tr className="border-b border-border/60 text-xs text-text-muted">
                         <th className="py-3 pl-4 pr-3 text-left font-medium">Hisse</th>
-                        <th className="py-3 px-3 text-right font-medium">Lot</th>
-                        <th className="py-3 px-3 text-right font-medium">Alış</th>
+                        <th className="hidden sm:table-cell py-3 px-3 text-right font-medium">Lot</th>
+                        <th className="hidden sm:table-cell py-3 px-3 text-right font-medium">Alış</th>
                         <th className="py-3 px-3 text-right font-medium">Güncel</th>
                         <th className="py-3 px-3 text-right font-medium">Maliyet</th>
                         <th className="py-3 px-3 text-right font-medium">Değer</th>
