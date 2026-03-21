@@ -83,7 +83,10 @@ export type SignalTypeFilter =
   | 'RSI Uyumsuzluğu'
   | 'Hacim Anomalisi'
   | 'Trend Başlangıcı'
-  | 'Kırılım';
+  | 'Kırılım'
+  | 'MACD Kesişimi'
+  | 'RSI Seviyesi'
+  | 'Altın Çapraz';
 
 export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
 

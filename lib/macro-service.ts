@@ -140,6 +140,8 @@ export function formatMacroResponse(full: MacroFullResult) {
       usdtry: yahoo.usdtry,
       eem: yahoo.eem,
       brent: yahoo.brent,
+      gold: yahoo.gold,
+      bist100: yahoo.bist100,
     },
     turkey: {
       policyRate: turkey?.policyRate ?? null,

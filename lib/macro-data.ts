@@ -37,6 +37,8 @@ export interface MacroSnapshot {
   usdtry: MacroQuote | null;
   eem: MacroQuote | null;
   brent: MacroQuote | null;
+  gold: MacroQuote | null;
+  bist100: MacroQuote | null;
   fetchedAt: string;
 }
 
@@ -49,6 +51,8 @@ export const MACRO_SYMBOLS = {
   USDTRY: { yahoo: 'USDTRY=X',  name: 'USD/TRY Kuru' },
   EEM:    { yahoo: 'EEM',       name: 'iShares MSCI EM ETF' },
   BRENT:  { yahoo: 'BZ=F',      name: 'Brent Petrol' },
+  GOLD:   { yahoo: 'GC=F',      name: 'Altın (XAU/USD)' },
+  BIST100:{ yahoo: 'XU100.IS',  name: 'BIST 100 Endeksi' },
 } as const;
 
 export type MacroSymbolKey = keyof typeof MACRO_SYMBOLS;
@@ -220,6 +224,8 @@ export async function fetchAllMacroQuotes(): Promise<MacroSnapshot> {
     usdtry: null,
     eem: null,
     brent: null,
+    gold: null,
+    bist100: null,
     fetchedAt: new Date().toISOString(),
   };
 

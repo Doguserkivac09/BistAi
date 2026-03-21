@@ -246,15 +246,135 @@ export function detectSupportResistanceBreak(sembol: string, candles: OHLCVCandl
   return null;
 }
 
-export function detectAllSignals(sembol: string, candles: OHLCVCandle[]): StockSignal[] {
+// --- MACD (12, 26, 9) ---
+export function detectMACDCrossover(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 35) return null;
+  const closes = candles.map((c) => c.close);
+  const ema12 = calculateEMA(closes, 12);
+  const ema26 = calculateEMA(closes, 26);
+
+  // MACD çizgisi = EMA12 - EMA26
+  const macdLine = ema12.map((v, i) => v - ema26[i]!);
+  // Sinyal çizgisi = MACD'ın 9 EMA'sı
+  const signalLine = calculateEMA(macdLine, 9);
+
+  // Son 5 mum içinde kesişim ara
+  for (let i = 1; i <= 5 && candles.length - 1 - i >= 1; i++) {
+    const idx = candles.length - 1 - i;
+    const prevIdx = idx - 1;
+    const macdNow = macdLine[idx]!;
+    const macdPrev = macdLine[prevIdx]!;
+    const sigNow = signalLine[idx]!;
+    const sigPrev = signalLine[prevIdx]!;
+
+    // Bullish: MACD sinyal çizgisini yukarı kesti
+    if (macdPrev <= sigPrev && macdNow > sigNow) {
+      const histNow = macdNow - sigNow;
+      return {
+        type: 'MACD Kesişimi',
+        sembol,
+        severity: i === 1 ? 'güçlü' : i <= 2 ? 'orta' : 'zayıf',
+        direction: 'yukari',
+        data: { macd: macdNow, signal: sigNow, histogram: histNow, crossoverCandlesAgo: i },
+      };
+    }
+    // Bearish: MACD sinyal çizgisini aşağı kesti
+    if (macdPrev >= sigPrev && macdNow < sigNow) {
+      const histNow = macdNow - sigNow;
+      return {
+        type: 'MACD Kesişimi',
+        sembol,
+        severity: i === 1 ? 'güçlü' : i <= 2 ? 'orta' : 'zayıf',
+        direction: 'asagi',
+        data: { macd: macdNow, signal: sigNow, histogram: histNow, crossoverCandlesAgo: i },
+      };
+    }
+  }
+  return null;
+}
+
+// --- RSI Aşırı Alım / Aşırı Satım ---
+export function detectRsiLevel(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 20) return null;
+  const closes = candles.map((c) => c.close);
+  const rsi = calculateRSI(closes, 14);
+  const lastRsi = rsi[rsi.length - 1]!;
+
+  if (lastRsi < 30) {
+    return {
+      type: 'RSI Seviyesi',
+      sembol,
+      severity: lastRsi < 25 ? 'güçlü' : lastRsi < 28 ? 'orta' : 'zayıf',
+      direction: 'yukari',
+      data: { rsi: lastRsi, level: 'oversold' },
+    };
+  }
+  if (lastRsi > 70) {
+    return {
+      type: 'RSI Seviyesi',
+      sembol,
+      severity: lastRsi > 75 ? 'güçlü' : lastRsi > 72 ? 'orta' : 'zayıf',
+      direction: 'asagi',
+      data: { rsi: lastRsi, level: 'overbought' },
+    };
+  }
+  return null;
+}
+
+// --- Golden Cross / Death Cross (EMA50 vs EMA200) ---
+export function detectGoldenCross(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 205) return null;
+  const closes = candles.map((c) => c.close);
+  const ema50 = calculateEMA(closes, 50);
+  const ema200 = calculateEMA(closes, 200);
+
+  for (let i = 1; i <= 5 && candles.length - 1 - i >= 1; i++) {
+    const idx = candles.length - 1 - i;
+    const prevIdx = idx - 1;
+    const e50Now = ema50[idx]!;
+    const e50Prev = ema50[prevIdx]!;
+    const e200Now = ema200[idx]!;
+    const e200Prev = ema200[prevIdx]!;
+
+    // Golden Cross: EMA50 EMA200'ü yukarı kesti
+    if (e50Prev <= e200Prev && e50Now > e200Now) {
+      return {
+        type: 'Altın Çapraz',
+        sembol,
+        severity: i === 1 ? 'güçlü' : i <= 3 ? 'orta' : 'zayıf',
+        direction: 'yukari',
+        data: { ema50: e50Now, ema200: e200Now, crossoverCandlesAgo: i, crossType: 'golden' },
+      };
+    }
+    // Death Cross: EMA50 EMA200'ü aşağı kesti
+    if (e50Prev >= e200Prev && e50Now < e200Now) {
+      return {
+        type: 'Altın Çapraz',
+        sembol,
+        severity: i === 1 ? 'güçlü' : i <= 3 ? 'orta' : 'zayıf',
+        direction: 'asagi',
+        data: { ema50: e50Now, ema200: e200Now, crossoverCandlesAgo: i, crossType: 'death' },
+      };
+    }
+  }
+  return null;
+}
+
+export function detectAllSignals(
+  sembol: string,
+  candles: OHLCVCandle[],
+  options?: { types?: string[] }
+): StockSignal[] {
+  const enabled = options?.types;
+  const want = (type: string) => !enabled || enabled.length === 0 || enabled.includes(type);
+
   const signals: StockSignal[] = [];
-  const rsi = detectRsiDivergence(sembol, candles);
-  const vol = detectVolumeAnomaly(sembol, candles);
-  const trend = detectTrendStart(sembol, candles);
-  const breakout = detectSupportResistanceBreak(sembol, candles);
-  if (rsi) signals.push(rsi);
-  if (vol) signals.push(vol);
-  if (trend) signals.push(trend);
-  if (breakout) signals.push(breakout);
+  if (want('RSI Uyumsuzluğu'))      { const s = detectRsiDivergence(sembol, candles);          if (s) signals.push(s); }
+  if (want('Hacim Anomalisi'))       { const s = detectVolumeAnomaly(sembol, candles);           if (s) signals.push(s); }
+  if (want('Trend Başlangıcı'))      { const s = detectTrendStart(sembol, candles);              if (s) signals.push(s); }
+  if (want('Destek/Direnç Kırılımı')){ const s = detectSupportResistanceBreak(sembol, candles); if (s) signals.push(s); }
+  if (want('MACD Kesişimi'))         { const s = detectMACDCrossover(sembol, candles);           if (s) signals.push(s); }
+  if (want('RSI Seviyesi'))          { const s = detectRsiLevel(sembol, candles);                if (s) signals.push(s); }
+  if (want('Altın Çapraz'))          { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
   return signals;
 }

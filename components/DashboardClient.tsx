@@ -51,7 +51,7 @@ function Meteors() {
 const QUICK_ACTIONS = [
   { href: '/tarama',   icon: Search,    label: 'Tarama Yap',  color: 'from-indigo-500/20 to-violet-500/20 border-indigo-500/30 hover:border-indigo-400/50 hover:from-indigo-500/30 hover:to-violet-500/30' },
   { href: '/makro',    icon: BarChart2, label: 'Makro Radar', color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30 hover:border-blue-400/50 hover:from-blue-500/30 hover:to-cyan-500/30'           },
-  { href: '/backtest', icon: TrendingUp,label: 'Backtest',    color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 hover:border-emerald-400/50 hover:from-emerald-500/30 hover:to-teal-500/30' },
+  { href: '/backtesting', icon: TrendingUp,label: 'Backtest',    color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 hover:border-emerald-400/50 hover:from-emerald-500/30 hover:to-teal-500/30' },
   { href: '/topluluk', icon: Users,     label: 'Topluluk',    color: 'from-pink-500/20 to-rose-500/20 border-pink-500/30 hover:border-pink-400/50 hover:from-pink-500/30 hover:to-rose-500/30'             },
 ];
 

@@ -442,3 +442,68 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 3. **Manuel test**: Etkilenen sayfa/bileşeni test et
 4. **DevTools**: Console/Network hata kontrolü
 5. **Responsive**: Mobil ve desktop (UI değişikliği varsa)
+
+---
+
+## Phase 14 — Kullanılabilirlik & Büyüme Roadmap'i
+
+**Tema:** Platformu "bakıp geçilen araç"tan "her gün açılan asistana" dönüştür.
+**Öncelik sırası:** Portföy → Uyarılar → Backtest → Haber Entegrasyonu → Mobil PWA
+
+### 14.1 Portföy Takibi [L] 🔴 YÜKSEKÖNCELİK
+- Kullanıcı hisselerini + lot miktarını girer
+- Toplam değer, günlük değişim, sektör dağılımı
+- Portföydeki hisseler için otomatik sinyal uyarısı
+- DB: `portfolios(user_id, sembol, lot, avg_price, created_at)`
+- Sayfa: `/portfoy`
+
+### 14.2 Anlık Uyarı Sistemi [L] 🔴 YÜKSEKÖNCELİK
+- Trigger: Cron her sabah tarama → sinyal bulunan hisseler → bildirim gönder
+- **Email**: Resend veya Supabase Email (ücretsiz 3000/ay)
+- **Web Push**: Browser bildirim API + Supabase `push_subscriptions` tablosu
+- Kullanıcı: izleme listesi veya portföy hissesi için uyarı seçebilir
+- DB: `alert_preferences(user_id, sembol, signal_types[], channels[])`
+- Env: `RESEND_API_KEY`
+
+### 14.3 Backtest — Test Edilebilir Hale Getir [M] 🟠 ORTA
+- Sorun: `signal_performance` tablosunda `evaluated=true` kayıt yok
+- Çözüm A (kısa vade): `/api/dev/seed-backtest` — geliştirme ortamında sentetik veri üretir
+- Çözüm B (uzun vade): `evaluate-signals` cron'u gerçekten çalıştır ve sonuçları kaydet
+- Backtest sayfası altyapısı tamam, sadece veri gerekiyor
+
+### 14.4 Haber + Sinyal Entegrasyonu [M] 🟡 SONRA
+- Hisse detay sayfasında teknik sinyal yanında o güne ait haberler
+- Kaynak: Yahoo Finance news API veya NewsAPI (ücretsiz 1000/gün)
+- UI: Sinyal kartında "Bugün 3 haber var" badge + modal
+- Rakiplerin hiçbirinde yok — güçlü diferansiasyon
+
+### 14.5 Mobil PWA [M] 🟡 SONRA
+- `manifest.json` + service worker → "Ana Ekrana Ekle" butonu
+- Push notification desteği (14.2 ile entegre)
+- Next.js'de `next-pwa` paketi ile minimal iş
+
+---
+
+## Rakip Konumlandırma
+
+| Platform | Fiyat | Güçlü Yön | BistAI Avantajı |
+|----------|-------|-----------|-----------------|
+| Matriks | 500-2000₺/ay | Gerçek zamanlı, profesyonel | Ücretsiz, modern UI, AI açıklama |
+| Bigpara | Ücretsiz | Geniş kitle, haber | Sinyal tarama, makro bağlam |
+| TradingView | $15-60/ay | Grafik araçları | Türkçe, BIST odaklı, AI |
+| Midas/İş Yatırım | Ücretsiz | Aracı güvenilirliği | Analitik derinlik |
+
+**Boş alan:** BIST odaklı + Türkçe + AI sinyal + Ücretsiz → BistAI bu kombinasyonu tek yapan platform.
+
+---
+
+## Sistem Zayıf Noktaları (Dürüst Değerlendirme)
+
+| Alan | Sorun | Çözüm |
+|------|-------|-------|
+| Gerçek zamanlı veri | Yahoo Finance 15dk gecikmeli | Uzun vadede Borsa İstanbul API |
+| Backtest verisi | `evaluated` kayıt birikmiyor | Cron job düzeltmesi + seed |
+| Bildirim sistemi | Yok | 14.2 |
+| Portföy | Yok | 14.1 |
+| Mobil | Responsive ama uygulama değil | 14.5 PWA |
+| Stripe | Key'ler girilmedi | Girince aktif |

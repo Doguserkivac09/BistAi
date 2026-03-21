@@ -37,6 +37,8 @@ interface MacroResponse {
     usdtry: { price: number; change: number; changePercent: number } | null;
     eem:    { price: number; change: number; changePercent: number } | null;
     brent:  { price: number; change: number; changePercent: number } | null;
+    gold:   { price: number; change: number; changePercent: number } | null;
+    bist100:{ price: number; change: number; changePercent: number } | null;
   };
   turkey: {
     policyRate: { value: number; [key: string]: unknown } | number | null;
@@ -191,6 +193,19 @@ function indicatorSignal(label: string, data: { price: number; changePercent: nu
       if (p > 80) return { text: 'Pahalı',     cls: 'text-orange-400' };
       if (p > 65) return { text: 'Normal',     cls: 'text-yellow-400' };
       return           { text: 'Ucuz',         cls: 'text-green-400' };
+    case 'Altın':
+      if (p > 3000) return { text: 'Rekor Yüksek', cls: 'text-red-400' };
+      if (p > 2500) return { text: 'Güçlü',        cls: 'text-orange-400' };
+      if (p > 2000) return { text: 'Normal',        cls: 'text-yellow-400' };
+      return             { text: 'Düşük',           cls: 'text-green-400' };
+    case 'BIST100': {
+      const c = data.changePercent;
+      if (c > 2)    return { text: 'Güçlü Artış', cls: 'text-green-400' };
+      if (c > 0.5)  return { text: 'Artış',       cls: 'text-green-400' };
+      if (c > -0.5) return { text: 'Yatay',       cls: 'text-yellow-400' };
+      if (c > -2)   return { text: 'Düşüş',       cls: 'text-red-400' };
+      return             { text: 'Sert Düşüş',    cls: 'text-red-400' };
+    }
     default: {
       const c = data.changePercent;
       if (c > 1.5)  return { text: 'Hızlı Artış',  cls: 'text-red-400' };
@@ -212,6 +227,8 @@ function TickerBar({ indicators }: { indicators: MacroResponse['indicators'] }) 
     { label: 'USD/TRY', data: indicators.usdtry, suffix: '' },
     { label: 'EEM',     data: indicators.eem,    suffix: '' },
     { label: 'Brent',   data: indicators.brent,  suffix: '$' },
+    { label: 'Altın',   data: indicators.gold,   suffix: '$' },
+    { label: 'BIST100', data: indicators.bist100,suffix: '' },
   ];
   const all = [...items, ...items, ...items];
 
@@ -673,6 +690,84 @@ function SectorHeatmap({ sectors }: { sectors: SectorItem[] }) {
   );
 }
 
+// ── Tarihsel Makro Skor Grafiği ─────────────────────────────────────
+
+interface HistoryRow {
+  snapshot_date: string;
+  macro_score: number;
+  wind: string;
+}
+
+function MacroHistoryChart({ rows }: { rows: HistoryRow[] }) {
+  if (rows.length < 3) {
+    return (
+      <div className="flex items-center justify-center h-28 text-white/30 text-sm font-mono">
+        Veri birikmekte... ({rows.length} gün)
+      </div>
+    );
+  }
+
+  const W = 600, H = 120, PAD = { t: 12, b: 28, l: 40, r: 12 };
+  const chartW = W - PAD.l - PAD.r;
+  const chartH = H - PAD.t - PAD.b;
+  const scores = rows.map(r => r.macro_score);
+  const minS = Math.min(-100, ...scores);
+  const maxS = Math.max(100, ...scores);
+  const range = maxS - minS || 1;
+
+  const toX = (i: number) => PAD.l + (i / (rows.length - 1)) * chartW;
+  const toY = (s: number) => PAD.t + ((maxS - s) / range) * chartH;
+  const zeroY = toY(0);
+
+  const points = rows.map((r, i) => `${toX(i)},${toY(r.macro_score)}`).join(' ');
+  // fill polygon: altına kapat
+  const fillPts = `${toX(0)},${zeroY} ` + points + ` ${toX(rows.length - 1)},${zeroY}`;
+
+  // Son skor rengi
+  const lastScore = scores[scores.length - 1] ?? 0;
+  const lineCol = lastScore >= 30 ? '#22c55e' : lastScore >= 0 ? '#84cc16' : lastScore >= -30 ? '#eab308' : '#ef4444';
+  const fillCol = lastScore >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)';
+
+  // X ekseni etiketleri: ilk, orta, son
+  const labelIdxs = [0, Math.floor(rows.length / 2), rows.length - 1];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
+      {/* Sıfır çizgisi */}
+      <line x1={PAD.l} y1={zeroY} x2={W - PAD.r} y2={zeroY} stroke="rgba(255,255,255,0.10)" strokeWidth="1" strokeDasharray="4 3" />
+
+      {/* +30 / -30 bant */}
+      <rect x={PAD.l} y={PAD.t} width={chartW} height={toY(30) - PAD.t} fill="rgba(34,197,94,0.04)" />
+      <rect x={PAD.l} y={toY(-30)} width={chartW} height={chartH - (toY(-30) - PAD.t)} fill="rgba(239,68,68,0.04)" />
+
+      {/* Alan dolgusu */}
+      <polygon points={fillPts} fill={fillCol} />
+
+      {/* Çizgi */}
+      <polyline points={points} fill="none" stroke={lineCol} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+      {/* Son nokta */}
+      <circle cx={toX(rows.length - 1)} cy={toY(lastScore)} r="3.5" fill={lineCol} />
+
+      {/* Y ekseni etiketleri */}
+      {[100, 50, 0, -50, -100].map(v => (
+        <text key={v} x={PAD.l - 4} y={toY(v) + 4}
+          textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.25)" fontFamily="monospace">
+          {v > 0 ? `+${v}` : v}
+        </text>
+      ))}
+
+      {/* X ekseni etiketleri */}
+      {labelIdxs.map(i => (
+        <text key={i} x={toX(i)} y={H - 4}
+          textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.25)" fontFamily="monospace">
+          {rows[i]?.snapshot_date?.slice(5) ?? ''}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
 // ── Ana Sayfa ────────────────────────────────────────────────────────
 
 export default function MakroPage() {
@@ -680,6 +775,7 @@ export default function MakroPage() {
   const [risk,    setRisk]    = useState<RiskResponse | null>(null);
   const [sectors, setSectors] = useState<SectorsResponse | null>(null);
   const [alerts,  setAlerts]  = useState<AlertsResponse | null>(null);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -687,17 +783,19 @@ export default function MakroPage() {
     setLoading(true);
     setError(null);
     try {
-      const [macroRes, riskRes, sectorsRes, alertsRes] = await Promise.all([
+      const [macroRes, riskRes, sectorsRes, alertsRes, histRes] = await Promise.all([
         fetch('/api/macro').then(r => r.json()),
         fetch('/api/risk').then(r => r.json()),
         fetch('/api/sectors').then(r => r.json()),
         fetch('/api/alerts').then(r => r.json()),
+        fetch('/api/macro?history=true&days=30').then(r => r.json()),
       ]);
       if (macroRes.error) throw new Error(macroRes.error);
       setMacro(macroRes);
       setRisk(riskRes.error     ? null : riskRes);
       setSectors(sectorsRes.error ? null : sectorsRes);
       setAlerts(alertsRes.error   ? null : alertsRes);
+      setHistory(histRes.history ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Veri yüklenemedi');
     } finally {
@@ -801,14 +899,16 @@ export default function MakroPage() {
             <Zap className="h-4 w-4 text-primary" />
             <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Piyasa Göstergeleri</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {[
-              { label: 'VIX',     data: ind.vix,    suffix: '' },
-              { label: 'DXY',     data: ind.dxy,    suffix: '' },
-              { label: 'US 10Y',  data: ind.us10y,  suffix: '%' },
-              { label: 'USD/TRY', data: ind.usdtry, suffix: '' },
-              { label: 'EEM',     data: ind.eem,    suffix: '' },
-              { label: 'Brent',   data: ind.brent,  suffix: '$' },
+              { label: 'VIX',     data: ind.vix,     suffix: '' },
+              { label: 'DXY',     data: ind.dxy,     suffix: '' },
+              { label: 'US 10Y',  data: ind.us10y,   suffix: '%' },
+              { label: 'USD/TRY', data: ind.usdtry,  suffix: '' },
+              { label: 'EEM',     data: ind.eem,     suffix: '' },
+              { label: 'Brent',   data: ind.brent,   suffix: '$' },
+              { label: 'Altın',   data: ind.gold,    suffix: '$' },
+              { label: 'BIST100', data: ind.bist100, suffix: '' },
             ].map(({ label, data, suffix }, i) => (
               <IndicatorCard key={label} label={label} data={data} suffix={suffix} delay={i * 0.06} />
             ))}
@@ -886,6 +986,18 @@ export default function MakroPage() {
               contextCls={macro.fred.unemployment ? (Number(macro.fred.unemployment.value) < 4 ? 'text-green-400' : Number(macro.fred.unemployment.value) < 6 ? 'text-yellow-400' : 'text-red-400') : undefined}
             />
           </motion.div>
+        </section>
+
+        {/* Tarihsel Makro Skor Grafiği */}
+        <section className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Makro Skor Trendi</h2>
+            <span className="ml-auto text-xs text-white/25 font-mono">Son 30 gün</span>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-[#0a0a18] px-4 py-3">
+            <MacroHistoryChart rows={history} />
+          </div>
         </section>
 
         {/* Sektör Isı Haritası */}

@@ -21,11 +21,28 @@ import { toast } from 'sonner';
 
 const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
   { value: 'Tümü', label: 'Tümü' },
-  { value: 'RSI Uyumsuzluğu', label: 'RSI' },
+  { value: 'RSI Uyumsuzluğu', label: 'RSI Div' },
   { value: 'Hacim Anomalisi', label: 'Hacim' },
   { value: 'Trend Başlangıcı', label: 'Trend' },
   { value: 'Kırılım', label: 'Kırılım' },
+  { value: 'MACD Kesişimi', label: 'MACD' },
+  { value: 'RSI Seviyesi', label: 'RSI OB/OS' },
+  { value: 'Altın Çapraz', label: 'Çapraz' },
 ];
+
+// Tarama sırasında hangi sinyaller hesaplanacak (gerçek sinyal type adları)
+const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeColor: string }[] = [
+  { type: 'RSI Uyumsuzluğu',        label: 'RSI Div',   color: 'text-violet-400 border-violet-500/40 bg-violet-500/10',  activeColor: 'text-violet-300 border-violet-400 bg-violet-500/25 ring-1 ring-violet-500/50' },
+  { type: 'Hacim Anomalisi',         label: 'Hacim',     color: 'text-amber-400 border-amber-500/40 bg-amber-500/10',    activeColor: 'text-amber-300 border-amber-400 bg-amber-500/25 ring-1 ring-amber-500/50' },
+  { type: 'Trend Başlangıcı',        label: 'Trend',     color: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10', activeColor: 'text-emerald-300 border-emerald-400 bg-emerald-500/25 ring-1 ring-emerald-500/50' },
+  { type: 'Destek/Direnç Kırılımı',  label: 'Kırılım',   color: 'text-sky-400 border-sky-500/40 bg-sky-500/10',          activeColor: 'text-sky-300 border-sky-400 bg-sky-500/25 ring-1 ring-sky-500/50' },
+  { type: 'MACD Kesişimi',           label: 'MACD',      color: 'text-blue-400 border-blue-500/40 bg-blue-500/10',       activeColor: 'text-blue-300 border-blue-400 bg-blue-500/25 ring-1 ring-blue-500/50' },
+  { type: 'RSI Seviyesi',            label: 'RSI OB/OS', color: 'text-rose-400 border-rose-500/40 bg-rose-500/10',       activeColor: 'text-rose-300 border-rose-400 bg-rose-500/25 ring-1 ring-rose-500/50' },
+  { type: 'Altın Çapraz',            label: 'Çapraz',    color: 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10', activeColor: 'text-yellow-300 border-yellow-400 bg-yellow-500/25 ring-1 ring-yellow-500/50' },
+];
+
+const ALL_SIGNAL_TYPES = SCANNABLE_SIGNALS.map(s => s.type);
+const SCAN_PREFS_KEY = 'bistai_scan_signal_prefs';
 
 const DIRECTION_OPTIONS: { value: DirectionFilter; label: string; icon: React.ElementType }[] = [
   { value: 'Tümü', label: 'Tümü', icon: Activity },
@@ -38,6 +55,12 @@ interface ScanResult {
   signals: StockSignal[];
   candles: OHLCVCandle[];
 }
+
+const TYPE_LABEL_MAP: Partial<Record<SignalTypeFilter, string>> = {
+  'Kırılım': 'Destek/Direnç Kırılımı',
+};
+
+const MAX_SIGNALS_PER_STOCK = 3;
 
 function filterResults(
   results: ScanResult[],
@@ -54,7 +77,7 @@ function filterResults(
     .map((r) => {
       let signals = r.signals;
       if (signalFilter !== 'Tümü') {
-        const typeLabel = signalFilter === 'Kırılım' ? 'Destek/Direnç Kırılımı' : signalFilter;
+        const typeLabel = TYPE_LABEL_MAP[signalFilter] ?? signalFilter;
         signals = signals.filter((s) => s.type === typeLabel);
       }
       if (directionFilter !== 'Tümü') {
@@ -62,16 +85,23 @@ function filterResults(
         signals = signals.filter((s) => s.direction === dir);
       }
 
-      if (signals.length === 0) {
-        return { ...r, signals };
+      if (signals.length === 0) return { ...r, signals };
+
+      // Tip başına en güçlü sinyali al, maks MAX_SIGNALS_PER_STOCK
+      const byType = new Map<string, StockSignal>();
+      for (const sig of signals) {
+        const existing = byType.get(sig.type);
+        const sigRank = severityRank[sig.severity as SignalSeverity] ?? 0;
+        const existingRank = existing ? (severityRank[existing.severity as SignalSeverity] ?? 0) : -1;
+        if (!existing || sigRank > existingRank) {
+          byType.set(sig.type, sig);
+        }
       }
+      const top = Array.from(byType.values())
+        .sort((a, b) => (severityRank[b.severity as SignalSeverity] ?? 0) - (severityRank[a.severity as SignalSeverity] ?? 0))
+        .slice(0, MAX_SIGNALS_PER_STOCK);
 
-      const strongest = signals.reduce<StockSignal | null>((best, current) => {
-        if (!best) return current;
-        return severityRank[current.severity] > severityRank[best.severity] ? current : best;
-      }, null);
-
-      return { ...r, signals: strongest ? [strongest] : [] };
+      return { ...r, signals: top };
     })
     .filter((r) => r.signals.length > 0);
 }
@@ -79,19 +109,21 @@ function filterResults(
 /* ------------------------------------------------------------------ */
 /* EmptyState                                                           */
 /* ------------------------------------------------------------------ */
-function EmptyState({ onScan }: { onScan: () => void }) {
-  const signalPreviews = [
-    { label: 'RSI Uyumsuzluğu', color: 'text-violet-400 border-violet-500/40 bg-violet-500/10' },
-    { label: 'Hacim Anomalisi', color: 'text-amber-400 border-amber-500/40 bg-amber-500/10' },
-    { label: 'Trend Başlangıcı', color: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' },
-    { label: 'Kırılım', color: 'text-sky-400 border-sky-500/40 bg-sky-500/10' },
-  ];
+function EmptyState({
+  onScan,
+  selectedTypes,
+  onToggleType,
+}: {
+  onScan: () => void;
+  selectedTypes: string[];
+  onToggleType: (type: string) => void;
+}) {
+  const allSelected = selectedTypes.length === ALL_SIGNAL_TYPES.length;
 
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       {/* Radar animasyon */}
       <div className="relative mb-10 h-36 w-36">
-        {/* Dış halkalar */}
         {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
@@ -101,7 +133,6 @@ function EmptyState({ onScan }: { onScan: () => void }) {
             transition={{ duration: 2.4, repeat: Infinity, delay: i * 0.5, ease: 'easeInOut' }}
           />
         ))}
-        {/* Dönen çerçeve */}
         <motion.div
           className="absolute inset-0 rounded-full border-2 border-transparent"
           style={{
@@ -110,22 +141,16 @@ function EmptyState({ onScan }: { onScan: () => void }) {
           animate={{ rotate: 360 }}
           transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
         />
-        {/* Merkez icon */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/30">
             <Search className="h-6 w-6 text-primary" />
           </div>
         </div>
-        {/* Sinyal noktaları */}
         {[45, 135, 250].map((deg, i) => (
           <motion.div
             key={i}
             className="absolute h-1.5 w-1.5 rounded-full bg-primary"
-            style={{
-              top: '50%',
-              left: '50%',
-              transform: `rotate(${deg}deg) translateX(52px) translateY(-50%)`,
-            }}
+            style={{ top: '50%', left: '50%', transform: `rotate(${deg}deg) translateX(52px) translateY(-50%)` }}
             animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
             transition={{ duration: 2, repeat: Infinity, delay: i * 0.6 }}
           />
@@ -135,28 +160,53 @@ function EmptyState({ onScan }: { onScan: () => void }) {
       <h2 className="mb-2 text-xl font-semibold text-text-primary">
         {BIST_SYMBOLS.length} BIST Hissesi Taranmayı Bekliyor
       </h2>
-      <p className="mb-8 max-w-sm text-sm text-text-secondary">
-        AI destekli sinyal tarayıcımız tüm hisseleri saniyeler içinde analiz eder ve güçlü fırsatları öne çıkarır.
+      <p className="mb-6 max-w-sm text-sm text-text-secondary">
+        Hangi sinyalleri aradığını seç, tarayıcı sadece onları hesaplayarak daha hızlı sonuç verir.
       </p>
 
-      {/* Sinyal tipi önizleme chip'leri */}
-      <div className="mb-8 flex flex-wrap justify-center gap-2">
-        {signalPreviews.map((s, i) => (
-          <motion.span
-            key={s.label}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 * i }}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${s.color}`}
-          >
-            {s.label}
-          </motion.span>
-        ))}
+      {/* İnteraktif sinyal seçim chip'leri */}
+      <div className="mb-2 flex flex-wrap justify-center gap-2">
+        {SCANNABLE_SIGNALS.map((s, i) => {
+          const active = selectedTypes.includes(s.type);
+          return (
+            <motion.button
+              key={s.type}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 * i }}
+              whileTap={{ scale: 0.93 }}
+              onClick={() => onToggleType(s.type)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${active ? s.activeColor : 'text-white/30 border-white/10 bg-white/[0.03] hover:border-white/20 hover:text-white/50'}`}
+            >
+              {s.label}
+            </motion.button>
+          );
+        })}
       </div>
 
-      <Button size="lg" onClick={onScan} className="gap-2 px-8 text-base">
+      {/* Tümünü seç / kaldır */}
+      <button
+        onClick={() => {
+          if (allSelected) {
+            SCANNABLE_SIGNALS.forEach(s => {
+              if (selectedTypes.includes(s.type)) onToggleType(s.type);
+            });
+          } else {
+            SCANNABLE_SIGNALS.forEach(s => {
+              if (!selectedTypes.includes(s.type)) onToggleType(s.type);
+            });
+          }
+        }}
+        className="mb-7 text-xs text-white/25 hover:text-white/50 transition-colors underline underline-offset-2"
+      >
+        {allSelected ? 'Tümünü kaldır' : 'Tümünü seç'}
+      </button>
+
+      <Button size="lg" onClick={onScan} disabled={selectedTypes.length === 0} className="gap-2 px-8 text-base">
         <Zap className="h-5 w-5" />
-        Tümünü Tara
+        {selectedTypes.length === ALL_SIGNAL_TYPES.length
+          ? 'Tümünü Tara'
+          : `${selectedTypes.length} Sinyal ile Tara`}
       </Button>
     </div>
   );
@@ -225,6 +275,9 @@ function Chip({
 /* ------------------------------------------------------------------ */
 /* Ana sayfa                                                            */
 /* ------------------------------------------------------------------ */
+const SCAN_CACHE_KEY = 'bistai_scan_results';
+const SCAN_CACHE_TTL_MS = 10 * 60 * 1000; // 10 dakika
+
 export default function TaramaPage() {
   const [signalType, setSignalType] = useState<SignalTypeFilter>('Tümü');
   const [direction, setDirection] = useState<DirectionFilter>('Tümü');
@@ -235,6 +288,45 @@ export default function TaramaPage() {
   const [failedSymbols, setFailedSymbols] = useState<string[]>([]);
   const [macroScore, setMacroScore] = useState<{ score: number; wind: string } | null>(null);
   const [scannedCount, setScannedCount] = useState(0);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(ALL_SIGNAL_TYPES);
+
+  // localStorage'dan sinyal tercihleri yükle
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SCAN_PREFS_KEY);
+      if (saved) {
+        const parsed: string[] = JSON.parse(saved);
+        const valid = parsed.filter(t => ALL_SIGNAL_TYPES.includes(t));
+        if (valid.length > 0) setSelectedTypes(valid);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const toggleType = useCallback((type: string) => {
+    setSelectedTypes(prev => {
+      const next = prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type];
+      try { localStorage.setItem(SCAN_PREFS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  // sessionStorage'dan önceki tarama sonuçlarını geri yükle
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(SCAN_CACHE_KEY);
+      if (cached) {
+        const { results: cachedResults, scannedCount: cachedCount, ts } = JSON.parse(cached);
+        if (Date.now() - ts < SCAN_CACHE_TTL_MS) {
+          setResults(cachedResults);
+          setScannedCount(cachedCount);
+        } else {
+          sessionStorage.removeItem(SCAN_CACHE_KEY);
+        }
+      }
+    } catch {
+      // sessionStorage erişimi yoksa sessizce geç
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/macro')
@@ -245,7 +337,7 @@ export default function TaramaPage() {
       .catch(() => {});
   }, []);
 
-  const scanSymbols = useCallback(async (symbols: string[]) => {
+  const scanSymbols = useCallback(async (symbols: string[], types: string[]) => {
     setLoading(true);
     setError(null);
     const failed: string[] = [];
@@ -263,7 +355,7 @@ export default function TaramaPage() {
         const batchResults = await Promise.allSettled(
           batch.map(async (sembol) => {
             const candles = await fetchOHLCVClient(sembol, 90);
-            const signals = detectAllSignals(sembol, candles);
+            const signals = detectAllSignals(sembol, candles, { types });
             return { sembol, signals, candles };
           })
         );
@@ -301,6 +393,13 @@ export default function TaramaPage() {
       setFailedSymbols(failed);
       setScannedCount(symbols.length);
 
+      // Sonuçları sessionStorage'a kaydet (geri tuşu sonrası geri yükleme için)
+      try {
+        sessionStorage.setItem(SCAN_CACHE_KEY, JSON.stringify({ results: all, scannedCount: symbols.length, ts: Date.now() }));
+      } catch {
+        // sessionStorage dolu veya erişilemez
+      }
+
       const signalCount = all.reduce((sum, r) => sum + r.signals.length, 0);
       if (failed.length > 0) {
         toast.warning(`Tarama tamamlandı. ${failed.length} sembol başarısız oldu.`);
@@ -316,12 +415,13 @@ export default function TaramaPage() {
     setResults([]);
     setFailedSymbols([]);
     setScannedCount(0);
-    scanSymbols([...BIST_SYMBOLS]);
-  }, [scanSymbols]);
+    try { sessionStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
+    scanSymbols([...BIST_SYMBOLS], selectedTypes);
+  }, [scanSymbols, selectedTypes]);
 
   const retryFailed = useCallback(() => {
-    scanSymbols(failedSymbols);
-  }, [scanSymbols, failedSymbols]);
+    scanSymbols(failedSymbols, selectedTypes);
+  }, [scanSymbols, failedSymbols, selectedTypes]);
 
   const filtered = filterResults(results, signalType, direction);
   const displayList = loading ? [] : filtered;
@@ -429,7 +529,7 @@ export default function TaramaPage() {
 
         {/* Boş durum */}
         {!loading && !hasScanResults && (
-          <EmptyState onScan={runScan} />
+          <EmptyState onScan={runScan} selectedTypes={selectedTypes} onToggleType={toggleType} />
         )}
 
         {/* Filtre sonucu yok */}
