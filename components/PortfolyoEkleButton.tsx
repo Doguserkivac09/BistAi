@@ -66,38 +66,39 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
               initial={{ opacity: 0, scale: 0.95, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
-              className="relative w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-2xl"
+              className="relative w-full max-w-xs rounded-xl border border-border bg-surface p-4 shadow-2xl"
             >
               {/* Başlık */}
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-text-primary">Portföye Ekle</h3>
-                  <p className="text-xs text-text-muted">{sembol}</p>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-primary" />
+                  <span className="font-semibold text-sm text-text-primary">
+                    Portföye Ekle —{' '}
+                    <span className="text-primary">{sembol}</span>
+                  </span>
                 </div>
-                <button onClick={() => setOpen(false)} className="rounded-lg p-1 text-text-muted hover:text-text-primary">
+                <button onClick={() => setOpen(false)} className="rounded p-0.5 text-text-muted hover:text-text-primary">
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="space-y-3">
-                {/* Lot */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-text-secondary">Lot / Adet</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={miktar}
-                    onChange={(e) => setMiktar(e.target.value)}
-                    placeholder="100"
-                    className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
-                  />
-                </div>
-
-                {/* Fiyat + Tarih yan yana */}
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2.5">
+                {/* 3 alan yan yana */}
+                <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-text-secondary">Alış Fiyatı (₺)</label>
+                    <label className="mb-1 block text-[10px] font-medium text-text-muted">Lot</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={miktar}
+                      onChange={(e) => setMiktar(e.target.value)}
+                      placeholder="100"
+                      className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-text-muted">Fiyat (₺)</label>
                     <input
                       type="number"
                       min="0.01"
@@ -105,23 +106,23 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
                       value={fiyat}
                       onChange={(e) => setFiyat(e.target.value)}
                       placeholder="45.20"
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-text-secondary">Tarih</label>
+                    <label className="mb-1 block text-[10px] font-medium text-text-muted">Tarih</label>
                     <input
                       type="date"
                       value={tarih}
                       onChange={(e) => setTarih(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-zinc-900 focus:border-primary focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-zinc-900 focus:border-primary focus:outline-none"
                     />
                   </div>
                 </div>
 
                 {/* Maliyet önizleme */}
                 {miktar && fiyat && (
-                  <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-1.5 text-xs text-text-secondary">
+                  <div className="rounded-md bg-primary/5 border border-primary/20 px-2.5 py-1 text-xs text-text-secondary">
                     Toplam:{' '}
                     <span className="font-semibold text-text-primary">
                       ₺{(Number(miktar) * Number(fiyat)).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
@@ -139,7 +140,7 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
               <button
                 onClick={handleSave}
                 disabled={saving || saved || !miktar || !fiyat || !tarih}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {saved ? (
                   <><Check className="h-4 w-4" /> Eklendi</>
