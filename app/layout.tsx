@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import { Toaster } from 'sonner';
+import { PwaRegister } from '@/components/PwaRegister';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -14,6 +15,13 @@ export const metadata: Metadata = {
   description: 'BIST hisselerini tarayın, teknik analiz sinyallerini ve yapay zeka açıklamalarını görün.',
   keywords: ['BIST', 'hisse senedi', 'teknik analiz', 'sinyal', 'yapay zeka', 'borsa istanbul'],
   authors: [{ name: 'BistAI' }],
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'BistAI',
+  },
+  formatDetection: { telephone: false },
   openGraph: {
     type: 'website',
     locale: 'tr_TR',
@@ -32,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className={`${inter.variable} antialiased min-h-screen bg-background text-text-primary`}>
+        <PwaRegister />
         <Navbar />
         {children}
         <Toaster

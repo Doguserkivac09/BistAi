@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0f0f1a"/>
+  <rect width="512" height="512" rx="96" fill="url(#grad)"/>
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.15"/>
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:0.05"/>
+    </linearGradient>
+  </defs>
+  <!-- B harfi -->
+  <text x="72" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="260" font-weight="800" fill="#e2e8f0">B</text>
+  <!-- AI yazısı -->
+  <text x="270" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="130" font-weight="700" fill="#6366f1">AI</text>
+  <!-- Alt çizgi / sinyal göstergesi -->
+  <rect x="72" y="370" width="368" height="6" rx="3" fill="#6366f1" opacity="0.6"/>
+  <!-- Küçük sinyal noktaları -->
+  <circle cx="160" cy="420" r="8" fill="#10b981"/>
+  <circle cx="220" cy="400" r="8" fill="#10b981"/>
+  <circle cx="280" cy="430" r="8" fill="#6366f1"/>
+  <circle cx="340" cy="390" r="8" fill="#10b981"/>
+  <circle cx="400" cy="415" r="8" fill="#6366f1"/>
+</svg>
