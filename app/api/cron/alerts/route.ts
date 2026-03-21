@@ -50,17 +50,23 @@ export async function GET(req: NextRequest) {
   const admin = createAdmin();
   const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
-  // ── 1. Tüm portföy pozisyonlarını çek ─────────────────────────────────────
-  const { data: pozisyonlar, error: pozErr } = await admin
-    .from('portfolyo_pozisyonlar')
-    .select('user_id, sembol');
+  // ── 1. Portföy + Watchlist hisselerini çek ────────────────────────────────
+  const [{ data: pozisyonlar }, { data: watchItems }] = await Promise.all([
+    admin.from('portfolyo_pozisyonlar').select('user_id, sembol'),
+    admin.from('watchlist').select('user_id, sembol'),
+  ]);
 
-  if (pozErr || !pozisyonlar?.length) {
-    return NextResponse.json({ ok: true, message: 'Portföy kaydı yok', sent: 0 });
+  const allRows = [
+    ...(pozisyonlar ?? []),
+    ...(watchItems ?? []),
+  ];
+
+  if (!allRows.length) {
+    return NextResponse.json({ ok: true, message: 'Takip edilen hisse yok', sent: 0 });
   }
 
   // ── 2. Benzersiz sembolleri tespit et ──────────────────────────────────────
-  const uniqueSymbols = Array.from(new Set(pozisyonlar.map((p) => p.sembol)));
+  const uniqueSymbols = Array.from(new Set(allRows.map((p) => p.sembol)));
 
   // ── 3. Her sembol için sinyal tespit et (batch 5) ──────────────────────────
   const signalMap: Record<string, StockSignal[]> = {};
@@ -91,7 +97,7 @@ export async function GET(req: NextRequest) {
   // ── 4. Kullanıcıları grupla ────────────────────────────────────────────────
   // user_id → semboller[]
   const userSymbols: Record<string, string[]> = {};
-  for (const { user_id, sembol } of pozisyonlar) {
+  for (const { user_id, sembol } of allRows) {
     if (!userSymbols[user_id]) userSymbols[user_id] = [];
     if (signalMap[sembol]) userSymbols[user_id].push(sembol);
   }

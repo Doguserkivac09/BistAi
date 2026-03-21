@@ -11,6 +11,7 @@ const navItems = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/tarama', label: 'Tarama' },
   { href: '/portfolyo', label: 'Portföy' },
+  { href: '/watchlist', label: 'Watchlist' },
   { href: '/makro', label: 'Makro Radar' },
   { href: '/backtesting', label: 'Backtest' },
   { href: '/topluluk', label: 'Topluluk' },
