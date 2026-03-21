@@ -69,6 +69,7 @@ function GirisForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={loading}
                   autoComplete="email"
                   className="border-border bg-surface"
                 />
@@ -81,6 +82,7 @@ function GirisForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={loading}
                   autoComplete="current-password"
                   className="border-border bg-surface"
                 />

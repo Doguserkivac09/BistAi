@@ -105,7 +105,7 @@ export default function BacktestingPage() {
   // ── Render ──────────────────────────────────────────────────────
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-6">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -366,6 +366,7 @@ function PerformanceMatrix({ matrix }: { matrix: PerformanceMatrixRow[] }) {
         Win rate (7 gün) • Yeşil &gt;55% • Sarı 45-55% • Kırmızı &lt;45%
       </p>
 
+      <p className="mb-1 text-[10px] text-text-secondary sm:hidden">← Kaydırarak tüm tabloyu görebilirsiniz →</p>
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[600px] text-sm">
           <thead>

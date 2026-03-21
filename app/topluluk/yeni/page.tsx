@@ -82,6 +82,9 @@ export default function YeniPaylaşımPage() {
                 {CATEGORIES.map(([value, { label, color }]) => (
                   <button
                     key={value}
+                    type="button"
+                    aria-label={`Kategori: ${label}`}
+                    aria-pressed={category === value}
                     onClick={() => setCategory(value)}
                     className={cn(
                       'rounded-full border px-3 py-1 text-xs font-medium transition-colors',

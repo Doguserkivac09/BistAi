@@ -96,7 +96,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
 
                 {/* Dropdown menu */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-48 rounded-lg border border-border bg-surface shadow-lg z-50">
+                  <div className="absolute right-0 top-full mt-1.5 w-48 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface shadow-lg z-50">
                     <div className="px-3 py-2 border-b border-border">
                       <p className="text-xs text-text-secondary truncate">{user.email}</p>
                     </div>

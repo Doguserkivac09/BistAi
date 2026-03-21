@@ -74,6 +74,7 @@ export default function KayitPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={loading}
                     autoComplete="email"
                     className="border-border bg-surface"
                   />
@@ -86,6 +87,7 @@ export default function KayitPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={loading}
                     minLength={6}
                     autoComplete="new-password"
                     className="border-border bg-surface"

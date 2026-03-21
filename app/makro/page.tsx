@@ -180,7 +180,7 @@ function MacroGauge({ score, label }: { score: number; label: string }) {
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 200 120" className="w-56 h-28">
+      <svg viewBox="0 0 200 120" className="w-full max-w-56 h-auto" role="img" aria-label={`Makro skor: ${score}`}>
         {/* Background arc */}
         <path d="M 25 100 A 75 75 0 0 1 175 100" fill="none" stroke="currentColor" strokeWidth="12" className="text-surface" />
         {/* Red zone */}
