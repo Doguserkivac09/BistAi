@@ -83,7 +83,8 @@ const RSS_SOURCES = [
 
 async function fetchTurkishNews(sembol: string): Promise<HaberItem[]> {
   const anahtarlar = SEMBOL_ANAHTAR[sembol] ?? [sembol];
-  const results: HaberItem[] = [];
+  const specific: HaberItem[] = [];   // şirkete özel haberler
+  const general: HaberItem[] = [];    // genel ekonomi haberleri (fallback)
 
   await Promise.allSettled(
     RSS_SOURCES.map(async ({ url, kaynak }) => {
@@ -94,20 +95,27 @@ async function fetchTurkishNews(sembol: string): Promise<HaberItem[]> {
         });
         if (!res.ok) return;
         const xml = await res.text();
-        const items = parseRSS(xml)
-          .filter((h) => ilgiliMi(h.baslik, anahtarlar))
-          .map((h) => ({ ...h, kaynak: h.kaynak || kaynak }));
-        results.push(...items);
+        const items = parseRSS(xml).map((h) => ({ ...h, kaynak: h.kaynak || kaynak }));
+
+        // Şirkete özel haberler
+        items.filter((h) => ilgiliMi(h.baslik, anahtarlar)).forEach((h) => specific.push(h));
+        // Genel ekonomi haberleri
+        items.slice(0, 4).forEach((h) => general.push(h));
       } catch {
         // sessizce geç
       }
     })
   );
 
-  // Tarihe göre sırala, en fazla 6 haber
-  return results
-    .sort((a, b) => (new Date(b.tarih).getTime() || 0) - (new Date(a.tarih).getTime() || 0))
-    .slice(0, 6);
+  const sort = (arr: HaberItem[]) =>
+    arr.sort((a, b) => (new Date(b.tarih).getTime() || 0) - (new Date(a.tarih).getTime() || 0));
+
+  // Şirkete özel varsa onu göster, yoksa genel ekonomi haberleri
+  if (specific.length >= 2) return sort(specific).slice(0, 6);
+
+  // Şirkete özel + genel karıştır
+  const combined = [...specific, ...general.filter((g) => !specific.find((s) => s.link === g.link))];
+  return sort(combined).slice(0, 6);
 }
 
 // ── Ana handler ───────────────────────────────────────────────────────────────

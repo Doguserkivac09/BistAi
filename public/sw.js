@@ -31,14 +31,21 @@ self.addEventListener('activate', (event) => {
 
 // Fetch — network first, cache fallback
 self.addEventListener('fetch', (event) => {
+  const url = event.request.url;
+
+  // Sadece http/https isteklerini işle (chrome-extension vb. atla)
+  if (!url.startsWith('http')) return;
+
   // API isteklerini cache'leme
-  if (event.request.url.includes('/api/')) return;
+  if (url.includes('/api/')) return;
+
+  // POST isteklerini atla
+  if (event.request.method !== 'GET') return;
 
   event.respondWith(
     fetch(event.request)
       .then((res) => {
-        // Başarılı yanıtı cache'e ekle
-        if (res.ok && event.request.method === 'GET') {
+        if (res.ok) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
