@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/tarama', label: 'Tarama' },
+  { href: '/portfolyo', label: 'Portföy' },
   { href: '/makro', label: 'Makro Radar' },
   { href: '/backtesting', label: 'Backtest' },
   { href: '/topluluk', label: 'Topluluk' },

@@ -133,3 +133,22 @@ export const BIST_SYMBOLS = [
 ] as const;
 
 export type BistSymbol = (typeof BIST_SYMBOLS)[number];
+
+export interface PortfolyoPozisyon {
+  id: string;
+  user_id: string;
+  sembol: string;
+  miktar: number;
+  alis_fiyati: number;
+  alis_tarihi: string;
+  notlar?: string | null;
+  created_at: string;
+}
+
+export interface PortfolyoPozisyonWithStats extends PortfolyoPozisyon {
+  guncel_fiyat: number | null;
+  maliyet: number;
+  guncel_deger: number | null;
+  kar_zarar: number | null;
+  kar_zarar_yuzde: number | null;
+}
