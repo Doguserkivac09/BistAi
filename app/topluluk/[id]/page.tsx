@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +28,19 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 30)}ay`;
 }
 
+const AVATAR_GRADIENTS = [
+  'from-violet-500 to-indigo-600',
+  'from-blue-500 to-cyan-600',
+  'from-emerald-500 to-teal-600',
+  'from-orange-500 to-amber-600',
+  'from-pink-500 to-rose-600',
+];
+
+function getAvatarGradient(name: string): string {
+  const idx = (name.charCodeAt(0) ?? 0) % 5;
+  return AVATAR_GRADIENTS[idx];
+}
+
 function CommentItem({
   comment,
   onReply,
@@ -42,67 +56,85 @@ function CommentItem({
 }) {
   const replies = allComments.filter((c) => c.parent_id === comment.id);
   const isPremiumLocked = comment.is_ai && userTier !== 'premium';
+  const authorName = comment.author?.display_name ?? 'U';
+  const gradient = getAvatarGradient(authorName);
 
-  return (
-    <div className={cn('mt-3', depth > 0 && 'ml-6 border-l border-border/50 pl-3')}>
-      <div className="flex items-start gap-2">
-        {/* Avatar */}
-        <div className={cn(
-          'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
-          comment.is_ai
-            ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
-            : 'bg-primary/10 text-primary'
-        )}>
-          {comment.is_ai
-            ? <Bot className="h-3.5 w-3.5" />
-            : (comment.author?.display_name?.[0]?.toUpperCase() ?? 'U')}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            {comment.is_ai ? (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-violet-400">
-                AI Analist
-                <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">
-                  BETA
-                </span>
-              </span>
-            ) : (
-              <span className="text-xs font-medium text-text-primary">
-                {comment.author?.display_name ?? 'Anonim'}
-              </span>
-            )}
-            <span className="text-[10px] text-text-secondary">{timeAgo(comment.created_at)}</span>
+  if (comment.is_ai) {
+    return (
+      <div className={cn('mt-3', depth > 0 && 'ml-8 border-l-2 border-white/8 pl-4')}>
+        <div className="rounded-xl border border-violet-500/30 bg-gradient-to-br from-violet-500/8 to-transparent p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500/20 border border-violet-500/40">
+              <Bot className="h-4 w-4 text-violet-400" />
+            </div>
+            <span className="text-sm font-semibold text-violet-300">AI Analist</span>
+            <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-violet-400">
+              BETA
+            </span>
+            <span className="ml-auto text-xs text-white/30">{timeAgo(comment.created_at)}</span>
           </div>
 
-          {/* Premium gate için blur + CTA */}
           {isPremiumLocked ? (
-            <div className="relative mt-1 rounded-lg overflow-hidden">
-              <p className="text-sm text-text-secondary whitespace-pre-wrap select-none blur-sm">
+            <div className="relative rounded-lg overflow-hidden">
+              <p className="text-sm text-white/50 whitespace-pre-wrap select-none blur-sm leading-relaxed">
                 {comment.body}
               </p>
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-background/70 backdrop-blur-[3px] rounded-lg">
-                <Lock className="h-4 w-4 text-violet-400" />
-                <span className="text-xs font-semibold text-violet-300">Premium İçerik</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 backdrop-blur-[3px] rounded-lg">
+                <Lock className="h-5 w-5 text-violet-400" />
+                <span className="text-sm font-semibold text-violet-300">Premium İçerik</span>
                 <Link
                   href="/fiyatlandirma"
-                  className="text-[11px] text-primary hover:underline font-medium"
+                  className="text-xs text-primary hover:underline font-medium"
                 >
                   Premium&apos;a Yükselt →
                 </Link>
               </div>
             </div>
           ) : (
-            <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">{comment.body}</p>
+            <p className="text-sm text-white/70 whitespace-pre-wrap leading-relaxed">{comment.body}</p>
           )}
+        </div>
+        {replies.map((r) => (
+          <CommentItem key={r.id} comment={r} onReply={onReply} depth={depth + 1} allComments={allComments} userTier={userTier} />
+        ))}
+      </div>
+    );
+  }
 
-          {/* AI yorumlarına yanıt yapılamaz */}
-          {depth < 2 && !comment.is_ai && (
+  return (
+    <div className={cn('mt-3', depth > 0 && 'ml-8 border-l-2 border-white/8 pl-4')}>
+      <div className="flex items-start gap-2.5">
+        {/* Avatar */}
+        <div
+          className={cn(
+            'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold text-white',
+            gradient
+          )}
+        >
+          {authorName[0]?.toUpperCase() ?? 'U'}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white/90">
+              {comment.author?.display_name ?? 'Anonim'}
+            </span>
+            {comment.author?.tier && comment.author.tier !== 'free' && (
+              <span className="text-[10px] font-bold rounded-full border px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border-blue-500/30">
+                {comment.author.tier.toUpperCase()}
+              </span>
+            )}
+            <span className="text-xs text-white/30">{timeAgo(comment.created_at)}</span>
+          </div>
+
+          <p className="mt-1 text-sm text-white/65 whitespace-pre-wrap leading-relaxed">{comment.body}</p>
+
+          {depth < 2 && (
             <button
               onClick={() => onReply(comment.id)}
-              className="mt-1 flex items-center gap-1 text-[10px] text-text-secondary hover:text-primary transition-colors"
+              className="mt-1.5 flex items-center gap-1 text-xs text-white/30 hover:text-primary transition-colors"
             >
-              <CornerDownRight className="h-2.5 w-2.5" />
+              <CornerDownRight className="h-3 w-3" />
               Yanıtla
             </button>
           )}
@@ -127,6 +159,7 @@ export default function PostDetailPage() {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [liking, setLiking] = useState(false);
+  const [likeAnim, setLikeAnim] = useState(false);
 
   // Comment state
   const [commentBody, setCommentBody] = useState('');
@@ -134,7 +167,7 @@ export default function PostDetailPage() {
   const [commenting, setCommenting] = useState(false);
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
-  // User tier (premium gate için)
+  // User tier
   const [userTier, setUserTier] = useState<'free' | 'pro' | 'premium'>('free');
 
   // Report state
@@ -164,25 +197,23 @@ export default function PostDetailPage() {
 
   useEffect(() => { fetchPost(); }, [fetchPost]);
 
-  // Realtime: yeni yorum gelince otomatik yenile
   useRealtimeComments(id ?? null, fetchPost);
 
-  // Like toggle
   const handleLike = async () => {
     if (liking) return;
     setLiking(true);
-
-    // Optimistic update
     const wasLiked = liked;
     setLiked(!wasLiked);
     setLikeCount((c) => wasLiked ? c - 1 : c + 1);
-
+    if (!wasLiked) {
+      setLikeAnim(true);
+      setTimeout(() => setLikeAnim(false), 400);
+    }
     try {
       const res = await fetch(`/api/community/posts/${id}/like`, {
         method: wasLiked ? 'DELETE' : 'POST',
       });
       if (!res.ok) {
-        // Rollback
         setLiked(wasLiked);
         setLikeCount((c) => wasLiked ? c + 1 : c - 1);
       }
@@ -194,7 +225,6 @@ export default function PostDetailPage() {
     }
   };
 
-  // Comment submit
   const handleComment = async () => {
     if (commenting || !commentBody.trim()) return;
     setCommenting(true);
@@ -202,15 +232,12 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/community/posts/${id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          body: commentBody.trim(),
-          parent_id: replyTo,
-        }),
+        body: JSON.stringify({ body: commentBody.trim(), parent_id: replyTo }),
       });
       if (res.ok) {
         setCommentBody('');
         setReplyTo(null);
-        fetchPost(); // Refresh to get new comment
+        fetchPost();
       }
     } catch {
       // ignore
@@ -221,10 +248,9 @@ export default function PostDetailPage() {
 
   const handleReply = (parentId: string) => {
     setReplyTo(parentId);
-    commentRef.current?.focus();
+    setTimeout(() => commentRef.current?.focus(), 50);
   };
 
-  // Report
   const handleReport = async () => {
     if (reporting || !reportReason) return;
     setReporting(true);
@@ -232,10 +258,7 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/community/posts/${id}/report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reason: reportReason,
-          detail: reportDetail.trim() || null,
-        }),
+        body: JSON.stringify({ reason: reportReason, detail: reportDetail.trim() || null }),
       });
       if (res.ok) {
         setReportSuccess(true);
@@ -253,7 +276,6 @@ export default function PostDetailPage() {
     }
   };
 
-  // Delete
   const handleDelete = async () => {
     if (!confirm('Bu paylaşımı silmek istediğinize emin misiniz?')) return;
     try {
@@ -268,11 +290,11 @@ export default function PostDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <main className="container mx-auto max-w-3xl px-4 py-6">
-          <Skeleton className="h-6 w-24 mb-6" />
+          <Skeleton className="h-5 w-24 mb-6" />
           <Skeleton className="h-8 w-3/4 mb-3" />
           <Skeleton className="h-4 w-32 mb-4" />
-          <Skeleton className="h-40 rounded-lg mb-6" />
-          <Skeleton className="h-20 rounded-lg" />
+          <Skeleton className="h-40 rounded-xl mb-6" />
+          <Skeleton className="h-24 rounded-xl" />
         </main>
       </div>
     );
@@ -294,6 +316,8 @@ export default function PostDetailPage() {
   }
 
   const cat = CATEGORY_LABELS[post.category];
+  const authorName = post.author?.display_name ?? 'U';
+  const authorGradient = getAvatarGradient(authorName);
   const topLevelComments = post.comments.filter((c) => !c.parent_id);
 
   return (
@@ -302,76 +326,91 @@ export default function PostDetailPage() {
         {/* Back */}
         <Link
           href="/topluluk"
-          className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-primary transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-primary transition-colors mb-5"
         >
           <ArrowLeft className="h-4 w-4" />
           Topluluk
         </Link>
 
         {/* Post */}
-        <Card className="border-border mb-6">
-          <CardContent className="p-5">
-            {/* Author */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
-                {post.author?.display_name?.[0]?.toUpperCase() ?? 'U'}
-              </div>
-              <div>
-                <span className="text-sm font-medium text-text-primary">
-                  {post.author?.display_name ?? 'Anonim'}
-                </span>
-                {post.author?.tier && post.author.tier !== 'free' && (
-                  <span className="ml-1.5 text-[10px] font-semibold rounded-full border px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border-blue-500/30">
-                    {post.author.tier.toUpperCase()}
-                  </span>
+        <Card className="border-white/8 mb-5">
+          <CardContent className="p-6">
+            {/* Author row */}
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className={cn(
+                  'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-sm',
+                  authorGradient
                 )}
-                <p className="text-[10px] text-text-secondary">{timeAgo(post.created_at)}</p>
+              >
+                {authorName[0]?.toUpperCase() ?? 'U'}
               </div>
-              {post.is_pinned && <Pin className="h-3.5 w-3.5 text-yellow-400 ml-auto" />}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white/90">
+                    {post.author?.display_name ?? 'Anonim'}
+                  </span>
+                  {post.author?.tier && post.author.tier !== 'free' && (
+                    <span className="text-[10px] font-bold rounded-full border px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border-blue-500/30">
+                      {post.author.tier.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-white/35">{timeAgo(post.created_at)}</p>
+              </div>
+              {post.is_pinned && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1 text-xs font-semibold text-yellow-400">
+                  <Pin className="h-3 w-3" />
+                  Öne Çıkan
+                </span>
+              )}
             </div>
 
             {/* Title + badges */}
-            <h1 className="text-lg font-bold text-text-primary mb-2">{post.title}</h1>
-            <div className="flex items-center gap-2 mb-4">
-              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${cat.color}`}>
+            <h1 className="text-xl font-bold text-white mb-3">{post.title}</h1>
+            <div className="flex items-center gap-2 mb-5">
+              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${cat.color}`}>
                 {cat.label}
               </span>
               {post.sembol && (
                 <Link
                   href={`/hisse/${post.sembol}`}
-                  className="inline-flex items-center gap-0.5 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10"
+                  className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-0.5 text-xs font-semibold text-primary hover:bg-primary/15 transition-colors"
                 >
-                  <TrendingUp className="h-2.5 w-2.5" />
+                  <TrendingUp className="h-3 w-3" />
                   {post.sembol}
                 </Link>
               )}
             </div>
 
             {/* Body */}
-            <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+            <div className="text-base text-white/70 whitespace-pre-wrap leading-relaxed">
               {post.body}
             </div>
 
             {/* Actions */}
-            <div className="mt-4 pt-3 border-t border-border flex items-center gap-4">
-              <button
+            <div className="mt-5 pt-4 border-t border-white/6 flex items-center gap-5">
+              <motion.button
                 onClick={handleLike}
                 disabled={liking}
+                whileTap={{ scale: 0.85 }}
+                animate={likeAnim ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
                 className={cn(
-                  'flex items-center gap-1.5 text-sm transition-colors',
-                  liked ? 'text-red-400' : 'text-text-secondary hover:text-red-400'
+                  'flex items-center gap-1.5 text-base font-medium transition-colors',
+                  liked ? 'text-red-400' : 'text-white/40 hover:text-red-400'
                 )}
               >
-                <Heart className={cn('h-4 w-4', liked && 'fill-current')} />
+                <Heart className={cn('h-5 w-5', liked && 'fill-current')} />
                 {likeCount}
-              </button>
-              <span className="flex items-center gap-1.5 text-sm text-text-secondary">
-                <MessageSquare className="h-4 w-4" />
+              </motion.button>
+              <span className="flex items-center gap-1.5 text-base text-white/40">
+                <MessageSquare className="h-5 w-5" />
                 {post.comment_count}
               </span>
               <button
                 onClick={() => setShowReport(!showReport)}
-                className="ml-auto flex items-center gap-1 text-xs text-text-secondary hover:text-red-400 transition-colors"
+                className="ml-auto flex items-center gap-1 text-sm text-white/30 hover:text-red-400 transition-colors"
               >
                 <Flag className="h-3.5 w-3.5" />
                 Şikayet
@@ -379,7 +418,7 @@ export default function PostDetailPage() {
               {post.author_id === post.author?.id && (
                 <button
                   onClick={handleDelete}
-                  className="flex items-center gap-1 text-xs text-text-secondary hover:text-red-400 transition-colors"
+                  className="flex items-center gap-1 text-sm text-white/30 hover:text-red-400 transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Sil
@@ -388,90 +427,115 @@ export default function PostDetailPage() {
             </div>
 
             {/* Report form */}
-            {showReport && (
-              <div className="mt-3 p-3 rounded-lg border border-border bg-surface">
-                {reportSuccess ? (
-                  <p className="text-sm text-green-400">Şikayetiniz alındı. Teşekkürler.</p>
-                ) : (
-                  <>
-                    <p className="text-xs font-medium text-text-primary mb-2">Şikayet Nedeni</p>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {REPORT_REASONS.map((r) => (
-                        <button
-                          key={r.value}
-                          onClick={() => setReportReason(r.value)}
-                          className={cn(
-                            'rounded-full border px-2.5 py-1 text-xs transition-colors',
-                            reportReason === r.value
-                              ? 'border-red-400 bg-red-500/10 text-red-400'
-                              : 'border-border text-text-secondary hover:border-red-400/30'
-                          )}
-                        >
-                          {r.label}
-                        </button>
-                      ))}
-                    </div>
-                    <textarea
-                      value={reportDetail}
-                      onChange={(e) => setReportDetail(e.target.value)}
-                      placeholder="Ek detay (opsiyonel)..."
-                      maxLength={500}
-                      rows={2}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none resize-none mb-2"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleReport}
-                      disabled={!reportReason || reporting}
-                      className="text-red-400 border-red-500/30 hover:bg-red-500/10"
-                    >
-                      {reporting ? 'Gönderiliyor...' : 'Gönder'}
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
+            <AnimatePresence>
+              {showReport && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-3 p-4 rounded-xl border border-white/8 bg-white/3 overflow-hidden"
+                >
+                  {reportSuccess ? (
+                    <p className="text-sm text-green-400">Şikayetiniz alındı. Teşekkürler.</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-white/70 mb-3">Şikayet Nedeni</p>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {REPORT_REASONS.map((r) => (
+                          <button
+                            key={r.value}
+                            onClick={() => setReportReason(r.value)}
+                            className={cn(
+                              'rounded-full border px-3 py-1 text-xs transition-colors',
+                              reportReason === r.value
+                                ? 'border-red-400 bg-red-500/10 text-red-400'
+                                : 'border-white/10 text-white/40 hover:border-red-400/30'
+                            )}
+                          >
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={reportDetail}
+                        onChange={(e) => setReportDetail(e.target.value)}
+                        placeholder="Ek detay (opsiyonel)..."
+                        maxLength={500}
+                        rows={2}
+                        className="w-full rounded-lg border border-white/8 bg-background px-3 py-2 text-sm text-white/70 placeholder-white/20 focus:border-primary focus:outline-none resize-none mb-3"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleReport}
+                        disabled={!reportReason || reporting}
+                        className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+                      >
+                        {reporting ? 'Gönderiliyor...' : 'Gönder'}
+                      </Button>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </CardContent>
         </Card>
 
         {/* Comment input */}
-        <Card className="border-border mb-4">
-          <CardContent className="p-4">
+        <div className="rounded-2xl border border-white/8 bg-[#0a0a18] p-4 mb-6">
+          <AnimatePresence>
             {replyTo && (
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-text-secondary">Yanıt yazıyorsun</span>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-2 mb-3 overflow-hidden"
+              >
+                <CornerDownRight className="h-3.5 w-3.5 text-primary" />
+                <span className="text-sm text-white/50">Yanıt yazıyorsun</span>
                 <button
                   onClick={() => setReplyTo(null)}
-                  className="text-xs text-primary hover:underline"
+                  className="text-sm text-primary hover:underline"
                 >
                   İptal
                 </button>
-              </div>
+              </motion.div>
             )}
-            <div className="flex gap-2">
-              <textarea
-                ref={commentRef}
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                placeholder="Yorumunu yaz..."
-                maxLength={2000}
-                rows={2}
-                className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none resize-none"
-              />
-              <Button
-                size="sm"
-                onClick={handleComment}
-                disabled={commenting || !commentBody.trim()}
-                className="self-end"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </AnimatePresence>
+          <textarea
+            ref={commentRef}
+            value={commentBody}
+            onChange={(e) => setCommentBody(e.target.value)}
+            placeholder="Yorumunu paylaş..."
+            maxLength={2000}
+            rows={3}
+            className="w-full bg-transparent border-0 outline-none text-base text-white/80 placeholder-white/20 resize-none mb-3 leading-relaxed"
+          />
+          <div className="flex items-center justify-between">
+            <span className={cn(
+              'text-xs font-mono tabular-nums transition-colors',
+              commentBody.length > 1800 ? 'text-red-400' : commentBody.length > 1500 ? 'text-yellow-400' : 'text-white/25'
+            )}>
+              {commentBody.length}/2000
+            </span>
+            <Button
+              size="sm"
+              onClick={handleComment}
+              disabled={commenting || !commentBody.trim()}
+              className="gap-1.5"
+            >
+              <Send className="h-3.5 w-3.5" />
+              {commenting ? 'Gönderiliyor...' : 'Gönder'}
+            </Button>
+          </div>
+        </div>
 
-        {/* Comments */}
+        {/* Comments section */}
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="h-4 w-4 text-primary" />
+          <h3 className="text-base font-semibold text-white">{post.comment_count} Yorum</h3>
+        </div>
+
         {topLevelComments.length > 0 ? (
           <div className="space-y-1">
             {topLevelComments.map((comment) => (
@@ -485,9 +549,10 @@ export default function PostDetailPage() {
             ))}
           </div>
         ) : (
-          <p className="text-center text-sm text-text-secondary py-6">
-            Henüz yorum yok. İlk yorumu sen yap!
-          </p>
+          <div className="text-center py-10">
+            <MessageSquare className="h-10 w-10 text-white/10 mx-auto mb-3" />
+            <p className="text-sm text-white/35">Henüz yorum yok. İlk yorumu sen yap!</p>
+          </div>
         )}
       </main>
     </div>
