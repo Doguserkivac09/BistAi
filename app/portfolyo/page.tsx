@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import {
   TrendingUp, TrendingDown, Plus, Trash2, RefreshCw,
-  Briefcase, AlertCircle, X, ChevronUp, ChevronDown, Bell, BellOff,
+  Briefcase, AlertCircle, X, ChevronUp, ChevronDown, Bell, BellOff, BarChart2,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import type { PortfolyoPozisyonWithStats } from '@/types';
@@ -661,9 +662,20 @@ export default function PortfolyoPage() {
                   </table>
                 </div>
 
-                <p className="mt-3 text-right text-xs text-text-muted">
-                  Fiyatlar Yahoo Finance'tan çekilir · 15 dk gecikmeli olabilir
-                </p>
+                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                  <p className="text-xs text-text-muted">
+                    Fiyatlar Yahoo Finance'tan çekilir · 15 dk gecikmeli olabilir
+                  </p>
+                  {pozisyonlar.length >= 2 && (
+                    <Link
+                      href={`/karsilastir?semboller=${pozisyonlar.slice(0, 3).map((p) => p.sembol).join(',')}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-primary/40 hover:text-text-primary transition-colors"
+                    >
+                      <BarChart2 className="h-3.5 w-3.5" />
+                      Hisselerimi Karşılaştır
+                    </Link>
+                  )}
+                </div>
               </>
             )}
           </>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, BarChart2, TrendingUp, TrendingDown, Minus, Search, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -651,6 +652,8 @@ function SeverityBadge({ severity }: { severity: SignalSeverity }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function KarsilastirClient() {
+  const searchParams = useSearchParams();
+
   const [slots, setSlots] = useState<SlotState[]>([
     { status: 'empty' },
     { status: 'empty' },
@@ -711,6 +714,22 @@ export function KarsilastirClient() {
       next[slotIndex] = { status: 'empty' };
       return next;
     });
+  }, []);
+
+  // URL'den ?semboller=THYAO,ASELS,SISE parametresini oku ve otomatik yükle
+  useEffect(() => {
+    const param = searchParams.get('semboller');
+    if (!param) return;
+    const semboller = param
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .filter((s) => (BIST_SYMBOLS as readonly string[]).includes(s))
+      .slice(0, MAX_SLOTS);
+    semboller.forEach((sembol, i) => {
+      handleSelect(i, sembol);
+    });
+  // Sadece ilk mount'ta çalışsın
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Build chart series from loaded slots
