@@ -187,7 +187,6 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     ml_service: mlStatus,
-    ml_service_url: mlServiceUrl ?? null,
     fallback_active: mlStatus !== 'online',
   });
 }

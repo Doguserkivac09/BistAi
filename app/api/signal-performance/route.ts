@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase-server';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { getMarketRegime } from '@/lib/regime-engine';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,7 +15,6 @@ function createAdminClient() {
 }
 
 interface SignalPerformanceBody {
-  user_id: string | null;
   sembol: string;
   signal_type: string;
   direction: 'yukari' | 'asagi' | 'nötr';
@@ -23,6 +24,20 @@ interface SignalPerformanceBody {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Rate limit: 60 req/min
+    const ip = getClientIP(request.headers);
+    const rl = checkRateLimit(`signal-perf:${ip}`, 60, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Çok fazla istek.' }, { status: 429 });
+    }
+
+    // Auth kontrolü
+    const supabaseAuth = await createServerClient();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Giriş yapmanız gerekiyor.' }, { status: 401 });
+    }
+
     const body = (await request.json()) as SignalPerformanceBody;
 
     if (!body.sembol || !body.signal_type || !body.direction || !body.entry_price || !body.entry_time) {
@@ -47,7 +62,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .from('signal_performance')
       .upsert(
         {
-          user_id: body.user_id,
+          user_id: user.id,
           sembol: body.sembol,
           signal_type: body.signal_type,
           direction: body.direction,
