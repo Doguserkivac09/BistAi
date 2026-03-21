@@ -167,6 +167,15 @@ function WatchRow({
 
 // ─── Hisse Ekle Modal ─────────────────────────────────────────────────────────
 
+const TAKIP_SECENEKLERI = [
+  { value: '', label: 'Seçiniz (opsiyonel)' },
+  { value: 'Kısa vadeli takip', label: '📈 Kısa vadeli takip' },
+  { value: 'Uzun vadeli takip', label: '🏦 Uzun vadeli takip' },
+  { value: 'Temettü takibi',    label: '💰 Temettü takibi' },
+  { value: 'Teknik analiz',     label: '📊 Teknik analiz' },
+  { value: 'Sinyal bekleniyor', label: '🔔 Sinyal bekleniyor' },
+];
+
 function AddModal({
   onClose, onSave,
 }: {
@@ -177,12 +186,11 @@ function AddModal({
   const [notlar, setNotlar]   = useState('');
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState<string | null>(null);
+  const [selected, setSelected] = useState('');
 
   const filtered = search.length >= 1
     ? BIST_SYMBOLS.filter((s) => s.includes(search.toUpperCase())).slice(0, 8)
     : [];
-
-  const [selected, setSelected] = useState('');
 
   async function handleSave() {
     if (!selected) { setError('Hisse seçmelisin'); return; }
@@ -216,15 +224,17 @@ function AddModal({
           </button>
         </div>
 
-        {/* Arama */}
+        {/* Hisse Arama */}
         <div className="mb-3">
-          <label className="mb-1.5 block text-xs font-medium text-text-secondary">Hisse Sembolü</label>
+          <label className="mb-1.5 block text-xs font-medium text-text-secondary">
+            Hisse Sembolü <span className="text-red-400">*</span>
+          </label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
               value={selected || search}
-              onChange={(e) => { setSearch(e.target.value); setSelected(''); }}
+              onChange={(e) => { setSearch(e.target.value); setSelected(''); setError(null); }}
               placeholder="THYAO, GARAN…"
               className="w-full rounded-lg border border-border bg-white py-2.5 pl-9 pr-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
             />
@@ -244,21 +254,23 @@ function AddModal({
           )}
         </div>
 
-        {/* Not */}
+        {/* Takip Sebebi */}
         <div className="mb-4">
-          <label className="mb-1.5 block text-xs font-medium text-text-secondary">Not (opsiyonel)</label>
-          <input
-            type="text"
+          <label className="mb-1.5 block text-xs font-medium text-text-secondary">
+            Takip Sebebi <span className="text-text-muted">(opsiyonel)</span>
+          </label>
+          <select
             value={notlar}
             onChange={(e) => setNotlar(e.target.value)}
-            placeholder="Örn: Uzun vadeli takip"
-            className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
-          />
+            className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 focus:border-primary focus:outline-none cursor-pointer"
+          >
+            {TAKIP_SECENEKLERI.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
 
-        {error && (
-          <p className="mb-3 text-xs text-red-400">{error}</p>
-        )}
+        {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
 
         {/* Butonlar */}
         <div className="flex gap-3">
