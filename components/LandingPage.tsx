@@ -39,27 +39,27 @@ const TICKER_ITEMS = [
 // ── Mock live signals ─────────────────────────────────────────────
 
 const MOCK_SIGNALS = [
-  { sembol: 'THYAO', type: 'RSI Uyumsuzluk',   dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 78 },
-  { sembol: 'EREGL', type: 'Hacim Anomalisi',  dir: 'AL',  sev: 'Orta',  macro: '+42', confidence: 64 },
-  { sembol: 'PGSUS', type: 'Trend Başlangıcı', dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 71 },
-  { sembol: 'KCHOL', type: 'S/R Kırılımı',     dir: 'SAT', sev: 'Zayıf', macro: '+18', confidence: 49 },
-  { sembol: 'ARCLK', type: 'RSI Uyumsuzluk',   dir: 'SAT', sev: 'Orta',  macro: '+18', confidence: 58 },
-  { sembol: 'BIMAS', type: 'Hacim Anomalisi',   dir: 'AL',  sev: 'Orta',  macro: '+42', confidence: 62 },
+  { sembol: 'THYAO', type: 'RSI Uyumsuzluğu',  dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 78 },
+  { sembol: 'EREGL', type: 'MACD Kesişimi',     dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 74 },
+  { sembol: 'PGSUS', type: 'Trend Başlangıcı',  dir: 'AL',  sev: 'Orta',  macro: '+42', confidence: 71 },
+  { sembol: 'ASELS', type: 'Altın Çapraz',       dir: 'AL',  sev: 'Güçlü', macro: '+55', confidence: 82 },
+  { sembol: 'KCHOL', type: 'S/R Kırılımı',      dir: 'SAT', sev: 'Zayıf', macro: '+18', confidence: 49 },
+  { sembol: 'ARCLK', type: 'RSI Seviyesi',       dir: 'SAT', sev: 'Orta',  macro: '+18', confidence: 58 },
 ];
 
 // ── Stats ─────────────────────────────────────────────────────────
 
 const STATS = [
-  { value: '400+', label: 'BIST Hissesi' },
-  { value: '4',    label: 'Sinyal Tipi'  },
-  { value: '3',    label: 'Makro Katman' },
-  { value: '7/24', label: 'Canlı Analiz' },
+  { value: '150+', label: 'BIST Hissesi'   },
+  { value: '7',    label: 'Sinyal Tipi'    },
+  { value: '7',    label: 'Makro Gösterge' },
+  { value: '7/24', label: 'Canlı Analiz'   },
 ];
 
 // ── Features ──────────────────────────────────────────────────────
 
 const FEATURES = [
-  { icon: BarChart3,  title: 'Sinyal Tarama',    desc: 'RSI uyumsuzluğu, hacim anomalisi, trend başlangıcı ve kırılım — tüm BIST hisselerinde tek seferde.',        gradient: 'from-indigo-500/20 to-violet-500/5'  },
+  { icon: BarChart3,  title: 'Sinyal Tarama',    desc: 'RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi ve daha fazlası — 150+ BIST hissesinde tek seferde.',        gradient: 'from-indigo-500/20 to-violet-500/5'  },
   { icon: Brain,      title: 'AI Açıklamalar',   desc: 'Her sinyal için Claude AI ile üretilen sade Türkçe analiz. Ne olduğunu değil, ne anlama geldiğini öğren.', gradient: 'from-violet-500/20 to-fuchsia-500/5' },
   { icon: TrendingUp, title: 'Makro Radar',      desc: 'VIX, DXY, USD/TRY, TCMB faizi — tüm makro rüzgarları tek panelde. BIST\'in nabzını hisset.',              gradient: 'from-cyan-500/20 to-blue-500/5'      },
   { icon: Shield,     title: 'Risk Skoru',       desc: 'Kompozit motor sektörü, makroyu ve teknik sinyali birleştirir. AL / TUT / SAT kararı + güven yüzdesi.',    gradient: 'from-emerald-500/20 to-teal-500/5'  },
@@ -622,8 +622,8 @@ export default function LandingPage() {
                 className="mt-10 flex flex-wrap items-center justify-center gap-6 lg:justify-start"
               >
                 {[
-                  { icon: Globe2,   text: '400+ hisse' },
-                  { icon: Activity, text: '4 sinyal tipi' },
+                  { icon: Globe2,   text: '150+ hisse' },
+                  { icon: Activity, text: '7 sinyal tipi' },
                   { icon: Users,    text: 'Topluluk' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs text-text-secondary">
