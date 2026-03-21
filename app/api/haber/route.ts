@@ -1,7 +1,7 @@
 /**
  * Hisse haberleri API
  * GET /api/haber?sembol=THYAO
- * Google News RSS üzerinden ücretsiz, API key gerekmez.
+ * Yahoo Finance search API — zaten OHLCV için kullanılıyor, engel yok.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,83 +13,48 @@ export interface HaberItem {
   kaynak: string;
 }
 
-// Şirket adı eşleştirme — Google'da sembol yerine şirket adıyla arama daha iyi sonuç verir
-const SEMBOL_AD_MAP: Record<string, string> = {
-  THYAO: 'Türk Hava Yolları',
-  GARAN: 'Garanti Bankası',
-  ASELS: 'Aselsan',
-  KCHOL: 'Koç Holding',
-  EREGL: 'Ereğli Demir Çelik',
-  BIMAS: 'BİM Mağazaları',
-  AKBNK: 'Akbank',
-  SISE:  'Şişe Cam',
-  TUPRS: 'Tüpraş',
-  FROTO: 'Ford Otosan',
-  TOASO: 'Tofaş',
-  SAHOL: 'Sabancı Holding',
-  YKBNK: 'Yapı Kredi',
-  HALKB: 'Halkbank',
-  VAKBN: 'Vakıfbank',
-  TCELL: 'Turkcell',
-  ARCLK: 'Arçelik',
-  EKGYO: 'Emlak Konut',
-  PGSUS: 'Pegasus',
-  TTKOM: 'Türk Telekom',
-  PETKM: 'Petkim',
-  DOHOL: 'Doğan Holding',
-  KOZAL: 'Koza Altın',
-  MGROS: 'Migros',
-  SASA:  'SASA Polyester',
-  ISCTR: 'İş Bankası',
-  ENKAI: 'Enka İnşaat',
-  BRISA: 'Brisa',
-  AGHOL: 'AG Anadolu Grubu',
-  OYAKC: 'Oyak Çimento',
-};
-
-function parseRSS(xml: string): HaberItem[] {
-  const items: HaberItem[] = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
-
-  while ((match = itemRegex.exec(xml)) !== null) {
-    const block = match[1] ?? '';
-
-    const baslik = (block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ??
-                    block.match(/<title>(.*?)<\/title>/))?.[1]?.trim() ?? '';
-    const link   = (block.match(/<link>(.*?)<\/link>/))?.[1]?.trim() ?? '';
-    const tarih  = (block.match(/<pubDate>(.*?)<\/pubDate>/))?.[1]?.trim() ?? '';
-    const kaynak = (block.match(/<source[^>]*>(.*?)<\/source>/))?.[1]?.trim() ?? 'Google Haberler';
-
-    if (baslik && link) {
-      items.push({ baslik, link, tarih, kaynak });
-    }
-  }
-
-  return items.slice(0, 6);
+interface YahooNewsItem {
+  title?: string;
+  link?: string;
+  providerPublishTime?: number;
+  publisher?: string;
+  uuid?: string;
 }
 
 export async function GET(req: NextRequest) {
   const sembol = req.nextUrl.searchParams.get('sembol')?.toUpperCase() ?? '';
   if (!sembol) return NextResponse.json({ error: 'sembol gerekli' }, { status: 400 });
 
-  const sirketAdi = SEMBOL_AD_MAP[sembol] ?? sembol;
-  const query = encodeURIComponent(`${sirketAdi} hisse borsa`);
-  const url = `https://news.google.com/rss/search?q=${query}&hl=tr&gl=TR&ceid=TR:tr`;
+  const yahooSembol = `${sembol}.IS`;
+  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${yahooSembol}&newsCount=6&enableFuzzyQuery=false&enableNavLinks=false`;
 
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+      },
       next: { revalidate: 1800 }, // 30 dk cache
     });
 
-    if (!res.ok) throw new Error(`RSS HTTP ${res.status}`);
-    const xml = await res.text();
-    const haberler = parseRSS(xml);
+    if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
+    const json = await res.json();
+
+    const newsItems: YahooNewsItem[] = json?.news ?? [];
+    const haberler: HaberItem[] = newsItems
+      .filter((n) => n.title && n.link)
+      .map((n) => ({
+        baslik: n.title!,
+        link:   n.link!,
+        tarih:  n.providerPublishTime
+          ? new Date(n.providerPublishTime * 1000).toISOString()
+          : '',
+        kaynak: n.publisher ?? 'Yahoo Finance',
+      }));
 
     return NextResponse.json({ sembol, haberler });
   } catch (err) {
-    console.error('[haber] RSS çekme hatası:', err);
+    console.error('[haber] Yahoo haber hatası:', err);
     return NextResponse.json({ sembol, haberler: [] });
   }
 }
