@@ -66,7 +66,7 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
               initial={{ opacity: 0, scale: 0.95, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
-              className="relative w-full max-w-xs rounded-xl border border-border bg-surface p-4 shadow-2xl"
+              className="relative w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-2xl"
             >
               {/* Başlık */}
               <div className="mb-3 flex items-center justify-between">
@@ -86,7 +86,7 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
                 {/* 3 alan yan yana */}
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="mb-1 block text-[10px] font-medium text-text-muted">Lot</label>
+                    <label className="mb-1 block text-xs font-medium text-text-muted">Lot</label>
                     <input
                       type="number"
                       min="1"
@@ -94,11 +94,11 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
                       value={miktar}
                       onChange={(e) => setMiktar(e.target.value)}
                       placeholder="100"
-                      className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-medium text-text-muted">Fiyat (₺)</label>
+                    <label className="mb-1 block text-xs font-medium text-text-muted">Fiyat (₺)</label>
                     <input
                       type="number"
                       min="0.01"
@@ -106,16 +106,16 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
                       value={fiyat}
                       onChange={(e) => setFiyat(e.target.value)}
                       placeholder="45.20"
-                      className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-medium text-text-muted">Tarih</label>
+                    <label className="mb-1 block text-xs font-medium text-text-muted">Tarih</label>
                     <input
                       type="date"
                       value={tarih}
                       onChange={(e) => setTarih(e.target.value)}
-                      className="w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-zinc-900 focus:border-primary focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-zinc-900 focus:border-primary focus:outline-none"
                     />
                   </div>
                 </div>
@@ -140,7 +140,7 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
               <button
                 onClick={handleSave}
                 disabled={saving || saved || !miktar || !fiyat || !tarih}
-                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {saved ? (
                   <><Check className="h-4 w-4" /> Eklendi</>
