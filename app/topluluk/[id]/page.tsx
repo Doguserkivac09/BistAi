@@ -30,15 +30,19 @@ function timeAgo(dateStr: string): string {
 function CommentItem({
   comment,
   onReply,
+  onDelete,
   depth = 0,
   allComments,
   userTier,
+  currentUserId,
 }: {
   comment: Comment;
   onReply: (parentId: string) => void;
+  onDelete: (commentId: string) => void;
   depth?: number;
   allComments: Comment[];
   userTier: 'free' | 'pro' | 'premium';
+  currentUserId: string | null;
 }) {
   const replies = allComments.filter((c) => c.parent_id === comment.id);
   const isPremiumLocked = comment.is_ai && userTier !== 'premium';
@@ -96,20 +100,31 @@ function CommentItem({
             <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">{comment.body}</p>
           )}
 
-          {/* AI yorumlarına yanıt yapılamaz */}
-          {depth < 2 && !comment.is_ai && (
-            <button
-              onClick={() => onReply(comment.id)}
-              className="mt-1 flex items-center gap-1 text-[10px] text-text-secondary hover:text-primary transition-colors"
-            >
-              <CornerDownRight className="h-2.5 w-2.5" />
-              Yanıtla
-            </button>
-          )}
+          {/* Yorum aksiyonları */}
+          <div className="mt-1 flex items-center gap-3">
+            {depth < 2 && !comment.is_ai && (
+              <button
+                onClick={() => onReply(comment.id)}
+                className="flex items-center gap-1 text-[10px] text-text-secondary hover:text-primary transition-colors"
+              >
+                <CornerDownRight className="h-2.5 w-2.5" />
+                Yanıtla
+              </button>
+            )}
+            {currentUserId && currentUserId === comment.author_id && !comment.is_ai && (
+              <button
+                onClick={() => onDelete(comment.id)}
+                className="flex items-center gap-1 text-[10px] text-text-secondary hover:text-red-400 transition-colors"
+              >
+                <Trash2 className="h-2.5 w-2.5" />
+                Sil
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {replies.map((r) => (
-        <CommentItem key={r.id} comment={r} onReply={onReply} depth={depth + 1} allComments={allComments} userTier={userTier} />
+        <CommentItem key={r.id} comment={r} onReply={onReply} onDelete={onDelete} depth={depth + 1} allComments={allComments} userTier={userTier} currentUserId={currentUserId} />
       ))}
     </div>
   );
@@ -136,6 +151,7 @@ export default function PostDetailPage() {
 
   // User tier (premium gate için)
   const [userTier, setUserTier] = useState<'free' | 'pro' | 'premium'>('free');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Report state
   const [showReport, setShowReport] = useState(false);
@@ -155,6 +171,7 @@ export default function PostDetailPage() {
       setLiked(data.is_liked);
       setLikeCount(data.like_count);
       setUserTier(data.user_tier ?? 'free');
+      if (data.current_user_id) setCurrentUserId(data.current_user_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Post yüklenemedi');
     } finally {
@@ -222,6 +239,16 @@ export default function PostDetailPage() {
   const handleReply = (parentId: string) => {
     setReplyTo(parentId);
     commentRef.current?.focus();
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm('Bu yorumu silmek istediğinize emin misiniz?')) return;
+    try {
+      const res = await fetch(`/api/community/posts/${id}/comments/${commentId}`, { method: 'DELETE' });
+      if (res.ok) fetchPost();
+    } catch {
+      // ignore
+    }
   };
 
   // Report
@@ -479,8 +506,10 @@ export default function PostDetailPage() {
                 key={comment.id}
                 comment={comment}
                 onReply={handleReply}
+                onDelete={handleDeleteComment}
                 allComments={post.comments}
                 userTier={userTier}
+                currentUserId={currentUserId}
               />
             ))}
           </div>
