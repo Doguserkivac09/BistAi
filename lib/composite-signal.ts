@@ -1,0 +1,389 @@
+/**
+ * Kompozit Sinyal Motoru — Teknik × Makro × Sektör → BUY / HOLD / SELL
+ *
+ * Phase 6.1
+ *
+ * Karar mantığı:
+ * 1. Teknik sinyal skoru (mevcut sinyal tespiti + edge stats)
+ * 2. Makro rüzgar skoru (-100 / +100)
+ * 3. Sektör uyum skoru (-100 / +100)
+ * → Ağırlıklı kompozit → BUY / HOLD / SELL + güven skoru + açıklama
+ *
+ * Ağırlıklar:
+ * Teknik Sinyal: %50 (temel)
+ * Makro Rüzgar:  %30 (bağlam)
+ * Sektör Uyumu:  %20 (filtre)
+ */
+
+import type { StockSignal, SignalDirection } from '@/types';
+import type { MacroScoreResult } from './macro-score';
+import type { SectorMomentum } from './sector-engine';
+import type { RiskScoreResult } from './risk-engine';
+
+// ── Türler ──────────────────────────────────────────────────────────
+
+export type CompositeDecision = 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL';
+
+export interface CompositeSignalResult {
+  /** Kompozit karar */
+  decision: CompositeDecision;
+  /** Türkçe karar */
+  decisionTr: string;
+  /** Güven skoru: 0-100 */
+  confidence: number;
+  /** Kompozit skor: -100 ↔ +100 */
+  compositeScore: number;
+  /** Bileşen skorları */
+  technicalScore: number;
+  macroScore: number;
+  sectorScore: number;
+  /** Risk seviyesi (güveni etkiler) */
+  riskAdjustment: number;
+  /** Renk kodu */
+  color: string;
+  /** Emoji */
+  emoji: string;
+  /** AI açıklama için bağlam */
+  context: CompositeContext;
+}
+
+export interface CompositeContext {
+  signalType: string;
+  signalDirection: SignalDirection;
+  macroWind: string;
+  macroLabel: string;
+  sectorName: string;
+  sectorSignal: string;
+  riskLevel: string;
+  keyFactors: string[];
+}
+
+// ── Ağırlıklar ──────────────────────────────────────────────────────
+
+const WEIGHTS = {
+  TECHNICAL: 0.50,
+  MACRO:     0.30,
+  SECTOR:    0.20,
+} as const;
+
+// ── Ana Kompozit Hesaplama ──────────────────────────────────────────
+
+/**
+ * Tek bir hisse sinyali için kompozit karar üretir.
+ */
+export function calculateCompositeSignal(
+  signal: StockSignal,
+  macroScore: MacroScoreResult | null,
+  sectorMomentum: SectorMomentum | null,
+  riskScore: RiskScoreResult | null,
+  edgeConfidence?: number | null
+): CompositeSignalResult {
+  // 1. Teknik skor
+  const technicalScore = calculateTechnicalScore(signal, edgeConfidence);
+
+  // 2. Makro skor (direkt kullan, yön uyumuna göre ayarla)
+  const macroScoreValue = calculateDirectionalMacroScore(
+    macroScore?.score ?? 0,
+    signal.direction
+  );
+
+  // 3. Sektör skoru
+  const sectorScore = sectorMomentum?.compositeScore ?? 0;
+
+  // 4. Kompozit skor (ağırlıklı)
+  let compositeScore = Math.round(
+    technicalScore * WEIGHTS.TECHNICAL +
+    macroScoreValue * WEIGHTS.MACRO +
+    sectorScore * WEIGHTS.SECTOR
+  );
+
+  // 5. Risk ayarlaması — yüksek risk ortamında güveni düşür
+  const riskAdjustment = calculateRiskAdjustment(riskScore);
+  compositeScore = Math.round(compositeScore * (1 + riskAdjustment / 100));
+  compositeScore = clamp(compositeScore, -100, 100);
+
+  // 6. Güven skoru (0-100)
+  const confidence = calculateConfidence(compositeScore, technicalScore, macroScoreValue, sectorScore, riskScore);
+
+  // 7. Karar
+  const decision = getDecision(compositeScore, signal.direction);
+  const decisionTr = getDecisionTr(decision);
+  const color = getDecisionColor(decision);
+  const emoji = getDecisionEmoji(decision);
+
+  // 8. Bağlam (AI açıklama için)
+  const keyFactors = buildKeyFactors(technicalScore, macroScoreValue, sectorScore, riskAdjustment, macroScore, sectorMomentum);
+
+  const context: CompositeContext = {
+    signalType: signal.type,
+    signalDirection: signal.direction,
+    macroWind: macroScore?.wind ?? 'neutral',
+    macroLabel: macroScore?.label ?? 'Bilinmiyor',
+    sectorName: sectorMomentum?.sectorName ?? 'Bilinmiyor',
+    sectorSignal: sectorMomentum?.signal ?? 'neutral',
+    riskLevel: riskScore?.level ?? 'medium',
+    keyFactors,
+  };
+
+  return {
+    decision,
+    decisionTr,
+    confidence,
+    compositeScore,
+    technicalScore,
+    macroScore: macroScoreValue,
+    sectorScore,
+    riskAdjustment,
+    color,
+    emoji,
+    context,
+  };
+}
+
+/**
+ * Birden fazla sinyal için toplu kompozit hesaplama.
+ */
+export function calculateCompositeSignals(
+  signals: StockSignal[],
+  macroScore: MacroScoreResult | null,
+  sectorMomentumMap: Record<string, SectorMomentum>,
+  riskScore: RiskScoreResult | null
+): Array<{ signal: StockSignal; composite: CompositeSignalResult }> {
+  return signals.map((signal) => {
+    const sectorMomentum = Object.values(sectorMomentumMap).find(
+      (sm) => sm.sectorId === getSectorIdForSymbol(signal.sembol)
+    ) ?? null;
+
+    return {
+      signal,
+      composite: calculateCompositeSignal(signal, macroScore, sectorMomentum, riskScore),
+    };
+  });
+}
+
+// ── Bileşen Hesaplamaları ───────────────────────────────────────────
+
+/**
+ * Teknik sinyal skor hesaplama.
+ * Sinyal severity + direction + edge confidence → -100/+100
+ */
+function calculateTechnicalScore(signal: StockSignal, edgeConfidence?: number | null): number {
+  // Severity bazlı temel skor
+  let baseScore: number;
+  switch (signal.severity) {
+    case 'güçlü': baseScore = 80; break;
+    case 'orta':  baseScore = 50; break;
+    case 'zayıf': baseScore = 25; break;
+    default:      baseScore = 40;
+  }
+
+  // Yön: yukarı → pozitif, aşağı → negatif
+  if (signal.direction === 'asagi') {
+    baseScore = -baseScore;
+  } else if (signal.direction === 'nötr') {
+    baseScore = baseScore * 0.3; // Nötr sinyaller zayıf pozitif
+  }
+
+  // Edge confidence varsa, skorun güvenilirliğini ayarla
+  if (edgeConfidence != null && edgeConfidence > 0) {
+    // Edge confidence (0-100) → 0.5-1.5 arası çarpan
+    const multiplier = 0.5 + (edgeConfidence / 100);
+    baseScore = Math.round(baseScore * multiplier);
+  }
+
+  return clamp(baseScore, -100, 100);
+}
+
+/**
+ * Makro skoru sinyal yönüne göre ayarla.
+ * Pozitif makro + yukarı sinyal = uyum (makro skoru boost)
+ * Pozitif makro + aşağı sinyal = çelişki (makro skoru düşür)
+ */
+function calculateDirectionalMacroScore(macroRawScore: number, direction: SignalDirection): number {
+  if (direction === 'yukari') {
+    // Yukarı sinyal: pozitif makro destekler, negatif makro zayıflatır
+    return macroRawScore;
+  } else if (direction === 'asagi') {
+    // Aşağı sinyal: negatif makro destekler (satış doğru), pozitif makro zayıflatır
+    return -macroRawScore;
+  }
+  // Nötr: makro etkisi yarıya düşer
+  return Math.round(macroRawScore * 0.5);
+}
+
+/**
+ * Risk seviyesine göre skor ayarlaması.
+ * Yüksek risk → negatif ayarlama (güveni düşürür)
+ */
+function calculateRiskAdjustment(riskScore: RiskScoreResult | null): number {
+  if (!riskScore) return 0;
+
+  switch (riskScore.level) {
+    case 'low':      return 5;    // Düşük risk → hafif boost
+    case 'medium':   return 0;    // Nötr
+    case 'high':     return -15;  // Yüksek risk → güven düşer
+    case 'critical': return -30;  // Kritik risk → güven çok düşer
+  }
+}
+
+/**
+ * Güven skoru: 0-100
+ * Kompozit skorun büyüklüğü + bileşenlerin uyumu
+ */
+function calculateConfidence(
+  compositeScore: number,
+  technicalScore: number,
+  macroScoreVal: number,
+  sectorScore: number,
+  riskScore: RiskScoreResult | null
+): number {
+  // Temel güven: kompozit skorun mutlak değeri
+  const absComposite = Math.abs(compositeScore);
+  let confidence = Math.min(90, absComposite);
+
+  // Bileşenler aynı yöndeyse güven artar
+  const allSameSign = (
+    Math.sign(technicalScore) === Math.sign(macroScoreVal) &&
+    Math.sign(macroScoreVal) === Math.sign(sectorScore)
+  );
+  if (allSameSign && absComposite > 20) {
+    confidence = Math.min(95, confidence + 10);
+  }
+
+  // Bileşenler çelişiyorsa güven düşer
+  const conflicting = (
+    Math.sign(technicalScore) !== Math.sign(macroScoreVal) &&
+    Math.abs(technicalScore) > 30 && Math.abs(macroScoreVal) > 30
+  );
+  if (conflicting) {
+    confidence = Math.max(10, confidence - 15);
+  }
+
+  // Risk ayarlaması
+  if (riskScore) {
+    if (riskScore.level === 'high') confidence = Math.max(10, confidence - 10);
+    if (riskScore.level === 'critical') confidence = Math.max(5, confidence - 20);
+  }
+
+  return Math.round(confidence);
+}
+
+// ── Karar Fonksiyonları ─────────────────────────────────────────────
+
+function getDecision(compositeScore: number, direction: SignalDirection): CompositeDecision {
+  const absScore = Math.abs(compositeScore);
+
+  if (direction === 'yukari' || direction === 'nötr') {
+    if (compositeScore >= 50) return 'STRONG_BUY';
+    if (compositeScore >= 20) return 'BUY';
+    if (compositeScore <= -50) return 'STRONG_SELL';
+    if (compositeScore <= -20) return 'SELL';
+    return 'HOLD';
+  } else {
+    // Aşağı sinyal: skorlar tersine çalışır
+    if (compositeScore >= 50) return 'STRONG_SELL';
+    if (compositeScore >= 20) return 'SELL';
+    if (compositeScore <= -50) return 'STRONG_BUY';
+    if (compositeScore <= -20) return 'BUY';
+    return 'HOLD';
+  }
+}
+
+function getDecisionTr(decision: CompositeDecision): string {
+  switch (decision) {
+    case 'STRONG_BUY':  return 'Güçlü AL';
+    case 'BUY':         return 'AL';
+    case 'HOLD':        return 'TUT';
+    case 'SELL':        return 'SAT';
+    case 'STRONG_SELL': return 'Güçlü SAT';
+  }
+}
+
+function getDecisionColor(decision: CompositeDecision): string {
+  switch (decision) {
+    case 'STRONG_BUY':  return '#16a34a';
+    case 'BUY':         return '#4ade80';
+    case 'HOLD':        return '#9ca3af';
+    case 'SELL':        return '#f87171';
+    case 'STRONG_SELL': return '#dc2626';
+  }
+}
+
+function getDecisionEmoji(decision: CompositeDecision): string {
+  switch (decision) {
+    case 'STRONG_BUY':  return '🟢🟢';
+    case 'BUY':         return '🟢';
+    case 'HOLD':        return '🟡';
+    case 'SELL':        return '🔴';
+    case 'STRONG_SELL': return '🔴🔴';
+  }
+}
+
+// ── Key Factors (AI açıklama için) ──────────────────────────────────
+
+function buildKeyFactors(
+  technicalScore: number,
+  macroScoreVal: number,
+  sectorScore: number,
+  riskAdj: number,
+  macroResult: MacroScoreResult | null,
+  sectorMomentum: SectorMomentum | null
+): string[] {
+  const factors: string[] = [];
+
+  // Teknik
+  if (Math.abs(technicalScore) >= 60) {
+    factors.push(`Güçlü teknik sinyal (skor: ${technicalScore})`);
+  } else if (Math.abs(technicalScore) >= 30) {
+    factors.push(`Orta teknik sinyal (skor: ${technicalScore})`);
+  }
+
+  // Makro
+  if (macroResult) {
+    if (macroScoreVal > 20) {
+      factors.push(`Makro rüzgar destekliyor: ${macroResult.label}`);
+    } else if (macroScoreVal < -20) {
+      factors.push(`Makro rüzgar karşı: ${macroResult.label}`);
+    }
+  }
+
+  // Sektör
+  if (sectorMomentum) {
+    if (sectorScore > 20) {
+      factors.push(`${sectorMomentum.shortName} sektörü güçlü momentum`);
+    } else if (sectorScore < -20) {
+      factors.push(`${sectorMomentum.shortName} sektörü zayıf momentum`);
+    }
+  }
+
+  // Risk
+  if (riskAdj < -10) {
+    factors.push('Yüksek piyasa riski güveni düşürüyor');
+  } else if (riskAdj > 0) {
+    factors.push('Düşük risk ortamı güveni artırıyor');
+  }
+
+  return factors;
+}
+
+// ── Yardımcı ────────────────────────────────────────────────────────
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+/**
+ * Sembolden sektör ID'sini çıkarır (sectors.ts'den dynamic import ile).
+ * Burada lightweight bir fallback kullanıyoruz.
+ */
+function getSectorIdForSymbol(symbol: string): string {
+  // Bu fonksiyon sector-engine.ts'den import etmek yerine
+  // sectors.ts modülünü lazy-load etmek için kullanılır
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getSectorId } = require('./sectors');
+    return getSectorId(symbol);
+  } catch {
+    return 'diger';
+  }
+}

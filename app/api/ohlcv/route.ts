@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchOHLCV, fetchOHLCVByTimeframe, type YahooTimeframe } from '@/lib/yahoo';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import type { OHLCVCandle } from '@/types';
 
+// IP başına dakikada 120 istek (tarama 101 sembol paralel yapıyor)
+const RATE_LIMIT = 120;
+const WINDOW_MS = 60_000;
+
 export async function GET(request: NextRequest) {
+  const ip = getClientIP(request.headers);
+  const { allowed, remaining, resetMs } = checkRateLimit(`ohlcv:${ip}`, RATE_LIMIT, WINDOW_MS);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Çok fazla istek. Lütfen biraz bekleyin.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil(resetMs / 1000)), 'X-RateLimit-Remaining': '0' },
+      }
+    );
+  }
   const symbol = request.nextUrl.searchParams.get('symbol');
   const tfParam = request.nextUrl.searchParams.get('tf');
   const daysParam = request.nextUrl.searchParams.get('days');
@@ -34,10 +50,7 @@ export async function GET(request: NextRequest) {
     const candles = await fetchOHLCV(trimmed, days);
     return NextResponse.json({ candles } as { candles: OHLCVCandle[] });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    console.error('[ohlcv] Hata:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ candles: [] });
   }
 }

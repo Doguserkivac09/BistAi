@@ -7,9 +7,48 @@ import type { OHLCVCandle } from '@/types';
 
 const BIST_SUFFIX = '.IS';
 
+// --- In-memory OHLCV cache (5 dakika TTL) ---
+const CACHE_TTL_MS = 5 * 60 * 1000;
+interface CacheEntry {
+  data: OHLCVCandle[];
+  expiry: number;
+}
+const ohlcvCache = new Map<string, CacheEntry>();
+
+function getCached(key: string): OHLCVCandle[] | null {
+  const entry = ohlcvCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiry) {
+    ohlcvCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCache(key: string, data: OHLCVCandle[]): void {
+  // Bellek sızıntısını önle — max 500 entry
+  if (ohlcvCache.size > 500) {
+    const firstKey = ohlcvCache.keys().next().value;
+    if (firstKey) ohlcvCache.delete(firstKey);
+  }
+  ohlcvCache.set(key, { data, expiry: Date.now() + CACHE_TTL_MS });
+}
+
 function toYahooSymbol(sembol: string): string {
   const trimmed = sembol.trim().toUpperCase();
+  // Index sembolleri (^XU100 gibi) .IS almaz
+  if (trimmed.startsWith('^')) return trimmed;
   return trimmed.endsWith(BIST_SUFFIX) ? trimmed : `${trimmed}${BIST_SUFFIX}`;
+}
+
+/**
+ * Ham sembolü normalize eder: .IS suffix'ini kaldırır, büyük harfe çevirir.
+ * Örn: "thyao.IS" → "THYAO", "THYAO" → "THYAO", "^XU100" → "^XU100"
+ */
+export function normalizeSymbol(raw: string): string {
+  const trimmed = raw.trim().toUpperCase();
+  if (trimmed.startsWith('^')) return trimmed;
+  return trimmed.replace(/\.IS$/i, '');
 }
 
 export type YahooTimeframe = '1H' | '1G' | '1W' | '1A' | '3A' | '1Y';
@@ -43,15 +82,27 @@ export async function fetchOHLCV(
 ): Promise<OHLCVCandle[]> {
   const yahooSymbol = toYahooSymbol(sembol);
   const range = days <= 5 ? '5d' : days <= 30 ? '1mo' : days <= 90 ? '3mo' : days <= 180 ? '6mo' : '1y';
+
+  const cacheKey = `ohlcv:${yahooSymbol}:${range}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${range}&interval=1d`;
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
-    next: { revalidate: 300 },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
+      next: { revalidate: 300 },
+    });
+  } catch {
+    console.error(`[Yahoo] fetchOHLCV ağ hatası (${sembol})`);
+    return [];
+  }
 
   if (!res.ok) {
-    throw new Error(`Yahoo Finance veri alınamadı (${sembol}): HTTP ${res.status}`);
+    console.error(`[Yahoo] fetchOHLCV HTTP ${res.status} (${sembol})`);
+    return [];
   }
 
   const json = (await res.json()) as {
@@ -74,7 +125,8 @@ export async function fetchOHLCV(
 
   const err = json.chart?.error;
   if (err?.description) {
-    throw new Error(`Yahoo Finance (${sembol}): ${err.description}`);
+    console.error(`[Yahoo] fetchOHLCV API hatası (${sembol}): ${err.description}`);
+    return [];
   }
 
   const result = json.chart?.result?.[0];
@@ -108,6 +160,7 @@ export async function fetchOHLCV(
     });
   }
 
+  if (candles.length > 0) setCache(cacheKey, candles);
   return candles;
 }
 
@@ -120,17 +173,29 @@ export async function fetchOHLCVByTimeframe(
 ): Promise<OHLCVCandle[]> {
   const yahooSymbol = toYahooSymbol(sembol);
   const { range, interval } = getTimeframeParams(timeframe);
+
+  const cacheKey = `tf:${yahooSymbol}:${range}:${interval}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     yahooSymbol
   )}?range=${range}&interval=${interval}`;
 
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
-    next: { revalidate: 120 },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
+      next: { revalidate: 120 },
+    });
+  } catch {
+    console.error(`[Yahoo] fetchOHLCVByTimeframe ağ hatası (${sembol})`);
+    return [];
+  }
 
   if (!res.ok) {
-    throw new Error(`Yahoo Finance veri alınamadı (${sembol}): HTTP ${res.status}`);
+    console.error(`[Yahoo] fetchOHLCVByTimeframe HTTP ${res.status} (${sembol})`);
+    return [];
   }
 
   const json = (await res.json()) as {
@@ -153,7 +218,8 @@ export async function fetchOHLCVByTimeframe(
 
   const err = json.chart?.error;
   if (err?.description) {
-    throw new Error(`Yahoo Finance (${sembol}): ${err.description}`);
+    console.error(`[Yahoo] fetchOHLCVByTimeframe API hatası (${sembol}): ${err.description}`);
+    return [];
   }
 
   const result = json.chart?.result?.[0];
@@ -187,6 +253,7 @@ export async function fetchOHLCVByTimeframe(
     });
   }
 
+  if (candles.length > 0) setCache(cacheKey, candles);
   return candles;
 }
 

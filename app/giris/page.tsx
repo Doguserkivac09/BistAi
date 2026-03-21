@@ -16,7 +16,9 @@ function GirisForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') ?? '/dashboard';
+  const rawRedirect = searchParams.get('redirect') ?? '/dashboard';
+  // Open redirect koruması — sadece relative path'lere izin ver
+  const redirect = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +28,13 @@ function GirisForm() {
       const supabase = createClient();
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) {
-        setError(err.message === 'Invalid login credentials' ? 'E-posta veya şifre hatalı.' : err.message);
+        const msg =
+          err.message === 'Invalid login credentials'
+            ? 'E-posta veya şifre hatalı.'
+            : err.message === 'Email not confirmed'
+              ? 'E-posta adresinizi doğrulamanız gerekiyor. Gelen kutunuzu kontrol edin.'
+              : err.message;
+        setError(msg);
         return;
       }
       window.location.assign(redirect);
@@ -80,6 +88,11 @@ function GirisForm() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
               </Button>
+              <div className="text-right">
+                <Link href="/sifre-sifirla" className="text-sm text-primary hover:underline">
+                  Şifremi unuttum
+                </Link>
+              </div>
             </form>
             <p className="mt-4 text-center text-sm text-text-secondary">
               Hesabınız yok mu?{' '}
