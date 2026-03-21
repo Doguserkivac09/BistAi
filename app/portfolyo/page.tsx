@@ -411,7 +411,7 @@ export default function PortfolyoPage() {
         const guncel_deger = guncel !== null ? p.miktar * guncel : null;
         const kar_zarar = guncel_deger !== null ? guncel_deger - maliyet : null;
         const kar_zarar_yuzde =
-          kar_zarar !== null ? (kar_zarar / maliyet) * 100 : null;
+          kar_zarar !== null && maliyet > 0 ? (kar_zarar / maliyet) * 100 : null;
         return {
           ...p,
           user_id: '',

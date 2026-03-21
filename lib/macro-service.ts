@@ -57,11 +57,26 @@ export async function getMacroBundle(): Promise<MacroBundle> {
     return _bundleCache.data;
   }
 
-  const [yahoo, turkey, fred] = await Promise.all([
+  const [yahooResult, turkeyResult, fredResult] = await Promise.allSettled([
     fetchAllMacroQuotes(),
     fetchAllTurkeyMacro(),
     fetchAllFredData(),
   ]);
+
+  if (yahooResult.status === 'rejected') {
+    console.error('[macro-service] Yahoo veri çekme hatası:', yahooResult.reason);
+  }
+  if (turkeyResult.status === 'rejected') {
+    console.error('[macro-service] TCMB veri çekme hatası:', turkeyResult.reason);
+  }
+  if (fredResult.status === 'rejected') {
+    console.error('[macro-service] FRED veri çekme hatası:', fredResult.reason);
+  }
+
+  // Başarısız kaynaklarda boş/null fallback kullan — kısmi veri daha iyi hiç yoktan
+  const yahoo = yahooResult.status === 'fulfilled' ? yahooResult.value : ({} as ReturnType<typeof fetchAllMacroQuotes> extends Promise<infer T> ? T : never);
+  const turkey = turkeyResult.status === 'fulfilled' ? turkeyResult.value : null;
+  const fred = fredResult.status === 'fulfilled' ? fredResult.value : ({} as ReturnType<typeof fetchAllFredData> extends Promise<infer T> ? T : never);
 
   const bundle: MacroBundle = {
     yahoo,
