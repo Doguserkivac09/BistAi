@@ -98,9 +98,9 @@ Bu sinyali yatırımcıya kısaca açıkla.`;
 
   const result = await callClaude(apiKey, SYSTEM_PROMPT, userPrompt);
 
-  // Başarılı sonucu cache'le
+  // Başarılı sonucu cache'le (fire-and-forget, hata kritik değil)
   if (!result.startsWith('AI açıklaması')) {
-    setCachedExplanation(cacheKey, result, 1);
+    setCachedExplanation(cacheKey, result, 1).catch(() => {});
   }
 
   return result;
@@ -167,7 +167,7 @@ async function callClaude(
   try {
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
@@ -186,7 +186,7 @@ async function callClaude(
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const anthropic = new Anthropic({ apiKey });
       const response = await anthropic.messages.create({
-        model: 'claude-3-5-haiku-20241022',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],

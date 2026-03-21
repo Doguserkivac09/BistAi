@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, useCallback } from 'react';
 import Link from 'next/link';
+import type { HaberItem } from '@/app/api/haber/route';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SignalBadge } from '@/components/SignalBadge';
 import { SignalExplanation } from '@/components/SignalExplanation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WatchlistButton } from '@/components/WatchlistButton';
+import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
-import { fetchOHLCVClient, fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
+import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
 import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
@@ -21,13 +23,13 @@ const StockChart = lazy(() =>
   import('@/components/StockChart').then((mod) => ({ default: mod.StockChart }))
 );
 
-const TIMEFRAMES: { key: TimeframeKey; label: string; description: string }[] = [
-  { key: '1H', label: '1H', description: '1 saat' },
-  { key: '1G', label: '1G', description: '1 gün' },
-  { key: '1W', label: '1W', description: '1 hafta' },
-  { key: '1A', label: '1A', description: '1 ay' },
-  { key: '3A', label: '3A', description: '3 ay' },
-  { key: '1Y', label: '1Y', description: '1 yıl' },
+const TIMEFRAMES: { key: TimeframeKey; label: string; description: string; group: 'intraday' | 'daily' }[] = [
+  { key: '15m',  label: '15D',  description: '15 dakika',  group: 'intraday' },
+  { key: '30m',  label: '30D',  description: '30 dakika',  group: 'intraday' },
+  { key: '1h',   label: '1S',   description: '1 saat',     group: 'intraday' },
+  { key: '1d',   label: '1G',   description: '1 gün',      group: 'daily' },
+  { key: '1wk',  label: '1H',   description: '1 hafta',    group: 'daily' },
+  { key: '1mo',  label: '1A',   description: '1 ay',       group: 'daily' },
 ];
 
 interface HisseDetailClientProps {
@@ -37,22 +39,39 @@ interface HisseDetailClientProps {
 }
 
 export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: HisseDetailClientProps) {
-  const [candles, setCandles] = useState<OHLCVCandle[]>([]);
-  const [signals, setSignals] = useState<StockSignal[]>([]);
+  const [candles, setCandles]         = useState<OHLCVCandle[]>([]);
+  const [signals, setSignals]         = useState<StockSignal[]>([]);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState<TimeframeKey>('1A');
+  const [loading, setLoading]         = useState(true);
+  const [timeframe, setTimeframe]     = useState<TimeframeKey>('1d');
+  const [haberler, setHaberler]       = useState<HaberItem[]>([]);
+  const [haberLoading, setHaberLoading] = useState(true);
 
+  // ── Haberler ────────────────────────────────────────────────────────────────
+  const loadHaberler = useCallback(async () => {
+    setHaberLoading(true);
+    try {
+      const res = await fetch(`/api/haber?sembol=${sembol}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setHaberler(data.haberler ?? []);
+    } catch {
+      // sessizce geç
+    } finally {
+      setHaberLoading(false);
+    }
+  }, [sembol]);
+
+  useEffect(() => { loadHaberler(); }, [loadHaberler]);
+
+  // ── OHLCV + Sinyaller ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!sembol) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const data =
-          timeframe === '1A'
-            ? await fetchOHLCVClient(sembol, 30)
-            : await fetchOHLCVByTimeframeClient(sembol, timeframe);
+        const data = await fetchOHLCVByTimeframeClient(sembol, timeframe);
         if (cancelled) return;
         setCandles(data);
         const sigs = detectAllSignals(sembol, data);
@@ -71,10 +90,12 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             });
             const j = await r.json();
 
-            try {
-              await saveSignalPerformance({ userId, signal: sig, candles: data });
-            } catch {
-              // ignore
+            if (!cancelled) {
+              try {
+                await saveSignalPerformance({ userId, signal: sig, candles: data });
+              } catch {
+                // ignore
+              }
             }
 
             return { key: `${sig.type}`, text: r.ok ? j.explanation : j.error };
@@ -133,25 +154,40 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-text-primary">{sembol}</h1>
-                <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface/80 p-1 text-xs text-text-secondary">
-                  {TIMEFRAMES.map((tf) => (
-                    <button
-                      key={tf.key}
-                      type="button"
-                      onClick={() => setTimeframe(tf.key)}
-                      className={`px-2.5 py-1 rounded-lg transition-colors ${
-                        timeframe === tf.key
-                          ? 'bg-primary text-white'
-                          : 'bg-surface text-text-secondary hover:bg-surface/80'
-                      }`}
-                      aria-label={tf.description}
-                    >
-                      {tf.label}
-                    </button>
-                  ))}
+                <div className="overflow-x-auto">
+                <div className="inline-flex items-center rounded-lg border border-border bg-surface/80 p-1 text-xs text-text-secondary whitespace-nowrap">
+                  {TIMEFRAMES.map((tf, i) => {
+                    const prev = TIMEFRAMES[i - 1];
+                    const showSep = prev && prev.group !== tf.group;
+                    return (
+                      <span key={tf.key} className="flex items-center">
+                        {showSep && <span className="mx-1 h-4 w-px bg-border" />}
+                        <button
+                          type="button"
+                          onClick={() => setTimeframe(tf.key)}
+                          className={`rounded-md px-2.5 py-1 transition-colors ${
+                            timeframe === tf.key
+                              ? 'bg-primary text-white'
+                              : 'text-text-secondary hover:text-text-primary'
+                          }`}
+                          aria-label={tf.description}
+                          title={tf.description}
+                        >
+                          {tf.label}
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
                 </div>
               </div>
-              <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
+              <div className="flex items-center gap-2">
+                <PortfolyoEkleButton
+                  sembol={sembol}
+                  defaultFiyat={candles[candles.length - 1]?.close}
+                />
+                <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
+              </div>
             </div>
 
             <Card className="mb-6 overflow-hidden">
@@ -211,6 +247,65 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            )}
+
+            {/* ── Haberler ──────────────────────────────────────────────────── */}
+            <h2 className="mb-4 mt-8 text-lg font-semibold text-text-primary">
+              📰 {sembol} Haberleri
+            </h2>
+            {haberLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-xl bg-surface" />
+                ))}
+              </div>
+            ) : haberler.length === 0 ? (
+              <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-surface py-8 text-center">
+                <p className="text-sm text-text-secondary">
+                  {sembol} için güncel haber bulunamadı.
+                </p>
+                <Link
+                  href="/haberler"
+                  className="group relative inline-flex items-center gap-2 overflow-hidden rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40"
+                >
+                  <span className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-300 group-hover:translate-x-0" />
+                  <span>📰 Günün Tüm Haberlerini Gör</span>
+                  <span className="transition-transform group-hover:translate-x-1">→</span>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {haberler.map((h, i) => {
+                  const tarihStr = h.tarih
+                    ? new Date(h.tarih).toLocaleDateString('tr-TR', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                      })
+                    : '';
+                  return (
+                    <a
+                      key={i}
+                      href={h.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 hover:border-primary/40 hover:bg-surface-alt transition-colors group"
+                    >
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm">
+                        📰
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-text-primary group-hover:text-primary transition-colors line-clamp-2">
+                          {h.baslik}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
+                          <span>{h.kaynak}</span>
+                          {tarihStr && <><span>·</span><span>{tarihStr}</span></>}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-text-muted group-hover:text-primary transition-colors">↗</span>
+                    </a>
+                  );
+                })}
               </div>
             )}
           </>

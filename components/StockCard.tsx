@@ -10,11 +10,13 @@ import { SignalExplanation } from '@/components/SignalExplanation';
 import type { StockSignal, OHLCVCandle } from '@/types';
 import { createClient } from '@/lib/supabase';
 import { saveSignalPerformance } from '@/lib/performance';
+import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 
 interface StockCardProps {
   signal: StockSignal;
   candleData: OHLCVCandle[];
   macroScore?: { score: number; wind: string } | null;
+  delay?: number; // ms — kademeli yükleme için
 }
 
 function MacroBadge({ score, wind }: { score: number; wind: string }) {
@@ -39,7 +41,7 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
   );
 }
 
-export function StockCard({ signal, candleData, macroScore }: StockCardProps) {
+export function StockCard({ signal, candleData, macroScore, delay = 0 }: StockCardProps) {
   const [explanation, setExplanation] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +50,7 @@ export function StockCard({ signal, candleData, macroScore }: StockCardProps) {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
       setError(null);
       try {
         const lastCandle = candleData[candleData.length - 1];
@@ -93,7 +96,7 @@ export function StockCard({ signal, candleData, macroScore }: StockCardProps) {
   const isDown = signal.direction === 'asagi';
 
   return (
-    <Card className="overflow-hidden transition hover:border-primary/50">
+    <Card className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -117,10 +120,14 @@ export function StockCard({ signal, candleData, macroScore }: StockCardProps) {
         />
         <SignalExplanation text={explanation} isLoading={loading} error={error} />
       </CardContent>
-      <CardFooter className="pt-0">
-        <Button variant="secondary" size="sm" asChild className="w-full">
+      <CardFooter className="flex gap-2 pt-0">
+        <Button variant="secondary" size="sm" asChild className="flex-1">
           <Link href={`/hisse/${encodeURIComponent(signal.sembol)}`}>Detay Gör</Link>
         </Button>
+        <PortfolyoEkleButton
+          sembol={signal.sembol}
+          defaultFiyat={candleData[candleData.length - 1]?.close}
+        />
       </CardFooter>
     </Card>
   );

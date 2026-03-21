@@ -3,14 +3,85 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Send, AlertTriangle } from 'lucide-react';
+import {
+  ArrowLeft, Send, AlertTriangle,
+  BarChart3, Target, HelpCircle, Newspaper, MessageCircle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PostCategory } from '@/types/community';
-import { CATEGORY_LABELS } from '@/types/community';
 
-const CATEGORIES = Object.entries(CATEGORY_LABELS) as [PostCategory, { label: string; color: string }][];
+type CategoryConfig = {
+  value: PostCategory;
+  label: string;
+  icon: React.ElementType;
+  activeBg: string;
+  activeBorder: string;
+  activeText: string;
+  icon_color: string;
+};
+
+const CATEGORY_CONFIG: CategoryConfig[] = [
+  {
+    value: 'analiz',
+    label: 'Analiz',
+    icon: BarChart3,
+    activeBg: 'bg-blue-500/15',
+    activeBorder: 'border-blue-500',
+    activeText: 'text-blue-400',
+    icon_color: 'text-blue-400',
+  },
+  {
+    value: 'strateji',
+    label: 'Strateji',
+    icon: Target,
+    activeBg: 'bg-green-500/15',
+    activeBorder: 'border-green-500',
+    activeText: 'text-green-400',
+    icon_color: 'text-green-400',
+  },
+  {
+    value: 'soru',
+    label: 'Soru',
+    icon: HelpCircle,
+    activeBg: 'bg-yellow-500/15',
+    activeBorder: 'border-yellow-500',
+    activeText: 'text-yellow-400',
+    icon_color: 'text-yellow-400',
+  },
+  {
+    value: 'haber',
+    label: 'Haber',
+    icon: Newspaper,
+    activeBg: 'bg-purple-500/15',
+    activeBorder: 'border-purple-500',
+    activeText: 'text-purple-400',
+    icon_color: 'text-purple-400',
+  },
+  {
+    value: 'genel',
+    label: 'Genel',
+    icon: MessageCircle,
+    activeBg: 'bg-gray-500/15',
+    activeBorder: 'border-gray-500',
+    activeText: 'text-gray-400',
+    icon_color: 'text-gray-400',
+  },
+];
+
+function titleCounterColor(len: number): string {
+  if (len >= 180) return 'text-red-400';
+  if (len >= 150) return 'text-yellow-400';
+  return 'text-white/40';
+}
+
+function bodyBarColor(pct: number): string {
+  if (pct >= 94) return 'bg-red-500';
+  if (pct >= 80) return 'bg-yellow-500';
+  return 'bg-green-500';
+}
 
 export default function YeniPaylaşımPage() {
   const router = useRouter();
@@ -50,90 +121,123 @@ export default function YeniPaylaşımPage() {
     }
   };
 
+  const bodyPct = Math.min(100, (body.length / 5000) * 100);
+
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto max-w-2xl px-4 py-6">
+    <div className="min-h-screen bg-[#0a0a18]">
+      <main className="container mx-auto max-w-2xl px-4 py-8">
         {/* Back */}
         <Link
           href="/topluluk"
-          className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-primary transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
           Topluluk
         </Link>
 
+        {/* Page title */}
+        <h1 className="text-xl font-bold text-text-primary mb-6">Yeni Paylasim</h1>
+
         <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold text-text-primary">Yeni Paylaşım</CardTitle>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold text-text-primary">Paylasim Detaylari</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
+              <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+                <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0" />
                 <span className="text-sm text-red-400">{error}</span>
               </div>
             )}
 
-            {/* Category */}
+            {/* Category — big visual buttons */}
             <div>
-              <label className="block text-xs text-text-secondary mb-1.5">Kategori</label>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map(([value, { label, color }]) => (
-                  <button
-                    key={value}
-                    onClick={() => setCategory(value)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      category === value
-                        ? `${color} ring-1 ring-current`
-                        : 'border-border text-text-secondary hover:border-primary/30'
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <label className="block text-sm font-medium text-text-primary mb-3">Kategori</label>
+              <div className="grid grid-cols-5 gap-2">
+                {CATEGORY_CONFIG.map((cfg) => {
+                  const Icon = cfg.icon;
+                  const isActive = category === cfg.value;
+                  return (
+                    <motion.button
+                      key={cfg.value}
+                      type="button"
+                      onClick={() => setCategory(cfg.value)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={cn(
+                        'rounded-xl border-2 p-4 flex flex-col items-center gap-2 cursor-pointer transition-all duration-150',
+                        isActive
+                          ? `${cfg.activeBg} ${cfg.activeBorder} ${cfg.activeText}`
+                          : 'border-white/10 bg-white/[0.03] text-white/40 hover:border-white/20'
+                      )}
+                    >
+                      <Icon
+                        className={cn('h-6 w-6', isActive ? cfg.icon_color : 'text-white/30')}
+                      />
+                      <span className="text-xs font-semibold leading-none">{cfg.label}</span>
+                    </motion.button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Title */}
             <div>
-              <label htmlFor="title" className="block text-xs text-text-secondary mb-1.5">
-                Başlık
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="title" className="text-sm font-medium text-text-primary">
+                  Baslik
+                </label>
+                <span className={cn('text-xs font-mono tabular-nums transition-colors', titleCounterColor(title.length))}>
+                  {title.length}/200
+                </span>
+              </div>
               <input
                 id="title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={200}
-                placeholder="Başlık girin..."
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Baslik girin..."
+                className="w-full rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
               />
-              <p className="text-[11px] text-text-secondary/60 mt-1">{title.length}/200</p>
             </div>
 
             {/* Body */}
             <div>
-              <label htmlFor="body" className="block text-xs text-text-secondary mb-1.5">
-                İçerik
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="body" className="text-sm font-medium text-text-primary">
+                  Icerik
+                </label>
+                <span className="text-xs font-mono tabular-nums text-white/40">
+                  {body.length}/5000
+                </span>
+              </div>
               <textarea
                 id="body"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 maxLength={5000}
                 rows={8}
-                placeholder="Analizinizi, sorunuzu veya görüşünüzü paylaşın..."
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                placeholder="Analizinizi, sorunuzu veya gorusunuzu paylasin..."
+                className="w-full rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none transition-colors"
               />
-              <p className="text-[11px] text-text-secondary/60 mt-1">{body.length}/5000</p>
+              {/* Progress bar */}
+              <div className="mt-2 h-1 rounded-full bg-white/8 overflow-hidden">
+                <motion.div
+                  className={cn('h-full rounded-full transition-colors duration-300', bodyBarColor(bodyPct))}
+                  animate={{ width: `${bodyPct}%` }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  style={{ width: `${bodyPct}%` }}
+                />
+              </div>
             </div>
 
             {/* Sembol (optional) */}
             <div>
-              <label htmlFor="sembol" className="block text-xs text-text-secondary mb-1.5">
-                Hisse Sembolü <span className="text-text-secondary/40">(opsiyonel)</span>
+              <label htmlFor="sembol" className="block text-sm font-medium text-text-primary mb-2">
+                Hisse Sembolu{' '}
+                <span className="text-xs font-normal text-text-secondary/50">(opsiyonel)</span>
               </label>
               <input
                 id="sembol"
@@ -141,19 +245,21 @@ export default function YeniPaylaşımPage() {
                 value={sembol}
                 onChange={(e) => setSembol(e.target.value.toUpperCase())}
                 maxLength={10}
-                placeholder="Ör: THYAO"
-                className="w-full max-w-[200px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Or: THYAO"
+                className="w-full max-w-[200px] rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
               />
             </div>
 
             {/* Submit */}
             <div className="flex justify-end pt-2">
               <Button
+                size="lg"
                 onClick={handleSubmit}
                 disabled={submitting || !canSubmit}
+                className="px-8"
               >
-                <Send className="h-4 w-4 mr-1.5" />
-                {submitting ? 'Gönderiliyor...' : 'Paylaş'}
+                <Send className="h-4 w-4 mr-2" />
+                {submitting ? 'Gonderiliyor...' : 'Paylasimi Gonder'}
               </Button>
             </div>
           </CardContent>

@@ -111,6 +111,7 @@ async function fetchEvdsSeries(
   try {
     const res = await fetch(url.toString(), {
       next: { revalidate: 1800 }, // 30 dk
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!res.ok) {

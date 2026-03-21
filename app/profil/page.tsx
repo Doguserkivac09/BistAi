@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { User, Save, AlertTriangle, CheckCircle, CreditCard, ExternalLink } from 'lucide-react';
+import { User, Save, AlertTriangle, CheckCircle, CreditCard, ExternalLink, Bell, BellOff, Lock } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -32,6 +32,9 @@ export default function ProfilPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [emailEnabled, setEmailEnabled]   = useState(true);
+  const [minSeverity, setMinSeverity]     = useState<'güçlü' | 'orta' | 'zayıf'>('orta');
+  const [prefSaving, setPrefSaving]       = useState(false);
   const searchParams = useSearchParams();
 
   // Form state
@@ -56,6 +59,37 @@ export default function ProfilPage() {
   }, []);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
+
+  // Bildirim tercihlerini yükle
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch('/api/user/alert-preferences', { signal: controller.signal })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (cancelled || !d) return;
+        setEmailEnabled(d.email_enabled ?? true);
+        setMinSeverity(d.min_severity ?? 'orta');
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
+  async function savePref(enabled: boolean, severity: 'güçlü' | 'orta' | 'zayıf') {
+    setPrefSaving(true);
+    try {
+      await fetch('/api/user/alert-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_enabled: enabled, min_severity: severity }),
+      });
+    } catch {} finally {
+      setPrefSaving(false);
+    }
+  }
 
   // Checkout success mesajı
   useEffect(() => {
@@ -307,6 +341,93 @@ export default function ProfilPage() {
                   {portalLoading ? 'Yönlendiriliyor...' : 'Aboneliği Yönet'}
                 </Button>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* E-posta Bildirimleri */}
+        <Card className="border-border mt-6">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-text-secondary flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              E-posta Bildirimleri
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-text-secondary">
+              Portföyündeki veya watchlist&apos;indeki hisselerde sinyal çıktığında e-posta al.
+              Her iş günü sabah 10:00&apos;da gönderilir.
+            </p>
+
+            {/* Toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border bg-surface/40 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                {emailEnabled
+                  ? <Bell className="h-4 w-4 text-primary" />
+                  : <BellOff className="h-4 w-4 text-text-muted" />
+                }
+                <span className={`text-sm font-medium ${emailEnabled ? 'text-text-primary' : 'text-text-muted'}`}>
+                  {prefSaving ? 'Kaydediliyor...' : emailEnabled ? 'Bildirimler Açık' : 'Bildirimler Kapalı'}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  const next = !emailEnabled;
+                  setEmailEnabled(next);
+                  savePref(next, minSeverity);
+                }}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  emailEnabled ? 'bg-primary' : 'bg-border'
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                  emailEnabled ? 'translate-x-4' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Minimum seviye */}
+            {emailEnabled && (
+              <div>
+                <label className="block text-xs text-text-secondary mb-1.5">Minimum Sinyal Gücü</label>
+                <select
+                  value={minSeverity}
+                  onChange={(e) => {
+                    const v = e.target.value as 'güçlü' | 'orta' | 'zayıf';
+                    setMinSeverity(v);
+                    savePref(emailEnabled, v);
+                  }}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="zayıf">Tümü (Zayıf + Orta + Güçlü)</option>
+                  <option value="orta">Orta ve üstü</option>
+                  <option value="güçlü">Sadece Güçlü</option>
+                </select>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Güvenlik */}
+        <Card className="border-border mt-6">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-text-secondary flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              Güvenlik
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-text-primary">Şifre</p>
+                <p className="text-xs text-text-secondary mt-0.5">Son girişte kullandığın şifreyi değiştir</p>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/sifre-guncelle">
+                  <Lock className="h-3.5 w-3.5 mr-1.5" />
+                  Şifre Değiştir
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>

@@ -6,6 +6,7 @@ import {
   ColorType,
   type IChartApi,
   type CandlestickData,
+  type Time,
 } from 'lightweight-charts';
 import type { OHLCVCandle } from '@/types';
 
@@ -62,6 +63,7 @@ interface LegendData {
   rsi?: string;
   change?: string;
   changePositive?: boolean;
+  volume?: string;
 }
 
 interface StockChartProps {
@@ -76,7 +78,6 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
   const chartRef = useRef<IChartApi | null>(null);
   const [legend, setLegend] = useState<LegendData>({});
 
-  // Responsive height: use prop, or compute from container width
   const computedHeight = height ?? (typeof window !== 'undefined' && window.innerWidth < 640 ? 300 : 400);
 
   useEffect(() => {
@@ -94,7 +95,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       },
       rightPriceScale: {
         borderColor: '#1e1e2e',
-        scaleMargins: { top: 0.1, bottom: showRsi ? 0.2 : 0.1 },
+        scaleMargins: { top: 0.08, bottom: showRsi ? 0.2 : 0.28 },
       },
       timeScale: {
         borderColor: '#1e1e2e',
@@ -109,16 +110,15 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       height: computedHeight,
     });
 
+    const toMs = (d: string | number) =>
+      typeof d === 'number' ? d * 1000 : new Date(d).getTime();
+
     const normalizedCandles = Array.from(
       new Map(
         candles
           .slice()
-          .sort((a, b) => {
-            const at = new Date(a.date as string).getTime();
-            const bt = new Date(b.date as string).getTime();
-            return at - bt;
-          })
-          .map((c) => [c.date as string, c] as const)
+          .sort((a, b) => toMs(a.date) - toMs(b.date))
+          .map((c) => [String(c.date), c] as const)
       ).values()
     );
 
@@ -126,55 +126,62 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
 
     if (showRsi) {
       const rsiValues = calculateRSI(closes, 14);
+      const lastRsi = rsiValues[rsiValues.length - 1] ?? 50;
+
       const rsiData = normalizedCandles.map((c, i) => ({
-        time: c.date as string,
+        time: c.date as Time,
         value: rsiValues[i] ?? 50,
       }));
 
-      const rsiSeries = chart.addLineSeries({
-        color: '#6366f1',
+      // RSI area series — gradient fill
+      const rsiSeries = chart.addAreaSeries({
+        lineColor: '#6366f1',
+        topColor: 'rgba(99,102,241,0.18)',
+        bottomColor: 'rgba(99,102,241,0.02)',
         lineWidth: 2,
         priceScaleId: 'rsi',
-        title: 'RSI',
+        title: '',
+        lastValueVisible: false,
+        priceLineVisible: false,
       });
       rsiSeries.setData(rsiData);
 
-      // RSI 70/30 referans çizgileri
+      // Referans çizgileri
       rsiSeries.createPriceLine({
         price: 70,
-        color: '#ef4444',
+        color: '#ef444488',
         lineWidth: 1,
-        lineStyle: 2, // Dashed
+        lineStyle: 2,
         axisLabelVisible: true,
-        title: 'Aşırı Alım',
+        title: '70',
       });
       rsiSeries.createPriceLine({
         price: 30,
-        color: '#22c55e',
+        color: '#22c55e88',
         lineWidth: 1,
-        lineStyle: 2, // Dashed
+        lineStyle: 2,
         axisLabelVisible: true,
-        title: 'Aşırı Satım',
+        title: '30',
       });
       rsiSeries.createPriceLine({
         price: 50,
-        color: '#4b5563',
+        color: '#ffffff18',
         lineWidth: 1,
-        lineStyle: 1, // Dotted
+        lineStyle: 1,
         axisLabelVisible: false,
         title: '',
       });
 
       chart.priceScale('rsi').applyOptions({
-        scaleMargins: { top: 0.8, bottom: 0.1 },
+        scaleMargins: { top: 0.75, bottom: 0.05 },
         borderVisible: false,
       });
 
-      // RSI legend on crosshair
+      setLegend({ rsi: lastRsi.toFixed(1) });
+
       chart.subscribeCrosshairMove((param) => {
         if (!param.time || !param.seriesData) {
-          const lastRsi = rsiValues[rsiValues.length - 1];
-          setLegend({ rsi: lastRsi?.toFixed(1) });
+          setLegend({ rsi: lastRsi.toFixed(1) });
           return;
         }
         const rsiPoint = param.seriesData.get(rsiSeries);
@@ -186,7 +193,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       chart.timeScale().fitContent();
     } else {
       const cdlData: CandlestickData[] = normalizedCandles.map((c) => ({
-        time: c.date as string,
+        time: c.date as Time,
         open: c.open,
         high: c.high,
         low: c.low,
@@ -197,8 +204,27 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
         upColor: '#22c55e',
         downColor: '#ef4444',
         borderVisible: false,
+        wickUpColor: '#22c55e',
+        wickDownColor: '#ef4444',
       });
       candlestickSeries.setData(cdlData);
+
+      // Volume histogram
+      const volumeSeries = chart.addHistogramSeries({
+        priceScaleId: 'volume',
+        color: '#6366f140',
+      });
+      volumeSeries.setData(
+        normalizedCandles.map((c) => ({
+          time: c.date as Time,
+          value: c.volume ?? 0,
+          color: c.close >= c.open ? '#22c55e28' : '#ef444428',
+        }))
+      );
+      chart.priceScale('volume').applyOptions({
+        scaleMargins: { top: 0.82, bottom: 0 },
+        borderVisible: false,
+      });
 
       const ema9 = calculateEMA(closes, 9);
       const ema21 = calculateEMA(closes, 21);
@@ -207,10 +233,12 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
         color: '#6366f1',
         lineWidth: 2,
         title: 'EMA 9',
+        lastValueVisible: false,
+        priceLineVisible: false,
       });
       ema9Series.setData(
         normalizedCandles.map((c, i) => ({
-          time: c.date as string,
+          time: c.date as Time,
           value: ema9[i] ?? c.close,
         }))
       );
@@ -219,21 +247,34 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
         color: '#f59e0b',
         lineWidth: 2,
         title: 'EMA 21',
+        lastValueVisible: false,
+        priceLineVisible: false,
       });
       ema21Series.setData(
         normalizedCandles.map((c, i) => ({
-          time: c.date as string,
+          time: c.date as Time,
           value: ema21[i] ?? c.close,
         }))
       );
 
-      // Legend on crosshair move
+      // İlk değerleri ayarla
+      const lastCandle = normalizedCandles[normalizedCandles.length - 1];
+      const lastEma9 = ema9[ema9.length - 1];
+      const lastEma21 = ema21[ema21.length - 1];
+      if (lastCandle) {
+        const chg = ((lastCandle.close - lastCandle.open) / lastCandle.open) * 100;
+        setLegend({
+          price: lastCandle.close.toFixed(2),
+          ema9: lastEma9?.toFixed(2),
+          ema21: lastEma21?.toFixed(2),
+          change: chg.toFixed(2),
+          changePositive: chg >= 0,
+          volume: lastCandle.volume ? (lastCandle.volume / 1_000).toFixed(0) + 'K' : undefined,
+        });
+      }
+
       chart.subscribeCrosshairMove((param) => {
         if (!param.time || !param.seriesData) {
-          // Default: son mum değerleri
-          const lastCandle = normalizedCandles[normalizedCandles.length - 1];
-          const lastEma9 = ema9[ema9.length - 1];
-          const lastEma21 = ema21[ema21.length - 1];
           if (lastCandle) {
             const chg = ((lastCandle.close - lastCandle.open) / lastCandle.open) * 100;
             setLegend({
@@ -242,6 +283,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
               ema21: lastEma21?.toFixed(2),
               change: chg.toFixed(2),
               changePositive: chg >= 0,
+              volume: lastCandle.volume ? (lastCandle.volume / 1_000).toFixed(0) + 'K' : undefined,
             });
           }
           return;
@@ -250,6 +292,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
         const candlePoint = param.seriesData.get(candlestickSeries);
         const ema9Point = param.seriesData.get(ema9Series);
         const ema21Point = param.seriesData.get(ema21Series);
+        const volPoint = param.seriesData.get(volumeSeries);
 
         const newLegend: LegendData = {};
 
@@ -264,6 +307,9 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
         }
         if (ema21Point && 'value' in ema21Point) {
           newLegend.ema21 = ema21Point.value.toFixed(2);
+        }
+        if (volPoint && 'value' in volPoint) {
+          newLegend.volume = (volPoint.value / 1_000).toFixed(0) + 'K';
         }
 
         setLegend(newLegend);
@@ -290,33 +336,36 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
 
   if (!candles.length) return null;
 
+  const rsiVal = legend.rsi ? parseFloat(legend.rsi) : 50;
+  const rsiColor = rsiVal >= 70 ? '#ef4444' : rsiVal <= 30 ? '#22c55e' : '#818cf8';
+  const rsiZone = rsiVal >= 70 ? 'Aşırı Alım' : rsiVal <= 30 ? 'Aşırı Satım' : '';
+
   return (
     <div className={`relative ${className ?? ''}`}>
       {/* Legend overlay */}
       <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-background/80 px-2 py-1 text-xs backdrop-blur-sm">
         {showRsi ? (
           <>
-            <span className="text-text-secondary">RSI(14)</span>
-            <span className="font-mono font-medium text-indigo-400">
+            <span className="text-text-secondary/60">RSI(14)</span>
+            <span className="font-mono font-semibold" style={{ color: rsiColor }}>
               {legend.rsi ?? '—'}
             </span>
+            {rsiZone && (
+              <span className="text-[10px] font-medium" style={{ color: rsiColor + 'bb' }}>
+                {rsiZone}
+              </span>
+            )}
           </>
         ) : (
           <>
             {legend.price && (
               <>
                 <span className="text-text-secondary">Fiyat</span>
-                <span className="font-mono font-medium text-text-primary">
-                  {legend.price}
-                </span>
+                <span className="font-mono font-medium text-text-primary">{legend.price}</span>
               </>
             )}
             {legend.change && (
-              <span
-                className={`font-mono font-medium ${
-                  legend.changePositive ? 'text-bullish' : 'text-bearish'
-                }`}
-              >
+              <span className={`font-mono font-medium ${legend.changePositive ? 'text-bullish' : 'text-bearish'}`}>
                 {legend.changePositive ? '+' : ''}{legend.change}%
               </span>
             )}
@@ -332,10 +381,22 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
                 <span className="font-mono text-amber-400">{legend.ema21}</span>
               </>
             )}
+            {legend.volume && (
+              <>
+                <span className="text-text-secondary/60">Hacim</span>
+                <span className="font-mono text-text-secondary/80">{legend.volume}</span>
+              </>
+            )}
           </>
         )}
       </div>
-      <div ref={containerRef} className="w-full" role="img" aria-label={showRsi ? 'RSI göstergesi grafiği' : 'Hisse fiyat grafiği'} />
+
+      <div
+        ref={containerRef}
+        className="w-full"
+        role="img"
+        aria-label={showRsi ? 'RSI göstergesi grafiği' : 'Hisse fiyat grafiği'}
+      />
     </div>
   );
 }
