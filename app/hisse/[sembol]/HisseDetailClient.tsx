@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, useCallback } from 'react';
 import Link from 'next/link';
+import type { HaberItem } from '@/app/api/haber/route';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SignalBadge } from '@/components/SignalBadge';
@@ -38,12 +39,32 @@ interface HisseDetailClientProps {
 }
 
 export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: HisseDetailClientProps) {
-  const [candles, setCandles] = useState<OHLCVCandle[]>([]);
-  const [signals, setSignals] = useState<StockSignal[]>([]);
+  const [candles, setCandles]         = useState<OHLCVCandle[]>([]);
+  const [signals, setSignals]         = useState<StockSignal[]>([]);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [timeframe, setTimeframe] = useState<TimeframeKey>('1d');
+  const [loading, setLoading]         = useState(true);
+  const [timeframe, setTimeframe]     = useState<TimeframeKey>('1d');
+  const [haberler, setHaberler]       = useState<HaberItem[]>([]);
+  const [haberLoading, setHaberLoading] = useState(true);
 
+  // ── Haberler ────────────────────────────────────────────────────────────────
+  const loadHaberler = useCallback(async () => {
+    setHaberLoading(true);
+    try {
+      const res = await fetch(`/api/haber?sembol=${sembol}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setHaberler(data.haberler ?? []);
+    } catch {
+      // sessizce geç
+    } finally {
+      setHaberLoading(false);
+    }
+  }, [sembol]);
+
+  useEffect(() => { loadHaberler(); }, [loadHaberler]);
+
+  // ── OHLCV + Sinyaller ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!sembol) return;
     let cancelled = false;
@@ -222,6 +243,55 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            )}
+
+            {/* ── Haberler ──────────────────────────────────────────────────── */}
+            <h2 className="mb-4 mt-8 text-lg font-semibold text-text-primary">
+              📰 {sembol} Haberleri
+            </h2>
+            {haberLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-xl bg-surface" />
+                ))}
+              </div>
+            ) : haberler.length === 0 ? (
+              <p className="text-sm text-text-secondary">
+                Bu hisse için şu an haber bulunamadı.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {haberler.map((h, i) => {
+                  const tarihStr = h.tarih
+                    ? new Date(h.tarih).toLocaleDateString('tr-TR', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                      })
+                    : '';
+                  return (
+                    <a
+                      key={i}
+                      href={h.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 hover:border-primary/40 hover:bg-surface-alt transition-colors group"
+                    >
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm">
+                        📰
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-text-primary group-hover:text-primary transition-colors line-clamp-2">
+                          {h.baslik}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
+                          <span>{h.kaynak}</span>
+                          {tarihStr && <><span>·</span><span>{tarihStr}</span></>}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-text-muted group-hover:text-primary transition-colors">↗</span>
+                    </a>
+                  );
+                })}
               </div>
             )}
           </>
