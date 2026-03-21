@@ -10,6 +10,7 @@ import { SignalExplanation } from '@/components/SignalExplanation';
 import type { StockSignal, OHLCVCandle } from '@/types';
 import { createClient } from '@/lib/supabase';
 import { saveSignalPerformance } from '@/lib/performance';
+import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 
 interface StockCardProps {
   signal: StockSignal;
@@ -119,10 +120,14 @@ export function StockCard({ signal, candleData, macroScore, delay = 0 }: StockCa
         />
         <SignalExplanation text={explanation} isLoading={loading} error={error} />
       </CardContent>
-      <CardFooter className="pt-0">
-        <Button variant="secondary" size="sm" asChild className="w-full">
+      <CardFooter className="flex gap-2 pt-0">
+        <Button variant="secondary" size="sm" asChild className="flex-1">
           <Link href={`/hisse/${encodeURIComponent(signal.sembol)}`}>Detay Gör</Link>
         </Button>
+        <PortfolyoEkleButton
+          sembol={signal.sembol}
+          defaultFiyat={candleData[candleData.length - 1]?.close}
+        />
       </CardFooter>
     </Card>
   );

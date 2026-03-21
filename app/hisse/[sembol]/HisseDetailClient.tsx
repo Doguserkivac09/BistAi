@@ -8,6 +8,7 @@ import { SignalBadge } from '@/components/SignalBadge';
 import { SignalExplanation } from '@/components/SignalExplanation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WatchlistButton } from '@/components/WatchlistButton';
+import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
 import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
@@ -155,7 +156,13 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   })}
                 </div>
               </div>
-              <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
+              <div className="flex items-center gap-2">
+                <PortfolyoEkleButton
+                  sembol={sembol}
+                  defaultFiyat={candles[candles.length - 1]?.close}
+                />
+                <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
+              </div>
             </div>
 
             <Card className="mb-6 overflow-hidden">
