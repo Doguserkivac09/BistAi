@@ -3,21 +3,48 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users } from 'lucide-react';
+import {
+  Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
+  Briefcase, Star, Newspaper, BarChart2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+// ─── Nav yapısı ───────────────────────────────────────────────────────────────
 
 const navItems = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/tarama', label: 'Tarama' },
-  { href: '/portfolyo', label: 'Portföy' },
-  { href: '/watchlist', label: 'Watchlist' },
-  { href: '/haberler', label: 'Haberler' },
-  { href: '/makro', label: 'Makro Radar' },
+  {
+    label: 'Portföy',
+    dropdown: [
+      { href: '/portfolyo', label: 'Portföyüm',    icon: Briefcase },
+      { href: '/watchlist', label: 'Watchlist',     icon: Star },
+    ],
+  },
+  {
+    label: 'Makro',
+    dropdown: [
+      { href: '/makro',    label: 'Makro Radar',   icon: BarChart2 },
+      { href: '/haberler', label: 'Haberler',       icon: Newspaper },
+    ],
+  },
   { href: '/backtesting', label: 'Backtest' },
-  { href: '/topluluk', label: 'Topluluk' },
-  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/topluluk',   label: 'Topluluk' },
+  { href: '/dashboard',  label: 'Dashboard' },
 ];
+
+type DropdownItem = { href: string; label: string; icon: React.ElementType };
+type NavItem =
+  | { href: string; label: string; dropdown?: undefined }
+  | { href?: undefined; label: string; dropdown: DropdownItem[] };
+
+// ─── Yardımcı ─────────────────────────────────────────────────────────────────
+
+function isActive(item: NavItem, pathname: string): boolean {
+  if (item.href) return pathname === item.href;
+  return item.dropdown?.some((d) => pathname === d.href) ?? false;
+}
 
 interface NavbarClientProps {
   user: { id: string; email: string | null } | null;
@@ -32,22 +59,78 @@ function UserAvatar({ email }: { email: string | null }) {
   );
 }
 
+// ─── Dropdown bileşeni ────────────────────────────────────────────────────────
+
+function NavDropdown({ item, pathname }: { item: NavItem & { dropdown: DropdownItem[] }; pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = isActive(item, pathname);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClick);
+      return () => document.removeEventListener('mousedown', handleClick);
+    }
+  }, [open]);
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          'flex items-center gap-1 text-sm font-medium transition-colors hover:text-primary',
+          active ? 'text-primary' : 'text-text-secondary'
+        )}
+      >
+        {item.label}
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-200', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-2 w-44 rounded-xl border border-border bg-surface shadow-xl z-50 overflow-hidden">
+          {item.dropdown.map((d) => {
+            const Icon = d.icon;
+            return (
+              <Link
+                key={d.href}
+                href={d.href}
+                className={cn(
+                  'flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors hover:bg-white/5',
+                  pathname === d.href ? 'text-primary' : 'text-text-secondary hover:text-text-primary'
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {d.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Ana bileşen ──────────────────────────────────────────────────────────────
+
 export function NavbarClient({ user }: NavbarClientProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen]   = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const pathname = usePathname();
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close menus on route change
   useEffect(() => {
     setMobileOpen(false);
     setDropdownOpen(false);
   }, [pathname]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     }
@@ -67,25 +150,29 @@ export function NavbarClient({ user }: NavbarClientProps) {
 
         {/* Desktop nav */}
         <nav aria-label="Ana navigasyon" className="hidden items-center gap-6 md:flex">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'text-sm font-medium transition-colors hover:text-primary',
-                pathname === item.href ? 'text-primary' : 'text-text-secondary'
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {(navItems as NavItem[]).map((item) =>
+            item.dropdown ? (
+              <NavDropdown key={item.label} item={item as NavItem & { dropdown: DropdownItem[] }} pathname={pathname} />
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href!}
+                className={cn(
+                  'text-sm font-medium transition-colors hover:text-primary',
+                  pathname === item.href ? 'text-primary' : 'text-text-secondary'
+                )}
+              >
+                {item.label}
+              </Link>
+            )
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
           {/* Desktop auth */}
           <div className="hidden items-center gap-2 md:flex">
             {user ? (
-              <div className="relative" ref={dropdownRef}>
+              <div className="relative" ref={userDropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
@@ -97,43 +184,26 @@ export function NavbarClient({ user }: NavbarClientProps) {
                   <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', dropdownOpen && 'rotate-180')} />
                 </button>
 
-                {/* Dropdown menu */}
                 {dropdownOpen && (
                   <div className="absolute right-0 top-full mt-1.5 w-48 rounded-lg border border-border bg-surface shadow-lg z-50">
                     <div className="px-3 py-2 border-b border-border">
                       <p className="text-xs text-text-secondary truncate">{user.email}</p>
                     </div>
                     <div className="py-1">
-                      <Link
-                        href="/profil"
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors"
-                      >
-                        <User className="h-4 w-4" />
-                        Profilim
+                      <Link href="/profil" className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors">
+                        <User className="h-4 w-4" /> Profilim
                       </Link>
-                      <Link
-                        href="/dashboard"
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors"
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
+                      <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors">
+                        <LayoutDashboard className="h-4 w-4" /> Dashboard
                       </Link>
-                      <Link
-                        href="/topluluk"
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors"
-                      >
-                        <Users className="h-4 w-4" />
-                        Topluluk
+                      <Link href="/topluluk" className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors">
+                        <Users className="h-4 w-4" /> Topluluk
                       </Link>
                     </div>
                     <div className="border-t border-border py-1">
                       <form action="/auth/logout" method="post">
-                        <button
-                          type="submit"
-                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/5 transition-colors"
-                        >
-                          <LogOut className="h-4 w-4" />
-                          Çıkış Yap
+                        <button type="submit" className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/5 transition-colors">
+                          <LogOut className="h-4 w-4" /> Çıkış Yap
                         </button>
                       </form>
                     </div>
@@ -170,24 +240,51 @@ export function NavbarClient({ user }: NavbarClientProps) {
         aria-hidden={!mobileOpen}
         className={cn(
           'overflow-hidden border-t border-border transition-all duration-200 ease-in-out md:hidden',
-          mobileOpen ? 'max-h-96' : 'max-h-0 border-t-0'
+          mobileOpen ? 'max-h-[500px]' : 'max-h-0 border-t-0'
         )}
       >
-        <nav aria-label="Mobil navigasyon" className="container mx-auto flex flex-col gap-1 px-4 py-3">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                pathname === item.href
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-text-secondary hover:bg-surface hover:text-text-primary'
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="container mx-auto flex flex-col gap-1 px-4 py-3">
+          {(navItems as NavItem[]).map((item) =>
+            item.dropdown ? (
+              <div key={item.label}>
+                <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  {item.label}
+                </p>
+                {item.dropdown.map((d) => {
+                  const Icon = d.icon;
+                  return (
+                    <Link
+                      key={d.href}
+                      href={d.href}
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                        pathname === d.href
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-text-secondary hover:bg-surface hover:text-text-primary'
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {d.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href!}
+                className={cn(
+                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  pathname === item.href
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-text-secondary hover:bg-surface hover:text-text-primary'
+                )}
+              >
+                {item.label}
+              </Link>
+            )
+          )}
+
           <div className="mt-2 border-t border-border pt-3">
             {user ? (
               <div className="flex flex-col gap-1">
@@ -195,21 +292,11 @@ export function NavbarClient({ user }: NavbarClientProps) {
                   <UserAvatar email={user.email} />
                   <span className="text-xs text-text-secondary truncate">{user.email}</span>
                 </div>
-                <Link
-                  href="/profil"
-                  className={cn(
-                    'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                    pathname === '/profil'
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-text-secondary hover:bg-surface hover:text-text-primary'
-                  )}
-                >
+                <Link href="/profil" className={cn('rounded-lg px-3 py-2 text-sm font-medium transition-colors', pathname === '/profil' ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary')}>
                   Profilim
                 </Link>
                 <form action="/auth/logout" method="post" className="mt-1">
-                  <Button variant="outline" size="sm" className="w-full" type="submit">
-                    Çıkış Yap
-                  </Button>
+                  <Button variant="outline" size="sm" className="w-full" type="submit">Çıkış Yap</Button>
                 </form>
               </div>
             ) : (
