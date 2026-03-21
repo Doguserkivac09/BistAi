@@ -350,9 +350,10 @@ export default function PortfolyoPage() {
       await Promise.allSettled(
         semboller.map(async (sembol) => {
           try {
-            const r = await fetch(`/api/ohlcv?sembol=${sembol}&days=5`);
+            const r = await fetch(`/api/ohlcv?symbol=${sembol}&days=5`);
             if (!r.ok) return;
-            const candles: { close: number }[] = await r.json();
+            const json: { candles: { close: number }[] } = await r.json();
+            const candles = json.candles ?? [];
             if (candles.length > 0) fiyatMap[sembol] = candles[candles.length - 1]!.close;
           } catch {}
         })
