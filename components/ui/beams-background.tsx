@@ -7,6 +7,7 @@ interface AnimatedGradientBackgroundProps {
   className?: string;
   children?: React.ReactNode;
   intensity?: "subtle" | "medium" | "strong";
+  fixed?: boolean; // canvas sayfanın tamamını kapsar (fixed position)
 }
 
 interface Beam {
@@ -42,6 +43,7 @@ export function BeamsBackground({
   className,
   children,
   intensity = "strong",
+  fixed = false,
 }: AnimatedGradientBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const beamsRef = useRef<Beam[]>([]);
@@ -137,6 +139,24 @@ export function BeamsBackground({
       }
     };
   }, [intensity]);
+
+  if (fixed) {
+    return (
+      <>
+        <canvas
+          ref={canvasRef}
+          className="fixed inset-0 z-0"
+          style={{ filter: "blur(15px)" }}
+        />
+        <motion.div
+          className="fixed inset-0 z-0 bg-neutral-950/5"
+          animate={{ opacity: [0.05, 0.15, 0.05] }}
+          transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
+          style={{ backdropFilter: "blur(50px)" }}
+        />
+      </>
+    );
+  }
 
   return (
     <div
