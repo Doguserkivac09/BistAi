@@ -345,7 +345,7 @@ export function detectBollingerSqueeze(sembol: string, candles: OHLCVCandle[]): 
   const minWidth = Math.min(...recentWidths);
 
   // Sıkışma: mevcut genişlik, son LOOKBACK mumun minimumuyla neredeyse aynı (en dar %10 dilimde)
-  const isSqueezing = currentWidth <= minWidth * 1.1 && currentWidth < 8;
+  const isSqueezing = currentWidth <= minWidth * 1.1 && currentWidth < 15;
   if (!isSqueezing) return null;
 
   // Yön: EMA9 vs EMA21 ve son kapanış vs SMA ile belirle
