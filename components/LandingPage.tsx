@@ -40,27 +40,27 @@ const TICKER_ITEMS = [
 // ── Mock live signals ─────────────────────────────────────────────
 
 const MOCK_SIGNALS = [
-  { sembol: 'THYAO', type: 'RSI Uyumsuzluk',   dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 78 },
-  { sembol: 'EREGL', type: 'Hacim Anomalisi',  dir: 'AL',  sev: 'Orta',  macro: '+42', confidence: 64 },
-  { sembol: 'PGSUS', type: 'Trend Başlangıcı', dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 71 },
-  { sembol: 'KCHOL', type: 'S/R Kırılımı',     dir: 'SAT', sev: 'Zayıf', macro: '+18', confidence: 49 },
-  { sembol: 'ARCLK', type: 'RSI Uyumsuzluk',   dir: 'SAT', sev: 'Orta',  macro: '+18', confidence: 58 },
-  { sembol: 'BIMAS', type: 'Hacim Anomalisi',   dir: 'AL',  sev: 'Orta',  macro: '+42', confidence: 62 },
+  { sembol: 'THYAO', type: 'RSI Uyumsuzluğu',  dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 78 },
+  { sembol: 'EREGL', type: 'MACD Kesişimi',     dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 74 },
+  { sembol: 'PGSUS', type: 'Trend Başlangıcı',  dir: 'AL',  sev: 'Orta',  macro: '+42', confidence: 71 },
+  { sembol: 'ASELS', type: 'Altın Çapraz',       dir: 'AL',  sev: 'Güçlü', macro: '+55', confidence: 82 },
+  { sembol: 'KCHOL', type: 'S/R Kırılımı',      dir: 'SAT', sev: 'Zayıf', macro: '+18', confidence: 49 },
+  { sembol: 'ARCLK', type: 'RSI Seviyesi',       dir: 'SAT', sev: 'Orta',  macro: '+18', confidence: 58 },
 ];
 
 // ── Stats ─────────────────────────────────────────────────────────
 
 const STATS = [
-  { value: '400+', label: 'BIST Hissesi' },
-  { value: '4',    label: 'Sinyal Tipi'  },
-  { value: '3',    label: 'Makro Katman' },
-  { value: '7/24', label: 'Canlı Analiz' },
+  { value: '160+', label: 'BIST Hissesi'   },
+  { value: '7',    label: 'Sinyal Tipi'    },
+  { value: '7',    label: 'Makro Gösterge' },
+  { value: '7/24', label: 'Canlı Analiz'   },
 ];
 
 // ── Features ──────────────────────────────────────────────────────
 
 const FEATURES = [
-  { icon: BarChart3,  title: 'Sinyal Tarama',    desc: 'RSI uyumsuzluğu, hacim anomalisi, trend başlangıcı ve kırılım — tüm BIST hisselerinde tek seferde.',        gradient: 'from-indigo-500/20 to-violet-500/5'  },
+  { icon: BarChart3,  title: 'Sinyal Tarama',    desc: 'RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi ve daha fazlası — 160+ BIST hissesinde tek seferde.',        gradient: 'from-indigo-500/20 to-violet-500/5'  },
   { icon: Brain,      title: 'AI Açıklamalar',   desc: 'Her sinyal için Claude AI ile üretilen sade Türkçe analiz. Ne olduğunu değil, ne anlama geldiğini öğren.', gradient: 'from-violet-500/20 to-fuchsia-500/5' },
   { icon: TrendingUp, title: 'Makro Radar',      desc: 'VIX, DXY, USD/TRY, TCMB faizi — tüm makro rüzgarları tek panelde. BIST\'in nabzını hisset.',              gradient: 'from-cyan-500/20 to-blue-500/5'      },
   { icon: Shield,     title: 'Risk Skoru',       desc: 'Kompozit motor sektörü, makroyu ve teknik sinyali birleştirir. AL / TUT / SAT kararı + güven yüzdesi.',    gradient: 'from-emerald-500/20 to-teal-500/5'  },
@@ -123,6 +123,10 @@ const BIST_PT = EXCH.find(e => e.id === 'BIST')!;
 // ── AnimatedGlobe ─────────────────────────────────────────────────
 
 function AnimatedGlobe() {
+  // SSR hydration mismatch önlemek için client-only render
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [coreHovered, setCoreHovered] = useState(false);
 
   const latOffsets = [-152, -114, -76, -38, 0, 38, 76, 114, 152];
@@ -135,6 +139,11 @@ function AnimatedGlobe() {
   });
 
   const visibleOthers = EXCH.filter(e => !e.main && e.depth > 0.05);
+
+  // Mount olmadan placeholder döndür (SSR'da boş alan)
+  if (!mounted) {
+    return <div className="relative flex h-[420px] w-[420px] items-center justify-center" />;
+  }
 
   return (
     <div className="relative flex h-[420px] w-[420px] items-center justify-center">
@@ -232,6 +241,7 @@ function AnimatedGlobe() {
           const { kfx, kfy, kfo } = arcKeyframes(BIST_PT.x, BIST_PT.y, ex.x, ex.y);
           return (
             <motion.circle key={ex.id + '_dot'} r={2.2}
+              cx={BIST_PT.x} cy={BIST_PT.y}
               fill={i % 2 === 0 ? 'rgba(167,139,250,0.95)' : 'rgba(99,102,241,0.85)'}
               animate={{ cx: kfx, cy: kfy, opacity: kfo }}
               transition={{ duration: 2.8 + i * 0.45, repeat: Infinity, ease: 'linear', delay: i * 0.6 }}
@@ -658,8 +668,8 @@ export default function LandingPage() {
                 className="mt-10 flex flex-wrap items-center justify-center gap-6 lg:justify-start"
               >
                 {[
-                  { icon: Globe2,   text: '400+ hisse' },
-                  { icon: Activity, text: '4 sinyal tipi' },
+                  { icon: Globe2,   text: '160+ hisse' },
+                  { icon: Activity, text: '7 sinyal tipi' },
                   { icon: Users,    text: 'Topluluk' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs text-text-secondary">

@@ -1,0 +1,40 @@
+{
+  "name": "BistAI — BIST Sinyal Analizi",
+  "short_name": "BistAI",
+  "description": "BIST hisselerinde AI destekli teknik analiz sinyalleri",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f1a",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "lang": "tr",
+  "categories": ["finance", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Hisse Tara",
+      "short_name": "Tarama",
+      "description": "BIST hisselerini tara",
+      "url": "/tarama"
+    },
+    {
+      "name": "Portföy",
+      "short_name": "Portföy",
+      "description": "Portföyümü görüntüle",
+      "url": "/portfolyo"
+    },
+    {
+      "name": "Makro Radar",
+      "short_name": "Makro",
+      "description": "Makro göstergeleri görüntüle",
+      "url": "/makro"
+    }
+  ]
+}

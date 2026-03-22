@@ -51,23 +51,28 @@ export function normalizeSymbol(raw: string): string {
   return trimmed.replace(/\.IS$/i, '');
 }
 
-export type YahooTimeframe = '1H' | '1G' | '1W' | '1A' | '3A' | '1Y';
+export type YahooTimeframe = '15m' | '30m' | '1h' | '1d' | '1wk' | '1mo';
+
+/** Intraday interval mi (saniye-bazlı timestamp gerektirir)? */
+function isIntraday(interval: string): boolean {
+  return ['1m','2m','5m','15m','30m','60m','90m'].includes(interval);
+}
 
 function getTimeframeParams(timeframe: YahooTimeframe): { range: string; interval: string } {
   switch (timeframe) {
-    case '1H': // 1 saatlik görünüm
-      return { range: '1d', interval: '5m' };
-    case '1G': // 1 gün
+    case '15m':
+      return { range: '5d', interval: '15m' };
+    case '30m':
       return { range: '5d', interval: '30m' };
-    case '1W': // 1 hafta
-      return { range: '5d', interval: '1d' };
-    case '1A': // 1 ay
-      return { range: '1mo', interval: '1d' };
-    case '3A': // 3 ay
-      return { range: '3mo', interval: '1d' };
-    case '1Y': // 1 yıl
+    case '1h':
+      return { range: '60d', interval: '60m' };
+    case '1d':
+      return { range: '5y', interval: '1d' };
+    case '1wk':
+      return { range: 'max', interval: '1wk' };
+    case '1mo':
     default:
-      return { range: '1y', interval: '1d' };
+      return { range: 'max', interval: '1mo' };
   }
 }
 
@@ -91,12 +96,16 @@ export async function fetchOHLCV(
 
   let res: Response;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
     res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
       next: { revalidate: 300 },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
   } catch {
-    console.error(`[Yahoo] fetchOHLCV ağ hatası (${sembol})`);
+    console.error(`[Yahoo] fetchOHLCV ağ hatası / timeout (${sembol})`);
     return [];
   }
 
@@ -187,6 +196,7 @@ export async function fetchOHLCVByTimeframe(
     res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
       next: { revalidate: 120 },
+      signal: AbortSignal.timeout(8_000),
     });
   } catch {
     console.error(`[Yahoo] fetchOHLCVByTimeframe ağ hatası (${sembol})`);
@@ -235,6 +245,7 @@ export async function fetchOHLCVByTimeframe(
   const lows = quote.low ?? [];
   const closes = quote.close ?? [];
   const volumes = quote.volume ?? [];
+  const intraday = isIntraday(interval);
 
   for (let i = 0; i < timestamps.length; i++) {
     const open = opens[i];
@@ -242,15 +253,13 @@ export async function fetchOHLCVByTimeframe(
     const low = lows[i];
     const close = closes[i];
     if (open == null || high == null || low == null || close == null) continue;
-    const date = new Date((timestamps[i] ?? 0) * 1000).toISOString().slice(0, 10);
-    candles.push({
-      date,
-      open,
-      high,
-      low,
-      close,
-      volume: volumes[i] ?? 0,
-    });
+    const ts = timestamps[i] ?? 0;
+    // Intraday: Unix timestamp (saniye) — lightweight-charts UTCTimestamp
+    // Daily+: YYYY-MM-DD string — lightweight-charts BusinessDay
+    const date: string | number = intraday
+      ? ts
+      : new Date(ts * 1000).toISOString().slice(0, 10);
+    candles.push({ date, open, high, low, close, volume: volumes[i] ?? 0 });
   }
 
   if (candles.length > 0) setCache(cacheKey, candles);

@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /tarama
+Allow: /makro
+Allow: /haberler
+Allow: /fiyatlandirma
+Allow: /topluluk
+
+# Özel/kişisel sayfaları indexleme
+Disallow: /dashboard
+Disallow: /portfolyo
+Disallow: /watchlist
+Disallow: /profil
+Disallow: /api/
+Disallow: /auth/
+
+Sitemap: https://bistai.vercel.app/sitemap.xml

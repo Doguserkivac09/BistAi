@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { User, Save, AlertTriangle, CheckCircle, CreditCard, ExternalLink } from 'lucide-react';
+import { User, Save, AlertTriangle, CheckCircle, CreditCard, ExternalLink, Bell, BellOff, Lock } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -18,6 +18,17 @@ interface Profile {
   created_at: string;
   updated_at: string;
 }
+
+const ALL_SIGNAL_TYPES = [
+  'RSI Uyumsuzluğu',
+  'Hacim Anomalisi',
+  'Trend Başlangıcı',
+  'Destek/Direnç Kırılımı',
+  'MACD Kesişimi',
+  'RSI Seviyesi',
+  'Altın Çapraz',
+  'Bollinger Sıkışması',
+] as const;
 
 const TIER_LABELS: Record<string, { label: string; color: string }> = {
   free: { label: 'Ücretsiz', color: 'bg-gray-500/10 text-gray-400 border-gray-500/30' },
@@ -32,6 +43,10 @@ export default function ProfilPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [emailEnabled, setEmailEnabled]   = useState(true);
+  const [minSeverity, setMinSeverity]     = useState<'güçlü' | 'orta' | 'zayıf'>('orta');
+  const [signalTypes, setSignalTypes]     = useState<string[]>([]); // boş = tüm tipler
+  const [prefSaving, setPrefSaving]       = useState(false);
   const searchParams = useSearchParams();
 
   // Form state
@@ -56,6 +71,42 @@ export default function ProfilPage() {
   }, []);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
+
+  // Bildirim tercihlerini yükle
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch('/api/user/alert-preferences', { signal: controller.signal })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (cancelled || !d) return;
+        setEmailEnabled(d.email_enabled ?? true);
+        setMinSeverity(d.min_severity ?? 'orta');
+        setSignalTypes(d.signal_types ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
+  async function savePref(
+    enabled: boolean,
+    severity: 'güçlü' | 'orta' | 'zayıf',
+    types: string[] = signalTypes,
+  ) {
+    setPrefSaving(true);
+    try {
+      await fetch('/api/user/alert-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_enabled: enabled, min_severity: severity, signal_types: types }),
+      });
+    } catch {} finally {
+      setPrefSaving(false);
+    }
+  }
 
   // Checkout success mesajı
   useEffect(() => {
@@ -307,6 +358,164 @@ export default function ProfilPage() {
                   {portalLoading ? 'Yönlendiriliyor...' : 'Aboneliği Yönet'}
                 </Button>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* E-posta Bildirimleri */}
+        <Card className="border-border mt-6">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-text-secondary flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              E-posta Bildirimleri
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-text-secondary">
+              Portföyündeki veya watchlist&apos;indeki hisselerde sinyal çıktığında e-posta al.
+              Her iş günü sabah 10:00&apos;da gönderilir.
+            </p>
+
+            {/* Toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border bg-surface/40 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                {emailEnabled
+                  ? <Bell className="h-4 w-4 text-primary" />
+                  : <BellOff className="h-4 w-4 text-text-muted" />
+                }
+                <span className={`text-sm font-medium ${emailEnabled ? 'text-text-primary' : 'text-text-muted'}`}>
+                  {prefSaving ? 'Kaydediliyor...' : emailEnabled ? 'Bildirimler Açık' : 'Bildirimler Kapalı'}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  const next = !emailEnabled;
+                  setEmailEnabled(next);
+                  savePref(next, minSeverity, signalTypes);
+                }}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  emailEnabled ? 'bg-primary' : 'bg-border'
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                  emailEnabled ? 'translate-x-4' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Minimum seviye */}
+            {emailEnabled && (
+              <div>
+                <label className="block text-xs text-text-secondary mb-1.5">Minimum Sinyal Gücü</label>
+                <select
+                  value={minSeverity}
+                  onChange={(e) => {
+                    const v = e.target.value as 'güçlü' | 'orta' | 'zayıf';
+                    setMinSeverity(v);
+                    savePref(emailEnabled, v, signalTypes);
+                  }}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="zayıf">Tümü (Zayıf + Orta + Güçlü)</option>
+                  <option value="orta">Orta ve üstü</option>
+                  <option value="güçlü">Sadece Güçlü</option>
+                </select>
+              </div>
+            )}
+
+            {/* Sinyal tipleri */}
+            {emailEnabled && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-text-secondary">Sinyal Tipleri</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next: string[] = [];
+                      setSignalTypes(next);
+                      savePref(emailEnabled, minSeverity, next);
+                    }}
+                    className="text-[11px] text-primary hover:underline"
+                  >
+                    Tümünü Seç
+                  </button>
+                </div>
+                <p className="text-[11px] text-text-secondary/60 mb-2">
+                  {signalTypes.length === 0
+                    ? 'Tüm sinyal tipleri için bildirim alınıyor.'
+                    : `${signalTypes.length} tip seçili.`}
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {ALL_SIGNAL_TYPES.map((t) => {
+                    const checked = signalTypes.length === 0 || signalTypes.includes(t);
+                    return (
+                      <label
+                        key={t}
+                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 cursor-pointer transition-colors ${
+                          checked
+                            ? 'border-primary/40 bg-primary/5 text-text-primary'
+                            : 'border-border bg-surface/30 text-text-muted'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            let next: string[];
+                            if (signalTypes.length === 0) {
+                              // Tümü seçiliyken → tıklananı kaldır (diğerleri seçili)
+                              next = ALL_SIGNAL_TYPES.filter((x) => x !== t);
+                            } else if (checked) {
+                              next = signalTypes.filter((x) => x !== t);
+                              if (next.length === 0) next = []; // hepsi çıkarılırsa = tümü
+                            } else {
+                              next = [...signalTypes, t];
+                              if (next.length === ALL_SIGNAL_TYPES.length) next = []; // hepsi seçiliyse = tümü
+                            }
+                            setSignalTypes(next);
+                            savePref(emailEnabled, minSeverity, next);
+                          }}
+                          className="sr-only"
+                        />
+                        <span className={`h-3.5 w-3.5 shrink-0 rounded border flex items-center justify-center ${
+                          checked ? 'border-primary bg-primary' : 'border-border bg-background'
+                        }`}>
+                          {checked && (
+                            <svg viewBox="0 0 10 8" fill="none" className="h-2 w-2">
+                              <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </span>
+                        <span className="text-xs leading-tight">{t}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Güvenlik */}
+        <Card className="border-border mt-6">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-text-secondary flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              Güvenlik
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-text-primary">Şifre</p>
+                <p className="text-xs text-text-secondary mt-0.5">Son girişte kullandığın şifreyi değiştir</p>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/sifre-guncelle">
+                  <Lock className="h-3.5 w-3.5 mr-1.5" />
+                  Şifre Değiştir
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>

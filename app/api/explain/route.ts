@@ -4,8 +4,8 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
 import type { StockSignal } from '@/types';
 
-// Claude API pahalı — IP başına dakikada 20 istek
-const RATE_LIMIT = 20;
+// Claude API — IP başına dakikada 100 istek (tarama sonuçları eş zamanlı gelir)
+const RATE_LIMIT = 100;
 const WINDOW_MS = 60_000;
 const MAX_PRICE_DATA_LENGTH = 500; // max 500 mum verisi
 

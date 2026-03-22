@@ -2,6 +2,68 @@
 
 > Bu dosya Claude Code tarafından otomatik okunur. Tüm ekip üyeleri aynı bağlamı paylaşır.
 
+---
+
+## 🚀 SONRAKİ ADIMLAR — Öncelik Sırasına Göre (2026-03-22 güncellendi)
+
+### 🔴 SİNYAL KALİTESİ & DOĞRULUK (Aktif Sprint)
+
+| # | Görev | Açıklama | Durum |
+|---|-------|----------|-------|
+| Q1 | ~~**Confluence Skoru**~~ | ✅ `computeConfluence()` — 4 kategori, severity+hizalama+çeşitlilik → 0-100. StockCard badge | ✅ |
+| Q2 | ~~**Sinyal Yaşı (Freshness)**~~ | ✅ `candlesAgo` field, "Xg önce" badge StockCard'da gösteriliyor | ✅ |
+| Q3 | **Backtest Başarı Oranı UI** | `signal_performance` tablosundaki veriyi sinyal kartlarında göster — "Bu sinyal %67 başarılı" | ⏳ Bekliyor |
+| Q4 | **Korelasyon Katsayısı** | Karşılaştırma sayfasına hisseler arası korelasyon ekle — portföy çeşitlendirmesi için | ⏳ Bekliyor |
+| Q5 | **Multi-timeframe Doğrulama** | Günlük + haftalık aynı sinyali veriyorsa güçlü; çakışmıyorsa zayıf işaretle | ⏳ Bekliyor |
+| Q6 | **Sektör Momentum Filtresi** | Sektör geneli düşerken bireysel bullish sinyali = daha az güvenilir | ⏳ Bekliyor |
+
+### 🔴 1. Sinyal Güçlendirmeleri (Kısa Vadeli — Hemen Yapılabilir)
+
+| # | Görev | Neden Önemli |
+|---|-------|--------------|
+| S1 | ~~**Kırılım sinyali güçlendir**~~ | ✅ 50g lookback, %0.3 min kırılım, 0.8x vol, breakoutPct eklendi |
+| S2 | ~~**Altın/Ölüm Çaprazı iyileştir**~~ | ✅ Tarama 252g veri, 10 mum lookback, separationPct eklendi |
+| S3 | ~~**MACD Kesişimi iyileştir**~~ | ✅ 7 mum lookback, histExpanding, aboveZero kontrolü eklendi |
+| S4 | ~~**RSI Seviyesi sinyali güçlendir**~~ | ✅ Bölgeden çıkış tespiti, 32/68 BIST eşiği, rsiMomentum eklendi |
+
+### ~~🟠 2. Anlık Uyarı Sistemi — Phase 14.2~~ ✅ TAMAMLANDI
+- ~~Cron tarama → sinyal bulunan hisseler → email / web push bildirimi~~
+- ~~`alert_preferences` tablosu: kullanıcı izleme listesi + sinyal tipi seçimi~~
+- ~~Resend API ile email (ücretsiz 3000/ay)~~
+- **Test edildi ve çalışıyor** — Her iş günü 10:30 TRT'de gönderilir
+
+### 🟠 3. Portföy Performans Grafiği — Phase 14.1 ek
+- `/portfolyo` sayfası mevcut, eksik: zaman içinde değer değişimi grafiği
+- Portföydeki hisseler için otomatik sinyal uyarısı bağlantısı
+
+### 🟡 4. Backtest Veri Sorunu — Phase 14.3
+- `signal_performance` tablosunda `evaluated=true` kayıt birikmiyor
+- `/api/dev/seed-backtest` ile sentetik veri veya cron fix
+
+### 🟡 5. Mobil PWA — Phase 14.5
+- `manifest.json` + service worker → "Ana Ekrana Ekle"
+- `next-pwa` paketi ile minimal iş
+
+---
+
+## ✅ 2026-03-22 Oturumunda Tamamlananlar
+
+| Özellik | Dosyalar |
+|---------|---------|
+| Destek/Direnç seviyeleri (pivot + kümeleme) | `lib/support-resistance.ts`, `components/SRLevels.tsx` |
+| Bollinger Bandı Sıkışması sinyali | `lib/signals.ts` |
+| Grafik BB / EMA50/200 / D/R overlay toggle | `components/StockChart.tsx` |
+| Toggle'da grafik sıfırlanmama (ayrı effect'ler) | `components/StockChart.tsx` |
+| İndikatör araç çubuğu (grafik dışına taşındı) | `components/StockChart.tsx` |
+| Hacim Anomalisi güçlendirmesi (ardışık gün, relVol5) | `lib/signals.ts` |
+| RSI grafiği 0-100 sabit + mevcut değer çizgisi | `components/StockChart.tsx` |
+| ohlcv rate limit 120→400/min (tarama 429 fix) | `app/api/ohlcv/route.ts` |
+| signal-performance 5dk XU100 cache (500 fix) | `app/api/signal-performance/route.ts` |
+| AnimatedGlobe SSR hydration fix | `components/LandingPage.tsx` |
+| Anlık uyarı sistemi (Resend email, sinyal filtresi, profil UI) | `lib/email-service.ts`, `app/api/cron/alerts/route.ts`, `app/profil/page.tsx` |
+
+---
+
 ## Ekip
 
 - **Berk** - Frontend (UI, components, client-side features)
@@ -442,3 +504,68 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 3. **Manuel test**: Etkilenen sayfa/bileşeni test et
 4. **DevTools**: Console/Network hata kontrolü
 5. **Responsive**: Mobil ve desktop (UI değişikliği varsa)
+
+---
+
+## Phase 14 — Kullanılabilirlik & Büyüme Roadmap'i
+
+**Tema:** Platformu "bakıp geçilen araç"tan "her gün açılan asistana" dönüştür.
+**Öncelik sırası:** Portföy → Uyarılar → Backtest → Haber Entegrasyonu → Mobil PWA
+
+### 14.1 Portföy Takibi [L] 🔴 YÜKSEKÖNCELİK
+- Kullanıcı hisselerini + lot miktarını girer
+- Toplam değer, günlük değişim, sektör dağılımı
+- Portföydeki hisseler için otomatik sinyal uyarısı
+- DB: `portfolios(user_id, sembol, lot, avg_price, created_at)`
+- Sayfa: `/portfoy`
+
+### 14.2 Anlık Uyarı Sistemi [L] 🔴 YÜKSEKÖNCELİK
+- Trigger: Cron her sabah tarama → sinyal bulunan hisseler → bildirim gönder
+- **Email**: Resend veya Supabase Email (ücretsiz 3000/ay)
+- **Web Push**: Browser bildirim API + Supabase `push_subscriptions` tablosu
+- Kullanıcı: izleme listesi veya portföy hissesi için uyarı seçebilir
+- DB: `alert_preferences(user_id, sembol, signal_types[], channels[])`
+- Env: `RESEND_API_KEY`
+
+### 14.3 Backtest — Test Edilebilir Hale Getir [M] 🟠 ORTA
+- Sorun: `signal_performance` tablosunda `evaluated=true` kayıt yok
+- Çözüm A (kısa vade): `/api/dev/seed-backtest` — geliştirme ortamında sentetik veri üretir
+- Çözüm B (uzun vade): `evaluate-signals` cron'u gerçekten çalıştır ve sonuçları kaydet
+- Backtest sayfası altyapısı tamam, sadece veri gerekiyor
+
+### 14.4 Haber + Sinyal Entegrasyonu [M] 🟡 SONRA
+- Hisse detay sayfasında teknik sinyal yanında o güne ait haberler
+- Kaynak: Yahoo Finance news API veya NewsAPI (ücretsiz 1000/gün)
+- UI: Sinyal kartında "Bugün 3 haber var" badge + modal
+- Rakiplerin hiçbirinde yok — güçlü diferansiasyon
+
+### 14.5 Mobil PWA [M] 🟡 SONRA
+- `manifest.json` + service worker → "Ana Ekrana Ekle" butonu
+- Push notification desteği (14.2 ile entegre)
+- Next.js'de `next-pwa` paketi ile minimal iş
+
+---
+
+## Rakip Konumlandırma
+
+| Platform | Fiyat | Güçlü Yön | BistAI Avantajı |
+|----------|-------|-----------|-----------------|
+| Matriks | 500-2000₺/ay | Gerçek zamanlı, profesyonel | Ücretsiz, modern UI, AI açıklama |
+| Bigpara | Ücretsiz | Geniş kitle, haber | Sinyal tarama, makro bağlam |
+| TradingView | $15-60/ay | Grafik araçları | Türkçe, BIST odaklı, AI |
+| Midas/İş Yatırım | Ücretsiz | Aracı güvenilirliği | Analitik derinlik |
+
+**Boş alan:** BIST odaklı + Türkçe + AI sinyal + Ücretsiz → BistAI bu kombinasyonu tek yapan platform.
+
+---
+
+## Sistem Zayıf Noktaları (Dürüst Değerlendirme)
+
+| Alan | Sorun | Çözüm |
+|------|-------|-------|
+| Gerçek zamanlı veri | Yahoo Finance 15dk gecikmeli | Uzun vadede Borsa İstanbul API |
+| Backtest verisi | `evaluated` kayıt birikmiyor | Cron job düzeltmesi + seed |
+| Bildirim sistemi | Yok | 14.2 |
+| Portföy | Yok | 14.1 |
+| Mobil | Responsive ama uygulama değil | 14.5 PWA |
+| Stripe | Key'ler girilmedi | Girince aktif |

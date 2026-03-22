@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
+
+// IP başına dakikada 10 yorum silme
+const RATE_LIMIT = 10;
+const WINDOW_MS = 60_000;
 
 /**
  * DELETE /api/community/posts/[id]/comments/[commentId]
@@ -10,6 +15,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; commentId: string }> }
 ) {
   try {
+    const ip = getClientIP(_request.headers);
+    const { allowed, resetMs } = checkRateLimit(`comment-delete:${ip}`, RATE_LIMIT, WINDOW_MS);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Çok fazla istek. Lütfen bekleyin.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(resetMs / 1000)) } }
+      );
+    }
+
     const { commentId } = await params;
     const supabase = await createServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -26,7 +40,8 @@ export async function DELETE(
       .select('id');
 
     if (error) {
-      return NextResponse.json({ error: 'Yorum silinemedi.', debug: error.message }, { status: 403 });
+      console.error('[community/comments] DELETE hatası:', error.message);
+      return NextResponse.json({ error: 'Yorum silinemedi.' }, { status: 403 });
     }
 
     if (!data || data.length === 0) {

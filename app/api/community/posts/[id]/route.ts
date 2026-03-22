@@ -162,10 +162,9 @@ export async function DELETE(
       .eq('author_id', user.id)
       .select('id');
 
-    console.error('[community/posts] DELETE debug:', { id, userId: user.id, error: error?.message, data });
-
     if (error) {
-      return NextResponse.json({ error: 'Post silinemedi.', debug: error.message }, { status: 403 });
+      console.error('[community/posts] DELETE hatası:', error.message);
+      return NextResponse.json({ error: 'Post silinemedi.' }, { status: 403 });
     }
 
     if (!data || data.length === 0) {
