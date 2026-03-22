@@ -16,6 +16,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${sembol} — BistAI Hisse Analizi`,
       description: `${sembol} teknik analiz sinyalleri ve yapay zeka açıklamaları.`,
     },
+    alternates: { canonical: `/hisse/${sembol}` },
   };
 }
 

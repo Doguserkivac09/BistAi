@@ -44,6 +44,11 @@
 - `manifest.json` + service worker → "Ana Ekrana Ekle"
 - `next-pwa` paketi ile minimal iş
 
+### 🟡 6. Code Quality — Teknik Borç
+- Kullanılmayan dosyalar temizliği (ör: `components/VixChart.tsx` hiçbir yerde import edilmiyor)
+- Unused import temizliği
+- Type safety iyileştirmeleri
+
 ---
 
 ## ✅ 2026-03-22 Oturumunda Tamamlananlar
@@ -61,6 +66,22 @@
 | signal-performance 5dk XU100 cache (500 fix) | `app/api/signal-performance/route.ts` |
 | AnimatedGlobe SSR hydration fix | `components/LandingPage.tsx` |
 | Anlık uyarı sistemi (Resend email, sinyal filtresi, profil UI) | `lib/email-service.ts`, `app/api/cron/alerts/route.ts`, `app/profil/page.tsx` |
+| UI/UX erişilebilirlik (disabled, aria-pressed, validation hints) | `app/sifre-sifirla/`, `app/sifre-guncelle/`, `app/topluluk/`, `app/profil/` |
+| **Performans optimizasyonu** — optimizePackageImports, dynamic imports, API cache headers | `next.config.mjs`, `app/page.tsx`, `components/StockCard.tsx`, `app/portfolyo/page.tsx` |
+| **SEO & Meta** — metadataBase, Twitter card, JSON-LD, canonical URL, tüm sayfa metadata | `app/layout.tsx`, `app/sitemap.ts`, `app/*/layout.tsx`, `app/hisse/[sembol]/page.tsx` |
+
+### Performans Detay
+- `optimizePackageImports`: lucide-react, recharts, framer-motion tree-shaking
+- Dynamic imports: LandingPage, MiniChart (lightweight-charts), PortfolioPerformanceChart
+- Bundle düşüşü: `/tarama` 224→175kB (-49kB), `/portfolyo` 198→148kB (-50kB)
+- API cache headers: `/api/macro`, `/api/sectors`, `/api/risk` (5dk cache + 10dk stale-while-revalidate)
+
+### SEO Detay
+- `metadataBase` + canonical URL'ler tüm sayfalarda
+- Twitter card metadata (summary_large_image)
+- JSON-LD WebApplication schema (layout.tsx)
+- Sitemap: 15 featured → tüm BIST_SYMBOLS (164 hisse)
+- Yeni metadata layout'ları: backtesting, haberler, fiyatlandirma, topluluk
 
 ---
 

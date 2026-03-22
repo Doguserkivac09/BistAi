@@ -1,13 +1,7 @@
 import type { MetadataRoute } from 'next';
+import { BIST_SYMBOLS } from '@/types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bistai.vercel.app';
-
-// Taranabilir hisse sembolleri (sadece öne çıkanlar)
-const FEATURED_SYMBOLS = [
-  'THYAO', 'GARAN', 'ASELS', 'KCHOL', 'SISE',
-  'EREGL', 'BIMAS', 'AKBNK', 'TUPRS', 'FROTO',
-  'SAHOL', 'PETKM', 'KOZAL', 'TCELL', 'YKBNK',
-];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
@@ -70,8 +64,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
-  // Öne çıkan hisse detay sayfaları
-  const stockRoutes: MetadataRoute.Sitemap = FEATURED_SYMBOLS.map((sembol) => ({
+  // Tüm BIST hisse detay sayfaları
+  const stockRoutes: MetadataRoute.Sitemap = BIST_SYMBOLS.map((sembol) => ({
     url: `${BASE_URL}/hisse/${sembol}`,
     lastModified: now,
     changeFrequency: 'daily' as const,

@@ -8,13 +8,16 @@ import { PwaRegister } from '@/components/PwaRegister';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bistai.vercel.app';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(BASE_URL),
   title: {
     default: 'BistAI — BIST Hisselerinde AI Destekli Sinyal Analizi',
     template: '%s | BistAI',
   },
   description: 'BIST hisselerini tarayın, teknik analiz sinyallerini ve yapay zeka açıklamalarını görün.',
-  keywords: ['BIST', 'hisse senedi', 'teknik analiz', 'sinyal', 'yapay zeka', 'borsa istanbul'],
+  keywords: ['BIST', 'hisse senedi', 'teknik analiz', 'sinyal', 'yapay zeka', 'borsa istanbul', 'borsa', 'yatırım'],
   authors: [{ name: 'BistAI' }],
   manifest: '/manifest.json',
   appleWebApp: {
@@ -29,8 +32,15 @@ export const metadata: Metadata = {
     siteName: 'BistAI',
     title: 'BistAI — BIST Hisselerinde AI Destekli Sinyal Analizi',
     description: 'BIST hisselerini tarayın, teknik analiz sinyallerini ve yapay zeka açıklamalarını görün.',
+    url: BASE_URL,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'BistAI — BIST Hisselerinde AI Destekli Sinyal Analizi',
+    description: 'BIST hisselerini tarayın, teknik analiz sinyallerini ve yapay zeka açıklamalarını görün.',
   },
   robots: { index: true, follow: true },
+  alternates: { canonical: '/' },
 };
 
 export default function RootLayout({
@@ -41,6 +51,22 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className={`${inter.variable} antialiased min-h-screen bg-background text-text-primary flex flex-col`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebApplication',
+              name: 'BistAI',
+              url: BASE_URL,
+              description: 'BIST hisse senetleri için AI destekli teknik analiz ve sinyal tarama platformu.',
+              applicationCategory: 'FinanceApplication',
+              operatingSystem: 'Web',
+              offers: { '@type': 'Offer', price: '0', priceCurrency: 'TRY' },
+              inLanguage: 'tr',
+            }),
+          }}
+        />
         <PwaRegister />
         <Navbar />
         <div className="flex-1">

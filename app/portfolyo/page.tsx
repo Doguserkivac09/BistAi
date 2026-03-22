@@ -9,7 +9,12 @@ import {
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import type { PortfolyoPozisyonWithStats } from '@/types';
-import PortfolioPerformanceChart from '@/components/PortfolioPerformanceChart';
+import dynamic from 'next/dynamic';
+
+const PortfolioPerformanceChart = dynamic(
+  () => import('@/components/PortfolioPerformanceChart'),
+  { ssr: false, loading: () => <div className="h-[300px] w-full animate-pulse rounded-xl bg-white/5" /> },
+);
 
 interface OhlcvCandle { date: string; close: number; }
 

@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SignalBadge } from '@/components/SignalBadge';
-import { MiniChart } from '@/components/MiniChart';
+import dynamic from 'next/dynamic';
+
+const MiniChart = dynamic(
+  () => import('@/components/MiniChart').then((mod) => ({ default: mod.MiniChart })),
+  { ssr: false, loading: () => <div className="h-[80px] w-full animate-pulse rounded bg-white/5" /> },
+);
 import { SignalExplanation } from '@/components/SignalExplanation';
 import type { StockSignal, OHLCVCandle, ConfluenceResult } from '@/types';
 import { computeConfluence } from '@/lib/signals';
