@@ -5,6 +5,22 @@ import { fetchOHLCV } from '@/lib/yahoo';
 import { getMarketRegime } from '@/lib/regime-engine';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
+// XU100 regime cache — 5 dakika geçerliliği
+let regimeCache: { value: string; expiresAt: number } | null = null;
+
+async function getCachedRegime(): Promise<string> {
+  const now = Date.now();
+  if (regimeCache && regimeCache.expiresAt > now) return regimeCache.value;
+  try {
+    const xu100Candles = await fetchOHLCV('^XU100', 365);
+    const regime = getMarketRegime(xu100Candles);
+    regimeCache = { value: regime, expiresAt: now + 5 * 60 * 1000 };
+    return regime;
+  } catch {
+    return regimeCache?.value ?? 'sideways';
+  }
+}
+
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -47,14 +63,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Server-side regime tespiti: XU100 OHLCV'den EMA50/EMA200
-    let regime = 'sideways';
-    try {
-      const xu100Candles = await fetchOHLCV('^XU100', 365);
-      regime = getMarketRegime(xu100Candles);
-    } catch {
-      // Regime tespit edilemezse default 'sideways' kalır
-    }
+    // Server-side regime tespiti — 5dk cache (200+ paralel istekte Yahoo rate limit önler)
+    const regime = await getCachedRegime();
 
     const supabase = createAdminClient();
 
