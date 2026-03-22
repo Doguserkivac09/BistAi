@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw, TrendingUp, TrendingDown, Minus,
-  AlertTriangle, Shield, BarChart3, Globe, Building2,
-  Zap, Activity,
+  AlertTriangle, BarChart3, Globe, Building2,
+  Zap, Activity, X,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -105,6 +106,8 @@ interface AlertsResponse {
   alerts: AlertItem[];
   count: number;
 }
+
+interface OHLCVRow { close: number; volume?: number }
 
 // ── Yardımcılar ─────────────────────────────────────────────────────
 
@@ -217,6 +220,29 @@ function indicatorSignal(label: string, data: { price: number; changePercent: nu
   }
 }
 
+// ── Mini Sparkline ───────────────────────────────────────────────────
+
+function MiniSparkline({ values, up }: { values: number[]; up: boolean }) {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const W = 48, H = 18;
+  const pts = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * W;
+      const y = H - ((v - min) / range) * (H - 2) - 1;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+  const col = up ? '#22c55e' : '#ef4444';
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-12 h-4.5" style={{ height: 18 }} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke={col} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // ── Ticker Bar ──────────────────────────────────────────────────────
 
 function TickerBar({ indicators }: { indicators: MacroResponse['indicators'] }) {
@@ -268,7 +294,7 @@ function TickerBar({ indicators }: { indicators: MacroResponse['indicators'] }) 
   );
 }
 
-// ── Makro Gauge (yeniden tasarım) ───────────────────────────────────
+// ── Makro Gauge ──────────────────────────────────────────────────────
 
 function MacroGauge({ score }: { score: number }) {
   const r = 88, cx = 120, cy = 108;
@@ -297,24 +323,14 @@ function MacroGauge({ score }: { score: number }) {
           <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
       </defs>
-
-      {/* Track */}
       <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
         fill="none" stroke="#1a1a2e" strokeWidth="13" />
-
-      {/* Gradient arka plan */}
       <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
         fill="none" stroke="url(#mgGrad)" strokeWidth="13" strokeOpacity="0.2" />
-
-      {/* Dolu yay */}
       <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
         fill="none" stroke="url(#mgGrad)" strokeWidth="13"
         strokeDasharray={`${filled} ${arcLen + 20}`}
-        strokeLinecap="round"
-        filter="url(#mgGlow)"
-      />
-
-      {/* Skala çizgileri */}
+        strokeLinecap="round" filter="url(#mgGlow)" />
       {[-100, -50, 0, 50, 100].map((v) => {
         const a = ((v + 100) / 200) * 180;
         const ra = (a * Math.PI) / 180;
@@ -324,25 +340,19 @@ function MacroGauge({ score }: { score: number }) {
         const y2 = cy - (r + 4)  * Math.sin(Math.PI - ra);
         return <line key={v} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />;
       })}
-
-      {/* İbre */}
       <line x1={cx} y1={cy} x2={nx} y2={ny}
-        stroke="white" strokeWidth="2" strokeLinecap="round"
-        filter="url(#needleGlow)" />
+        stroke="white" strokeWidth="2" strokeLinecap="round" filter="url(#needleGlow)" />
       <circle cx={cx} cy={cy} r="5.5" fill={col} filter="url(#needleGlow)" />
       <circle cx={cx} cy={cy} r="2.5" fill="white" />
-
-      {/* Skor */}
       <text x={cx} y={cy - 20} textAnchor="middle"
-        fill={col} fontSize="32" fontWeight="800" fontFamily="monospace"
-        filter="url(#mgGlow)">
+        fill={col} fontSize="32" fontWeight="800" fontFamily="monospace" filter="url(#mgGlow)">
         {score > 0 ? '+' : ''}{score}
       </text>
     </svg>
   );
 }
 
-// ── Risk Halkası (yeniden tasarım) ──────────────────────────────────
+// ── Risk Halkası ─────────────────────────────────────────────────────
 
 function RiskCircle({ score, label, emoji }: { score: number; label: string; emoji: string }) {
   const r = 50, cx = 62, cy = 62;
@@ -362,14 +372,11 @@ function RiskCircle({ score, label, emoji }: { score: number; label: string; emo
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1a1a2e" strokeWidth="10" />
         <circle cx={cx} cy={cy} r={r} fill="none"
           stroke={col} strokeWidth="3" strokeOpacity="0.2"
-          strokeDasharray={`${circ} ${circ}`}
-        />
+          strokeDasharray={`${circ} ${circ}`} />
         <circle cx={cx} cy={cy} r={r} fill="none"
           stroke={col} strokeWidth="10"
           strokeDasharray={`${filled} ${circ}`}
-          strokeLinecap="round"
-          filter="url(#rGlow)"
-        />
+          strokeLinecap="round" filter="url(#rGlow)" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-black text-white leading-none">{score}</span>
@@ -394,9 +401,7 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
       className="relative rounded-2xl border border-white/8 overflow-hidden mb-6"
       style={{ background: '#0a0a18' }}
     >
-      {/* Arka plan glow */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: heroGradient(score) }} />
-
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-white/5">
         {/* Sol — Makro Gauge */}
         <div className="flex flex-col items-center justify-center py-8 px-6 gap-4">
@@ -413,13 +418,9 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
                   </span>
                   <span className="text-sm text-white/45 w-24 truncate">{c.name}</span>
                   <div className="flex-1 h-1.5 rounded-full bg-white/8 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: barCol }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${barPct}%` }}
-                      transition={{ duration: 0.8, delay: 0.3 }}
-                    />
+                    <motion.div className="h-full rounded-full" style={{ backgroundColor: barCol }}
+                      initial={{ width: 0 }} animate={{ width: `${barPct}%` }}
+                      transition={{ duration: 0.8, delay: 0.3 }} />
                   </div>
                   <span className={`text-sm font-mono w-8 text-right ${c.rawScore >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {c.rawScore > 0 ? '+' : ''}{c.rawScore.toFixed(0)}
@@ -435,18 +436,12 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
           <div className="flex items-center gap-2 text-sm text-white/35 uppercase tracking-[0.2em] font-mono">
             <Activity className="h-3.5 w-3.5" /> Piyasa Durumu
           </div>
-          <motion.div
-            className="text-6xl font-black tracking-tight leading-none"
-            style={{ color: col }}
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 200, delay: 0.15 }}
-          >
+          <motion.div className="text-6xl font-black tracking-tight leading-none" style={{ color: col }}
+            initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 200, delay: 0.15 }}>
             {translateWind(macro.score.wind)}
           </motion.div>
           <div className="text-base text-white/50 font-medium">{macro.score.label}</div>
-
-          {/* Kısa açıklama satırı */}
           <div className="mt-2 px-4 py-2.5 rounded-lg bg-white/4 border border-white/6 text-sm text-white/55 max-w-[240px]">
             {score >= 30
               ? 'Makro koşullar güçlü. Yükseliş için zemin uygun.'
@@ -456,8 +451,6 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
               ? 'Makro baskı var. Savunmacı duruş mantıklı.'
               : 'Yüksek risk ortamı. Pozisyon küçültme önerilir.'}
           </div>
-
-          {/* Son güncelleme */}
           <div className="text-sm text-white/25 font-mono mt-1">
             {new Date(macro.score.calculatedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
           </div>
@@ -476,13 +469,9 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
                 <div key={c.name} className="flex items-center gap-2">
                   <span className="text-sm text-white/45 w-20 truncate">{c.name}</span>
                   <div className="flex-1 h-1.5 rounded-full bg-white/8 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: riskColor(c.score) }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${c.score}%` }}
-                      transition={{ duration: 0.8, delay: 0.4 }}
-                    />
+                    <motion.div className="h-full rounded-full" style={{ backgroundColor: riskColor(c.score) }}
+                      initial={{ width: 0 }} animate={{ width: `${c.score}%` }}
+                      transition={{ duration: 0.8, delay: 0.4 }} />
                   </div>
                   <span className="text-sm font-mono w-7 text-right" style={{ color: riskColor(c.score) }}>
                     {c.score}
@@ -500,12 +489,13 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
 // ── Gösterge Kartı ──────────────────────────────────────────────────
 
 function IndicatorCard({
-  label, data, suffix, delay,
+  label, data, suffix, delay, sparkline,
 }: {
   label: string;
   data: { price: number; change: number; changePercent: number } | null;
   suffix: string;
   delay: number;
+  sparkline?: number[];
 }) {
   const sig = indicatorSignal(label, data);
   const up  = (data?.changePercent ?? 0) > 0;
@@ -520,10 +510,7 @@ function IndicatorCard({
       transition={{ duration: 0.35, delay }}
       whileHover={{ y: -3, transition: { duration: 0.15 } }}
       className="rounded-xl p-4 cursor-default"
-      style={{
-        background: `linear-gradient(135deg, ${bgGlow}, #0a0a18)`,
-        border: `1px solid ${borderColor}`,
-      }}
+      style={{ background: `linear-gradient(135deg, ${bgGlow}, #0a0a18)`, border: `1px solid ${borderColor}` }}
     >
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-white/35 font-mono uppercase tracking-widest">{label}</span>
@@ -532,15 +519,20 @@ function IndicatorCard({
       <p className="text-3xl font-bold text-white font-mono leading-none">
         {data ? `${data.price.toFixed(2)}${suffix}` : '—'}
       </p>
-      <div className="flex items-center gap-1 mt-2.5">
-        {data ? (
-          up ? <TrendingUp className="h-3.5 w-3.5 text-green-400" /> :
-          dn ? <TrendingDown className="h-3.5 w-3.5 text-red-400" /> :
-          <Minus className="h-3.5 w-3.5 text-white/30" />
-        ) : null}
-        <span className={`text-sm font-mono ${up ? 'text-green-400' : dn ? 'text-red-400' : 'text-white/30'}`}>
-          {data ? `${data.changePercent > 0 ? '+' : ''}${data.changePercent.toFixed(2)}%` : '—'}
-        </span>
+      <div className="flex items-center justify-between gap-1 mt-2.5">
+        <div className="flex items-center gap-1">
+          {data ? (
+            up ? <TrendingUp className="h-3.5 w-3.5 text-green-400" /> :
+            dn ? <TrendingDown className="h-3.5 w-3.5 text-red-400" /> :
+            <Minus className="h-3.5 w-3.5 text-white/30" />
+          ) : null}
+          <span className={`text-sm font-mono ${up ? 'text-green-400' : dn ? 'text-red-400' : 'text-white/30'}`}>
+            {data ? `${data.changePercent > 0 ? '+' : ''}${data.changePercent.toFixed(2)}%` : '—'}
+          </span>
+        </div>
+        {sparkline && sparkline.length >= 2 && (
+          <MiniSparkline values={sparkline} up={up} />
+        )}
       </div>
     </motion.div>
   );
@@ -570,19 +562,25 @@ function MetricRow({
 
 // ── Sektör Isı Haritası ──────────────────────────────────────────────
 
-function SectorHeatmap({ sectors }: { sectors: SectorItem[] }) {
+function SectorHeatmap({
+  sectors,
+  onSectorClick,
+}: {
+  sectors: SectorItem[];
+  onSectorClick: (sectorId: string) => void;
+}) {
   const [hovered, setHovered] = useState<string | null>(null);
   const sorted = [...sectors].sort((a, b) => b.compositeScore - a.compositeScore);
 
   function cellStyle(score: number): React.CSSProperties {
     let bg: string, border: string;
-    if (score >= 40)      { bg = 'rgba(34,197,94,0.22)';  border = 'rgba(34,197,94,0.45)';  }
-    else if (score >= 20) { bg = 'rgba(34,197,94,0.13)';  border = 'rgba(34,197,94,0.30)';  }
-    else if (score >= 5)  { bg = 'rgba(132,204,22,0.10)'; border = 'rgba(132,204,22,0.25)'; }
-    else if (score >= -5) { bg = 'rgba(234,179,8,0.10)';  border = 'rgba(234,179,8,0.25)';  }
-    else if (score >= -20){ bg = 'rgba(249,115,22,0.13)'; border = 'rgba(249,115,22,0.30)'; }
-    else if (score >= -40){ bg = 'rgba(239,68,68,0.15)';  border = 'rgba(239,68,68,0.35)';  }
-    else                  { bg = 'rgba(239,68,68,0.22)';  border = 'rgba(239,68,68,0.45)';  }
+    if (score >= 40)       { bg = 'rgba(34,197,94,0.22)';  border = 'rgba(34,197,94,0.45)';  }
+    else if (score >= 20)  { bg = 'rgba(34,197,94,0.13)';  border = 'rgba(34,197,94,0.30)';  }
+    else if (score >= 5)   { bg = 'rgba(132,204,22,0.10)'; border = 'rgba(132,204,22,0.25)'; }
+    else if (score >= -5)  { bg = 'rgba(234,179,8,0.10)';  border = 'rgba(234,179,8,0.25)';  }
+    else if (score >= -20) { bg = 'rgba(249,115,22,0.13)'; border = 'rgba(249,115,22,0.30)'; }
+    else if (score >= -40) { bg = 'rgba(239,68,68,0.15)';  border = 'rgba(239,68,68,0.35)';  }
+    else                   { bg = 'rgba(239,68,68,0.22)';  border = 'rgba(239,68,68,0.45)';  }
     return { background: bg, border: `1px solid ${border}` };
   }
 
@@ -616,39 +614,26 @@ function SectorHeatmap({ sectors }: { sectors: SectorItem[] }) {
             whileHover={{ scale: 1.03, transition: { duration: 0.12 } }}
             onMouseEnter={() => setHovered(s.sectorId)}
             onMouseLeave={() => setHovered(null)}
-            className="rounded-xl p-4 cursor-default relative overflow-hidden"
+            onClick={() => onSectorClick(s.sectorId)}
+            className="rounded-xl p-4 cursor-pointer relative overflow-hidden"
             style={cellStyle(s.compositeScore)}
           >
             <div className="flex items-start justify-between mb-2">
               <span className="text-base font-semibold text-white leading-tight">{s.shortName}</span>
-              <span
-                className="text-base font-black font-mono leading-none"
-                style={{ color: scoreCol(s.compositeScore) }}
-              >
+              <span className="text-base font-black font-mono leading-none" style={{ color: scoreCol(s.compositeScore) }}>
                 {s.compositeScore > 0 ? '+' : ''}{s.compositeScore.toFixed(0)}
               </span>
             </div>
-
-            {/* Momentum bar */}
             <div className="h-1 rounded-full bg-white/8 overflow-hidden mb-2.5">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ backgroundColor: scoreCol(s.compositeScore) }}
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(Math.abs(s.compositeScore), 100)}%` }}
-                transition={{ duration: 0.7, delay: i * 0.04 + 0.2 }}
-              />
+              <motion.div className="h-full rounded-full" style={{ backgroundColor: scoreCol(s.compositeScore) }}
+                initial={{ width: 0 }} animate={{ width: `${Math.min(Math.abs(s.compositeScore), 100)}%` }}
+                transition={{ duration: 0.7, delay: i * 0.04 + 0.2 }} />
             </div>
-
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1">
-                {s.perf20d > 0 ? (
-                  <TrendingUp className="h-3 w-3 text-green-400" />
-                ) : s.perf20d < 0 ? (
-                  <TrendingDown className="h-3 w-3 text-red-400" />
-                ) : (
-                  <Minus className="h-3 w-3 text-white/30" />
-                )}
+                {s.perf20d > 0 ? <TrendingUp className="h-3 w-3 text-green-400" /> :
+                 s.perf20d < 0 ? <TrendingDown className="h-3 w-3 text-red-400" /> :
+                 <Minus className="h-3 w-3 text-white/30" />}
                 <span className={`text-sm font-mono ${s.perf20d > 0 ? 'text-green-400' : s.perf20d < 0 ? 'text-red-400' : 'text-white/30'}`}>
                   {s.perf20d > 0 ? '+' : ''}{s.perf20d.toFixed(1)}%
                 </span>
@@ -661,7 +646,7 @@ function SectorHeatmap({ sectors }: { sectors: SectorItem[] }) {
               </span>
             </div>
 
-            {/* Hover detay */}
+            {/* Hover — Taramaya Git ipucu */}
             <AnimatePresence>
               {isHov && (
                 <motion.div
@@ -674,11 +659,11 @@ function SectorHeatmap({ sectors }: { sectors: SectorItem[] }) {
                 >
                   <div>
                     <p className="text-sm font-semibold text-white mb-1">{s.sectorName}</p>
-                    <p className="text-sm text-white/55 leading-relaxed line-clamp-4">{s.reasoning}</p>
+                    <p className="text-sm text-white/55 leading-relaxed line-clamp-3">{s.reasoning}</p>
                   </div>
-                  <div className="flex items-center justify-between text-sm text-white/35 mt-2">
-                    <span>{s.symbolCount} hisse</span>
-                    <span className="font-mono">20g: {s.perf20d > 0 ? '+' : ''}{s.perf20d.toFixed(1)}%</span>
+                  <div className="flex items-center justify-between text-sm mt-2">
+                    <span className="text-white/35">{s.symbolCount} hisse</span>
+                    <span className="text-primary text-xs font-semibold">Sinyalleri gör →</span>
                   </div>
                 </motion.div>
               )}
@@ -719,45 +704,29 @@ function MacroHistoryChart({ rows }: { rows: HistoryRow[] }) {
   const toY = (s: number) => PAD.t + ((maxS - s) / range) * chartH;
   const zeroY = toY(0);
 
-  const points = rows.map((r, i) => `${toX(i)},${toY(r.macro_score)}`).join(' ');
-  // fill polygon: altına kapat
+  const points  = rows.map((r, i) => `${toX(i)},${toY(r.macro_score)}`).join(' ');
   const fillPts = `${toX(0)},${zeroY} ` + points + ` ${toX(rows.length - 1)},${zeroY}`;
 
-  // Son skor rengi
   const lastScore = scores[scores.length - 1] ?? 0;
   const lineCol = lastScore >= 30 ? '#22c55e' : lastScore >= 0 ? '#84cc16' : lastScore >= -30 ? '#eab308' : '#ef4444';
   const fillCol = lastScore >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)';
 
-  // X ekseni etiketleri: ilk, orta, son
   const labelIdxs = [0, Math.floor(rows.length / 2), rows.length - 1];
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
-      {/* Sıfır çizgisi */}
       <line x1={PAD.l} y1={zeroY} x2={W - PAD.r} y2={zeroY} stroke="rgba(255,255,255,0.10)" strokeWidth="1" strokeDasharray="4 3" />
-
-      {/* +30 / -30 bant */}
       <rect x={PAD.l} y={PAD.t} width={chartW} height={toY(30) - PAD.t} fill="rgba(34,197,94,0.04)" />
       <rect x={PAD.l} y={toY(-30)} width={chartW} height={chartH - (toY(-30) - PAD.t)} fill="rgba(239,68,68,0.04)" />
-
-      {/* Alan dolgusu */}
       <polygon points={fillPts} fill={fillCol} />
-
-      {/* Çizgi */}
       <polyline points={points} fill="none" stroke={lineCol} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-
-      {/* Son nokta */}
       <circle cx={toX(rows.length - 1)} cy={toY(lastScore)} r="3.5" fill={lineCol} />
-
-      {/* Y ekseni etiketleri */}
       {[100, 50, 0, -50, -100].map(v => (
         <text key={v} x={PAD.l - 4} y={toY(v) + 4}
           textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.25)" fontFamily="monospace">
           {v > 0 ? `+${v}` : v}
         </text>
       ))}
-
-      {/* X ekseni etiketleri */}
       {labelIdxs.map(i => (
         <text key={i} x={toX(i)} y={H - 4}
           textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.25)" fontFamily="monospace">
@@ -768,9 +737,33 @@ function MacroHistoryChart({ rows }: { rows: HistoryRow[] }) {
   );
 }
 
+// ── Canlı Zaman Gösterimi ────────────────────────────────────────────
+
+function LiveTime({ isoStr }: { isoStr: string }) {
+  const [label, setLabel] = useState('');
+
+  useEffect(() => {
+    function update() {
+      const dk = Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000);
+      if (dk < 1)    setLabel('Az önce');
+      else if (dk < 60) setLabel(`${dk} dakika önce`);
+      else           setLabel(`${Math.floor(dk / 60)} saat önce`);
+    }
+    update();
+    const t = setInterval(update, 60_000);
+    return () => clearInterval(t);
+  }, [isoStr]);
+
+  return <span>{label}</span>;
+}
+
 // ── Ana Sayfa ────────────────────────────────────────────────────────
 
+type HistoryPeriod = 7 | 30 | 90;
+
 export default function MakroPage() {
+  const router = useRouter();
+
   const [macro,   setMacro]   = useState<MacroResponse | null>(null);
   const [risk,    setRisk]    = useState<RiskResponse | null>(null);
   const [sectors, setSectors] = useState<SectorsResponse | null>(null);
@@ -779,7 +772,16 @@ export default function MakroPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
-  const fetchAll = useCallback(async () => {
+  // Kapatılan alert ID'leri
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+
+  // Tarih periyodu
+  const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriod>(30);
+
+  // Gösterge sparkline'ları
+  const [indicatorSparklines, setIndicatorSparklines] = useState<Record<string, number[]>>({});
+
+  const fetchAll = useCallback(async (period: HistoryPeriod = 30) => {
     setLoading(true);
     setError(null);
     try {
@@ -788,7 +790,7 @@ export default function MakroPage() {
         fetch('/api/risk').then(r => r.json()),
         fetch('/api/sectors').then(r => r.json()),
         fetch('/api/alerts').then(r => r.json()),
-        fetch('/api/macro?history=true&days=30').then(r => r.json()),
+        fetch(`/api/macro?history=true&days=${period}`).then(r => r.json()),
       ]);
       if (macroRes.error) throw new Error(macroRes.error);
       setMacro(macroRes);
@@ -803,7 +805,57 @@ export default function MakroPage() {
     }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { void fetchAll(historyPeriod); }, [fetchAll, historyPeriod]);
+
+  // Gösterge sparkline'larını çek
+  useEffect(() => {
+    const symbolMap: Record<string, string> = {
+      VIX:    '^VIX',
+      DXY:    'DX-Y.NYB',
+      US10Y:  '^TNX',
+      Altın:  'GC=F',
+      Brent:  'BZ=F',
+    };
+    Object.entries(symbolMap).forEach(async ([label, sym]) => {
+      try {
+        const res = await fetch(`/api/ohlcv?symbol=${encodeURIComponent(sym)}&days=30`);
+        const { candles = [] } = await res.json() as { candles: OHLCVRow[] };
+        const prices = (candles as OHLCVRow[])
+          .filter(c => (c.volume ?? 1) > 0)
+          .slice(-20)
+          .map(c => c.close)
+          .filter(v => v > 0);
+        if (prices.length >= 2) {
+          setIndicatorSparklines(prev => ({ ...prev, [label]: prices }));
+        }
+      } catch {
+        // ignore
+      }
+    });
+  }, []);
+
+  // Tarih periyodu değişince history'yi yeniden çek
+  const handleHistoryPeriodChange = useCallback(async (p: HistoryPeriod) => {
+    setHistoryPeriod(p);
+    try {
+      const res = await fetch(`/api/macro?history=true&days=${p}`);
+      const data = await res.json();
+      setHistory(data.history ?? []);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Sector heatmap tıklamasında taramaya git
+  function handleSectorClick(sectorId: string) {
+    router.push(`/tarama?sektor=${sectorId}`);
+  }
+
+  // Görünür uyarılar
+  const visibleAlerts = useMemo(
+    () => alerts?.alerts.filter(a => !dismissedIds.includes(a.id)) ?? [],
+    [alerts, dismissedIds],
+  );
 
   // ── Loading ──
   if (loading) {
@@ -839,13 +891,24 @@ export default function MakroPage() {
         <div className="border border-red-500/30 bg-red-500/5 rounded-xl p-8 max-w-md text-center">
           <AlertTriangle className="h-8 w-8 text-red-400 mx-auto mb-3" />
           <p className="text-red-400 font-medium">{error ?? 'Veri yüklenemedi'}</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={fetchAll}>Tekrar Dene</Button>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => void fetchAll(historyPeriod)}>Tekrar Dene</Button>
         </div>
       </div>
     );
   }
 
   const ind = macro.indicators;
+
+  const INDICATOR_CARDS = [
+    { label: 'VIX',     data: ind.vix,     suffix: '' },
+    { label: 'DXY',     data: ind.dxy,     suffix: '' },
+    { label: 'US 10Y',  data: ind.us10y,   suffix: '%' },
+    { label: 'USD/TRY', data: ind.usdtry,  suffix: '' },
+    { label: 'EEM',     data: ind.eem,     suffix: '' },
+    { label: 'Brent',   data: ind.brent,   suffix: '$' },
+    { label: 'Altın',   data: ind.gold,    suffix: '$' },
+    { label: 'BIST100', data: ind.bist100, suffix: '' },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -862,33 +925,57 @@ export default function MakroPage() {
             </h1>
             <p className="text-white/40 text-sm mt-1 font-mono">
               Global piyasa koşulları · Risk analizi · Sektör momentum
+              <span className="ml-2 text-white/20">
+                · Son güncelleme: <LiveTime isoStr={macro.fetchedAt} />
+              </span>
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}
-            className="border-white/10 text-white/60 hover:text-white hover:border-white/25">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => void fetchAll(historyPeriod)}
+            disabled={loading}
+            className="border-white/10 text-white/60 hover:text-white hover:border-white/25"
+          >
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Yenile
           </Button>
         </div>
 
-        {/* Alerts */}
-        {alerts && alerts.alerts.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-5 space-y-2"
-          >
-            {alerts.alerts.slice(0, 3).map((a) => (
-              <div key={a.id} className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${severityStyle(a.severity)}`}>
-                <span className="text-base mt-0.5">{a.emoji}</span>
-                <div className="min-w-0">
-                  <p className="text-base font-medium text-white">{a.title}</p>
-                  <p className="text-sm text-white/55 mt-0.5">{a.message}</p>
-                </div>
-              </div>
-            ))}
-          </motion.section>
-        )}
+        {/* Dismissible Alerts */}
+        <AnimatePresence>
+          {visibleAlerts.length > 0 && (
+            <motion.section
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-5 space-y-2"
+            >
+              {visibleAlerts.slice(0, 3).map((a) => (
+                <motion.div
+                  key={a.id}
+                  layout
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 8, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${severityStyle(a.severity)}`}
+                >
+                  <span className="text-base mt-0.5">{a.emoji}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-medium text-white">{a.title}</p>
+                    <p className="text-sm text-white/55 mt-0.5">{a.message}</p>
+                  </div>
+                  <button
+                    onClick={() => setDismissedIds(prev => [...prev, a.id])}
+                    className="shrink-0 mt-0.5 text-white/30 hover:text-white/70 transition-colors"
+                    title="Kapat"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </motion.div>
+              ))}
+            </motion.section>
+          )}
+        </AnimatePresence>
 
         {/* Hero Command Center */}
         <HeroSection macro={macro} risk={risk} />
@@ -900,17 +987,15 @@ export default function MakroPage() {
             <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Piyasa Göstergeleri</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {[
-              { label: 'VIX',     data: ind.vix,     suffix: '' },
-              { label: 'DXY',     data: ind.dxy,     suffix: '' },
-              { label: 'US 10Y',  data: ind.us10y,   suffix: '%' },
-              { label: 'USD/TRY', data: ind.usdtry,  suffix: '' },
-              { label: 'EEM',     data: ind.eem,     suffix: '' },
-              { label: 'Brent',   data: ind.brent,   suffix: '$' },
-              { label: 'Altın',   data: ind.gold,    suffix: '$' },
-              { label: 'BIST100', data: ind.bist100, suffix: '' },
-            ].map(({ label, data, suffix }, i) => (
-              <IndicatorCard key={label} label={label} data={data} suffix={suffix} delay={i * 0.06} />
+            {INDICATOR_CARDS.map(({ label, data, suffix }, i) => (
+              <IndicatorCard
+                key={label}
+                label={label}
+                data={data}
+                suffix={suffix}
+                delay={i * 0.06}
+                sparkline={indicatorSparklines[label]}
+              />
             ))}
           </div>
         </section>
@@ -959,12 +1044,17 @@ export default function MakroPage() {
               <span className="text-base">🇺🇸</span>
               <h3 className="text-base font-semibold text-white">ABD Ekonomisi</h3>
               {macro.usEconomy && (
-                <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-md bg-white/5 ${
-                  macro.usEconomy.color === 'green' ? 'text-green-400' :
-                  macro.usEconomy.color === 'red'   ? 'text-red-400'   : 'text-yellow-400'
-                }`}>
-                  {macro.usEconomy.label}
-                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-md bg-white/5 ${
+                    macro.usEconomy.color === 'green' ? 'text-green-400' :
+                    macro.usEconomy.color === 'red'   ? 'text-red-400'   : 'text-yellow-400'
+                  }`}>
+                    {macro.usEconomy.label}
+                  </span>
+                  <span className="text-xs text-white/30 font-mono">
+                    {macro.usEconomy.score > 0 ? '+' : ''}{macro.usEconomy.score}
+                  </span>
+                </div>
               )}
             </div>
             <MetricRow
@@ -993,7 +1083,22 @@ export default function MakroPage() {
           <div className="flex items-center gap-2 mb-3">
             <BarChart3 className="h-4 w-4 text-primary" />
             <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Makro Skor Trendi</h2>
-            <span className="ml-auto text-xs text-white/25 font-mono">Son 30 gün</span>
+            {/* Periyot seçici */}
+            <div className="ml-auto flex rounded-lg border border-white/10 bg-white/5 p-0.5">
+              {([7, 30, 90] as HistoryPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => void handleHistoryPeriodChange(p)}
+                  className={`rounded-md px-3 py-0.5 text-xs font-mono font-semibold transition-colors ${
+                    historyPeriod === p
+                      ? 'bg-primary/80 text-white'
+                      : 'text-white/35 hover:text-white/70'
+                  }`}
+                >
+                  {p}g
+                </button>
+              ))}
+            </div>
           </div>
           <div className="rounded-xl border border-white/8 bg-[#0a0a18] px-4 py-3">
             <MacroHistoryChart rows={history} />
@@ -1006,6 +1111,7 @@ export default function MakroPage() {
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="h-4 w-4 text-primary" />
               <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Sektör Momentum</h2>
+              <span className="ml-1 text-xs text-white/25 font-mono">Sektöre tıkla → sinyal taraması</span>
               {sectors.bestSector && (
                 <span className="ml-auto text-xs text-white/30">
                   En iyi:{' '}
@@ -1018,13 +1124,13 @@ export default function MakroPage() {
                 </span>
               )}
             </div>
-            <SectorHeatmap sectors={sectors.sectors} />
+            <SectorHeatmap sectors={sectors.sectors} onSectorClick={handleSectorClick} />
           </section>
         )}
 
         {/* Footer */}
         <p className="text-sm text-white/25 text-center mt-8 font-mono">
-          Güncelleme: {new Date(macro.fetchedAt).toLocaleString('tr-TR')} &nbsp;·&nbsp; Yahoo Finance · FRED · TCMB
+          Güncelleme: <LiveTime isoStr={macro.fetchedAt} /> &nbsp;·&nbsp; Yahoo Finance · FRED · TCMB
         </p>
       </main>
     </div>

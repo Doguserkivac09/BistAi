@@ -8,8 +8,9 @@ import { BIST_SYMBOLS } from '@/types';
 import type { SignalTypeFilter, DirectionFilter, StockSignal, OHLCVCandle, SignalSeverity } from '@/types';
 import { fetchOHLCVClient } from '@/lib/api-client';
 import { detectAllSignals, computeConfluence } from '@/lib/signals';
-import { computeSectorMomentum, getSector } from '@/lib/sectors';
+import { computeSectorMomentum, getSector, getSectorId } from '@/lib/sectors';
 import type { SectorMomentum } from '@/lib/sectors';
+import { useSearchParams } from 'next/navigation';
 import {
   Search, RefreshCw, Zap, TrendingUp, TrendingDown, Activity,
   Settings, LayoutGrid, List, X, ChevronDown, BarChart2,
@@ -432,7 +433,10 @@ function EmptyState({
 
 // ─── TaramaPage ───────────────────────────────────────────────────────────────
 
-export default function TaramaPage() {
+function TaramaPageInner() {
+  const searchParams = useSearchParams();
+  const sektorParam  = searchParams.get('sektor');
+
   // Filter state
   const [signalType,         setSignalType]         = useState<SignalTypeFilter>('Tümü');
   const [direction,          setDirection]          = useState<DirectionFilter>('Tümü');
@@ -640,7 +644,11 @@ export default function TaramaPage() {
   }
 
   const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
-  const displayList  = loading ? [] : filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
+  const rawDisplayList = loading ? [] : filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
+  // Sektör URL param filtresi
+  const displayList = sektorParam
+    ? rawDisplayList.filter(r => getSectorId(r.sembol) === sektorParam)
+    : rawDisplayList;
   const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence].filter(Boolean).length;
 
   return (
@@ -725,6 +733,18 @@ export default function TaramaPage() {
             </>
           )}
         </div>
+
+        {/* Sektör filtre bandı */}
+        {sektorParam && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-primary/30 bg-primary/8 px-4 py-2.5 text-sm text-primary">
+            <span>
+              <BarChart2 className="inline h-3.5 w-3.5 mr-1.5 align-text-bottom" />
+              Sektör filtresi aktif: <span className="font-semibold uppercase">{sektorParam}</span>
+              {' '}· Sadece bu sektördeki hisseler gösteriliyor
+            </span>
+            <a href="/tarama" className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity">Tüm hisseler →</a>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 rounded-lg border border-bearish/50 bg-bearish/10 px-4 py-3 text-sm text-bearish">{error}</div>
@@ -819,5 +839,14 @@ export default function TaramaPage() {
         )}
       </main>
     </div>
+  );
+}
+
+import { Suspense } from 'react';
+export default function TaramaPage() {
+  return (
+    <Suspense>
+      <TaramaPageInner />
+    </Suspense>
   );
 }
