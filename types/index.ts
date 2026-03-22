@@ -86,7 +86,8 @@ export type SignalTypeFilter =
   | 'Kırılım'
   | 'MACD Kesişimi'
   | 'RSI Seviyesi'
-  | 'Altın Çapraz';
+  | 'Altın Çapraz'
+  | 'Bollinger Sıkışması';
 
 export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
 

@@ -28,6 +28,7 @@ const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
   { value: 'MACD Kesişimi', label: 'MACD' },
   { value: 'RSI Seviyesi', label: 'RSI OB/OS' },
   { value: 'Altın Çapraz', label: 'Çapraz' },
+  { value: 'Bollinger Sıkışması', label: 'Bollinger' },
 ];
 
 // Tarama sırasında hangi sinyaller hesaplanacak (gerçek sinyal type adları)
@@ -38,7 +39,8 @@ const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeCol
   { type: 'Destek/Direnç Kırılımı',  label: 'Kırılım',   color: 'text-sky-400 border-sky-500/40 bg-sky-500/10',          activeColor: 'text-sky-300 border-sky-400 bg-sky-500/25 ring-1 ring-sky-500/50' },
   { type: 'MACD Kesişimi',           label: 'MACD',      color: 'text-blue-400 border-blue-500/40 bg-blue-500/10',       activeColor: 'text-blue-300 border-blue-400 bg-blue-500/25 ring-1 ring-blue-500/50' },
   { type: 'RSI Seviyesi',            label: 'RSI OB/OS', color: 'text-rose-400 border-rose-500/40 bg-rose-500/10',       activeColor: 'text-rose-300 border-rose-400 bg-rose-500/25 ring-1 ring-rose-500/50' },
-  { type: 'Altın Çapraz',            label: 'Çapraz',    color: 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10', activeColor: 'text-yellow-300 border-yellow-400 bg-yellow-500/25 ring-1 ring-yellow-500/50' },
+  { type: 'Altın Çapraz',            label: 'Çapraz',    color: 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10',  activeColor: 'text-yellow-300 border-yellow-400 bg-yellow-500/25 ring-1 ring-yellow-500/50' },
+  { type: 'Bollinger Sıkışması',     label: 'Bollinger', color: 'text-cyan-400 border-cyan-500/40 bg-cyan-500/10',         activeColor: 'text-cyan-300 border-cyan-400 bg-cyan-500/25 ring-1 ring-cyan-500/50' },
 ];
 
 const ALL_SIGNAL_TYPES = SCANNABLE_SIGNALS.map(s => s.type);

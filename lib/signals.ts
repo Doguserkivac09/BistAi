@@ -321,6 +321,67 @@ export function detectRsiLevel(sembol: string, candles: OHLCVCandle[]): StockSig
   return null;
 }
 
+// --- Bollinger Bandı Sıkışması ---
+export function detectBollingerSqueeze(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  const PERIOD = 20;
+  const LOOKBACK = 50; // Sıkışma karşılaştırması için geriye bak
+  if (candles.length < PERIOD + LOOKBACK) return null;
+
+  const closes = candles.map((c) => c.close);
+
+  // Bollinger band genişliklerini hesapla
+  const bandWidths: number[] = [];
+  for (let i = PERIOD - 1; i < closes.length; i++) {
+    const slice = closes.slice(i - PERIOD + 1, i + 1);
+    const sma = slice.reduce((a, b) => a + b, 0) / PERIOD;
+    const variance = slice.reduce((a, b) => a + (b - sma) ** 2, 0) / PERIOD;
+    const stdev = Math.sqrt(variance);
+    const width = sma > 0 ? (stdev * 4) / sma * 100 : 0; // (2*stdev yukarı + 2*stdev aşağı) / SMA
+    bandWidths.push(width);
+  }
+
+  const currentWidth = bandWidths[bandWidths.length - 1]!;
+  const recentWidths = bandWidths.slice(-LOOKBACK);
+  const minWidth = Math.min(...recentWidths);
+
+  // Sıkışma: mevcut genişlik, son LOOKBACK mumun minimumuyla neredeyse aynı (en dar %10 dilimde)
+  const isSqueezing = currentWidth <= minWidth * 1.1 && currentWidth < 8;
+  if (!isSqueezing) return null;
+
+  // Yön: EMA9 vs EMA21 ve son kapanış vs SMA ile belirle
+  const ema9 = calculateEMA(closes, 9);
+  const ema21 = calculateEMA(closes, 21);
+  const lastClose = closes[closes.length - 1]!;
+  const lastEma9 = ema9[ema9.length - 1]!;
+  const lastEma21 = ema21[ema21.length - 1]!;
+
+  // Son 20 mumun SMA'sı (orta bant)
+  const sma20 = closes.slice(-PERIOD).reduce((a, b) => a + b, 0) / PERIOD;
+
+  let direction: SignalDirection;
+  if (lastEma9 > lastEma21 && lastClose > sma20) {
+    direction = 'yukari';
+  } else if (lastEma9 < lastEma21 && lastClose < sma20) {
+    direction = 'asagi';
+  } else {
+    direction = 'nötr';
+  }
+
+  const severity: SignalSeverity = currentWidth < 3 ? 'güçlü' : currentWidth < 5 ? 'orta' : 'zayıf';
+
+  return {
+    type: 'Bollinger Sıkışması',
+    sembol,
+    severity,
+    direction,
+    data: {
+      bandWidth: parseFloat(currentWidth.toFixed(2)),
+      minWidth50: parseFloat(minWidth.toFixed(2)),
+      sma20: parseFloat(sma20.toFixed(2)),
+    },
+  };
+}
+
 // --- Golden Cross / Death Cross (EMA50 vs EMA200) ---
 export function detectGoldenCross(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
   if (candles.length < 205) return null;
@@ -369,12 +430,13 @@ export function detectAllSignals(
   const want = (type: string) => !enabled || enabled.length === 0 || enabled.includes(type);
 
   const signals: StockSignal[] = [];
-  if (want('RSI Uyumsuzluğu'))      { const s = detectRsiDivergence(sembol, candles);          if (s) signals.push(s); }
-  if (want('Hacim Anomalisi'))       { const s = detectVolumeAnomaly(sembol, candles);           if (s) signals.push(s); }
-  if (want('Trend Başlangıcı'))      { const s = detectTrendStart(sembol, candles);              if (s) signals.push(s); }
-  if (want('Destek/Direnç Kırılımı')){ const s = detectSupportResistanceBreak(sembol, candles); if (s) signals.push(s); }
-  if (want('MACD Kesişimi'))         { const s = detectMACDCrossover(sembol, candles);           if (s) signals.push(s); }
-  if (want('RSI Seviyesi'))          { const s = detectRsiLevel(sembol, candles);                if (s) signals.push(s); }
-  if (want('Altın Çapraz'))          { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
+  if (want('RSI Uyumsuzluğu'))        { const s = detectRsiDivergence(sembol, candles);          if (s) signals.push(s); }
+  if (want('Hacim Anomalisi'))        { const s = detectVolumeAnomaly(sembol, candles);           if (s) signals.push(s); }
+  if (want('Trend Başlangıcı'))       { const s = detectTrendStart(sembol, candles);              if (s) signals.push(s); }
+  if (want('Destek/Direnç Kırılımı')) { const s = detectSupportResistanceBreak(sembol, candles); if (s) signals.push(s); }
+  if (want('MACD Kesişimi'))          { const s = detectMACDCrossover(sembol, candles);           if (s) signals.push(s); }
+  if (want('RSI Seviyesi'))           { const s = detectRsiLevel(sembol, candles);                if (s) signals.push(s); }
+  if (want('Altın Çapraz'))           { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
+  if (want('Bollinger Sıkışması'))    { const s = detectBollingerSqueeze(sembol, candles);        if (s) signals.push(s); }
   return signals;
 }
