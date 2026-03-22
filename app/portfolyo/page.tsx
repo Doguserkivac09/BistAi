@@ -9,6 +9,9 @@ import {
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import type { PortfolyoPozisyonWithStats } from '@/types';
+import PortfolioPerformanceChart from '@/components/PortfolioPerformanceChart';
+
+interface OhlcvCandle { date: string; close: number; }
 
 // ─── Tipler ───────────────────────────────────────────────────────────────────
 
@@ -362,6 +365,7 @@ export default function PortfolyoPage() {
   const [saving, setSaving]             = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [fiyatlar, setFiyatlar]         = useState<Record<string, number>>({});
+  const [ohlcvMap, setOhlcvMap]         = useState<Record<string, OhlcvCandle[]>>({});
   const [sinyalMap, setSinyalMap]       = useState<Record<string, SinvalInfo[]>>({});
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [minSeverity, setMinSeverity]   = useState<'güçlü' | 'orta' | 'zayıf'>('orta');
@@ -380,23 +384,28 @@ export default function PortfolyoPage() {
       if (!res.ok) throw new Error('Pozisyonlar yüklenemedi.');
       const data: RawPozisyon[] = await res.json();
 
-      // Benzersiz semboller için fiyat çek
+      // Benzersiz semboller için fiyat + tarihsel veri çek
       const semboller = Array.from(new Set(data.map((p) => p.sembol)));
       const fiyatMap: Record<string, number> = { ...fiyatlar };
+      const newOhlcvMap: Record<string, OhlcvCandle[]> = {};
 
       await Promise.allSettled(
         semboller.map(async (sembol) => {
           try {
-            const r = await fetch(`/api/ohlcv?symbol=${sembol}&days=5`);
+            const r = await fetch(`/api/ohlcv?symbol=${sembol}&days=90`);
             if (!r.ok) return;
-            const json: { candles: { close: number }[] } = await r.json();
+            const json: { candles: { date: string; close: number }[] } = await r.json();
             const candles = json.candles ?? [];
-            if (candles.length > 0) fiyatMap[sembol] = candles[candles.length - 1]!.close;
+            if (candles.length > 0) {
+              fiyatMap[sembol] = candles[candles.length - 1]!.close;
+              newOhlcvMap[sembol] = candles.map((c) => ({ date: c.date, close: c.close }));
+            }
           } catch {}
         })
       );
 
       setFiyatlar(fiyatMap);
+      setOhlcvMap(newOhlcvMap);
 
       // Sinyalleri çek — arka planda, UI'ı bloklamadan
       if (semboller.length > 0) {
@@ -636,6 +645,9 @@ export default function PortfolyoPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Performans grafiği */}
+                <PortfolioPerformanceChart pozisyonlar={pozisyonlar} ohlcvMap={ohlcvMap} />
 
                 {/* Tablo */}
                 <div className="overflow-x-auto rounded-xl border border-border bg-surface">
