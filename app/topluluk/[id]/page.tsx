@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft, Heart, MessageSquare, TrendingUp, Pin, Flag,
-  Send, Trash2, CornerDownRight, Bot, Lock,
+  Send, Trash2, CornerDownRight, Bot, Lock, Copy, Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PostDetail, Comment } from '@/types/community';
@@ -25,6 +25,52 @@ function timeAgo(dateStr: string): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}g`;
   return `${Math.floor(days / 30)}ay`;
+}
+
+function PostDetailSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="container mx-auto max-w-3xl px-4 py-6">
+        <Skeleton className="h-4 w-20 mb-6" />
+        <Card className="border-border mb-6">
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 w-9 rounded-full" />
+              <div className="space-y-1">
+                <Skeleton className="h-3.5 w-28" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            </div>
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-24" />
+            <div className="space-y-2">
+              <Skeleton className="h-3.5 w-full" />
+              <Skeleton className="h-3.5 w-full" />
+              <Skeleton className="h-3.5 w-4/5" />
+              <Skeleton className="h-3.5 w-3/4" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border mb-4">
+          <CardContent className="p-4">
+            <Skeleton className="h-16 w-full" />
+          </CardContent>
+        </Card>
+        <div className="space-y-3">
+          {[0, 1].map((i) => (
+            <div key={i} className="flex gap-2">
+              <Skeleton className="h-7 w-7 rounded-full flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-2/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  );
 }
 
 function CommentItem({
@@ -44,8 +90,10 @@ function CommentItem({
   userTier: 'free' | 'pro' | 'premium';
   currentUserId: string | null;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const replies = allComments.filter((c) => c.parent_id === comment.id);
   const isPremiumLocked = comment.is_ai && userTier !== 'premium';
+  const isOwner = currentUserId && currentUserId === comment.author_id && !comment.is_ai;
 
   return (
     <div className={cn('mt-3', depth > 0 && 'ml-6 border-l border-border/50 pl-3')}>
@@ -79,7 +127,7 @@ function CommentItem({
             <span className="text-[10px] text-text-secondary">{timeAgo(comment.created_at)}</span>
           </div>
 
-          {/* Premium gate için blur + CTA */}
+          {/* Premium gate */}
           {isPremiumLocked ? (
             <div className="relative mt-1 rounded-lg overflow-hidden">
               <p className="text-sm text-text-secondary whitespace-pre-wrap select-none blur-sm">
@@ -111,20 +159,48 @@ function CommentItem({
                 Yanıtla
               </button>
             )}
-            {currentUserId && currentUserId === comment.author_id && !comment.is_ai && (
-              <button
-                onClick={() => onDelete(comment.id)}
-                className="flex items-center gap-1 text-[10px] text-text-secondary hover:text-red-400 transition-colors"
-              >
-                <Trash2 className="h-2.5 w-2.5" />
-                Sil
-              </button>
+            {/* Inline silme onayı */}
+            {isOwner && (
+              confirmDelete ? (
+                <span className="flex items-center gap-1.5 text-[10px]">
+                  <span className="text-red-400">Emin misiniz?</span>
+                  <button
+                    onClick={() => { onDelete(comment.id); setConfirmDelete(false); }}
+                    className="text-red-400 hover:underline font-medium"
+                  >
+                    Evet
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="text-text-secondary hover:underline"
+                  >
+                    Hayır
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-1 text-[10px] text-text-secondary hover:text-red-400 transition-colors"
+                >
+                  <Trash2 className="h-2.5 w-2.5" />
+                  Sil
+                </button>
+              )
             )}
           </div>
         </div>
       </div>
       {replies.map((r) => (
-        <CommentItem key={r.id} comment={r} onReply={onReply} onDelete={onDelete} depth={depth + 1} allComments={allComments} userTier={userTier} currentUserId={currentUserId} />
+        <CommentItem
+          key={r.id}
+          comment={r}
+          onReply={onReply}
+          onDelete={onDelete}
+          depth={depth + 1}
+          allComments={allComments}
+          userTier={userTier}
+          currentUserId={currentUserId}
+        />
       ))}
     </div>
   );
@@ -152,6 +228,9 @@ export default function PostDetailPage() {
   // User tier (premium gate için)
   const [userTier, setUserTier] = useState<'free' | 'pro' | 'premium'>('free');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Copy link state
+  const [copied, setCopied] = useState(false);
 
   // Report state
   const [showReport, setShowReport] = useState(false);
@@ -184,22 +263,34 @@ export default function PostDetailPage() {
   // Realtime: yeni yorum gelince otomatik yenile
   useRealtimeComments(id ?? null, fetchPost);
 
+  // URL hash → yorum alanına scroll
+  useEffect(() => {
+    if (!loading && window.location.hash === '#yorumlar') {
+      commentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [loading]);
+
+  // ESC ile yanıt iptal
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setReplyTo(null);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   // Like toggle
   const handleLike = async () => {
     if (liking) return;
     setLiking(true);
-
-    // Optimistic update
     const wasLiked = liked;
     setLiked(!wasLiked);
     setLikeCount((c) => wasLiked ? c - 1 : c + 1);
-
     try {
       const res = await fetch(`/api/community/posts/${id}/like`, {
         method: wasLiked ? 'DELETE' : 'POST',
       });
       if (!res.ok) {
-        // Rollback
         setLiked(wasLiked);
         setLikeCount((c) => wasLiked ? c + 1 : c - 1);
       }
@@ -211,6 +302,13 @@ export default function PostDetailPage() {
     }
   };
 
+  // Copy link
+  const handleCopy = () => {
+    navigator.clipboard.writeText(window.location.href).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   // Comment submit
   const handleComment = async () => {
     if (commenting || !commentBody.trim()) return;
@@ -219,15 +317,12 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/community/posts/${id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          body: commentBody.trim(),
-          parent_id: replyTo,
-        }),
+        body: JSON.stringify({ body: commentBody.trim(), parent_id: replyTo }),
       });
       if (res.ok) {
         setCommentBody('');
         setReplyTo(null);
-        fetchPost(); // Refresh to get new comment
+        fetchPost();
       }
     } catch {
       // ignore
@@ -242,7 +337,6 @@ export default function PostDetailPage() {
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!confirm('Bu yorumu silmek istediğinize emin misiniz?')) return;
     try {
       const res = await fetch(`/api/community/posts/${id}/comments/${commentId}`, { method: 'DELETE' });
       if (res.ok) fetchPost();
@@ -259,10 +353,7 @@ export default function PostDetailPage() {
       const res = await fetch(`/api/community/posts/${id}/report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reason: reportReason,
-          detail: reportDetail.trim() || null,
-        }),
+        body: JSON.stringify({ reason: reportReason, detail: reportDetail.trim() || null }),
       });
       if (res.ok) {
         setReportSuccess(true);
@@ -280,7 +371,7 @@ export default function PostDetailPage() {
     }
   };
 
-  // Delete
+  // Delete post
   const handleDelete = async () => {
     if (!confirm('Bu paylaşımı silmek istediğinize emin misiniz?')) return;
     try {
@@ -291,19 +382,7 @@ export default function PostDetailPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <main className="container mx-auto max-w-3xl px-4 py-6">
-          <Skeleton className="h-6 w-24 mb-6" />
-          <Skeleton className="h-8 w-3/4 mb-3" />
-          <Skeleton className="h-4 w-32 mb-4" />
-          <Skeleton className="h-40 rounded-lg mb-6" />
-          <Skeleton className="h-20 rounded-lg" />
-        </main>
-      </div>
-    );
-  }
+  if (loading) return <PostDetailSkeleton />;
 
   if (error || !post) {
     return (
@@ -380,7 +459,7 @@ export default function PostDetailPage() {
             </div>
 
             {/* Actions */}
-            <div className="mt-4 pt-3 border-t border-border flex items-center gap-4">
+            <div className="mt-4 pt-3 border-t border-border flex items-center gap-4 flex-wrap">
               <button
                 onClick={handleLike}
                 disabled={liking}
@@ -392,10 +471,25 @@ export default function PostDetailPage() {
                 <Heart className={cn('h-4 w-4', liked && 'fill-current')} />
                 {likeCount}
               </button>
-              <span className="flex items-center gap-1.5 text-sm text-text-secondary">
+
+              <button
+                onClick={() => commentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors"
+              >
                 <MessageSquare className="h-4 w-4" />
-                {post.comment_count}
-              </span>
+                Yorum Yap
+              </button>
+
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1 text-xs text-text-secondary hover:text-primary transition-colors"
+              >
+                {copied
+                  ? <Check className="h-3.5 w-3.5 text-green-400" />
+                  : <Copy className="h-3.5 w-3.5" />}
+                {copied ? 'Kopyalandı' : 'Linki Kopyala'}
+              </button>
+
               <button
                 onClick={() => setShowReport(!showReport)}
                 className="ml-auto flex items-center gap-1 text-xs text-text-secondary hover:text-red-400 transition-colors"
@@ -403,7 +497,8 @@ export default function PostDetailPage() {
                 <Flag className="h-3.5 w-3.5" />
                 Şikayet
               </button>
-              {post.author_id === post.author?.id && (
+
+              {currentUserId && currentUserId === post.author_id && (
                 <button
                   onClick={handleDelete}
                   className="flex items-center gap-1 text-xs text-text-secondary hover:text-red-400 transition-colors"
@@ -463,7 +558,7 @@ export default function PostDetailPage() {
         </Card>
 
         {/* Comment input */}
-        <Card className="border-border mb-4">
+        <Card className="border-border mb-4" id="yorumlar">
           <CardContent className="p-4">
             {replyTo && (
               <div className="flex items-center gap-2 mb-2">
@@ -472,7 +567,7 @@ export default function PostDetailPage() {
                   onClick={() => setReplyTo(null)}
                   className="text-xs text-primary hover:underline"
                 >
-                  İptal
+                  İptal (ESC)
                 </button>
               </div>
             )}
@@ -481,7 +576,10 @@ export default function PostDetailPage() {
                 ref={commentRef}
                 value={commentBody}
                 onChange={(e) => setCommentBody(e.target.value)}
-                placeholder="Yorumunu yaz..."
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') handleComment();
+                }}
+                placeholder="Yorumunu yaz... (Ctrl+Enter ile gönder)"
                 maxLength={2000}
                 rows={2}
                 className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none resize-none"
@@ -499,6 +597,10 @@ export default function PostDetailPage() {
         </Card>
 
         {/* Comments */}
+        <h2 className="text-sm font-semibold text-text-primary mb-3">
+          Yorumlar ({post.comment_count})
+        </h2>
+
         {topLevelComments.length > 0 ? (
           <div className="space-y-1">
             {topLevelComments.map((comment) => (
