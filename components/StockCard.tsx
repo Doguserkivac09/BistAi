@@ -8,8 +8,6 @@ import { SignalBadge } from '@/components/SignalBadge';
 import { MiniChart } from '@/components/MiniChart';
 import { SignalExplanation } from '@/components/SignalExplanation';
 import type { StockSignal, OHLCVCandle } from '@/types';
-import { createClient } from '@/lib/supabase';
-import { saveSignalPerformance } from '@/lib/performance';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 
 interface StockCardProps {
@@ -96,16 +94,6 @@ export function StockCard({ signal, candleData, macroScore, delay = 0, cachedExp
             const text = data.explanation ?? null;
             setExplanation(text);
             if (text) onExplanationLoaded?.(text);
-
-            // AI açıklaması alındıktan sonra performans kaydı ekle
-            try {
-              const supabase = createClient();
-              const { data: authData } = await supabase.auth.getUser();
-              const userId = authData.user?.id ?? null;
-              await saveSignalPerformance({ userId, signal, candles: candleData });
-            } catch {
-              // Hata durumunda UI'yi etkilemeden yoksay
-            }
           } catch {
             if (!cancelled) setError('Bağlantı hatası.');
           } finally {

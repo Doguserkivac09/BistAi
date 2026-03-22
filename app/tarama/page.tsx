@@ -573,7 +573,6 @@ export default function TaramaPage() {
                     signal={sig}
                     candleData={candles}
                     macroScore={macroScore}
-                    delay={idx * 150}
                     cachedExplanation={explanationCache.current.get(`${sig.sembol}:${sig.type}`) ?? null}
                     onExplanationLoaded={(text) => explanationCache.current.set(`${sig.sembol}:${sig.type}`, text)}
                   />

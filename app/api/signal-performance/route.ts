@@ -24,9 +24,9 @@ interface SignalPerformanceBody {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Rate limit: 60 req/min
+    // Rate limit: 500 req/min (tarama 200+ sinyal kaydedebilir)
     const ip = getClientIP(request.headers);
-    const rl = checkRateLimit(`signal-perf:${ip}`, 60, 60_000);
+    const rl = checkRateLimit(`signal-perf:${ip}`, 500, 60_000);
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Çok fazla istek.' }, { status: 429 });
     }
