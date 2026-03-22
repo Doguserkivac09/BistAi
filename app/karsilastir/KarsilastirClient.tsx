@@ -142,6 +142,56 @@ function formatVolume(v: number | null): string {
   return String(Math.round(v));
 }
 
+/**
+ * Pearson korelasyon katsayısı — iki hissenin günlük getiri serisini hizalar,
+ * ortak işlem günlerini alır ve -1..+1 arasında değer döndürür.
+ */
+function computeCorrelation(a: OHLCVCandle[], b: OHLCVCandle[]): number | null {
+  const tdA = tradingDays(a);
+  const tdB = tradingDays(b);
+  if (tdA.length < 5 || tdB.length < 5) return null;
+
+  // Tarih → günlük getiri eşlemi
+  function dailyReturns(candles: OHLCVCandle[]): Map<string, number> {
+    const map = new Map<string, number>();
+    for (let i = 1; i < candles.length; i++) {
+      const prev = candles[i - 1]!.close;
+      const curr = candles[i]!.close;
+      if (prev > 0) {
+        const date = typeof candles[i]!.date === 'string'
+          ? (candles[i]!.date as string)
+          : new Date((candles[i]!.date as number) * 1000).toISOString().slice(0, 10);
+        map.set(date, (curr - prev) / prev);
+      }
+    }
+    return map;
+  }
+
+  const rA = dailyReturns(tdA);
+  const rB = dailyReturns(tdB);
+
+  // Ortak günler
+  const common: Array<[number, number]> = [];
+  rA.forEach((va, date) => {
+    const vb = rB.get(date);
+    if (vb !== undefined) common.push([va, vb]);
+  });
+  if (common.length < 5) return null;
+
+  const n = common.length;
+  const meanA = common.reduce((s, [v]) => s + v, 0) / n;
+  const meanB = common.reduce((s, [, v]) => s + v, 0) / n;
+  let num = 0, dA = 0, dB = 0;
+  for (const [va, vb] of common) {
+    num += (va - meanA) * (vb - meanB);
+    dA  += (va - meanA) ** 2;
+    dB  += (vb - meanB) ** 2;
+  }
+  const denom = Math.sqrt(dA * dB);
+  if (denom === 0) return null;
+  return num / denom;
+}
+
 function getStrongestSignal(signals: StockSignal[]): StockSignal | null {
   if (signals.length === 0) return null;
   return signals.reduce((best, s) =>
@@ -720,6 +770,78 @@ function SignalsSection({ loadedSlots }: { loadedSlots: Array<{ data: HisseData;
   );
 }
 
+// ─── Correlation Matrix ───────────────────────────────────────────────────────
+
+function CorrelationMatrix({ loadedSlots }: { loadedSlots: Array<{ data: HisseData; color: SlotColor }> }) {
+  if (loadedSlots.length < 2) return null;
+
+  // Tüm çiftler
+  const pairs: Array<{ a: { data: HisseData; color: SlotColor }; b: { data: HisseData; color: SlotColor }; r: number | null }> = [];
+  for (let i = 0; i < loadedSlots.length; i++) {
+    for (let j = i + 1; j < loadedSlots.length; j++) {
+      pairs.push({
+        a: loadedSlots[i]!,
+        b: loadedSlots[j]!,
+        r: computeCorrelation(loadedSlots[i]!.data.candles, loadedSlots[j]!.data.candles),
+      });
+    }
+  }
+
+  function corrColor(r: number | null): string {
+    if (r === null) return 'text-text-muted';
+    if (r >= 0.7)  return 'text-emerald-400';
+    if (r >= 0.4)  return 'text-yellow-400';
+    if (r >= 0)    return 'text-text-primary';
+    if (r >= -0.4) return 'text-orange-400';
+    return 'text-red-400';
+  }
+
+  function corrLabel(r: number | null): string {
+    if (r === null) return 'Yetersiz veri';
+    if (r >= 0.7)  return 'Yüksek pozitif';
+    if (r >= 0.4)  return 'Orta pozitif';
+    if (r >= 0)    return 'Düşük pozitif';
+    if (r >= -0.4) return 'Düşük negatif';
+    if (r >= -0.7) return 'Orta negatif';
+    return 'Yüksek negatif';
+  }
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {pairs.map(({ a, b, r }) => (
+        <div
+          key={`${a.data.sembol}-${b.data.sembol}`}
+          className="rounded-xl border border-border bg-surface/50 p-4"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <span className={cn('text-sm font-bold', SLOT_COLOR_CLASSES[a.color].text)}>{a.data.sembol}</span>
+            <span className="text-text-muted text-xs">vs</span>
+            <span className={cn('text-sm font-bold', SLOT_COLOR_CLASSES[b.color].text)}>{b.data.sembol}</span>
+          </div>
+          <div className="flex items-end gap-2">
+            <span className={cn('text-2xl font-bold tabular-nums', corrColor(r))}>
+              {r === null ? '—' : (r >= 0 ? '+' : '') + r.toFixed(2)}
+            </span>
+            <span className={cn('text-xs pb-0.5', corrColor(r))}>{corrLabel(r)}</span>
+          </div>
+          <p className="mt-2 text-[10px] text-text-muted">
+            Pearson — 90 günlük günlük getiriler üzerinden hesaplandı
+          </p>
+          {/* Mini bar */}
+          {r !== null && (
+            <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
+              <div
+                className={cn('h-full rounded-full', r >= 0 ? 'bg-emerald-500/60' : 'bg-red-500/60')}
+                style={{ width: `${Math.abs(r) * 100}%`, marginLeft: r < 0 ? `${(1 + r) * 100}%` : '0' }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SeverityBadge({ severity }: { severity: SignalSeverity }) {
   const cls =
     severity === 'güçlü'
@@ -900,6 +1022,17 @@ export function KarsilastirClient() {
                   <div className="rounded-xl border border-border bg-surface/50 p-4">
                     <NormalizedPriceChart series={chartSeries} />
                   </div>
+                </section>
+              )}
+
+              {/* Correlation */}
+              {loadedSlots.length >= 2 && (
+                <section>
+                  <h2 className="mb-1 text-lg font-semibold text-text-primary">Korelasyon Katsayısı</h2>
+                  <p className="mb-3 text-xs text-text-muted">
+                    Hisselerin birbirleriyle ne kadar aynı yönde hareket ettiğini gösterir. +1 = tam uyumlu, 0 = bağımsız, -1 = tam ters.
+                  </p>
+                  <CorrelationMatrix loadedSlots={loadedSlots} />
                 </section>
               )}
 
