@@ -213,25 +213,29 @@ export function StockCard({ signal, candleData, allSignals, macroScore, winRate,
 
   return (
     <Card ref={cardRef} className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-lg font-semibold text-text-primary">
-              {signal.sembol}
-            </span>
-            {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
-            {sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
-            {confluence && <ConfluenceBadge result={confluence} />}
-            {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
-            {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
-            {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
-          </div>
+      <CardHeader className="pb-2 space-y-1.5">
+        {/* Satır 1: Sembol + Sinyal tipi */}
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <span className="font-mono text-lg font-bold text-text-primary shrink-0">
+            {signal.sembol}
+          </span>
           <SignalBadge
             type={signal.type}
             direction={signal.direction}
             severity={signal.severity}
           />
         </div>
+        {/* Satır 2: Bağlam & kalite badge'leri — tek flex-wrap satırı */}
+        {(macroScore || sectorMomentum || confluence || winRate || signal.weeklyAligned !== undefined || (signal.candlesAgo ?? 0) > 0) && (
+          <div className="flex flex-wrap items-center gap-1">
+            {sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
+            {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
+            {confluence && <ConfluenceBadge result={confluence} />}
+            {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
+            {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
+            {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-3 pb-2">
         <MiniChart
