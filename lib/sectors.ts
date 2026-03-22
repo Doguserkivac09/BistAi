@@ -360,6 +360,24 @@ export function groupBySector(symbols: string[]): Record<SectorId, string[]> {
   return groups;
 }
 
+// ── Sektör Temsilci Hisseleri ────────────────────────────────────────
+// Her sektörden seçilen likit ve temsil edici hisseler (sektör sayfası için)
+
+export const SECTOR_REPRESENTATIVES: Partial<Record<SectorId, string[]>> = {
+  banka:                    ['GARAN', 'AKBNK', 'YKBNK', 'HALKB', 'ISCTR'],
+  holding:                  ['KCHOL', 'SAHOL', 'DOHOL', 'TKFEN'],
+  havacilik_savunma:        ['THYAO', 'PGSUS', 'ASELS'],
+  enerji:                   ['TUPRS', 'AKSEN', 'ENJSA', 'ODAS', 'ZOREN'],
+  otomotiv:                 ['FROTO', 'TOASO', 'ARCLK', 'OTKAR'],
+  perakende:                ['BIMAS', 'MGROS', 'SOKM', 'ULKER', 'CCOLA'],
+  telekom_teknoloji:        ['TCELL', 'TTKOM', 'LOGO', 'ARDYZ'],
+  demir_celik_madencilik:   ['EREGL', 'KRDMD', 'KOZAL', 'KOZAA'],
+  cam_kimya:                ['SISE', 'TRKCM', 'PETKM', 'SODA'],
+  insaat_gyo:               ['EKGYO', 'ENKA', 'ISGYO', 'KLGYO'],
+  sanayi:                   ['ARCLK', 'VESTL', 'BRISA', 'CIMSA'],
+  sigorta_finans:           ['AKGRT', 'ANHYT', 'ISMEN'],
+};
+
 // ── Sektör Momentum ─────────────────────────────────────────────────
 
 import type { OHLCVCandle } from '@/types';
