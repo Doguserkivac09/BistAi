@@ -15,11 +15,11 @@
 | S3 | ~~**MACD Kesişimi iyileştir**~~ | ✅ 7 mum lookback, histExpanding, aboveZero kontrolü eklendi |
 | S4 | ~~**RSI Seviyesi sinyali güçlendir**~~ | ✅ Bölgeden çıkış tespiti, 32/68 BIST eşiği, rsiMomentum eklendi |
 
-### 🟠 2. Anlık Uyarı Sistemi — Phase 14.2 (Orta Vadeli)
-- Cron tarama → sinyal bulunan hisseler → email / web push bildirimi
-- `alert_preferences` tablosu: kullanıcı izleme listesi + sinyal tipi seçimi
-- Resend API ile email (ücretsiz 3000/ay)
-- **Env gerekli:** `RESEND_API_KEY`
+### ~~🟠 2. Anlık Uyarı Sistemi — Phase 14.2~~ ✅ TAMAMLANDI
+- ~~Cron tarama → sinyal bulunan hisseler → email / web push bildirimi~~
+- ~~`alert_preferences` tablosu: kullanıcı izleme listesi + sinyal tipi seçimi~~
+- ~~Resend API ile email (ücretsiz 3000/ay)~~
+- **Test edildi ve çalışıyor** — Her iş günü 10:30 TRT'de gönderilir
 
 ### 🟠 3. Portföy Performans Grafiği — Phase 14.1 ek
 - `/portfolyo` sayfası mevcut, eksik: zaman içinde değer değişimi grafiği
@@ -49,6 +49,7 @@
 | ohlcv rate limit 120→400/min (tarama 429 fix) | `app/api/ohlcv/route.ts` |
 | signal-performance 5dk XU100 cache (500 fix) | `app/api/signal-performance/route.ts` |
 | AnimatedGlobe SSR hydration fix | `components/LandingPage.tsx` |
+| Anlık uyarı sistemi (Resend email, sinyal filtresi, profil UI) | `lib/email-service.ts`, `app/api/cron/alerts/route.ts`, `app/profil/page.tsx` |
 
 ---
 
