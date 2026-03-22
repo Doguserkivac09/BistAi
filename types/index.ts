@@ -35,6 +35,9 @@ export interface VolumeAnomalyData {
   avgVolume20?: number;
   volumeRatio?: number;
   priceChange?: number;
+  consecutiveHighVolDays?: number; // ardışık yüksek hacim günleri
+  relVol5?: number;                // 5 günlük ortalama / 20 günlük oran
+  priceChange3d?: number;          // 3 günlük fiyat değişimi (%)
 }
 
 export interface TrendStartData {

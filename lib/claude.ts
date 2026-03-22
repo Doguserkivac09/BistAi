@@ -89,11 +89,22 @@ export async function generateSignalExplanation(
   const cached = await getCachedExplanation(cacheKey);
   if (cached) return cached;
 
+  const data = signal.data as Record<string, unknown>;
+  const extraLines: string[] = [];
+
+  if (signal.type === 'Hacim Anomalisi') {
+    if (data.volumeRatio)          extraLines.push(`Hacim oranı: ${data.volumeRatio}x (20 günlük ortalama)`);
+    if (data.consecutiveHighVolDays) extraLines.push(`Ardışık yüksek hacim günü: ${data.consecutiveHighVolDays}`);
+    if (data.relVol5)              extraLines.push(`5 günlük ortalama hacim oranı: ${data.relVol5}x`);
+    if (data.priceChange3d != null) extraLines.push(`3 günlük fiyat değişimi: %${data.priceChange3d}`);
+    if (data.priceChange != null)  extraLines.push(`Günlük fiyat değişimi: %${data.priceChange}`);
+  }
+
   const userPrompt = `Hisse: ${signal.sembol}
 Sinyal tipi: ${signal.type}
 Sinyal yönü: ${signal.direction}
 Sinyal şiddeti: ${signal.severity}
-Ek veri: ${JSON.stringify(signal.data)}
+${extraLines.length > 0 ? extraLines.join('\n') : `Ek veri: ${JSON.stringify(signal.data)}`}
 Bu sinyali yatırımcıya kısaca açıkla.`;
 
   const result = await callClaude(apiKey, SYSTEM_PROMPT, userPrompt);

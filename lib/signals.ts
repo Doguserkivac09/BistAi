@@ -151,17 +151,44 @@ export function detectRsiDivergence(sembol: string, candles: OHLCVCandle[]): Sto
 export function detectVolumeAnomaly(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
   if (candles.length < 21) return null;
   const avgVol = averageVolume(candles, 20);
-  const last = candles[candles.length - 1]!;
-  const prev = candles[candles.length - 2]!;
   if (avgVol <= 0) return null;
 
+  const last = candles[candles.length - 1]!;
+  const prev = candles[candles.length - 2]!;
   const ratio = last.volume / avgVol;
-  // Biraz daha esnek eşik: 1.8x üzeri hacimleri de dikkate al
-  if (ratio < 1.8) return null;
 
-  const priceChange = prev.close !== 0 ? ((last.close - prev.close) / prev.close) * 100 : 0;
-  const direction: SignalDirection = priceChange > 0.5 ? 'yukari' : priceChange < -0.5 ? 'asagi' : 'nötr';
-  const severity: SignalSeverity = ratio >= 3 ? 'güçlü' : ratio >= 2.3 ? 'orta' : 'zayıf';
+  // Ardışık yüksek hacim günleri (son mum dahil geriye doğru, her gün ≥1.3x ortalama)
+  let consecutiveHighVolDays = 0;
+  for (let i = candles.length - 1; i >= Math.max(0, candles.length - 5); i--) {
+    if ((candles[i]!.volume / avgVol) >= 1.3) consecutiveHighVolDays++;
+    else break;
+  }
+
+  // Tetikleyici: tek günde 1.8x+ VEYA 2+ ardışık gün 1.3x+
+  if (ratio < 1.8 && consecutiveHighVolDays < 2) return null;
+
+  // 5 günlük ortalama hacim / 20 günlük oran (baskı sürekliliği)
+  const slice5 = candles.slice(-5);
+  const avg5 = slice5.reduce((a, c) => a + c.volume, 0) / slice5.length;
+  const relVol5 = parseFloat((avg5 / avgVol).toFixed(2));
+
+  // Fiyat yönü: son 3 günlük trend (tek mum gürültüsünü azaltır)
+  const ref3 = candles.length >= 4 ? candles[candles.length - 4]! : prev;
+  const priceChange3d = ref3.close !== 0
+    ? parseFloat((((last.close - ref3.close) / ref3.close) * 100).toFixed(2))
+    : 0;
+  const priceChange = prev.close !== 0
+    ? parseFloat((((last.close - prev.close) / prev.close) * 100).toFixed(2))
+    : 0;
+
+  const direction: SignalDirection =
+    priceChange3d > 1 ? 'yukari' : priceChange3d < -1 ? 'asagi' : 'nötr';
+
+  // Severity: spike büyüklüğü (0-2) + ardışık gün bonusu (0-2)
+  const spikeScore = ratio >= 3 ? 2 : ratio >= 2.3 ? 1 : 0;
+  const streakScore = consecutiveHighVolDays >= 3 ? 2 : consecutiveHighVolDays >= 2 ? 1 : 0;
+  const total = spikeScore + streakScore;
+  const severity: SignalSeverity = total >= 3 ? 'güçlü' : total >= 1 ? 'orta' : 'zayıf';
 
   return {
     type: 'Hacim Anomalisi',
@@ -171,8 +198,11 @@ export function detectVolumeAnomaly(sembol: string, candles: OHLCVCandle[]): Sto
     data: {
       currentVolume: last.volume,
       avgVolume20: avgVol,
-      volumeRatio: ratio,
+      volumeRatio: parseFloat(ratio.toFixed(2)),
+      consecutiveHighVolDays,
+      relVol5,
       priceChange,
+      priceChange3d,
     },
   };
 }
