@@ -6,6 +6,17 @@
 
 ## 🚀 SONRAKİ ADIMLAR — Öncelik Sırasına Göre (2026-03-22 güncellendi)
 
+### 🔴 SİNYAL KALİTESİ & DOĞRULUK (Aktif Sprint)
+
+| # | Görev | Açıklama | Durum |
+|---|-------|----------|-------|
+| Q1 | **Confluence Skoru** | Birden fazla indikatör aynı yönü → 0-100 güven skoru. Tarama+hisse sayfasında göster | 🔄 Devam ediyor |
+| Q2 | **Sinyal Yaşı (Freshness)** | Her sinyale `daysAgo` ekle — 1g vs 5g farkı kullanıcı görsün | ⏳ Bekliyor |
+| Q3 | **Backtest Başarı Oranı UI** | `signal_performance` tablosundaki veriyi sinyal kartlarında göster — "Bu sinyal %67 başarılı" | ⏳ Bekliyor |
+| Q4 | **Korelasyon Katsayısı** | Karşılaştırma sayfasına hisseler arası korelasyon ekle — portföy çeşitlendirmesi için | ⏳ Bekliyor |
+| Q5 | **Multi-timeframe Doğrulama** | Günlük + haftalık aynı sinyali veriyorsa güçlü; çakışmıyorsa zayıf işaretle | ⏳ Bekliyor |
+| Q6 | **Sektör Momentum Filtresi** | Sektör geneli düşerken bireysel bullish sinyali = daha az güvenilir | ⏳ Bekliyor |
+
 ### 🔴 1. Sinyal Güçlendirmeleri (Kısa Vadeli — Hemen Yapılabilir)
 
 | # | Görev | Neden Önemli |

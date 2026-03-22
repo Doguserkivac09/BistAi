@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { SignalBadge } from '@/components/SignalBadge';
 import { MiniChart } from '@/components/MiniChart';
 import { SignalExplanation } from '@/components/SignalExplanation';
-import type { StockSignal, OHLCVCandle } from '@/types';
+import type { StockSignal, OHLCVCandle, ConfluenceResult } from '@/types';
+import { computeConfluence } from '@/lib/signals';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SRLevels } from '@/components/SRLevels';
 import { calculateSRLevels } from '@/lib/support-resistance';
@@ -15,10 +16,42 @@ import { calculateSRLevels } from '@/lib/support-resistance';
 interface StockCardProps {
   signal: StockSignal;
   candleData: OHLCVCandle[];
+  allSignals?: StockSignal[]; // aynı hissenin tüm sinyalleri (confluence için)
   macroScore?: { score: number; wind: string } | null;
-  delay?: number; // ms — kademeli yükleme için (viewport'a girince uygulanır)
-  cachedExplanation?: string | null; // Üst bileşenden gelen cache — filtre değişince yeniden yüklemez
-  onExplanationLoaded?: (text: string) => void; // Yüklenen açıklamayı üste bildir
+  delay?: number;
+  cachedExplanation?: string | null;
+  onExplanationLoaded?: (text: string) => void;
+}
+
+function ConfluenceBadge({ result }: { result: ConfluenceResult }) {
+  const cls = result.level === 'yüksek'
+    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+    : result.level === 'orta'
+    ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30'
+    : 'text-zinc-400 bg-zinc-500/10 border-zinc-500/30';
+
+  const tooltip = `Güven: ${result.score}/100 · ${result.categoryCount} kategori · ${result.bullishCount} yükselişçi / ${result.bearishCount} düşüşçü sinyal`;
+
+  return (
+    <span
+      title={tooltip}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
+    >
+      <span className="opacity-70">Güven</span> {result.score}
+    </span>
+  );
+}
+
+function FreshnessBadge({ candlesAgo }: { candlesAgo: number }) {
+  if (candlesAgo === 0) return null;
+  return (
+    <span
+      className="inline-flex items-center rounded-md border border-zinc-700/50 bg-zinc-800/40 px-1.5 py-0.5 text-[10px] text-zinc-400"
+      title={`Sinyal ${candlesAgo} iş günü önce tetiklendi`}
+    >
+      {candlesAgo}g önce
+    </span>
+  );
 }
 
 function MacroBadge({ score, wind }: { score: number; wind: string }) {
@@ -43,7 +76,8 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
   );
 }
 
-export function StockCard({ signal, candleData, macroScore, delay = 0, cachedExplanation, onExplanationLoaded }: StockCardProps) {
+export function StockCard({ signal, candleData, allSignals, macroScore, delay = 0, cachedExplanation, onExplanationLoaded }: StockCardProps) {
+  const confluence = allSignals && allSignals.length > 1 ? computeConfluence(allSignals) : null;
   const [explanation, setExplanation] = useState<string | null>(cachedExplanation ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,11 +153,13 @@ export function StockCard({ signal, candleData, macroScore, delay = 0, cachedExp
     <Card ref={cardRef} className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-lg font-semibold text-text-primary">
               {signal.sembol}
             </span>
             {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
+            {confluence && <ConfluenceBadge result={confluence} />}
+            {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
           </div>
           <SignalBadge
             type={signal.type}

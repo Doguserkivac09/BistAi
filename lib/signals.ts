@@ -594,5 +594,71 @@ export function detectAllSignals(
   if (want('RSI Seviyesi'))           { const s = detectRsiLevel(sembol, candles);                if (s) signals.push(s); }
   if (want('Altın Çapraz'))           { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
   if (want('Bollinger Sıkışması'))    { const s = detectBollingerSqueeze(sembol, candles);        if (s) signals.push(s); }
-  return signals;
+
+  // candlesAgo: data'da crossoverCandlesAgo / candlesAgo varsa oradan al, yoksa 0
+  return signals.map((s) => ({
+    ...s,
+    candlesAgo: (
+      (s.data.crossoverCandlesAgo as number | undefined) ??
+      (s.data.candlesAgo as number | undefined) ??
+      0
+    ),
+  }));
+}
+
+// ─── Confluence (Güven Skoru) ──────────────────────────────────────────────────
+
+const SIGNAL_CATEGORY: Record<string, string> = {
+  'RSI Uyumsuzluğu':       'momentum',
+  'RSI Seviyesi':           'momentum',
+  'MACD Kesişimi':          'trend',
+  'Trend Başlangıcı':       'trend',
+  'Altın Çapraz':           'trend',
+  'Hacim Anomalisi':        'hacim',
+  'Destek/Direnç Kırılımı': 'yapı',
+  'Bollinger Sıkışması':    'yapı',
+};
+
+const SEVERITY_POINTS: Record<string, number> = { güçlü: 35, orta: 22, zayıf: 12 };
+
+import type { ConfluenceResult } from '@/types';
+
+export function computeConfluence(signals: StockSignal[]): ConfluenceResult {
+  if (!signals.length) {
+    return { score: 0, level: 'düşük', dominantDirection: 'nötr', bullishCount: 0, bearishCount: 0, categoryCount: 0 };
+  }
+
+  const bullish  = signals.filter((s) => s.direction === 'yukari');
+  const bearish  = signals.filter((s) => s.direction === 'asagi');
+  const dominant = bullish.length > bearish.length ? 'yukari'
+                 : bearish.length > bullish.length ? 'asagi'
+                 : bullish.length > 0              ? 'yukari' // eşitlik → yukarı tercih
+                 : 'nötr';
+
+  const dominantSigs = dominant === 'yukari' ? bullish : dominant === 'asagi' ? bearish : signals;
+  const conflictCount = signals.length - dominantSigs.length;
+
+  // 1. Severity puan toplamı (dominant yön sinyalleri)
+  let score = dominantSigs.reduce((s, sig) => s + (SEVERITY_POINTS[sig.severity] ?? 12), 0);
+  score = Math.min(60, score); // severity'den max 60
+
+  // 2. Hizalama bonusu / cezası
+  if (conflictCount === 0 && signals.length >= 2) score += 18; // tam konsensüs
+  else if (conflictCount === 0)                   score += 8;  // tek sinyal, çelişme yok
+  else                                            score -= conflictCount * 8;
+
+  // 3. Kategori çeşitlendirme bonusu (+7 per ek kategori, max +22)
+  const categories = new Set(dominantSigs.map((s) => SIGNAL_CATEGORY[s.type] ?? 'diğer'));
+  score += Math.min(22, (categories.size - 1) * 7);
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  return {
+    score,
+    level: score >= 65 ? 'yüksek' : score >= 35 ? 'orta' : 'düşük',
+    dominantDirection: dominant,
+    bullishCount: bullish.length,
+    bearishCount: bearish.length,
+    categoryCount: categories.size,
+  };
 }

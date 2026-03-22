@@ -566,8 +566,8 @@ export default function TaramaPage() {
           >
             <AnimatePresence>
               {displayList.flatMap((r) =>
-                r.signals.map((sig) => ({ sig, candles: r.candles }))
-              ).map(({ sig, candles }, idx) => (
+                r.signals.map((sig) => ({ sig, candles: r.candles, allSignals: r.signals }))
+              ).map(({ sig, candles, allSignals }, idx) => (
                 <motion.div
                   key={`${sig.sembol}-${sig.type}`}
                   initial={{ opacity: 0, y: 12 }}
@@ -578,6 +578,7 @@ export default function TaramaPage() {
                   <StockCard
                     signal={sig}
                     candleData={candles}
+                    allSignals={allSignals}
                     macroScore={macroScore}
                     cachedExplanation={explanationCache.current.get(`${sig.sembol}:${sig.type}`) ?? null}
                     onExplanationLoaded={(text) => explanationCache.current.set(`${sig.sembol}:${sig.type}`, text)}

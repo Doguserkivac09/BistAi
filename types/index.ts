@@ -57,6 +57,17 @@ export type SignalData = RsiDivergenceData | VolumeAnomalyData | TrendStartData 
 
 export interface StockSignal extends BaseSignal {
   data: Record<string, unknown>;
+  candlesAgo?: number; // kaç mum önce tetiklendi (0 = son mum)
+}
+
+/** Çoklu sinyal güven analizi */
+export interface ConfluenceResult {
+  score: number;                          // 0-100
+  level: 'yüksek' | 'orta' | 'düşük';
+  dominantDirection: 'yukari' | 'asagi' | 'nötr';
+  bullishCount: number;
+  bearishCount: number;
+  categoryCount: number;                  // farklı teknik kategori sayısı
 }
 
 export interface WatchlistItem {
