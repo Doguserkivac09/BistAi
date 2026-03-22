@@ -44,6 +44,7 @@ export function Footer() {
             <ul className="space-y-2">
               {[
                 { href: '/tarama',      label: 'Sinyal Tarama' },
+                { href: '/sektorler',   label: 'Sektör Analizi' },
                 { href: '/karsilastir', label: 'Hisse Karşılaştır' },
                 { href: '/makro',       label: 'Makro Radar' },
                 { href: '/backtesting', label: 'Backtesting' },

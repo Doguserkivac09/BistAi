@@ -40,32 +40,32 @@ const TICKER_ITEMS = [
 // ── Mock live signals ─────────────────────────────────────────────
 
 const MOCK_SIGNALS = [
-  { sembol: 'THYAO', type: 'RSI Uyumsuzluğu',  dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 78 },
-  { sembol: 'EREGL', type: 'MACD Kesişimi',     dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 74 },
-  { sembol: 'PGSUS', type: 'Trend Başlangıcı',  dir: 'AL',  sev: 'Orta',  macro: '+42', confidence: 71 },
-  { sembol: 'ASELS', type: 'Altın Çapraz',       dir: 'AL',  sev: 'Güçlü', macro: '+55', confidence: 82 },
-  { sembol: 'KCHOL', type: 'S/R Kırılımı',      dir: 'SAT', sev: 'Zayıf', macro: '+18', confidence: 49 },
-  { sembol: 'ARCLK', type: 'RSI Seviyesi',       dir: 'SAT', sev: 'Orta',  macro: '+18', confidence: 58 },
+  { sembol: 'THYAO', type: 'RSI Uyumsuzluğu',  dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 78, sector: 'Havacılık', weeklyAligned: true  },
+  { sembol: 'EREGL', type: 'MACD Kesişimi',     dir: 'AL',  sev: 'Güçlü', macro: '+38', confidence: 74, sector: 'Metal',     weeklyAligned: true  },
+  { sembol: 'PGSUS', type: 'Trend Başlangıcı',  dir: 'AL',  sev: 'Orta',  macro: '+31', confidence: 71, sector: 'Havacılık', weeklyAligned: null  },
+  { sembol: 'ASELS', type: 'Altın Çapraz',       dir: 'AL',  sev: 'Güçlü', macro: '+55', confidence: 82, sector: 'Savunma',  weeklyAligned: true  },
+  { sembol: 'KCHOL', type: 'S/R Kırılımı',      dir: 'SAT', sev: 'Zayıf', macro: '+18', confidence: 49, sector: 'Holding',  weeklyAligned: false },
+  { sembol: 'ARCLK', type: 'RSI Seviyesi',       dir: 'SAT', sev: 'Orta',  macro: '+12', confidence: 58, sector: 'Teknoloji',weeklyAligned: false },
 ];
 
 // ── Stats ─────────────────────────────────────────────────────────
 
 const STATS = [
-  { value: '160+', label: 'BIST Hissesi'   },
-  { value: '7',    label: 'Sinyal Tipi'    },
-  { value: '7',    label: 'Makro Gösterge' },
-  { value: '7/24', label: 'Canlı Analiz'   },
+  { value: '160+', label: 'BIST Hissesi'         },
+  { value: '10',   label: 'Farklı Sinyal Tipi'   },
+  { value: '5 dakika', label: 'Güncelleme Sıklığı'   },
+  { value: '7/24', label: 'Canlı Analiz'          },
 ];
 
 // ── Features ──────────────────────────────────────────────────────
 
 const FEATURES = [
-  { icon: BarChart3,  title: 'Sinyal Tarama',    desc: 'RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi ve daha fazlası — 160+ BIST hissesinde tek seferde.',        gradient: 'from-indigo-500/20 to-violet-500/5'  },
-  { icon: Brain,      title: 'AI Açıklamalar',   desc: 'Her sinyal için Claude AI ile üretilen sade Türkçe analiz. Ne olduğunu değil, ne anlama geldiğini öğren.', gradient: 'from-violet-500/20 to-fuchsia-500/5' },
-  { icon: TrendingUp, title: 'Makro Radar',      desc: 'VIX, DXY, USD/TRY, TCMB faizi — tüm makro rüzgarları tek panelde. BIST\'in nabzını hisset.',              gradient: 'from-cyan-500/20 to-blue-500/5'      },
-  { icon: Shield,     title: 'Risk Skoru',       desc: 'Kompozit motor sektörü, makroyu ve teknik sinyali birleştirir. AL / TUT / SAT kararı + güven yüzdesi.',    gradient: 'from-emerald-500/20 to-teal-500/5'  },
-  { icon: Zap,        title: 'Backtesting',      desc: 'Geçmiş sinyal performanslarını gör. Hangi sinyal tipi hangi koşulda daha başarılı oldu?',                  gradient: 'from-orange-500/20 to-amber-500/5'  },
-  { icon: Sparkles,   title: 'AI Topluluk Botu', desc: 'Analistlerle fikir paylaş. AI Analist her paylaşımı otomatik yorumlar ve bağlam sunar.',                  gradient: 'from-pink-500/20 to-rose-500/5'     },
+  { icon: BarChart3,  title: 'Sinyal Tarama',       desc: '10 farklı teknik sinyal — RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi — 160+ BIST hissesinde tek taramada.',  gradient: 'from-indigo-500/20 to-violet-500/5'  },
+  { icon: Brain,      title: 'AI Açıklamalar',      desc: 'Her sinyal için Claude AI ile üretilen sade Türkçe analiz. Ne olduğunu değil, ne anlama geldiğini öğren.',                       gradient: 'from-violet-500/20 to-fuchsia-500/5' },
+  { icon: TrendingUp, title: 'Sektör & Makro Radar',desc: 'Sektör momentum skoru + VIX, DXY, USD/TRY, TCMB faizi — tüm bağlam tek panelde. Sinyalin sektör trendi ile uyumlu mu?',         gradient: 'from-cyan-500/20 to-blue-500/5'      },
+  { icon: Shield,     title: 'Çok Katmanlı Skor',   desc: 'Confluence skoru, haftalık trend uyumu, win-rate geçmişi — her sinyal için 4+ kalite göstergesi. Güçlü sinyalleri ilk bul.',     gradient: 'from-emerald-500/20 to-teal-500/5'  },
+  { icon: Zap,        title: 'Backtesting',          desc: 'Geçmiş sinyal performanslarını gör. Hangi sinyal tipi hangi piyasa koşulunda daha başarılı oldu?',                               gradient: 'from-orange-500/20 to-amber-500/5'  },
+  { icon: Sparkles,   title: 'AI Topluluk Botu',    desc: 'Analistlerle fikir paylaş. AI Analist her paylaşımı otomatik yorumlar, bağlam ve teknik değerlendirme sunar.',                  gradient: 'from-pink-500/20 to-rose-500/5'     },
 ];
 
 // ── Animated Globe — borsa şehirleri + yay bağlantıları ──────────
@@ -376,6 +376,55 @@ function AnimatedGlobe() {
   );
 }
 
+// ── Piyasa Özeti ──────────────────────────────────────────────────
+
+const MARKET_ITEMS_STATIC = [
+  { label: 'Altın (oz)', symbol: 'GC=F',     price: '3 284',  change: '+0.8%',  up: true  },
+  { label: 'USD/TRY',   symbol: 'USDTRY=X', price: '38.42',  change: '+0.3%',  up: true  },
+  { label: 'BIST 100',  symbol: 'XU100.IS',  price: '9 812',  change: '+1.2%',  up: true  },
+  { label: 'Ham Petrol', symbol: 'CL=F',     price: '71.40',  change: '-0.5%',  up: false },
+];
+
+function MarketStrip() {
+  const [items, setItems] = useState(MARKET_ITEMS_STATIC);
+
+  useEffect(() => {
+    fetch('/api/commodity')
+      .then((r) => r.json())
+      .then((data: Array<{ symbol: string; lastPrice: number; change1d: number }>) => {
+        if (!Array.isArray(data) || data.length === 0) return;
+        setItems(prev => prev.map(item => {
+          const match = data.find(d => d.symbol === item.symbol);
+          if (!match || !match.lastPrice) return item;
+          const up = match.change1d >= 0;
+          const price = match.lastPrice >= 1000
+            ? match.lastPrice.toLocaleString('tr-TR', { maximumFractionDigits: 0 })
+            : match.lastPrice.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+          const change = `${up ? '+' : ''}${match.change1d.toFixed(1)}%`;
+          return { ...item, price, change, up };
+        }));
+      })
+      .catch(() => {/* static fallback */});
+  }, []);
+
+  return (
+    <div className="mt-10 flex flex-wrap justify-center gap-3">
+      {items.map((item) => (
+        <div
+          key={item.symbol}
+          className="flex items-center gap-2 rounded-xl border border-border/50 bg-surface/50 px-4 py-2.5 backdrop-blur-sm"
+        >
+          <span className="text-[10px] font-medium text-text-secondary">{item.label}</span>
+          <span className="text-sm font-bold text-text-primary">{item.price}</span>
+          <span className={`text-[10px] font-semibold ${item.up ? 'text-bullish' : 'text-bearish'}`}>
+            {item.change}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Depth section ─────────────────────────────────────────────────
 
 function DepthSection({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -466,48 +515,66 @@ function SignalRow({ sig, index, isLoggedIn }: { sig: typeof MOCK_SIGNALS[0]; in
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true });
   const isAl = sig.dir === 'AL';
-
-  const content = (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, x: -20 }}
-      animate={isInView ? { opacity: 1, x: 0 } : {}}
-      transition={{ duration: 0.45, delay: index * 0.06 }}
-      className={`flex items-center gap-3 rounded-xl border border-border/60 bg-surface/40 px-4 py-3 backdrop-blur-sm transition-colors hover:border-primary/30 hover:bg-surface/60 ${isLoggedIn ? 'cursor-pointer' : ''}`}
-    >
-      {/* Sembol */}
-      <span className="w-14 text-xs font-bold text-text-primary">{sig.sembol}</span>
-      {/* Sinyal tipi */}
-      <span className="flex-1 text-xs text-text-secondary">{sig.type}</span>
-      {/* Severity */}
-      <span className="hidden text-[10px] text-text-secondary sm:block">{sig.sev}</span>
-      {/* Makro */}
-      <span className="hidden items-center gap-1 text-[10px] text-bullish sm:flex">
-        <Activity className="h-2.5 w-2.5" />
-        {sig.macro}
-      </span>
-      {/* Confidence bar */}
-      <div className="hidden w-16 sm:block">
-        <div className="h-1 rounded-full bg-border">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={isInView ? { width: `${sig.confidence}%` } : {}}
-            transition={{ duration: 0.8, delay: index * 0.06 + 0.3 }}
-            className={`h-1 rounded-full ${isAl ? 'bg-bullish' : 'bg-bearish'}`}
-          />
-        </div>
-        <span className="mt-0.5 text-[9px] text-text-secondary">{sig.confidence}%</span>
-      </div>
-      {/* Dir badge */}
-      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isAl ? 'bg-bullish/15 text-bullish' : 'bg-bearish/15 text-bearish'}`}>
-        {sig.dir}
-      </span>
-    </motion.div>
-  );
+  // locked: giriş yapılmamış VE son 3 sinyal — sadece CSS değişir, component unmount olmaz
+  const locked = !isLoggedIn && index >= 3;
 
   return (
-    <Link href={isLoggedIn ? `/hisse/${sig.sembol}` : '/giris'}>
-      {content}
+    <Link
+      href={locked ? '/giris' : isLoggedIn ? `/hisse/${sig.sembol}` : '/giris'}
+      className={locked ? 'pointer-events-none' : ''}
+    >
+      <motion.div
+        ref={ref}
+        initial={{ opacity: 0, x: -20 }}
+        animate={isInView ? { opacity: 1, x: 0 } : {}}
+        transition={{ duration: 0.45, delay: index * 0.06 }}
+        className={[
+          'flex items-center gap-3 rounded-xl border border-border/60 bg-surface/40 px-4 py-3 backdrop-blur-sm transition-all',
+          locked ? 'blur-[2px] brightness-50 select-none' : 'hover:border-primary/30 hover:bg-surface/60 cursor-pointer',
+        ].join(' ')}
+      >
+        {/* Sembol + sektör */}
+        <div className="flex w-[4.5rem] shrink-0 flex-col gap-0.5">
+          <span className="text-xs font-bold text-text-primary">{sig.sembol}</span>
+          <span className="text-[9px] text-text-secondary opacity-60">{sig.sector}</span>
+        </div>
+        {/* Sinyal tipi */}
+        <span className="flex-1 text-xs text-text-secondary">{sig.type}</span>
+        {/* Haftalık uyum badge */}
+        {sig.weeklyAligned != null && (
+          <span
+            title={sig.weeklyAligned ? 'Haftalık trend ile uyumlu' : 'Haftalık trend ile uyumsuz'}
+            className={`hidden shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold sm:block ${
+              sig.weeklyAligned
+                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                : 'border-red-500/40 bg-red-500/15 text-red-300'
+            }`}
+          >
+            {sig.weeklyAligned ? 'W✓' : 'W✗'}
+          </span>
+        )}
+        {/* Makro */}
+        <span className="hidden items-center gap-1 text-[10px] text-bullish sm:flex">
+          <Activity className="h-2.5 w-2.5" />
+          {sig.macro}
+        </span>
+        {/* Confidence bar */}
+        <div className="hidden w-14 shrink-0 sm:block">
+          <div className="h-1 rounded-full bg-border">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={isInView ? { width: `${sig.confidence}%` } : {}}
+              transition={{ duration: 0.8, delay: index * 0.06 + 0.3 }}
+              className={`h-1 rounded-full ${isAl ? 'bg-bullish' : 'bg-bearish'}`}
+            />
+          </div>
+          <span className="mt-0.5 text-[9px] text-text-secondary">{sig.confidence}%</span>
+        </div>
+        {/* Dir badge */}
+        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isAl ? 'bg-bullish/15 text-bullish' : 'bg-bearish/15 text-bearish'}`}>
+          {sig.dir}
+        </span>
+      </motion.div>
     </Link>
   );
 }
@@ -668,9 +735,9 @@ export default function LandingPage() {
                 className="mt-10 flex flex-wrap items-center justify-center gap-6 lg:justify-start"
               >
                 {[
-                  { icon: Globe2,   text: '160+ hisse' },
-                  { icon: Activity, text: '7 sinyal tipi' },
-                  { icon: Users,    text: 'Topluluk' },
+                  { icon: Globe2,   text: '160+ hisse tarama' },
+                  { icon: Activity, text: '10 sinyal tipi' },
+                  { icon: Users,    text: 'Haftalık trend uyumu' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs text-text-secondary">
                     <item.icon className="h-3.5 w-3.5 text-primary opacity-60" />
@@ -717,6 +784,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
               {STATS.map((s, i) => <StatCard key={i} value={s.value} label={s.label} delay={i * 0.1} />)}
             </div>
+            <MarketStrip />
           </div>
         </DepthSection>
       </section>
@@ -744,29 +812,50 @@ export default function LandingPage() {
           <div className="mx-auto max-w-2xl space-y-2">
             {/* Header */}
             <div className="flex items-center gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-secondary opacity-60">
-              <span className="w-14">Hisse</span>
+              <span className="w-[4.5rem] shrink-0">Hisse</span>
               <span className="flex-1">Sinyal</span>
-              <span className="hidden sm:block">Şiddet</span>
+              <span className="hidden sm:block">Haftalık</span>
               <span className="hidden sm:block w-20">Makro</span>
-              <span className="hidden w-20 sm:block">Güven</span>
+              <span className="hidden w-14 sm:block">Güven</span>
               <span>Karar</span>
             </div>
 
-            {MOCK_SIGNALS.map((sig, i) => <SignalRow key={i} sig={sig} index={i} isLoggedIn={isLoggedIn} />)}
+            {/* Tüm sinyaller her zaman aynı component türüyle render edilir */}
+            {MOCK_SIGNALS.map((sig, i) => (
+              <SignalRow key={i} sig={sig} index={i} isLoggedIn={isLoggedIn} />
+            ))}
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              className="pt-4 text-center"
-            >
-              <Button variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/10" asChild>
-                <Link href="/tarama">
-                  Tüm Hisseleri Tara
-                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </motion.div>
+            {/* Login olmayanlar için overlay */}
+            {!isLoggedIn && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="mt-3 flex flex-col items-center gap-2 rounded-xl border border-primary/25 bg-surface/70 px-6 py-5 text-center backdrop-blur-sm"
+              >
+                <p className="text-xs font-semibold text-text-primary">+{MOCK_SIGNALS.length - 3} sinyal ve çok daha fazlası</p>
+                <p className="text-[11px] text-text-secondary">160+ hissedeki tüm sinyalleri görmek için ücretsiz hesap oluştur.</p>
+                <Button size="sm" className="mt-1 text-xs" asChild>
+                  <Link href="/kayit">Ücretsiz Başla <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                </Button>
+              </motion.div>
+            )}
+
+            {isLoggedIn && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                className="pt-4 text-center"
+              >
+                <Button variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/10" asChild>
+                  <Link href="/tarama">
+                    Tüm Hisseleri Tara
+                    <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </motion.div>
+            )}
           </div>
         </div>
       </section>
@@ -897,14 +986,6 @@ export default function LandingPage() {
         </DepthSection>
       </section>
 
-      {/* ── Footer ───────────────────────────────────────────────── */}
-      <footer className="border-t border-border/40 py-8">
-        <div className="container mx-auto flex flex-col items-center justify-between gap-3 px-4 text-xs text-text-secondary sm:flex-row">
-          <span className="gradient-text text-sm font-bold">BistAI</span>
-          <span className="opacity-40">© 2026 BistAI. Tüm haklar saklıdır.</span>
-          <span className="opacity-40">Yatırım tavsiyesi değildir.</span>
-        </div>
-      </footer>
     </div>
   );
 }
