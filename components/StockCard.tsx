@@ -9,6 +9,8 @@ import { MiniChart } from '@/components/MiniChart';
 import { SignalExplanation } from '@/components/SignalExplanation';
 import type { StockSignal, OHLCVCandle } from '@/types';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
+import { SRLevels } from '@/components/SRLevels';
+import { calculateSRLevels } from '@/lib/support-resistance';
 
 interface StockCardProps {
   signal: StockSignal;
@@ -136,6 +138,7 @@ export function StockCard({ signal, candleData, macroScore, delay = 0, cachedExp
           height={56}
           positive={isUp ? true : isDown ? false : undefined}
         />
+        <SRLevels analysis={calculateSRLevels(candleData)} compact />
         <SignalExplanation text={explanation} isLoading={loading} error={error} />
       </CardContent>
       <CardFooter className="flex gap-2 pt-0">

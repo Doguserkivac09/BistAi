@@ -13,6 +13,8 @@ import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
 import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
+import { calculateSRLevels } from '@/lib/support-resistance';
+import { SRLevels } from '@/components/SRLevels';
 import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
 import { saveSignalPerformance } from '@/lib/performance';
@@ -215,6 +217,17 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 </div>
               </CardContent>
             </Card>
+
+            {candles.length >= 20 && (
+              <Card className="mb-6 overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-base">Destek &amp; Direnç Seviyeleri</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SRLevels analysis={calculateSRLevels(candles)} />
+                </CardContent>
+              </Card>
+            )}
 
             <h2 className="mb-4 text-lg font-semibold text-text-primary">Tespit Edilen Sinyaller</h2>
             {signals.length === 0 ? (
