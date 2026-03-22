@@ -24,12 +24,15 @@ interface StockCardProps {
   candleData: OHLCVCandle[];
   allSignals?: StockSignal[];
   macroScore?: { score: number; wind: string } | null;
-  winRate?: { rate: number; sampleSize: number } | null; // backtest başarı oranı
-  sectorMomentum?: SectorMomentum | null;               // sektör momentumu
+  winRate?: { rate: number; sampleSize: number } | null;
+  sectorMomentum?: SectorMomentum | null;
   delay?: number;
   cachedExplanation?: string | null;
   onExplanationLoaded?: (text: string) => void;
+  viewMode?: 'grid' | 'list';
 }
+
+// ─── Badge bileşenleri ────────────────────────────────────────────────────────
 
 function ConfluenceBadge({ result }: { result: ConfluenceResult }) {
   const cls = result.level === 'yüksek'
@@ -138,16 +141,70 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
   );
 }
 
-export function StockCard({ signal, candleData, allSignals, macroScore, winRate, sectorMomentum, delay = 0, cachedExplanation, onExplanationLoaded }: StockCardProps) {
+// ─── Paylaşımlı ContextBadges ─────────────────────────────────────────────────
+
+interface ContextBadgesProps {
+  signal: StockSignal;
+  confluence: ConfluenceResult | null;
+  winRate?: { rate: number; sampleSize: number } | null;
+  macroScore?: { score: number; wind: string } | null;
+  sectorMomentum?: SectorMomentum | null;
+}
+
+function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum }: ContextBadgesProps) {
+  const hasBadges =
+    macroScore ||
+    sectorMomentum ||
+    confluence ||
+    winRate ||
+    signal.weeklyAligned !== undefined ||
+    (signal.candlesAgo ?? 0) > 0;
+
+  if (!hasBadges) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
+      {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
+      {confluence && <ConfluenceBadge result={confluence} />}
+      {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
+      {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
+      {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
+    </div>
+  );
+}
+
+// ─── Ana bileşen ──────────────────────────────────────────────────────────────
+
+export function StockCard({
+  signal,
+  candleData,
+  allSignals,
+  macroScore,
+  winRate,
+  sectorMomentum,
+  delay = 0,
+  cachedExplanation,
+  onExplanationLoaded,
+  viewMode = 'grid',
+}: StockCardProps) {
   const confluence = allSignals && allSignals.length > 1 ? computeConfluence(allSignals) : null;
   const [explanation, setExplanation] = useState<string | null>(cachedExplanation ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const fetchedRef = useRef(!!cachedExplanation); // Cache varsa zaten yüklenmiş say
+  const fetchedRef = useRef(!!cachedExplanation);
+
+  // Fiyat hesapla
+  const lastCandle = candleData.length > 0 ? candleData[candleData.length - 1] : null;
+  const prevCandle = candleData.length > 1 ? candleData[candleData.length - 2] : null;
+  const lastPrice = lastCandle?.close ?? null;
+  const dailyChange =
+    lastPrice !== null && prevCandle
+      ? ((lastPrice - prevCandle.close) / prevCandle.close) * 100
+      : null;
 
   useEffect(() => {
-    // Üst bileşenden cache geldiyse hemen göster, fetch atma
     if (cachedExplanation) {
       setExplanation(cachedExplanation);
       fetchedRef.current = true;
@@ -172,7 +229,6 @@ export function StockCard({ signal, candleData, allSignals, macroScore, winRate,
         (async () => {
           if (delay > 0) await new Promise((r) => setTimeout(r, delay));
           try {
-            const lastCandle = candleData[candleData.length - 1];
             const res = await fetch('/api/explain', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -206,37 +262,119 @@ export function StockCard({ signal, candleData, allSignals, macroScore, winRate,
 
     observer.observe(card);
     return () => observer.disconnect();
-  }, [signal, candleData, delay, cachedExplanation, onExplanationLoaded]);
+  }, [signal, candleData, delay, cachedExplanation, onExplanationLoaded, lastCandle]);
 
   const isUp = signal.direction === 'yukari';
   const isDown = signal.direction === 'asagi';
 
-  return (
-    <Card ref={cardRef} className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
-      <CardHeader className="pb-2 space-y-1.5">
-        {/* Satır 1: Sembol + Sinyal tipi */}
-        <div className="flex items-center justify-between gap-2 min-w-0">
-          <span className="font-mono text-lg font-bold text-text-primary shrink-0">
+  // ── Liste görünümü ──────────────────────────────────────────────────────────
+  if (viewMode === 'list') {
+    return (
+      <div
+        ref={cardRef}
+        className="flex items-center gap-3 rounded-xl border border-border bg-surface/60 px-4 py-3 transition hover:border-primary/40 hover:bg-surface"
+      >
+        {/* Sol: sembol + fiyat */}
+        <div className="w-28 shrink-0">
+          <span className="block font-mono text-base font-bold text-text-primary">
             {signal.sembol}
           </span>
+          {lastPrice !== null && (
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <span className="text-xs font-medium text-text-secondary">
+                ₺{lastPrice.toFixed(2)}
+              </span>
+              {dailyChange !== null && (
+                <span
+                  className={`text-[10px] font-semibold ${
+                    dailyChange >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  {dailyChange >= 0 ? '+' : ''}{dailyChange.toFixed(2)}%
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Orta: sinyal badge */}
+        <div className="shrink-0">
           <SignalBadge
             type={signal.type}
             direction={signal.direction}
             severity={signal.severity}
           />
         </div>
-        {/* Satır 2: Bağlam & kalite badge'leri — tek flex-wrap satırı */}
-        {(macroScore || sectorMomentum || confluence || winRate || signal.weeklyAligned !== undefined || (signal.candlesAgo ?? 0) > 0) && (
-          <div className="flex flex-wrap items-center gap-1">
-            {sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
-            {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
-            {confluence && <ConfluenceBadge result={confluence} />}
-            {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
-            {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
-            {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
+
+        {/* Bağlam badge'leri — yatayda scroll */}
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <ContextBadges
+            signal={signal}
+            confluence={confluence}
+            winRate={winRate}
+            macroScore={macroScore}
+            sectorMomentum={sectorMomentum}
+          />
+        </div>
+
+        {/* Sağ: butonlar */}
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="secondary" size="sm" asChild>
+            <Link href={`/hisse/${encodeURIComponent(signal.sembol)}`}>Detay</Link>
+          </Button>
+          <PortfolyoEkleButton
+            sembol={signal.sembol}
+            defaultFiyat={lastPrice ?? undefined}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Grid görünümü (varsayılan) ──────────────────────────────────────────────
+  return (
+    <Card ref={cardRef} className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+      <CardHeader className="pb-2 space-y-1.5">
+        {/* Satır 1: Sembol + fiyat + sinyal tipi */}
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="min-w-0">
+            <span className="font-mono text-lg font-bold text-text-primary">
+              {signal.sembol}
+            </span>
+            {lastPrice !== null && (
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span className="text-xs font-medium text-text-secondary">
+                  ₺{lastPrice.toFixed(2)}
+                </span>
+                {dailyChange !== null && (
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      dailyChange >= 0 ? 'text-emerald-400' : 'text-red-400'
+                    }`}
+                  >
+                    {dailyChange >= 0 ? '+' : ''}{dailyChange.toFixed(2)}%
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-        )}
+          <SignalBadge
+            type={signal.type}
+            direction={signal.direction}
+            severity={signal.severity}
+          />
+        </div>
+
+        {/* Satır 2: Bağlam & kalite badge'leri */}
+        <ContextBadges
+          signal={signal}
+          confluence={confluence}
+          winRate={winRate}
+          macroScore={macroScore}
+          sectorMomentum={sectorMomentum}
+        />
       </CardHeader>
+
       <CardContent className="space-y-3 pb-2">
         <MiniChart
           data={candleData}
@@ -259,13 +397,14 @@ export function StockCard({ signal, candleData, allSignals, macroScore, winRate,
         <SRLevels analysis={calculateSRLevels(candleData)} compact />
         <SignalExplanation text={explanation} isLoading={loading} error={error} />
       </CardContent>
+
       <CardFooter className="flex gap-2 pt-0">
         <Button variant="secondary" size="sm" asChild className="flex-1">
           <Link href={`/hisse/${encodeURIComponent(signal.sembol)}`}>Detay Gör</Link>
         </Button>
         <PortfolyoEkleButton
           sembol={signal.sembol}
-          defaultFiyat={candleData[candleData.length - 1]?.close}
+          defaultFiyat={lastPrice ?? undefined}
         />
       </CardFooter>
     </Card>
