@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
   const [{ data: allPrefs }, { data: allHistory }] = await Promise.all([
     admin
       .from('alert_subscriptions')
-      .select('user_id, email_enabled, min_severity')
+      .select('user_id, email_enabled, min_severity, signal_types')
       .in('user_id', userIds),
     admin
       .from('alert_history')
@@ -149,9 +149,10 @@ export async function GET(req: NextRequest) {
   });
 
   for (const userId of userIds) {
-    const prefs       = prefsMap.get(userId);
+    const prefs        = prefsMap.get(userId);
     const emailEnabled = prefs?.email_enabled ?? true;
     const minSeverity  = prefs?.min_severity  ?? 'orta';
+    const allowedTypes: string[] = prefs?.signal_types ?? []; // boş = tüm tipler
     if (!emailEnabled) continue;
 
     const sentSet = historyMap.get(userId) ?? new Set<string>();
@@ -164,7 +165,8 @@ export async function GET(req: NextRequest) {
       const signals = (signalMap[sembol] ?? []).filter(
         (sig) =>
           meetsMinSeverity(sig, minSeverity) &&
-          !sentSet.has(`${sembol}::${sig.type}`)
+          !sentSet.has(`${sembol}::${sig.type}`) &&
+          (allowedTypes.length === 0 || allowedTypes.includes(sig.type))
       );
       if (signals.length > 0) {
         stocksToSend.push({ sembol, signals });
