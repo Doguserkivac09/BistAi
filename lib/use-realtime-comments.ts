@@ -35,6 +35,18 @@ export function useRealtimeComments(
           onNewComment();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'comments',
+          filter: `post_id=eq.${postId}`,
+        },
+        () => {
+          onNewComment();
+        }
+      )
       .subscribe();
 
     channelRef.current = channel;

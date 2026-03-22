@@ -80,15 +80,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (error) {
       console.error('[signal-performance] Supabase upsert hatası:', error.message);
       return NextResponse.json(
-        { error: `Kayıt başarısız: ${error.message}` },
+        { error: 'Kayıt başarısız.' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ ok: true, regime });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Bilinmeyen hata';
-    console.error('[signal-performance] Hata:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[signal-performance] Hata:', error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: 'Sunucu hatası.' }, { status: 500 });
   }
 }
