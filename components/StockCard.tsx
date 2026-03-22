@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ interface StockCardProps {
   signal: StockSignal;
   candleData: OHLCVCandle[];
   macroScore?: { score: number; wind: string } | null;
-  delay?: number; // ms — kademeli yükleme için
+  delay?: number; // ms — kademeli yükleme için (viewport'a girince uygulanır)
 }
 
 function MacroBadge({ score, wind }: { score: number; wind: string }) {
@@ -43,60 +43,79 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
 
 export function StockCard({ signal, candleData, macroScore, delay = 0 }: StockCardProps) {
   const [explanation, setExplanation] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
-      setError(null);
-      try {
-        const lastCandle = candleData[candleData.length - 1];
-        const res = await fetch('/api/explain', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            signal,
-            priceData: lastCandle
-              ? { lastClose: lastCandle.close, lastDate: lastCandle.date }
-              : undefined,
-          }),
-        });
-        const data = await res.json();
-        if (cancelled) return;
-        if (!res.ok) {
-          setError(data.error ?? 'Açıklama alınamadı.');
-          return;
-        }
-        setExplanation(data.explanation ?? null);
+    const card = cardRef.current;
+    if (!card) return;
 
-        // AI açıklaması alındıktan sonra performans kaydı ekle
-        try {
-          const supabase = createClient();
-          const { data: authData } = await supabase.auth.getUser();
-          const userId = authData.user?.id ?? null;
-          await saveSignalPerformance({ userId, signal, candles: candleData });
-        } catch {
-          // Hata durumunda UI'yi etkilemeden yoksay
-        }
-      } catch (e) {
-        if (!cancelled) setError('Bağlantı hatası.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [signal]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry.isIntersecting || fetchedRef.current) return;
+
+        fetchedRef.current = true;
+        observer.disconnect();
+
+        let cancelled = false;
+        setLoading(true);
+        setError(null);
+
+        (async () => {
+          if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+          try {
+            const lastCandle = candleData[candleData.length - 1];
+            const res = await fetch('/api/explain', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                signal,
+                priceData: lastCandle
+                  ? { lastClose: lastCandle.close, lastDate: lastCandle.date }
+                  : undefined,
+              }),
+            });
+            const data = await res.json();
+            if (cancelled) return;
+            if (!res.ok) {
+              setError(data.error ?? 'Açıklama alınamadı.');
+              return;
+            }
+            setExplanation(data.explanation ?? null);
+
+            // AI açıklaması alındıktan sonra performans kaydı ekle
+            try {
+              const supabase = createClient();
+              const { data: authData } = await supabase.auth.getUser();
+              const userId = authData.user?.id ?? null;
+              await saveSignalPerformance({ userId, signal, candles: candleData });
+            } catch {
+              // Hata durumunda UI'yi etkilemeden yoksay
+            }
+          } catch {
+            if (!cancelled) setError('Bağlantı hatası.');
+          } finally {
+            if (!cancelled) setLoading(false);
+          }
+        })();
+
+        return () => { cancelled = true; };
+      },
+      { threshold: 0.1 } // Kartın %10'u görünür olunca tetikle
+    );
+
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [signal, candleData, delay]);
 
   const isUp = signal.direction === 'yukari';
   const isDown = signal.direction === 'asagi';
 
   return (
-    <Card className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+    <Card ref={cardRef} className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
