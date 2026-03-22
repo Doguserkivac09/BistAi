@@ -2,7 +2,11 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Star, BookMarked, Clock, Search, BarChart2, TrendingUp, Users } from 'lucide-react';
+import {
+  Star, BookMarked, Clock, Search, BarChart2, TrendingUp, Users,
+  Briefcase, Newspaper, PieChart,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { BeamsBackground } from '@/components/ui/beams-background';
 import { DashboardWatchlist } from '@/components/DashboardWatchlist';
 import { DashboardSignals } from '@/components/DashboardSignals';
@@ -48,12 +52,107 @@ function Meteors() {
   );
 }
 
-const QUICK_ACTIONS = [
-  { href: '/tarama',   icon: Search,    label: 'Tarama Yap',  color: 'from-indigo-500/20 to-violet-500/20 border-indigo-500/30 hover:border-indigo-400/50 hover:from-indigo-500/30 hover:to-violet-500/30' },
-  { href: '/makro',    icon: BarChart2, label: 'Makro Radar', color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30 hover:border-blue-400/50 hover:from-blue-500/30 hover:to-cyan-500/30'           },
-  { href: '/backtesting', icon: TrendingUp,label: 'Backtest',    color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 hover:border-emerald-400/50 hover:from-emerald-500/30 hover:to-teal-500/30' },
-  { href: '/topluluk', icon: Users,     label: 'Topluluk',    color: 'from-pink-500/20 to-rose-500/20 border-pink-500/30 hover:border-pink-400/50 hover:from-pink-500/30 hover:to-rose-500/30'             },
+// Saate göre selamlama
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 6)  return 'İyi geceler';
+  if (h < 12) return 'Günaydın';
+  if (h < 18) return 'İyi günler';
+  return 'İyi akşamlar';
+}
+
+// Avatar rengi
+const AVATAR_COLORS = [
+  'from-violet-500 to-indigo-600',
+  'from-blue-500 to-cyan-600',
+  'from-emerald-500 to-teal-600',
+  'from-orange-500 to-amber-600',
+  'from-pink-500 to-rose-600',
 ];
+
+function avatarGradient(name: string): string {
+  return AVATAR_COLORS[(name.charCodeAt(0) ?? 0) % AVATAR_COLORS.length] ?? AVATAR_COLORS[0]!;
+}
+
+const QUICK_ACTIONS = [
+  {
+    href: '/tarama',
+    icon: Search,
+    label: 'Tarama Yap',
+    desc: 'AI sinyal tara',
+    color: 'from-indigo-500/20 to-violet-500/20 border-indigo-500/30 hover:border-indigo-400/50 hover:from-indigo-500/30 hover:to-violet-500/30',
+  },
+  {
+    href: '/makro',
+    icon: BarChart2,
+    label: 'Makro Radar',
+    desc: 'Piyasa geneli',
+    color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30 hover:border-blue-400/50 hover:from-blue-500/30 hover:to-cyan-500/30',
+  },
+  {
+    href: '/backtesting',
+    icon: TrendingUp,
+    label: 'Backtest',
+    desc: 'Geçmiş performans',
+    color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 hover:border-emerald-400/50 hover:from-emerald-500/30 hover:to-teal-500/30',
+  },
+  {
+    href: '/topluluk',
+    icon: Users,
+    label: 'Topluluk',
+    desc: 'Analist görüşleri',
+    color: 'from-pink-500/20 to-rose-500/20 border-pink-500/30 hover:border-pink-400/50 hover:from-pink-500/30 hover:to-rose-500/30',
+  },
+  {
+    href: '/haberler',
+    icon: Newspaper,
+    label: 'Haberler',
+    desc: 'Son gelişmeler',
+    color: 'from-amber-500/20 to-orange-500/20 border-amber-500/30 hover:border-amber-400/50 hover:from-amber-500/30 hover:to-orange-500/30',
+  },
+  {
+    href: '/sektorler',
+    icon: PieChart,
+    label: 'Sektörler',
+    desc: 'Sektör momentumu',
+    color: 'from-teal-500/20 to-cyan-500/20 border-teal-500/30 hover:border-teal-400/50 hover:from-teal-500/30 hover:to-cyan-500/30',
+  },
+];
+
+function SignalDistribution({ signals }: { signals: SavedSignal[] }) {
+  const counts = signals.reduce<Record<string, number>>((acc, s) => {
+    acc[s.signal_type] = (acc[s.signal_type] ?? 0) + 1;
+    return acc;
+  }, {});
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const total = signals.length;
+
+  return (
+    <div className="space-y-2.5">
+      {sorted.map(([type, count]) => {
+        const pct = Math.round((count / total) * 100);
+        return (
+          <div key={type}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-white/50">{type}</span>
+              <span className="text-xs font-semibold text-white/70 tabular-nums">
+                {count} ({pct}%)
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-primary/60"
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 0.6, ease: 'easeOut', delay: 0.2 }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface Props {
   email: string;
@@ -61,29 +160,78 @@ interface Props {
   savedSignals: SavedSignal[];
   savedSignalsCount: number;
   lastSignalAt: string;
+  portfolyoCount: number;
 }
 
-export function DashboardClient({ email, watchlist, savedSignals, savedSignalsCount, lastSignalAt }: Props) {
-  const displayName = email.split('@')[0];
+export function DashboardClient({
+  email,
+  watchlist,
+  savedSignals,
+  savedSignalsCount,
+  lastSignalAt,
+  portfolyoCount,
+}: Props) {
+  const displayName = email.split('@')[0] ?? 'U';
+
+  const STAT_CARDS = [
+    {
+      icon: Star,
+      label: 'İzleme Listesi',
+      value: watchlist.length,
+      unit: 'hisse',
+      href: '/watchlist',
+    },
+    {
+      icon: BookMarked,
+      label: 'Kayıtlı Sinyal',
+      value: savedSignalsCount,
+      unit: 'sinyal',
+      href: '/dashboard#sinyaller',
+    },
+    {
+      icon: Briefcase,
+      label: 'Portföy Pozisyon',
+      value: portfolyoCount,
+      unit: 'pozisyon',
+      href: '/portfolyo',
+    },
+    {
+      icon: Clock,
+      label: 'Son Sinyal',
+      value: lastSignalAt,
+      unit: '',
+      href: '/dashboard#sinyaller',
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-[#050510]">
-      {/* Sayfanın tamamını kaplayan sabit arka plan */}
       <BeamsBackground fixed intensity="medium" />
       <Meteors />
 
-      {/* Scrollable içerik — z-10 ile animasyonların üstünde */}
       <div className="relative z-10 min-h-screen">
         <div className="container mx-auto max-w-5xl px-4">
 
-          {/* ── Hero ──────────────────────────────────────────── */}
-          <div className="pt-14 pb-16 text-center">
+          {/* ── Hero ── */}
+          <div className="pt-10 pb-10 text-center">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7 }}
             >
-              <p className="text-xs font-mono text-white/35 tracking-widest uppercase mb-3">Hoş geldin</p>
+              {/* Avatar */}
+              <div
+                className={cn(
+                  'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br text-3xl font-black text-white shadow-lg ring-4 ring-white/10',
+                  avatarGradient(displayName)
+                )}
+              >
+                {displayName[0]?.toUpperCase() ?? 'U'}
+              </div>
+
+              <p className="text-xs font-mono text-white/35 tracking-widest uppercase mb-2">
+                {getGreeting()}
+              </p>
               <h1 className="text-5xl md:text-6xl font-black tracking-tight text-white mb-2">
                 {displayName}
               </h1>
@@ -91,28 +239,28 @@ export function DashboardClient({ email, watchlist, savedSignals, savedSignalsCo
             </motion.div>
 
             {/* Stat Kartları */}
-            <div className="grid grid-cols-3 gap-4 mt-12 mb-10">
-              {[
-                { icon: Star,       label: 'İzleme Listesi', value: watchlist.length,   unit: 'hisse'  },
-                { icon: BookMarked, label: 'Kayıtlı Sinyal', value: savedSignalsCount,  unit: 'sinyal' },
-                { icon: Clock,      label: 'Son Sinyal',     value: lastSignalAt,       unit: ''       },
-              ].map((stat, i) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-10 mb-8">
+              {STAT_CARDS.map((stat, i) => {
                 const Icon = stat.icon;
                 return (
                   <motion.div
                     key={stat.label}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 + i * 0.1, duration: 0.5 }}
-                    className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6"
+                    transition={{ delay: 0.3 + i * 0.08, duration: 0.5 }}
                   >
-                    <div className="flex justify-center mb-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 border border-primary/20">
-                        <Icon className="h-5 w-5 text-primary" />
+                    <Link
+                      href={stat.href}
+                      className="block rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-5 hover:border-primary/30 hover:bg-white/8 transition-colors cursor-pointer"
+                    >
+                      <div className="flex justify-center mb-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 border border-primary/20">
+                          <Icon className="h-4 w-4 text-primary" />
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-2xl font-bold text-white">{stat.value}</p>
-                    <p className="text-xs text-white/40 mt-1">{stat.label}</p>
+                      <p className="text-xl font-bold text-white leading-none">{stat.value}</p>
+                      <p className="text-xs text-white/40 mt-1.5">{stat.label}</p>
+                    </Link>
                   </motion.div>
                 );
               })}
@@ -123,7 +271,7 @@ export function DashboardClient({ email, watchlist, savedSignals, savedSignalsCo
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.7, duration: 0.5 }}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+              className="grid grid-cols-3 sm:grid-cols-6 gap-3"
             >
               {QUICK_ACTIONS.map((action) => {
                 const Icon = action.icon;
@@ -131,11 +279,14 @@ export function DashboardClient({ email, watchlist, savedSignals, savedSignalsCo
                   <Link
                     key={action.href}
                     href={action.href}
-                    className={`group flex flex-col items-center gap-2.5 rounded-xl border bg-gradient-to-br p-4 transition-all duration-200 ${action.color}`}
+                    className={`group flex flex-col items-center gap-1.5 rounded-xl border bg-gradient-to-br p-4 transition-all duration-200 text-center ${action.color}`}
                   >
                     <Icon className="h-5 w-5 text-white/55 group-hover:text-white transition-colors" />
-                    <span className="text-xs font-medium text-white/55 group-hover:text-white transition-colors">
+                    <span className="text-xs font-semibold text-white/65 group-hover:text-white transition-colors leading-tight">
                       {action.label}
+                    </span>
+                    <span className="text-[10px] text-white/30 group-hover:text-white/60 transition-colors leading-tight">
+                      {action.desc}
                     </span>
                   </Link>
                 );
@@ -143,8 +294,23 @@ export function DashboardClient({ email, watchlist, savedSignals, savedSignalsCo
             </motion.div>
           </div>
 
-          {/* ── İçerik Bölümleri ──────────────────────────────── */}
+          {/* ── İçerik Bölümleri ── */}
           <div className="pb-16 space-y-5">
+
+            {/* Sinyal Dağılımı */}
+            {savedSignals.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8, duration: 0.5 }}
+                className="rounded-2xl border border-white/8 bg-black/35 backdrop-blur-md p-5"
+              >
+                <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">
+                  Sinyal Dağılımı
+                </h2>
+                <SignalDistribution signals={savedSignals} />
+              </motion.div>
+            )}
 
             {/* İzleme Listesi */}
             <motion.div
@@ -187,6 +353,7 @@ export function DashboardClient({ email, watchlist, savedSignals, savedSignalsCo
 
             {/* Kayıtlı Sinyaller */}
             <motion.div
+              id="sinyaller"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.95, duration: 0.5 }}

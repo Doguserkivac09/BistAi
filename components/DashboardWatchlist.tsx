@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DashboardWatchlistItem } from '@/components/DashboardWatchlistItem';
@@ -14,25 +14,60 @@ interface DashboardWatchlistProps {
 
 type SortMode = 'date' | 'alpha';
 
+type PriceData = { price: number; change1d: number };
+
 export function DashboardWatchlist({ watchlist }: DashboardWatchlistProps) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortMode>('date');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  // Canlı fiyat verisi
+  const [prices, setPrices] = useState<Record<string, PriceData>>({});
+  const [pricesLoading, setPricesLoading] = useState(true);
+
+  useEffect(() => {
+    if (!watchlist.length) {
+      setPricesLoading(false);
+      return;
+    }
+    const symbols = watchlist.map((w) => w.sembol);
+    Promise.all(
+      symbols.map((sym) =>
+        fetch(`/api/ohlcv?symbol=${sym}&days=5`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      )
+    ).then((results) => {
+      const map: Record<string, PriceData> = {};
+      results.forEach((candles, i) => {
+        const sym = symbols[i]!;
+        if (Array.isArray(candles) && candles.length >= 2) {
+          const last = candles[candles.length - 1] as { close: number };
+          const prev = candles[candles.length - 2] as { close: number };
+          const change1d =
+            prev.close > 0 ? ((last.close - prev.close) / prev.close) * 100 : 0;
+          map[sym] = { price: last.close, change1d };
+        }
+      });
+      setPrices(map);
+      setPricesLoading(false);
+    });
+  }, [watchlist]);
+
   const filtered = useMemo(() => {
     let items = [...watchlist];
 
-    // Arama filtresi
     if (search.trim()) {
       const q = search.trim().toUpperCase();
       items = items.filter((w) => w.sembol.toUpperCase().includes(q));
     }
 
-    // Sıralama
     if (sort === 'alpha') {
       items.sort((a, b) => a.sembol.localeCompare(b.sembol));
     } else {
-      items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      items.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     }
 
     return items;
@@ -43,7 +78,10 @@ export function DashboardWatchlist({ watchlist }: DashboardWatchlistProps) {
       {watchlist.length > 0 && (
         <div className="mb-3 flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
+            <Search
+              className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary"
+              aria-hidden="true"
+            />
             <Input
               placeholder="Sembol ara..."
               value={search}
@@ -76,7 +114,12 @@ export function DashboardWatchlist({ watchlist }: DashboardWatchlistProps) {
         <>
           <ul className="space-y-2">
             {filtered.slice(0, visibleCount).map((item) => (
-              <DashboardWatchlistItem key={item.id} sembol={item.sembol} />
+              <DashboardWatchlistItem
+                key={item.id}
+                sembol={item.sembol}
+                priceData={prices[item.sembol]}
+                priceLoading={pricesLoading}
+              />
             ))}
           </ul>
           <div className="mt-3 flex gap-2">

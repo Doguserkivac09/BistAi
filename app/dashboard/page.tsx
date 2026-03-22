@@ -20,7 +20,11 @@ export default async function DashboardPage() {
     redirect('/giris?redirect=/dashboard');
   }
 
-  const [{ data: watchlistRows }, { data: savedSignalsRows }] = await Promise.all([
+  const [
+    { data: watchlistRows },
+    { data: savedSignalsRows },
+    { count: portfolyoCount },
+  ] = await Promise.all([
     supabase
       .from('watchlist')
       .select('*')
@@ -31,18 +35,16 @@ export default async function DashboardPage() {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('portfolyo_pozisyon')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id),
   ]);
 
   const watchlist = (watchlistRows ?? []) as WatchlistItem[];
   const savedSignals = (savedSignalsRows ?? []) as SavedSignal[];
-
-  const { count } = await supabase
-    .from('saved_signals')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id);
-
-  const savedSignalsCount = count ?? 0;
-  const lastSignalAt = savedSignals.length > 0 ? formatDate(savedSignals[0].created_at) : '—';
+  const savedSignalsCount = savedSignals.length;
+  const lastSignalAt = savedSignals.length > 0 ? formatDate(savedSignals[0]!.created_at) : '—';
 
   return (
     <DashboardClient
@@ -51,6 +53,7 @@ export default async function DashboardPage() {
       savedSignals={savedSignals}
       savedSignalsCount={savedSignalsCount}
       lastSignalAt={lastSignalAt}
+      portfolyoCount={portfolyoCount ?? 0}
     />
   );
 }
