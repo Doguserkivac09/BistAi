@@ -10,10 +10,10 @@
 
 | # | Görev | Neden Önemli |
 |---|-------|--------------|
-| S1 | **Kırılım sinyali güçlendir** | Şu an çok az sinyal üretiyor; eşik ve volume koşulları gevşetilmeli |
-| S2 | **Altın/Ölüm Çaprazı iyileştir** | EMA50/200 kesişimi tespit daha hassas olmalı |
-| S3 | **MACD Kesişimi iyileştir** | Histogram + sinyal çizgisi uyumu eklenmeli |
-| S4 | **RSI Seviyesi sinyali güçlendir** | Sadece anlık seviye değil, bölgeden çıkış da yakalanmalı |
+| S1 | ~~**Kırılım sinyali güçlendir**~~ | ✅ 50g lookback, %0.3 min kırılım, 0.8x vol, breakoutPct eklendi |
+| S2 | ~~**Altın/Ölüm Çaprazı iyileştir**~~ | ✅ Tarama 252g veri, 10 mum lookback, separationPct eklendi |
+| S3 | ~~**MACD Kesişimi iyileştir**~~ | ✅ 7 mum lookback, histExpanding, aboveZero kontrolü eklendi |
+| S4 | ~~**RSI Seviyesi sinyali güçlendir**~~ | ✅ Bölgeden çıkış tespiti, 32/68 BIST eşiği, rsiMomentum eklendi |
 
 ### 🟠 2. Anlık Uyarı Sistemi — Phase 14.2 (Orta Vadeli)
 - Cron tarama → sinyal bulunan hisseler → email / web push bildirimi

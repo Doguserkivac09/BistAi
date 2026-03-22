@@ -247,32 +247,64 @@ export function detectTrendStart(sembol: string, candles: OHLCVCandle[]): StockS
 }
 
 export function detectSupportResistanceBreak(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
-  if (candles.length < 21) return null;
-  const last20 = candles.slice(-21, -1);
-  const last = candles[candles.length - 1]!;
-  const high20 = Math.max(...last20.map((c) => c.high));
-  const low20 = Math.min(...last20.map((c) => c.low));
-  const avgVol = averageVolume(candles, 20);
-  const volAbove = avgVol > 0 && last.volume >= avgVol;
+  if (candles.length < 30) return null;
 
-  if (last.close > high20 && volAbove) {
+  // 50 gün lookback — daha anlamlı destek/direnç seviyeleri
+  const lookback = Math.min(50, candles.length - 1);
+  const reference = candles.slice(-lookback - 1, -1);
+  const last = candles[candles.length - 1]!;
+  const highN = Math.max(...reference.map((c) => c.high));
+  const lowN  = Math.min(...reference.map((c) => c.low));
+  const avgVol = averageVolume(candles, 20);
+  const volRatio = avgVol > 0 ? last.volume / avgVol : 0;
+
+  // Hacim: 0.8x ortalama yeterli (tam 1x zorunlu değil)
+  const volOk = volRatio >= 0.8;
+
+  // Kırılım yüzdesi — en az %0.3 ötede olmalı (gürültü değil, gerçek kırılım)
+  const breakupPct   = highN > 0 ? ((last.close - highN) / highN) * 100 : 0;
+  const breakdownPct = lowN  > 0 ? ((lowN - last.close)  / lowN)  * 100 : 0;
+
+  if (breakupPct >= 0.3 && volOk) {
+    const severity: SignalSeverity =
+      volRatio >= 1.5 && breakupPct >= 1.5 ? 'güçlü' :
+      volRatio >= 1.0 && breakupPct >= 0.5 ? 'orta'  : 'zayıf';
     return {
       type: 'Destek/Direnç Kırılımı',
       sembol,
-      severity: last.volume >= avgVol * 1.5 ? 'güçlü' : 'orta',
+      severity,
       direction: 'yukari',
-      data: { level: high20, levelType: 'resistance', breakPrice: last.close, volumeAboveAvg: true },
+      data: {
+        level: parseFloat(highN.toFixed(2)),
+        levelType: 'resistance',
+        breakPrice: parseFloat(last.close.toFixed(2)),
+        breakoutPct: parseFloat(breakupPct.toFixed(2)),
+        volumeRatio: parseFloat(volRatio.toFixed(2)),
+        volumeAboveAvg: volRatio >= 1,
+      },
     };
   }
-  if (last.close < low20 && volAbove) {
+
+  if (breakdownPct >= 0.3 && volOk) {
+    const severity: SignalSeverity =
+      volRatio >= 1.5 && breakdownPct >= 1.5 ? 'güçlü' :
+      volRatio >= 1.0 && breakdownPct >= 0.5 ? 'orta'  : 'zayıf';
     return {
       type: 'Destek/Direnç Kırılımı',
       sembol,
-      severity: last.volume >= avgVol * 1.5 ? 'güçlü' : 'orta',
+      severity,
       direction: 'asagi',
-      data: { level: low20, levelType: 'support', breakPrice: last.close, volumeAboveAvg: true },
+      data: {
+        level: parseFloat(lowN.toFixed(2)),
+        levelType: 'support',
+        breakPrice: parseFloat(last.close.toFixed(2)),
+        breakoutPct: parseFloat(breakdownPct.toFixed(2)),
+        volumeRatio: parseFloat(volRatio.toFixed(2)),
+        volumeAboveAvg: volRatio >= 1,
+      },
     };
   }
+
   return null;
 }
 
@@ -283,40 +315,65 @@ export function detectMACDCrossover(sembol: string, candles: OHLCVCandle[]): Sto
   const ema12 = calculateEMA(closes, 12);
   const ema26 = calculateEMA(closes, 26);
 
-  // MACD çizgisi = EMA12 - EMA26
-  const macdLine = ema12.map((v, i) => v - ema26[i]!);
-  // Sinyal çizgisi = MACD'ın 9 EMA'sı
+  const macdLine   = ema12.map((v, i) => v - ema26[i]!);
   const signalLine = calculateEMA(macdLine, 9);
 
-  // Son 5 mum içinde kesişim ara
-  for (let i = 1; i <= 5 && candles.length - 1 - i >= 1; i++) {
-    const idx = candles.length - 1 - i;
+  // Son 7 mum içinde kesişim ara (5'ten 7'ye çıkarıldı)
+  for (let i = 1; i <= 7 && candles.length - 1 - i >= 1; i++) {
+    const idx     = candles.length - 1 - i;
     const prevIdx = idx - 1;
-    const macdNow = macdLine[idx]!;
+    const macdNow  = macdLine[idx]!;
     const macdPrev = macdLine[prevIdx]!;
-    const sigNow = signalLine[idx]!;
-    const sigPrev = signalLine[prevIdx]!;
+    const sigNow   = signalLine[idx]!;
+    const sigPrev  = signalLine[prevIdx]!;
 
     // Bullish: MACD sinyal çizgisini yukarı kesti
     if (macdPrev <= sigPrev && macdNow > sigNow) {
-      const histNow = macdNow - sigNow;
+      const histNow  = macdNow - sigNow;
+      // Son mumun histogramı öncekinden büyük mü? (momentum artıyor)
+      const histPrev = macdLine[idx + 1]! - signalLine[idx + 1]!;
+      const histExpanding = histNow > histPrev;
+      // Sıfır çizgisi üstünde mi? (daha güçlü bull sinyali)
+      const aboveZero = macdNow > 0;
+      const severity: SignalSeverity =
+        i === 1 && histExpanding && aboveZero ? 'güçlü' :
+        i <= 3 && histExpanding               ? 'orta'  : 'zayıf';
       return {
         type: 'MACD Kesişimi',
-        sembol,
-        severity: i === 1 ? 'güçlü' : i <= 2 ? 'orta' : 'zayıf',
+        sembol, severity,
         direction: 'yukari',
-        data: { macd: macdNow, signal: sigNow, histogram: histNow, crossoverCandlesAgo: i },
+        data: {
+          macd: parseFloat(macdNow.toFixed(4)),
+          signal: parseFloat(sigNow.toFixed(4)),
+          histogram: parseFloat(histNow.toFixed(4)),
+          histExpanding,
+          aboveZero,
+          crossoverCandlesAgo: i,
+        },
       };
     }
+
     // Bearish: MACD sinyal çizgisini aşağı kesti
     if (macdPrev >= sigPrev && macdNow < sigNow) {
-      const histNow = macdNow - sigNow;
+      const histNow  = macdNow - sigNow;
+      const histPrev = macdLine[idx + 1]! - signalLine[idx + 1]!;
+      const histExpanding = histNow < histPrev; // negatif tarafta genişliyor
+      const belowZero = macdNow < 0;
+      const severity: SignalSeverity =
+        i === 1 && histExpanding && belowZero ? 'güçlü' :
+        i <= 3 && histExpanding               ? 'orta'  : 'zayıf';
       return {
         type: 'MACD Kesişimi',
-        sembol,
-        severity: i === 1 ? 'güçlü' : i <= 2 ? 'orta' : 'zayıf',
+        sembol, severity,
         direction: 'asagi',
-        data: { macd: macdNow, signal: sigNow, histogram: histNow, crossoverCandlesAgo: i },
+        data: {
+          macd: parseFloat(macdNow.toFixed(4)),
+          signal: parseFloat(sigNow.toFixed(4)),
+          histogram: parseFloat(histNow.toFixed(4)),
+          histExpanding,
+          belowZero,
+          crossoverCandlesAgo: i,
+        },
       };
     }
   }
@@ -328,26 +385,79 @@ export function detectRsiLevel(sembol: string, candles: OHLCVCandle[]): StockSig
   if (candles.length < 20) return null;
   const closes = candles.map((c) => c.close);
   const rsi = calculateRSI(closes, 14);
-  const lastRsi = rsi[rsi.length - 1]!;
+  const n = rsi.length;
+  const lastRsi = rsi[n - 1]!;
+  const prevRsi = rsi[n - 2] ?? lastRsi;
 
-  if (lastRsi < 30) {
+  // 1. Bölgeden ÇIKIŞ (en güçlü sinyal): önceki gün bölgedeydi, bugün çıktı
+  const crossingOutOversold   = prevRsi <= 32 && lastRsi > 32;  // Aşırı satımdan çıkış
+  const crossingOutOverbought = prevRsi >= 68 && lastRsi < 68;  // Aşırı alımdan çıkış
+
+  if (crossingOutOversold) {
+    return {
+      type: 'RSI Seviyesi',
+      sembol,
+      severity: prevRsi < 25 ? 'güçlü' : prevRsi < 28 ? 'orta' : 'zayıf',
+      direction: 'yukari',
+      data: {
+        rsi: parseFloat(lastRsi.toFixed(1)),
+        prevRsi: parseFloat(prevRsi.toFixed(1)),
+        level: 'oversold_exit',
+        risingFromOversold: true,
+        rsiMomentum: parseFloat((lastRsi - prevRsi).toFixed(1)),
+      },
+    };
+  }
+
+  if (crossingOutOverbought) {
+    return {
+      type: 'RSI Seviyesi',
+      sembol,
+      severity: prevRsi > 75 ? 'güçlü' : prevRsi > 72 ? 'orta' : 'zayıf',
+      direction: 'asagi',
+      data: {
+        rsi: parseFloat(lastRsi.toFixed(1)),
+        prevRsi: parseFloat(prevRsi.toFixed(1)),
+        level: 'overbought_exit',
+        fallingFromOverbought: true,
+        rsiMomentum: parseFloat((lastRsi - prevRsi).toFixed(1)),
+      },
+    };
+  }
+
+  // 2. Bölgede BULUNMA (devam sinyali): BIST için 32/68 eşiği (daha oynak piyasa)
+  if (lastRsi <= 32) {
     return {
       type: 'RSI Seviyesi',
       sembol,
       severity: lastRsi < 25 ? 'güçlü' : lastRsi < 28 ? 'orta' : 'zayıf',
       direction: 'yukari',
-      data: { rsi: lastRsi, level: 'oversold' },
+      data: {
+        rsi: parseFloat(lastRsi.toFixed(1)),
+        prevRsi: parseFloat(prevRsi.toFixed(1)),
+        level: 'oversold',
+        risingFromOversold: lastRsi > prevRsi,
+        rsiMomentum: parseFloat((lastRsi - prevRsi).toFixed(1)),
+      },
     };
   }
-  if (lastRsi > 70) {
+
+  if (lastRsi >= 68) {
     return {
       type: 'RSI Seviyesi',
       sembol,
       severity: lastRsi > 75 ? 'güçlü' : lastRsi > 72 ? 'orta' : 'zayıf',
       direction: 'asagi',
-      data: { rsi: lastRsi, level: 'overbought' },
+      data: {
+        rsi: parseFloat(lastRsi.toFixed(1)),
+        prevRsi: parseFloat(prevRsi.toFixed(1)),
+        level: 'overbought',
+        fallingFromOverbought: lastRsi < prevRsi,
+        rsiMomentum: parseFloat((lastRsi - prevRsi).toFixed(1)),
+      },
     };
   }
+
   return null;
 }
 
@@ -414,37 +524,53 @@ export function detectBollingerSqueeze(sembol: string, candles: OHLCVCandle[]): 
 
 // --- Golden Cross / Death Cross (EMA50 vs EMA200) ---
 export function detectGoldenCross(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  // EMA200 için en az 205 mum gerekli — tarama sayfası 252 gün çeker
   if (candles.length < 205) return null;
   const closes = candles.map((c) => c.close);
-  const ema50 = calculateEMA(closes, 50);
+  const ema50  = calculateEMA(closes, 50);
   const ema200 = calculateEMA(closes, 200);
 
-  for (let i = 1; i <= 5 && candles.length - 1 - i >= 1; i++) {
-    const idx = candles.length - 1 - i;
+  // 10 mum lookback (EMA50/200 kesişimi yavaş gelişir, 5 çok dar)
+  for (let i = 1; i <= 10 && candles.length - 1 - i >= 1; i++) {
+    const idx     = candles.length - 1 - i;
     const prevIdx = idx - 1;
-    const e50Now = ema50[idx]!;
-    const e50Prev = ema50[prevIdx]!;
-    const e200Now = ema200[idx]!;
+    const e50Now   = ema50[idx]!;
+    const e50Prev  = ema50[prevIdx]!;
+    const e200Now  = ema200[idx]!;
     const e200Prev = ema200[prevIdx]!;
 
-    // Golden Cross: EMA50 EMA200'ü yukarı kesti
+    // Mesafe yüzdesi — ne kadar ayrışmış?
+    const separationPct = e200Now > 0 ? ((e50Now - e200Now) / e200Now) * 100 : 0;
+
     if (e50Prev <= e200Prev && e50Now > e200Now) {
       return {
         type: 'Altın Çapraz',
         sembol,
-        severity: i === 1 ? 'güçlü' : i <= 3 ? 'orta' : 'zayıf',
+        severity: i <= 2 ? 'güçlü' : i <= 5 ? 'orta' : 'zayıf',
         direction: 'yukari',
-        data: { ema50: e50Now, ema200: e200Now, crossoverCandlesAgo: i, crossType: 'golden' },
+        data: {
+          ema50: parseFloat(e50Now.toFixed(2)),
+          ema200: parseFloat(e200Now.toFixed(2)),
+          separationPct: parseFloat(separationPct.toFixed(2)),
+          crossoverCandlesAgo: i,
+          crossType: 'golden',
+        },
       };
     }
-    // Death Cross: EMA50 EMA200'ü aşağı kesti
+
     if (e50Prev >= e200Prev && e50Now < e200Now) {
       return {
         type: 'Altın Çapraz',
         sembol,
-        severity: i === 1 ? 'güçlü' : i <= 3 ? 'orta' : 'zayıf',
+        severity: i <= 2 ? 'güçlü' : i <= 5 ? 'orta' : 'zayıf',
         direction: 'asagi',
-        data: { ema50: e50Now, ema200: e200Now, crossoverCandlesAgo: i, crossType: 'death' },
+        data: {
+          ema50: parseFloat(e50Now.toFixed(2)),
+          ema200: parseFloat(e200Now.toFixed(2)),
+          separationPct: parseFloat(separationPct.toFixed(2)),
+          crossoverCandlesAgo: i,
+          crossType: 'death',
+        },
       };
     }
   }

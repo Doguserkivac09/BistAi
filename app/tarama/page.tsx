@@ -362,9 +362,13 @@ export default function TaramaPage() {
       for (let batchStart = 0; batchStart < symbols.length; batchStart += BATCH_SIZE) {
         const batch = symbols.slice(batchStart, batchStart + BATCH_SIZE);
 
+        // Altın Çapraz EMA200 gerektiriyor → 252 gün; diğerleri için 90 yeterli
+        const needsLongHistory = types.length === 0 || types.includes('Altın Çapraz');
+        const days = needsLongHistory ? 252 : 90;
+
         const batchResults = await Promise.allSettled(
           batch.map(async (sembol) => {
-            const candles = await fetchOHLCVClient(sembol, 90);
+            const candles = await fetchOHLCVClient(sembol, days);
             const signals = detectAllSignals(sembol, candles, { types });
             return { sembol, signals, candles };
           })
