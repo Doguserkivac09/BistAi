@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, BarChart2, TrendingUp, TrendingDown, Minus, Search, AlertCircle } from 'lucide-react';
+import { X, Plus, BarChart2, TrendingUp, TrendingDown, Minus, Search, AlertCircle, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignalBadge } from '@/components/SignalBadge';
 import { BIST_SYMBOLS } from '@/types';
@@ -29,8 +29,8 @@ type SlotState =
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MAX_SLOTS = 3;
-const SLOT_COLORS = ['blue', 'emerald', 'amber'] as const;
+const MAX_SLOTS = 4;
+const SLOT_COLORS = ['blue', 'emerald', 'amber', 'violet'] as const;
 type SlotColor = (typeof SLOT_COLORS)[number];
 
 const SLOT_COLOR_CLASSES: Record<SlotColor, { line: string; badge: string; border: string; text: string }> = {
@@ -52,13 +52,21 @@ const SLOT_COLOR_CLASSES: Record<SlotColor, { line: string; badge: string; borde
     border: 'border-amber-500/40',
     text: 'text-amber-400',
   },
+  violet: {
+    line: 'stroke-violet-400',
+    badge: 'bg-violet-500/15 text-violet-300 border-violet-500/40',
+    border: 'border-violet-500/40',
+    text: 'text-violet-400',
+  },
 };
 
 const severityRank: Record<SignalSeverity, number> = { güçlü: 3, orta: 2, zayıf: 1 };
 
+type Period = 30 | 90 | 180 | 365;
+const PERIOD_LABELS: Record<Period, string> = { 30: '1A', 90: '3A', 180: '6A', 365: '1Y' };
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Sadece volume > 0 olan mumları döndürür (hafta sonu / tatil filtresi) */
 function tradingDays(candles: OHLCVCandle[]): OHLCVCandle[] {
   return candles.filter((c) => (c.volume ?? 0) > 0);
 }
@@ -68,12 +76,11 @@ function getLastClose(candles: OHLCVCandle[]): number | null {
   return td.length > 0 ? (td[td.length - 1]?.close ?? null) : null;
 }
 
-/** Son gerçek işlem günü indeksini döndürür (volume > 0 olan son mum) */
 function lastTradingIdx(candles: OHLCVCandle[]): number {
   for (let i = candles.length - 1; i >= 0; i--) {
     if ((candles[i]?.volume ?? 0) > 0) return i;
   }
-  return candles.length - 1; // fallback
+  return candles.length - 1;
 }
 
 function getLastTradingDate(candles: OHLCVCandle[]): string | null {
@@ -95,7 +102,7 @@ function getDailyChangePct(candles: OHLCVCandle[]): number | null {
   return ((curr - prev) / prev) * 100;
 }
 
-function get90DayChangePct(candles: OHLCVCandle[]): number | null {
+function getPeriodChangePct(candles: OHLCVCandle[]): number | null {
   if (candles.length < 2) return null;
   const first = candles[0]?.close;
   const last = candles[candles.length - 1]?.close;
@@ -135,6 +142,18 @@ function getAvgVolume(candles: OHLCVCandle[]): number | null {
   return last20.reduce((s, c) => s + c.volume, 0) / last20.length;
 }
 
+function getPeriodHigh(candles: OHLCVCandle[]): number | null {
+  const td = tradingDays(candles);
+  if (!td.length) return null;
+  return Math.max(...td.map((c) => c.close));
+}
+
+function getPeriodLow(candles: OHLCVCandle[]): number | null {
+  const td = tradingDays(candles);
+  if (!td.length) return null;
+  return Math.min(...td.map((c) => c.close));
+}
+
 function formatVolume(v: number | null): string {
   if (v === null) return '—';
   if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
@@ -142,16 +161,11 @@ function formatVolume(v: number | null): string {
   return String(Math.round(v));
 }
 
-/**
- * Pearson korelasyon katsayısı — iki hissenin günlük getiri serisini hizalar,
- * ortak işlem günlerini alır ve -1..+1 arasında değer döndürür.
- */
 function computeCorrelation(a: OHLCVCandle[], b: OHLCVCandle[]): number | null {
   const tdA = tradingDays(a);
   const tdB = tradingDays(b);
   if (tdA.length < 5 || tdB.length < 5) return null;
 
-  // Tarih → günlük getiri eşlemi
   function dailyReturns(candles: OHLCVCandle[]): Map<string, number> {
     const map = new Map<string, number>();
     for (let i = 1; i < candles.length; i++) {
@@ -169,8 +183,6 @@ function computeCorrelation(a: OHLCVCandle[], b: OHLCVCandle[]): number | null {
 
   const rA = dailyReturns(tdA);
   const rB = dailyReturns(tdB);
-
-  // Ortak günler
   const common: Array<[number, number]> = [];
   rA.forEach((va, date) => {
     const vb = rB.get(date);
@@ -206,10 +218,9 @@ function formatPct(value: number | null): string {
 
 function formatPrice(value: number | null): string {
   if (value === null) return '—';
-  return value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '₺' + value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Normalize candles to 100-base for chart
 function normalizeCandles(candles: OHLCVCandle[]): { date: string; value: number }[] {
   if (candles.length === 0) return [];
   const base = candles[0]?.close;
@@ -296,7 +307,7 @@ function SymbolInput({ onSelect, excluded, placeholder = 'Hisse ara... (örn. AK
   );
 }
 
-// ─── Slot Card (empty/loading/loaded/error) ───────────────────────────────────
+// ─── Slot Card ────────────────────────────────────────────────────────────────
 
 interface SlotCardProps {
   index: number;
@@ -384,7 +395,7 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
   // loaded
   const { data } = state;
   const dailyPct   = getDailyChangePct(data.candles);
-  const change90   = get90DayChangePct(data.candles);
+  const change     = getPeriodChangePct(data.candles);
   const rsi        = computeRSI(data.candles);
   const lastDate   = getLastTradingDate(data.candles);
   const isPositiveDay = dailyPct !== null && dailyPct >= 0;
@@ -393,6 +404,9 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
     : rsi >= 70 ? 'text-red-400'
     : rsi <= 30 ? 'text-emerald-400'
     : 'text-text-primary';
+
+  const alCount  = data.signals.filter((s) => s.direction === 'yukari').length;
+  const satCount = data.signals.filter((s) => s.direction === 'asagi').length;
 
   return (
     <motion.div
@@ -431,14 +445,19 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
           </p>
         </div>
         <div className="rounded-lg bg-white/[0.03] px-3 py-2">
-          <p className="text-xs text-text-muted mb-0.5">90 Günlük</p>
-          <p className={cn('font-semibold tabular-nums', change90 === null ? 'text-text-secondary' : change90 >= 0 ? 'text-bullish' : 'text-bearish')}>
-            {formatPct(change90)}
+          <p className="text-xs text-text-muted mb-0.5">Dönem Getiri</p>
+          <p className={cn('font-semibold tabular-nums', change === null ? 'text-text-secondary' : change >= 0 ? 'text-bullish' : 'text-bearish')}>
+            {formatPct(change)}
           </p>
         </div>
         <div className="rounded-lg bg-white/[0.03] px-3 py-2">
           <p className="text-xs text-text-muted mb-0.5">Sinyal</p>
-          <p className="font-semibold text-text-primary tabular-nums">{data.signals.length} adet</p>
+          <p className="font-semibold text-text-primary tabular-nums text-xs">
+            {alCount > 0 && <span className="text-emerald-400">{alCount} AL</span>}
+            {alCount > 0 && satCount > 0 && <span className="text-text-muted"> · </span>}
+            {satCount > 0 && <span className="text-red-400">{satCount} SAT</span>}
+            {alCount === 0 && satCount === 0 && <span className="text-text-muted">—</span>}
+          </p>
         </div>
       </div>
     </motion.div>
@@ -447,18 +466,10 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
 
 // ─── Normalized Price Chart (SVG) ─────────────────────────────────────────────
 
-interface NormalizedPoint {
-  x: number;
-  y: number;
-}
+interface NormalizedPoint { x: number; y: number; }
+interface ChartSeries { sembol: string; color: SlotColor; points: NormalizedPoint[]; }
 
-interface ChartSeries {
-  sembol: string;
-  color: SlotColor;
-  points: NormalizedPoint[];
-}
-
-function NormalizedPriceChart({ series }: { series: ChartSeries[] }) {
+function NormalizedPriceChart({ series, period }: { series: ChartSeries[]; period: Period }) {
   if (series.length === 0 || series.every((s) => s.points.length === 0)) return null;
 
   const W = 800;
@@ -467,7 +478,6 @@ function NormalizedPriceChart({ series }: { series: ChartSeries[] }) {
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
-  // Collect all values to get global min/max
   const allValues = series.flatMap((s) => s.points.map((p) => p.y));
   if (allValues.length === 0) return null;
 
@@ -475,7 +485,6 @@ function NormalizedPriceChart({ series }: { series: ChartSeries[] }) {
   const maxVal = Math.max(...allValues);
   const range = maxVal - minVal || 1;
 
-  // Max total points across series
   const maxLen = Math.max(...series.map((s) => s.points.length), 1);
 
   function toSvg(x: number, y: number): string {
@@ -484,19 +493,20 @@ function NormalizedPriceChart({ series }: { series: ChartSeries[] }) {
     return `${svgX.toFixed(1)},${svgY.toFixed(1)}`;
   }
 
-  // Y axis ticks
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => minVal + t * range);
-
-  // X axis ticks (first, mid, last)
   const firstSeries = series.find((s) => s.points.length > 0);
   const xTickIndices = firstSeries
     ? [0, Math.floor((firstSeries.points.length - 1) / 2), firstSeries.points.length - 1]
     : [];
 
+  const periodLabel = { 30: ['-30g', '-15g', 'Bugün'], 90: ['-90g', '-45g', 'Bugün'], 180: ['-6A', '-3A', 'Bugün'], 365: ['-1Y', '-6A', 'Bugün'] };
+  const xLabels = periodLabel[period] ?? ['-90g', '-45g', 'Bugün'];
+
   const COLOR_STROKE: Record<SlotColor, string> = {
     blue: '#60a5fa',
     emerald: '#34d399',
     amber: '#fbbf24',
+    violet: '#a78bfa',
   };
 
   return (
@@ -507,77 +517,37 @@ function NormalizedPriceChart({ series }: { series: ChartSeries[] }) {
         style={{ minWidth: 320, height: 'auto' }}
         aria-label="Normalize edilmiş fiyat grafiği"
       >
-        {/* Grid lines */}
         {yTicks.map((tick, i) => {
           const svgY = PAD.top + (1 - (tick - minVal) / range) * innerH;
           return (
             <g key={i}>
-              <line
-                x1={PAD.left}
-                y1={svgY}
-                x2={W - PAD.right}
-                y2={svgY}
-                stroke="rgba(255,255,255,0.05)"
-                strokeWidth="1"
-              />
-              <text
-                x={PAD.left - 6}
-                y={svgY + 4}
-                textAnchor="end"
-                fontSize="10"
-                fill="rgba(255,255,255,0.3)"
-              >
+              <line x1={PAD.left} y1={svgY} x2={W - PAD.right} y2={svgY} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+              <text x={PAD.left - 6} y={svgY + 4} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.3)">
                 {tick.toFixed(0)}
               </text>
             </g>
           );
         })}
 
-        {/* X axis labels */}
-        {firstSeries && xTickIndices.map((idx) => {
-          const pt = firstSeries.points[idx];
-          if (!pt) return null;
+        {firstSeries && xTickIndices.map((idx, li) => {
           const svgX = PAD.left + (idx / (firstSeries.points.length - 1 || 1)) * innerW;
-          // date is stored as index, get from original — we only show position label
           return (
-            <text
-              key={idx}
-              x={svgX}
-              y={H - PAD.bottom + 16}
-              textAnchor="middle"
-              fontSize="10"
-              fill="rgba(255,255,255,0.3)"
-            >
-              {idx === 0 ? '-90g' : idx === xTickIndices[1] ? '-45g' : 'Bugün'}
+            <text key={idx} x={svgX} y={H - PAD.bottom + 16} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.3)">
+              {xLabels[li]}
             </text>
           );
         })}
 
-        {/* Series lines */}
         {series.map((s) => {
           if (s.points.length < 2) return null;
-          const d = s.points
-            .map((p, i) => {
-              const coord = toSvg(i, p.y);
-              return `${i === 0 ? 'M' : 'L'} ${coord}`;
-            })
-            .join(' ');
+          const d = s.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toSvg(i, p.y)}`).join(' ');
           return (
-            <path
-              key={s.sembol}
-              d={d}
-              fill="none"
-              stroke={COLOR_STROKE[s.color]}
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
+            <path key={s.sembol} d={d} fill="none" stroke={COLOR_STROKE[s.color]} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
           );
         })}
 
-        {/* Legend */}
         {series.map((s, i) => (
-          <g key={s.sembol} transform={`translate(${PAD.left + i * 80}, ${H - 8})`}>
+          <g key={s.sembol} transform={`translate(${PAD.left + i * 90}, ${H - 8})`}>
             <line x1="0" y1="0" x2="16" y2="0" stroke={COLOR_STROKE[s.color]} strokeWidth="2" />
             <text x="20" y="4" fontSize="11" fill={COLOR_STROKE[s.color]} fontWeight="600">
               {s.sembol}
@@ -596,6 +566,7 @@ interface MetricRow {
   getValue: (data: HisseData) => number | null;
   format: (v: number | null) => string;
   higherIsBetter: boolean;
+  customFormat?: (data: HisseData) => string | null;
 }
 
 const METRICS: MetricRow[] = [
@@ -606,8 +577,8 @@ const METRICS: MetricRow[] = [
     higherIsBetter: true,
   },
   {
-    label: '90 Günlük Değişim %',
-    getValue: (d) => get90DayChangePct(d.candles),
+    label: 'Dönem Getiri %',
+    getValue: (d) => getPeriodChangePct(d.candles),
     format: formatPct,
     higherIsBetter: true,
   },
@@ -615,13 +586,13 @@ const METRICS: MetricRow[] = [
     label: 'RSI (14)',
     getValue: (d) => computeRSI(d.candles),
     format: (v) => v === null ? '—' : v.toFixed(1),
-    higherIsBetter: false, // düşük RSI = daha ucuz/oversold, yüksek = pahalı
+    higherIsBetter: false,
   },
   {
     label: '30g Volatilite %',
     getValue: (d) => get30DayVolatility(d.candles),
     format: (v) => v === null ? '—' : v.toFixed(2) + '%',
-    higherIsBetter: false, // düşük volatilite daha istikrarlı
+    higherIsBetter: false,
   },
   {
     label: 'Ort. Hacim (20g)',
@@ -630,13 +601,34 @@ const METRICS: MetricRow[] = [
     higherIsBetter: true,
   },
   {
-    label: 'Sinyal Sayısı',
-    getValue: (d) => d.signals.length,
-    format: (v) => (v === null ? '—' : String(v)),
+    label: 'Dönem Yüksek',
+    getValue: (d) => getPeriodHigh(d.candles),
+    format: formatPrice,
     higherIsBetter: true,
   },
   {
-    label: 'Güçlü Sinyal Sayısı',
+    label: 'Dönem Düşük',
+    getValue: (d) => getPeriodLow(d.candles),
+    format: formatPrice,
+    higherIsBetter: false,
+  },
+  {
+    label: 'Sinyal (AL · SAT)',
+    getValue: (d) => d.signals.length,
+    format: (v) => (v === null ? '—' : String(v)),
+    higherIsBetter: true,
+    customFormat: (d) => {
+      const al  = d.signals.filter((s) => s.direction === 'yukari').length;
+      const sat = d.signals.filter((s) => s.direction === 'asagi').length;
+      if (al === 0 && sat === 0) return '—';
+      const parts: string[] = [];
+      if (al > 0) parts.push(`${al} AL`);
+      if (sat > 0) parts.push(`${sat} SAT`);
+      return parts.join(' · ');
+    },
+  },
+  {
+    label: 'Güçlü Sinyal',
     getValue: (d) => d.signals.filter((s) => s.severity === 'güçlü').length,
     format: (v) => (v === null ? '—' : String(v)),
     higherIsBetter: true,
@@ -663,12 +655,8 @@ function ComparisonTable({ loadedSlots }: { loadedSlots: Array<{ data: HisseData
           {METRICS.map((metric, mIdx) => {
             const values = loadedSlots.map(({ data }) => metric.getValue(data));
             const nonNull = values.filter((v): v is number => v !== null);
-            const best = nonNull.length > 0
-              ? metric.higherIsBetter ? Math.max(...nonNull) : Math.min(...nonNull)
-              : null;
-            const worst = nonNull.length > 0
-              ? metric.higherIsBetter ? Math.min(...nonNull) : Math.max(...nonNull)
-              : null;
+            const best = nonNull.length > 0 ? (metric.higherIsBetter ? Math.max(...nonNull) : Math.min(...nonNull)) : null;
+            const worst = nonNull.length > 0 ? (metric.higherIsBetter ? Math.min(...nonNull) : Math.max(...nonNull)) : null;
 
             return (
               <tr
@@ -679,25 +667,24 @@ function ComparisonTable({ loadedSlots }: { loadedSlots: Array<{ data: HisseData
                 )}
               >
                 <td className="px-4 py-3 font-medium text-text-secondary">{metric.label}</td>
-                {values.map((v, i) => {
-                  const isBest = v !== null && best !== null && v === best && nonNull.length > 1;
+                {loadedSlots.map(({ data, color }, i) => {
+                  const v = metric.getValue(data);
+                  const isBest  = v !== null && best  !== null && v === best  && nonNull.length > 1;
                   const isWorst = v !== null && worst !== null && v === worst && nonNull.length > 1;
-                  const numericVal = metric.getValue(loadedSlots[i]!.data);
+                  const display = metric.customFormat ? metric.customFormat(data) : metric.format(v);
 
                   return (
                     <td
                       key={i}
                       className={cn(
                         'px-4 py-3 text-center tabular-nums font-medium',
-                        isBest && 'text-emerald-400',
-                        isWorst && !isBest && 'text-red-400',
-                        !isBest && !isWorst && 'text-text-primary'
+                        isBest ? SLOT_COLOR_CLASSES[color].text : isWorst ? 'text-red-400' : 'text-text-primary'
                       )}
                     >
                       <span className="inline-flex items-center gap-1.5">
-                        {metric.format(numericVal)}
-                        {isBest && <span className="text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 rounded px-1">EN İYİ</span>}
-                        {isWorst && !isBest && <span className="text-[10px] font-semibold text-red-500 bg-red-500/10 rounded px-1">EN KÖTÜ</span>}
+                        {display ?? '—'}
+                        {isBest  && <span className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 rounded px-1">EN İYİ</span>}
+                        {isWorst && !isBest && <span className="text-[10px] font-semibold bg-red-500/10 text-red-500 rounded px-1">EN DÜŞÜK</span>}
                       </span>
                     </td>
                   );
@@ -725,7 +712,7 @@ function SignalsSection({ loadedSlots }: { loadedSlots: Array<{ data: HisseData;
   if (loadedSlots.length === 0) return null;
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       {loadedSlots.map(({ data, color }) => {
         const colorCls = SLOT_COLOR_CLASSES[color];
         const strongest = getStrongestSignal(data.signals);
@@ -742,20 +729,17 @@ function SignalsSection({ loadedSlots }: { loadedSlots: Array<{ data: HisseData;
               <span className="text-xs text-text-muted">— {data.signals.length} sinyal</span>
               {strongest && (
                 <span className={cn('ml-auto rounded-full border px-2 py-0.5 text-[10px] font-semibold', colorCls.badge)}>
-                  En güçlü: {strongest.severity}
+                  {strongest.severity}
                 </span>
               )}
             </div>
 
             {data.signals.length === 0 ? (
-              <p className="text-xs text-text-muted py-2">Bu hisse için tespit edilen sinyal yok.</p>
+              <p className="text-xs text-text-muted py-2">Tespit edilen sinyal yok.</p>
             ) : (
               <div className="space-y-2">
                 {data.signals.map((sig) => (
-                  <div
-                    key={`${sig.type}-${sig.direction}`}
-                    className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-2"
-                  >
+                  <div key={`${sig.type}-${sig.direction}`} className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-2">
                     <DirectionIcon direction={sig.direction} />
                     <span className="flex-1 text-xs text-text-primary truncate">{sig.type}</span>
                     <SeverityBadge severity={sig.severity} />
@@ -770,88 +754,82 @@ function SignalsSection({ loadedSlots }: { loadedSlots: Array<{ data: HisseData;
   );
 }
 
-// ─── Correlation Matrix ───────────────────────────────────────────────────────
+// ─── Korelasyon Matrisi (N×N grid) ───────────────────────────────────────────
 
 function CorrelationMatrix({ loadedSlots }: { loadedSlots: Array<{ data: HisseData; color: SlotColor }> }) {
   if (loadedSlots.length < 2) return null;
 
-  // Tüm çiftler
-  const pairs: Array<{ a: { data: HisseData; color: SlotColor }; b: { data: HisseData; color: SlotColor }; r: number | null }> = [];
-  for (let i = 0; i < loadedSlots.length; i++) {
-    for (let j = i + 1; j < loadedSlots.length; j++) {
-      pairs.push({
-        a: loadedSlots[i]!,
-        b: loadedSlots[j]!,
-        r: computeCorrelation(loadedSlots[i]!.data.candles, loadedSlots[j]!.data.candles),
-      });
-    }
-  }
-
   function corrColor(r: number | null): string {
     if (r === null) return 'text-text-muted';
-    if (r >= 0.7)  return 'text-emerald-400';
-    if (r >= 0.4)  return 'text-yellow-400';
-    if (r >= 0)    return 'text-text-primary';
-    if (r >= -0.4) return 'text-orange-400';
-    return 'text-red-400';
+    if (r >= 0.7)  return 'text-amber-400';
+    if (r >= 0.5)  return 'text-text-primary';
+    return 'text-emerald-400';
   }
 
-  function corrLabel(r: number | null): string {
-    if (r === null) return 'Yetersiz veri';
-    if (r >= 0.7)  return 'Yüksek pozitif';
-    if (r >= 0.4)  return 'Orta pozitif';
-    if (r >= 0)    return 'Düşük pozitif';
-    if (r >= -0.4) return 'Düşük negatif';
-    if (r >= -0.7) return 'Orta negatif';
-    return 'Yüksek negatif';
+  function corrBg(r: number | null): string {
+    if (r === null) return '';
+    if (r >= 0.7) return 'bg-amber-500/10';
+    if (r >= 0.5) return 'bg-white/[0.03]';
+    return 'bg-emerald-500/10';
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {pairs.map(({ a, b, r }) => (
-        <div
-          key={`${a.data.sembol}-${b.data.sembol}`}
-          className="rounded-xl border border-border bg-surface/50 p-4"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <span className={cn('text-sm font-bold', SLOT_COLOR_CLASSES[a.color].text)}>{a.data.sembol}</span>
-            <span className="text-text-muted text-xs">vs</span>
-            <span className={cn('text-sm font-bold', SLOT_COLOR_CLASSES[b.color].text)}>{b.data.sembol}</span>
-          </div>
-          <div className="flex items-end gap-2">
-            <span className={cn('text-2xl font-bold tabular-nums', corrColor(r))}>
-              {r === null ? '—' : (r >= 0 ? '+' : '') + r.toFixed(2)}
-            </span>
-            <span className={cn('text-xs pb-0.5', corrColor(r))}>{corrLabel(r)}</span>
-          </div>
-          <p className="mt-2 text-[10px] text-text-muted">
-            Pearson — 90 günlük günlük getiriler üzerinden hesaplandı
-          </p>
-          {/* Mini bar */}
-          {r !== null && (
-            <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
-              <div
-                className={cn('h-full rounded-full', r >= 0 ? 'bg-emerald-500/60' : 'bg-red-500/60')}
-                style={{ width: `${Math.abs(r) * 100}%`, marginLeft: r < 0 ? `${(1 + r) * 100}%` : '0' }}
-              />
-            </div>
-          )}
-        </div>
-      ))}
+    <div>
+      <p
+        className="mb-3 text-xs text-text-muted cursor-help"
+        title="Yüksek korelasyon = hisseler birlikte hareket eder, çeşitlendirme azalır."
+      >
+        Pearson korelasyonu — sarı (&ge;0.70) yüksek bağlantı, çeşitlendirme düşük &nbsp;
+        <span className="underline decoration-dotted">ℹ</span>
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-border bg-surface/50">
+        <table className="text-sm">
+          <thead>
+            <tr className="border-b border-border/50">
+              <th className="px-5 py-3 text-left text-text-muted font-medium text-xs"></th>
+              {loadedSlots.map(({ data, color }) => (
+                <th key={data.sembol} className={cn('px-5 py-3 text-center font-bold', SLOT_COLOR_CLASSES[color].text)}>
+                  {data.sembol}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loadedSlots.map(({ data: dataA, color: colorA }, i) => (
+              <tr key={dataA.sembol} className="border-b border-border/30">
+                <td className={cn('px-5 py-3 font-bold text-sm', SLOT_COLOR_CLASSES[colorA].text)}>
+                  {dataA.sembol}
+                </td>
+                {loadedSlots.map(({ data: dataB }, j) => {
+                  if (i === j) {
+                    return (
+                      <td key={j} className="px-5 py-3 text-center text-text-muted text-lg font-light">
+                        —
+                      </td>
+                    );
+                  }
+                  const r = computeCorrelation(dataA.candles, dataB.candles);
+                  return (
+                    <td key={j} className={cn('px-5 py-3 text-center font-semibold tabular-nums rounded', corrBg(r), corrColor(r))}>
+                      {r === null ? '—' : (r >= 0 ? '+' : '') + r.toFixed(2)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 function SeverityBadge({ severity }: { severity: SignalSeverity }) {
   const cls =
-    severity === 'güçlü'
-      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-      : severity === 'orta'
-      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-      : 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30';
-
+    severity === 'güçlü' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+    : severity === 'orta' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+    : 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30';
   const labels: Record<SignalSeverity, string> = { güçlü: 'Güçlü', orta: 'Orta', zayıf: 'Zayıf' };
-
   return (
     <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-semibold', cls)}>
       {labels[severity]}
@@ -863,12 +841,20 @@ function SeverityBadge({ severity }: { severity: SignalSeverity }) {
 
 export function KarsilastirClient() {
   const searchParams = useSearchParams();
+  const [period, setPeriod] = useState<Period>(90);
+  const [copied, setCopied] = useState(false);
+  const periodRef = useRef<Period>(90);
 
   const [slots, setSlots] = useState<SlotState[]>([
     { status: 'empty' },
     { status: 'empty' },
     { status: 'empty' },
+    { status: 'empty' },
   ]);
+
+  const slotsRef = useRef(slots);
+  useEffect(() => { slotsRef.current = slots; }, [slots]);
+  useEffect(() => { periodRef.current = period; }, [period]);
 
   const loadedSlots = slots
     .map((s, i) => (s.status === 'loaded' ? { data: s.data, color: SLOT_COLORS[i]! } : null))
@@ -877,15 +863,11 @@ export function KarsilastirClient() {
   const loadingCount = slots.filter((s) => s.status === 'loading').length;
 
   const selectedSembols = slots
-    .filter((s): s is { status: 'loaded'; data: HisseData } | { status: 'loading'; sembol: string } | { status: 'error'; sembol: string; message: string } =>
-      s.status === 'loaded' || s.status === 'loading' || s.status === 'error'
-    )
-    .map((s) =>
-      s.status === 'loaded' ? s.data.sembol : s.sembol
-    );
+    .filter((s): s is Exclude<SlotState, { status: 'empty' }> => s.status !== 'empty')
+    .map((s) => s.status === 'loaded' ? s.data.sembol : s.sembol);
 
   const handleSelect = useCallback(async (slotIndex: number, sembol: string) => {
-    // Find next empty slot if not specified
+    const days = periodRef.current;
     setSlots((prev) => {
       const next = [...prev];
       next[slotIndex] = { status: 'loading', sembol };
@@ -893,7 +875,7 @@ export function KarsilastirClient() {
     });
 
     try {
-      const candles = await fetchOHLCVClient(sembol, 90);
+      const candles = await fetchOHLCVClient(sembol, days);
       if (candles.length === 0) {
         setSlots((prev) => {
           const next = [...prev];
@@ -926,7 +908,19 @@ export function KarsilastirClient() {
     });
   }, []);
 
-  // URL'den ?semboller=THYAO,ASELS,SISE parametresini oku ve otomatik yükle
+  // Period değişince tüm dolu slotları yeniden yükle
+  useEffect(() => {
+    const current = slotsRef.current;
+    current.forEach((slot, i) => {
+      if (slot.status === 'loaded' || slot.status === 'error') {
+        const sembol = slot.status === 'loaded' ? slot.data.sembol : slot.sembol;
+        handleSelect(i, sembol);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period]);
+
+  // URL'den ?semboller= oku
   useEffect(() => {
     const param = searchParams.get('semboller');
     if (!param) return;
@@ -938,12 +932,20 @@ export function KarsilastirClient() {
     semboller.forEach((sembol, i) => {
       handleSelect(i, sembol);
     });
-  // Sadece ilk mount'ta çalışsın
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Build chart series from loaded slots
-  const chartSeries: ChartSeries[] = loadedSlots.map(({ data, color }, i) => ({
+  // Paylaşım
+  function handleShare() {
+    const semboller = selectedSembols.join(',');
+    const url = `${window.location.origin}/karsilastir?semboller=${encodeURIComponent(semboller)}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
+
+  const chartSeries: ChartSeries[] = loadedSlots.map(({ data, color }) => ({
     sembol: data.sembol,
     color,
     points: normalizeCandles(data.candles).map((pt, j) => ({ x: j, y: pt.value })),
@@ -958,16 +960,62 @@ export function KarsilastirClient() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          className="mb-6 flex items-start justify-between gap-4"
         >
-          <h1 className="text-2xl font-bold text-text-primary">Hisse Karşılaştırma</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Maksimum 3 hisse seçerek fiyat, sinyal ve performans metriklerini yan yana karşılaştırın.
-          </p>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">Hisse Karşılaştırma</h1>
+            <p className="mt-1 text-sm text-text-secondary">
+              Maksimum {MAX_SLOTS} hisse seçerek fiyat, sinyal ve performans metriklerini yan yana karşılaştırın.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Zaman aralığı */}
+            <div className="flex items-center rounded-lg border border-border bg-surface overflow-hidden">
+              {(Object.entries(PERIOD_LABELS) as [string, string][]).map(([p, label]) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(Number(p) as Period)}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium transition-colors',
+                    period === Number(p)
+                      ? 'bg-primary/20 text-primary'
+                      : 'text-text-muted hover:text-text-primary'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* Paylaş */}
+            {selectedSembols.length > 0 && (
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-secondary hover:border-primary/40 hover:text-text-primary transition-colors"
+                title="Karşılaştırma linkini kopyala"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Paylaş
+              </button>
+            )}
+          </div>
         </motion.div>
 
+        {/* Kopyalandı toast */}
+        <AnimatePresence>
+          {copied && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400"
+            >
+              ✓ Link kopyalandı!
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Slot cards */}
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {slots.map((slot, i) => (
             <SlotCard
               key={i}
@@ -981,7 +1029,7 @@ export function KarsilastirClient() {
           ))}
         </div>
 
-        {/* Loading indicator */}
+        {/* Loading */}
         {loadingCount > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -1017,21 +1065,18 @@ export function KarsilastirClient() {
                     Normalize Fiyat Grafiği
                   </h2>
                   <p className="mb-3 text-xs text-text-muted">
-                    90 günlük fiyat hareketi, başlangıç fiyatı = 100 baz alınarak normalize edildi.
+                    Fiyat hareketi, başlangıç fiyatı = 100 baz alınarak normalize edildi.
                   </p>
                   <div className="rounded-xl border border-border bg-surface/50 p-4">
-                    <NormalizedPriceChart series={chartSeries} />
+                    <NormalizedPriceChart series={chartSeries} period={period} />
                   </div>
                 </section>
               )}
 
-              {/* Correlation */}
+              {/* Correlation Matrix */}
               {loadedSlots.length >= 2 && (
                 <section>
-                  <h2 className="mb-1 text-lg font-semibold text-text-primary">Korelasyon Katsayısı</h2>
-                  <p className="mb-3 text-xs text-text-muted">
-                    Hisselerin birbirleriyle ne kadar aynı yönde hareket ettiğini gösterir. +1 = tam uyumlu, 0 = bağımsız, -1 = tam ters.
-                  </p>
+                  <h2 className="mb-1 text-lg font-semibold text-text-primary">Korelasyon Matrisi</h2>
                   <CorrelationMatrix loadedSlots={loadedSlots} />
                 </section>
               )}

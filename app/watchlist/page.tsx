@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import {
   Star, Plus, Trash2, RefreshCw, TrendingUp, TrendingDown,
-  AlertCircle, X, Search, Eye,
+  AlertCircle, X, Search, Eye, Briefcase, ChevronDown,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import Link from 'next/link';
@@ -26,8 +27,11 @@ interface SinvalInfo {
 
 interface FiyatInfo {
   fiyat: number;
-  degisim: number; // %
+  degisim: number;
+  candles: number[]; // son 14 kapanış
 }
+
+type SortBy = 'date' | 'change' | 'signal' | 'alpha';
 
 // ─── Yardımcı ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +45,34 @@ function sevBadge(s: string) {
   if (s === 'güçlü') return 'bg-red-500/20 text-red-400';
   if (s === 'orta')  return 'bg-amber-500/20 text-amber-400';
   return 'bg-zinc-500/20 text-zinc-400';
+}
+
+// ─── Sparkline (inline SVG) ───────────────────────────────────────────────────
+
+function Sparkline({ closes }: { closes: number[] }) {
+  if (closes.length < 2) return <div className="h-6 w-12 shrink-0" />;
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const W = 48, H = 24;
+  const pts = closes.map((c, i) => {
+    const x = (i / (closes.length - 1)) * W;
+    const y = H - 2 - ((c - min) / range) * (H - 4);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const isUp = closes[closes.length - 1]! >= closes[0]!;
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0 opacity-80">
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={isUp ? '#34d399' : '#f87171'}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 // ─── Boş durum ────────────────────────────────────────────────────────────────
@@ -73,30 +105,64 @@ function EmptyWatchlist({ onAdd }: { onAdd: () => void }) {
 // ─── Hisse satırı ─────────────────────────────────────────────────────────────
 
 function WatchRow({
-  item, fiyat, sinyaller, onDelete,
+  item, fiyat, sinyaller, onDelete, isSelected, onToggleSelect,
+  target, onTargetChange,
 }: {
   item: WatchlistItem;
   fiyat: FiyatInfo | null;
   sinyaller: SinvalInfo[];
   onDelete: (id: string) => void;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  target: string;
+  onTargetChange: (sembol: string, value: string) => void;
 }) {
+  const router = useRouter();
   const up = fiyat && fiyat.degisim >= 0;
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState(target);
+  const targetRef = useRef<HTMLInputElement>(null);
+
+  const targetNum = parseFloat(target);
+  const hitTarget = fiyat && target && !isNaN(targetNum) && fiyat.fiyat >= targetNum;
+
+  useEffect(() => {
+    setTargetInput(target);
+  }, [target]);
+
+  function commitTarget() {
+    setEditingTarget(false);
+    onTargetChange(item.sembol, targetInput.trim());
+  }
 
   return (
     <motion.tr
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="border-b border-border/40 hover:bg-surface-alt/30 transition-colors"
+      className={`border-b border-border/40 hover:bg-surface-alt/30 transition-colors ${hitTarget ? 'bg-amber-500/5' : ''}`}
     >
+      {/* Checkbox */}
+      <td className="py-3 pl-3 pr-1">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => onToggleSelect(item.id)}
+          className="h-3.5 w-3.5 cursor-pointer accent-primary"
+        />
+      </td>
+
       {/* Sembol */}
-      <td className="py-3 pl-4 pr-3">
+      <td className="py-3 pl-2 pr-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+          <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary ${hitTarget ? 'animate-pulse' : ''}`}>
             {item.sembol.slice(0, 2)}
           </div>
           <div>
-            <div className="font-semibold text-text-primary">{item.sembol}</div>
+            <div className={`font-semibold ${hitTarget ? 'text-amber-400' : 'text-text-primary'}`}>
+              {item.sembol}
+              {hitTarget && <span className="ml-1 animate-bounce inline-block">🔔</span>}
+            </div>
             {item.notlar && (
               <div className="text-xs text-text-muted truncate max-w-[120px]">{item.notlar}</div>
             )}
@@ -104,20 +170,55 @@ function WatchRow({
         </div>
       </td>
 
-      {/* Fiyat */}
+      {/* Fiyat + sparkline */}
       <td className="py-3 px-3 text-right">
-        {fiyat ? (
+        <div className="flex items-center justify-end gap-2">
+          {fiyat && fiyat.candles.length > 1 && (
+            <Sparkline closes={fiyat.candles} />
+          )}
           <div>
-            <div className="text-xs sm:text-sm font-medium text-text-primary">
-              ₺{fiyat.fiyat.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className={`flex items-center justify-end gap-0.5 text-xs ${up ? 'text-emerald-400' : 'text-red-400'}`}>
-              {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {up ? '+' : ''}{fiyat.degisim.toFixed(2)}%
-            </div>
+            {fiyat ? (
+              <>
+                <div className="text-xs sm:text-sm font-medium text-text-primary">
+                  ₺{fiyat.fiyat.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                </div>
+                <div className={`flex items-center justify-end gap-0.5 text-xs ${up ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {up ? '+' : ''}{fiyat.degisim.toFixed(2)}%
+                </div>
+              </>
+            ) : (
+              <span className="text-text-muted">—</span>
+            )}
           </div>
+        </div>
+      </td>
+
+      {/* Hedef fiyat */}
+      <td className="hidden sm:table-cell py-3 px-3 text-right">
+        {editingTarget ? (
+          <input
+            ref={targetRef}
+            type="number"
+            step="0.01"
+            value={targetInput}
+            onChange={(e) => setTargetInput(e.target.value)}
+            onBlur={commitTarget}
+            onKeyDown={(e) => { if (e.key === 'Enter') commitTarget(); if (e.key === 'Escape') setEditingTarget(false); }}
+            className="w-20 rounded border border-primary/50 bg-surface px-2 py-1 text-xs text-text-primary focus:outline-none text-right"
+            autoFocus
+          />
         ) : (
-          <span className="text-text-muted">—</span>
+          <button
+            onClick={() => { setEditingTarget(true); setTimeout(() => targetRef.current?.focus(), 0); }}
+            className="group flex items-center justify-end gap-1 text-xs transition-colors"
+            title="Hedef fiyat belirle"
+          >
+            <span className="text-[10px] opacity-50 group-hover:opacity-100">🎯</span>
+            <span className={target ? (hitTarget ? 'font-semibold text-amber-400' : 'text-text-secondary') : 'text-text-muted/50 group-hover:text-text-muted'}>
+              {target ? `₺${parseFloat(target).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : 'Hedef ekle'}
+            </span>
+          </button>
         )}
       </td>
 
@@ -152,6 +253,13 @@ function WatchRow({
           >
             <Eye className="h-4 w-4" />
           </Link>
+          <button
+            onClick={() => router.push(`/portfolyo?add=${item.sembol}`)}
+            className="rounded-lg p-1.5 text-text-muted hover:text-emerald-400 hover:bg-emerald-400/10 transition-colors"
+            title="Portföye Ekle"
+          >
+            <Briefcase className="h-4 w-4" />
+          </button>
           <button
             onClick={() => onDelete(item.id)}
             className="rounded-lg p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
@@ -213,7 +321,6 @@ function AddModal({
         exit={{ opacity: 0, scale: 0.95 }}
         className="relative w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-2xl"
       >
-        {/* Başlık */}
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
             <Star className="h-4 w-4 text-primary" />
@@ -224,7 +331,6 @@ function AddModal({
           </button>
         </div>
 
-        {/* Hisse Arama */}
         <div className="mb-3">
           <label className="mb-1.5 block text-xs font-medium text-text-secondary">
             Hisse Sembolü <span className="text-red-400">*</span>
@@ -254,7 +360,6 @@ function AddModal({
           )}
         </div>
 
-        {/* Takip Sebebi */}
         <div className="mb-4">
           <label className="mb-1.5 block text-xs font-medium text-text-secondary">
             Takip Sebebi <span className="text-text-muted">(opsiyonel)</span>
@@ -272,7 +377,6 @@ function AddModal({
 
         {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
 
-        {/* Butonlar */}
         <div className="flex gap-3">
           <button
             onClick={onClose}
@@ -296,19 +400,40 @@ function AddModal({
 // ─── Ana Sayfa ────────────────────────────────────────────────────────────────
 
 export default function WatchlistPage() {
-  const [items, setItems]         = useState<WatchlistItem[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [items, setItems]           = useState<WatchlistItem[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [fiyatlar, setFiyatlar]   = useState<Record<string, FiyatInfo>>({});
-  const [sinyalMap, setSinyalMap] = useState<Record<string, SinvalInfo[]>>({});
+  const [showModal, setShowModal]   = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [fiyatlar, setFiyatlar]     = useState<Record<string, FiyatInfo>>({});
+  const [sinyalMap, setSinyalMap]   = useState<Record<string, SinvalInfo[]>>({});
+  const [sortBy, setSortBy]         = useState<SortBy>('date');
+  const [selected, setSelected]     = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [targets, setTargets]       = useState<Record<string, string>>({});
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  // localStorage'dan hedef fiyatları yükle
+  useEffect(() => {
+    if (items.length === 0) return;
+    const loaded: Record<string, string> = {};
+    items.forEach((item) => {
+      const val = localStorage.getItem(`bistai_targets_${item.sembol}`);
+      if (val) loaded[item.sembol] = val;
+    });
+    setTargets(loaded);
+  }, [items]);
+
+  function handleTargetChange(sembol: string, value: string) {
+    setTargets((prev) => ({ ...prev, [sembol]: value }));
+    if (value) localStorage.setItem(`bistai_targets_${sembol}`, value);
+    else localStorage.removeItem(`bistai_targets_${sembol}`);
+  }
 
   // ── Veri yükle ────────────────────────────────────────────────────────────
 
@@ -324,14 +449,13 @@ export default function WatchlistPage() {
       const data: WatchlistItem[] = await res.json();
       setItems(data);
 
-      // Fiyat + değişim
       const semboller = data.map((d) => d.sembol);
       const fm: Record<string, FiyatInfo> = {};
 
       await Promise.allSettled(
         semboller.map(async (sembol) => {
           try {
-            const r = await fetch(`/api/ohlcv?symbol=${sembol}&days=5`);
+            const r = await fetch(`/api/ohlcv?symbol=${sembol}&days=20`);
             if (!r.ok) return;
             const json: { candles: { close: number; open: number }[] } = await r.json();
             const candles = json.candles ?? [];
@@ -341,13 +465,13 @@ export default function WatchlistPage() {
             fm[sembol] = {
               fiyat: last.close,
               degisim: ((last.close - prev.close) / prev.close) * 100,
+              candles: candles.slice(-14).map((c) => c.close),
             };
           } catch {}
         })
       );
       setFiyatlar(fm);
 
-      // Sinyaller
       if (semboller.length > 0) {
         fetch(`/api/portfolyo/sinyaller?semboller=${semboller.join(',')}`)
           .then((r) => r.json())
@@ -364,6 +488,69 @@ export default function WatchlistPage() {
 
   useEffect(() => { loadItems(); }, [loadItems]);
 
+  // ── Sıralanmış liste ──────────────────────────────────────────────────────
+
+  const sortedItems = [...items].sort((a, b) => {
+    if (sortBy === 'date') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (sortBy === 'alpha') return a.sembol.localeCompare(b.sembol);
+    if (sortBy === 'change') {
+      const da = fiyatlar[a.sembol]?.degisim ?? -Infinity;
+      const db = fiyatlar[b.sembol]?.degisim ?? -Infinity;
+      return db - da;
+    }
+    if (sortBy === 'signal') {
+      const sa = (sinyalMap[a.sembol] ?? []).length;
+      const sb = (sinyalMap[b.sembol] ?? []).length;
+      return sb - sa;
+    }
+    return 0;
+  });
+
+  // ── Toplu seçim ───────────────────────────────────────────────────────────
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    if (selected.size === items.length) setSelected(new Set());
+    else setSelected(new Set(items.map((i) => i.id)));
+  }
+
+  // ── Toplu sil ────────────────────────────────────────────────────────────
+
+  async function handleBulkDelete() {
+    if (selected.size === 0) return;
+    if (!confirm(`${selected.size} hisseyi listeden kaldırmak istiyor musun?`)) return;
+    setBulkDeleting(true);
+    const ids = Array.from(selected);
+    await Promise.allSettled(
+      ids.map((id) => fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' }))
+    );
+    setItems((prev) => prev.filter((i) => !selected.has(i.id)));
+    setSelected(new Set());
+    setBulkDeleting(false);
+  }
+
+  // ── Tekil sil ─────────────────────────────────────────────────────────────
+
+  async function handleDelete(id: string) {
+    if (!confirm('Listeden kaldırmak istiyor musun?')) return;
+    try {
+      const res = await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Silinemedi.');
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Silme hatası');
+    }
+  }
+
   // ── Ekle ──────────────────────────────────────────────────────────────────
 
   async function handleSave(sembol: string, notlar: string) {
@@ -378,19 +565,6 @@ export default function WatchlistPage() {
     }
     setShowModal(false);
     await loadItems(true);
-  }
-
-  // ── Sil ───────────────────────────────────────────────────────────────────
-
-  async function handleDelete(id: string) {
-    if (!confirm('Listeden kaldırmak istiyor musun?')) return;
-    try {
-      const res = await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Silinemedi.');
-      setItems((prev) => prev.filter((i) => i.id !== id));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Silme hatası');
-    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -442,51 +616,116 @@ export default function WatchlistPage() {
           )}
         </AnimatePresence>
 
-        {/* Loading */}
         {loading && (
           <div className="flex items-center justify-center py-24">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         )}
 
-        {/* İçerik */}
         {!loading && (
           <>
             {items.length === 0 ? (
               <EmptyWatchlist onAdd={() => setShowModal(true)} />
             ) : (
               <>
-                <div className="mb-3 text-xs text-text-muted">
-                  {items.length} hisse takip ediliyor · Sinyal bildirimleri portföy sayfasından yönetilir
+                {/* Araç çubuğu */}
+                <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 text-xs text-text-muted">
+                    <input
+                      type="checkbox"
+                      checked={selected.size === items.length && items.length > 0}
+                      onChange={selectAll}
+                      className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                    />
+                    <span>{items.length} hisse takip ediliyor</span>
+                  </div>
+
+                  {/* Sıralama */}
+                  <div className="relative flex items-center gap-1">
+                    <span className="text-xs text-text-muted">Sırala:</span>
+                    <div className="relative">
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as SortBy)}
+                        className="appearance-none rounded-lg border border-border bg-surface pl-3 pr-7 py-1.5 text-xs text-text-secondary focus:outline-none focus:border-primary/50 cursor-pointer"
+                      >
+                        <option value="date">Eklenme Tarihi</option>
+                        <option value="change">Fiyat Değişimi ↓</option>
+                        <option value="signal">Sinyal Önce</option>
+                        <option value="alpha">Alfabetik</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-text-muted" />
+                    </div>
+                  </div>
                 </div>
+
+                {/* Tablo */}
                 <div className="overflow-x-auto rounded-xl border border-border bg-surface">
                   <table className="min-w-full text-sm">
                     <thead>
                       <tr className="border-b border-border/60 text-xs text-text-muted">
-                        <th className="py-3 pl-4 pr-3 text-left font-medium">Hisse</th>
+                        <th className="py-3 pl-3 pr-1 w-8"></th>
+                        <th className="py-3 pl-2 pr-3 text-left font-medium">Hisse</th>
                         <th className="py-3 px-3 text-right font-medium">Fiyat</th>
+                        <th className="hidden sm:table-cell py-3 px-3 text-right font-medium">Hedef</th>
                         <th className="hidden sm:table-cell py-3 px-3 text-left font-medium">Aktif Sinyaller</th>
                         <th className="py-3 pl-3 pr-4 text-right font-medium"></th>
                       </tr>
                     </thead>
                     <tbody>
                       <AnimatePresence>
-                        {items.map((item) => (
+                        {sortedItems.map((item) => (
                           <WatchRow
                             key={item.id}
                             item={item}
                             fiyat={fiyatlar[item.sembol] ?? null}
                             sinyaller={sinyalMap[item.sembol] ?? []}
                             onDelete={handleDelete}
+                            isSelected={selected.has(item.id)}
+                            onToggleSelect={toggleSelect}
+                            target={targets[item.sembol] ?? ''}
+                            onTargetChange={handleTargetChange}
                           />
                         ))}
                       </AnimatePresence>
                     </tbody>
                   </table>
                 </div>
-                <p className="mt-3 text-right text-xs text-text-muted">
-                  Fiyatlar Yahoo Finance'tan çekilir · 15 dk gecikmeli olabilir
-                </p>
+
+                {/* Toplu silme */}
+                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                  <p className="text-xs text-text-muted">
+                    Fiyatlar Yahoo Finance'tan çekilir · 15 dk gecikmeli olabilir
+                  </p>
+                  <AnimatePresence>
+                    {selected.size > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 4 }}
+                        className="flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2"
+                      >
+                        <span className="text-xs font-medium text-red-300">
+                          {selected.size} hisse seçildi
+                        </span>
+                        <button
+                          onClick={handleBulkDelete}
+                          disabled={bulkDeleting}
+                          className="flex items-center gap-1 rounded-md bg-red-500/20 px-2.5 py-1 text-xs font-medium text-red-300 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          {bulkDeleting ? 'Kaldırılıyor…' : 'Seçilenleri Kaldır'}
+                        </button>
+                        <button
+                          onClick={() => setSelected(new Set())}
+                          className="text-text-muted hover:text-text-primary"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </>
             )}
           </>
