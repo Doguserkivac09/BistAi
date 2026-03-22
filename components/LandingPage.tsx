@@ -123,6 +123,10 @@ const BIST_PT = EXCH.find(e => e.id === 'BIST')!;
 // ── AnimatedGlobe ─────────────────────────────────────────────────
 
 function AnimatedGlobe() {
+  // SSR hydration mismatch önlemek için client-only render
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [coreHovered, setCoreHovered] = useState(false);
 
   const latOffsets = [-152, -114, -76, -38, 0, 38, 76, 114, 152];
@@ -135,6 +139,11 @@ function AnimatedGlobe() {
   });
 
   const visibleOthers = EXCH.filter(e => !e.main && e.depth > 0.05);
+
+  // Mount olmadan placeholder döndür (SSR'da boş alan)
+  if (!mounted) {
+    return <div className="relative flex h-[420px] w-[420px] items-center justify-center" />;
+  }
 
   return (
     <div className="relative flex h-[420px] w-[420px] items-center justify-center">
@@ -232,6 +241,7 @@ function AnimatedGlobe() {
           const { kfx, kfy, kfo } = arcKeyframes(BIST_PT.x, BIST_PT.y, ex.x, ex.y);
           return (
             <motion.circle key={ex.id + '_dot'} r={2.2}
+              cx={BIST_PT.x} cy={BIST_PT.y}
               fill={i % 2 === 0 ? 'rgba(167,139,250,0.95)' : 'rgba(99,102,241,0.85)'}
               animate={{ cx: kfx, cy: kfy, opacity: kfo }}
               transition={{ duration: 2.8 + i * 0.45, repeat: Infinity, ease: 'linear', delay: i * 0.6 }}
