@@ -17,6 +17,8 @@ interface StockCardProps {
   candleData: OHLCVCandle[];
   macroScore?: { score: number; wind: string } | null;
   delay?: number; // ms — kademeli yükleme için (viewport'a girince uygulanır)
+  cachedExplanation?: string | null; // Üst bileşenden gelen cache — filtre değişince yeniden yüklemez
+  onExplanationLoaded?: (text: string) => void; // Yüklenen açıklamayı üste bildir
 }
 
 function MacroBadge({ score, wind }: { score: number; wind: string }) {
@@ -41,14 +43,21 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
   );
 }
 
-export function StockCard({ signal, candleData, macroScore, delay = 0 }: StockCardProps) {
-  const [explanation, setExplanation] = useState<string | null>(null);
+export function StockCard({ signal, candleData, macroScore, delay = 0, cachedExplanation, onExplanationLoaded }: StockCardProps) {
+  const [explanation, setExplanation] = useState<string | null>(cachedExplanation ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const fetchedRef = useRef(false);
+  const fetchedRef = useRef(!!cachedExplanation); // Cache varsa zaten yüklenmiş say
 
   useEffect(() => {
+    // Üst bileşenden cache geldiyse hemen göster, fetch atma
+    if (cachedExplanation) {
+      setExplanation(cachedExplanation);
+      fetchedRef.current = true;
+      return;
+    }
+
     const card = cardRef.current;
     if (!card) return;
 
@@ -84,7 +93,9 @@ export function StockCard({ signal, candleData, macroScore, delay = 0 }: StockCa
               setError(data.error ?? 'Açıklama alınamadı.');
               return;
             }
-            setExplanation(data.explanation ?? null);
+            const text = data.explanation ?? null;
+            setExplanation(text);
+            if (text) onExplanationLoaded?.(text);
 
             // AI açıklaması alındıktan sonra performans kaydı ekle
             try {
@@ -104,12 +115,12 @@ export function StockCard({ signal, candleData, macroScore, delay = 0 }: StockCa
 
         return () => { cancelled = true; };
       },
-      { threshold: 0.1 } // Kartın %10'u görünür olunca tetikle
+      { threshold: 0.1 }
     );
 
     observer.observe(card);
     return () => observer.disconnect();
-  }, [signal, candleData, delay]);
+  }, [signal, candleData, delay, cachedExplanation, onExplanationLoaded]);
 
   const isUp = signal.direction === 'yukari';
   const isDown = signal.direction === 'asagi';

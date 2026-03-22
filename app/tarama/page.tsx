@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StockCard } from '@/components/StockCard';
 import { Button } from '@/components/ui/button';
@@ -289,6 +289,8 @@ export default function TaramaPage() {
   const [macroScore, setMacroScore] = useState<{ score: number; wind: string } | null>(null);
   const [scannedCount, setScannedCount] = useState(0);
   const [selectedTypes, setSelectedTypes] = useState<string[]>(ALL_SIGNAL_TYPES);
+  // Filtre değişimlerinde açıklamalar kaybolmasın diye sayfa seviyesinde cache
+  const explanationCache = useRef<Map<string, string>>(new Map());
 
   // localStorage'dan sinyal tercihleri yükle
   useEffect(() => {
@@ -571,7 +573,9 @@ export default function TaramaPage() {
                     signal={sig}
                     candleData={candles}
                     macroScore={macroScore}
-                    delay={idx * 250}
+                    delay={idx * 150}
+                    cachedExplanation={explanationCache.current.get(`${sig.sembol}:${sig.type}`) ?? null}
+                    onExplanationLoaded={(text) => explanationCache.current.set(`${sig.sembol}:${sig.type}`, text)}
                   />
                 </motion.div>
               ))}
