@@ -2,6 +2,56 @@
 
 > Bu dosya Claude Code tarafından otomatik okunur. Tüm ekip üyeleri aynı bağlamı paylaşır.
 
+---
+
+## 🚀 SONRAKİ ADIMLAR — Öncelik Sırasına Göre (2026-03-22 güncellendi)
+
+### 🔴 1. Sinyal Güçlendirmeleri (Kısa Vadeli — Hemen Yapılabilir)
+
+| # | Görev | Neden Önemli |
+|---|-------|--------------|
+| S1 | **Kırılım sinyali güçlendir** | Şu an çok az sinyal üretiyor; eşik ve volume koşulları gevşetilmeli |
+| S2 | **Altın/Ölüm Çaprazı iyileştir** | EMA50/200 kesişimi tespit daha hassas olmalı |
+| S3 | **MACD Kesişimi iyileştir** | Histogram + sinyal çizgisi uyumu eklenmeli |
+| S4 | **RSI Seviyesi sinyali güçlendir** | Sadece anlık seviye değil, bölgeden çıkış da yakalanmalı |
+
+### 🟠 2. Anlık Uyarı Sistemi — Phase 14.2 (Orta Vadeli)
+- Cron tarama → sinyal bulunan hisseler → email / web push bildirimi
+- `alert_preferences` tablosu: kullanıcı izleme listesi + sinyal tipi seçimi
+- Resend API ile email (ücretsiz 3000/ay)
+- **Env gerekli:** `RESEND_API_KEY`
+
+### 🟠 3. Portföy Performans Grafiği — Phase 14.1 ek
+- `/portfolyo` sayfası mevcut, eksik: zaman içinde değer değişimi grafiği
+- Portföydeki hisseler için otomatik sinyal uyarısı bağlantısı
+
+### 🟡 4. Backtest Veri Sorunu — Phase 14.3
+- `signal_performance` tablosunda `evaluated=true` kayıt birikmiyor
+- `/api/dev/seed-backtest` ile sentetik veri veya cron fix
+
+### 🟡 5. Mobil PWA — Phase 14.5
+- `manifest.json` + service worker → "Ana Ekrana Ekle"
+- `next-pwa` paketi ile minimal iş
+
+---
+
+## ✅ 2026-03-22 Oturumunda Tamamlananlar
+
+| Özellik | Dosyalar |
+|---------|---------|
+| Destek/Direnç seviyeleri (pivot + kümeleme) | `lib/support-resistance.ts`, `components/SRLevels.tsx` |
+| Bollinger Bandı Sıkışması sinyali | `lib/signals.ts` |
+| Grafik BB / EMA50/200 / D/R overlay toggle | `components/StockChart.tsx` |
+| Toggle'da grafik sıfırlanmama (ayrı effect'ler) | `components/StockChart.tsx` |
+| İndikatör araç çubuğu (grafik dışına taşındı) | `components/StockChart.tsx` |
+| Hacim Anomalisi güçlendirmesi (ardışık gün, relVol5) | `lib/signals.ts` |
+| RSI grafiği 0-100 sabit + mevcut değer çizgisi | `components/StockChart.tsx` |
+| ohlcv rate limit 120→400/min (tarama 429 fix) | `app/api/ohlcv/route.ts` |
+| signal-performance 5dk XU100 cache (500 fix) | `app/api/signal-performance/route.ts` |
+| AnimatedGlobe SSR hydration fix | `components/LandingPage.tsx` |
+
+---
+
 ## Ekip
 
 - **Berk** - Frontend (UI, components, client-side features)
