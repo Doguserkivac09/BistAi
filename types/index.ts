@@ -57,7 +57,8 @@ export type SignalData = RsiDivergenceData | VolumeAnomalyData | TrendStartData 
 
 export interface StockSignal extends BaseSignal {
   data: Record<string, unknown>;
-  candlesAgo?: number; // kaç mum önce tetiklendi (0 = son mum)
+  candlesAgo?: number;     // kaç mum önce tetiklendi (0 = son mum)
+  weeklyAligned?: boolean; // haftalık trend ile uyumlu mu? (null = yetersiz veri)
 }
 
 /** Çoklu sinyal güven analizi */

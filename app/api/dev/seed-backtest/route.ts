@@ -130,13 +130,29 @@ export async function POST(request: NextRequest) {
   });
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('signal_performance')
     .insert(records)
     .select('id');
 
+  // 'regime' kolonu henüz oluşturulmadıysa kolonsuz yeniden dene
+  if (error && error.message.includes('regime')) {
+    console.warn('[seed-backtest] regime kolonu yok, kolonsuz deneniyor…');
+    const recordsNoRegime = records.map(({ regime: _r, ...rest }) => rest);
+    const retry = await supabase
+      .from('signal_performance')
+      .insert(recordsNoRegime)
+      .select('id');
+    data  = retry.data;
+    error = retry.error;
+    if (!error) {
+      console.log('[seed-backtest] regime kolonsuz başarıyla eklendi. Supabase SQL Editor\'da şunu çalıştır: ALTER TABLE public.signal_performance ADD COLUMN IF NOT EXISTS regime text;');
+    }
+  }
+
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[seed-backtest] Supabase insert hatası:', error.message, error.details, error.hint);
+    return NextResponse.json({ error: error.message, hint: error.hint }, { status: 500 });
   }
 
   return NextResponse.json({

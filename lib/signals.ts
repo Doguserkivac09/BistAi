@@ -577,6 +577,88 @@ export function detectGoldenCross(sembol: string, candles: OHLCVCandle[]): Stock
   return null;
 }
 
+// ─── Multi-Timeframe (Haftalık Uyum) ──────────────────────────────────────────
+
+/**
+ * Günlük mumları haftalık mumlara döndürür (ISO hafta: Pazartesi başlangıç).
+ * Her hafta: open=ilk, high=max, low=min, close=son, volume=toplam
+ */
+export function aggregateToWeekly(candles: OHLCVCandle[]): OHLCVCandle[] {
+  if (candles.length === 0) return [];
+
+  const weeks = new Map<string, OHLCVCandle[]>();
+  for (const c of candles) {
+    if ((c.volume ?? 0) === 0) continue; // hafta sonu / tatil mumu atla
+    const raw = typeof c.date === 'string' ? c.date : new Date((c.date as number) * 1000).toISOString().slice(0, 10);
+    const d = new Date(raw + 'T00:00:00');
+    // ISO haftasının Pazartesi'sini bul
+    const day = d.getDay(); // 0=Sun..6=Sat
+    const diff = day === 0 ? -6 : 1 - day; // Pazartesi'ye kaç gün?
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diff);
+    const weekKey = monday.toISOString().slice(0, 10);
+    const list = weeks.get(weekKey) ?? [];
+    list.push(c);
+    weeks.set(weekKey, list);
+  }
+
+  const result: OHLCVCandle[] = [];
+  Array.from(weeks.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .forEach(([weekKey, cs]) => {
+      const open   = cs[0]!.open;
+      const high   = Math.max(...cs.map((c) => c.high));
+      const low    = Math.min(...cs.map((c) => c.low));
+      const close  = cs[cs.length - 1]!.close;
+      const volume = cs.reduce((s, c) => s + c.volume, 0);
+      result.push({ date: weekKey, open, high, low, close, volume });
+    });
+  return result;
+}
+
+/** 8-periyot EMA hesapla */
+function ema8(closes: number[]): number | null {
+  if (closes.length < 8) return null;
+  const k = 2 / (8 + 1);
+  let ema = closes.slice(0, 8).reduce((s, v) => s + v, 0) / 8;
+  for (let i = 8; i < closes.length; i++) ema = closes[i]! * k + ema * (1 - k);
+  return ema;
+}
+
+/**
+ * Haftalık trendin günlük sinyalle uyumunu kontrol eder.
+ * Yeterli haftalık veri yoksa null döndürür.
+ *
+ * Uyum koşulları:
+ * - 'yukari': Son 3 haftalık kapanış sıralı yükseliyor VE fiyat EMA8 üzerinde
+ * - 'asagi':  Son 3 haftalık kapanış sıralı düşüyor   VE fiyat EMA8 altında
+ * - 'nötr':   null (belirsiz)
+ */
+export function computeWeeklyAlignment(
+  dailyCandles: OHLCVCandle[],
+  direction: SignalDirection
+): boolean | null {
+  if (direction === 'nötr') return null;
+  const weekly = aggregateToWeekly(dailyCandles);
+  if (weekly.length < 6) return null; // yetersiz haftalık veri
+
+  const closes = weekly.map((c) => c.close);
+  const last3 = closes.slice(-3);
+  const ema = ema8(closes);
+
+  const lastClose = closes[closes.length - 1]!;
+  const trending3up   = last3.length === 3 && last3[0]! < last3[1]! && last3[1]! < last3[2]!;
+  const trending3down = last3.length === 3 && last3[0]! > last3[1]! && last3[1]! > last3[2]!;
+
+  if (direction === 'yukari') {
+    if (ema === null) return trending3up;
+    return trending3up && lastClose > ema;
+  } else {
+    if (ema === null) return trending3down;
+    return trending3down && lastClose < ema;
+  }
+}
+
 export function detectAllSignals(
   sembol: string,
   candles: OHLCVCandle[],
@@ -595,7 +677,7 @@ export function detectAllSignals(
   if (want('Altın Çapraz'))           { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
   if (want('Bollinger Sıkışması'))    { const s = detectBollingerSqueeze(sembol, candles);        if (s) signals.push(s); }
 
-  // candlesAgo: data'da crossoverCandlesAgo / candlesAgo varsa oradan al, yoksa 0
+  // candlesAgo + weeklyAligned hesapla
   return signals.map((s) => ({
     ...s,
     candlesAgo: (
@@ -603,6 +685,7 @@ export function detectAllSignals(
       (s.data.candlesAgo as number | undefined) ??
       0
     ),
+    weeklyAligned: computeWeeklyAlignment(candles, s.direction) ?? undefined,
   }));
 }
 

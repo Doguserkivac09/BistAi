@@ -77,6 +77,24 @@ function FreshnessBadge({ candlesAgo }: { candlesAgo: number }) {
   );
 }
 
+function MTFBadge({ aligned }: { aligned: boolean }) {
+  return aligned ? (
+    <span
+      title="Haftalık trend ile uyumlu — güçlü sinyal"
+      className="inline-flex items-center gap-0.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400"
+    >
+      W✓
+    </span>
+  ) : (
+    <span
+      title="Haftalık trend ile uyumsuz — zayıf sinyal"
+      className="inline-flex items-center gap-0.5 rounded-md border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-400"
+    >
+      W✗
+    </span>
+  );
+}
+
 function MacroBadge({ score, wind }: { score: number; wind: string }) {
   const color = score >= 30 ? 'text-green-400 bg-green-500/10 border-green-500/30'
     : score >= 0 ? 'text-green-300 bg-green-500/5 border-green-500/20'
@@ -183,6 +201,7 @@ export function StockCard({ signal, candleData, allSignals, macroScore, winRate,
             {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
             {confluence && <ConfluenceBadge result={confluence} />}
             {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
+            {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
             {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
           </div>
           <SignalBadge
