@@ -133,16 +133,41 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
     if (showRsi) {
       const rsiValues = calculateRSI(closes, 14);
       const lastRsi = rsiValues[rsiValues.length - 1] ?? 50;
-      const rsiSeries = chart.addAreaSeries({
-        lineColor: '#6366f1', topColor: 'rgba(99,102,241,0.18)',
-        bottomColor: 'rgba(99,102,241,0.02)', lineWidth: 2,
-        priceScaleId: 'rsi', title: '', lastValueVisible: false, priceLineVisible: false,
+
+      // RSI çizgisi — rengi değere göre değişir (OB=kırmızı, OS=yeşil, normal=indigo)
+      const rsiColor = (v: number) => v >= 70 ? '#ef4444' : v <= 30 ? '#22c55e' : '#818cf8';
+
+      const rsiSeries = chart.addLineSeries({
+        color: rsiColor(lastRsi),
+        lineWidth: 2,
+        priceScaleId: 'right',
+        title: '',
+        lastValueVisible: false,
+        priceLineVisible: false,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: 4,
       });
       rsiSeries.setData(normalized.map((c, i) => ({ time: c.date as Time, value: rsiValues[i] ?? 50 })));
-      rsiSeries.createPriceLine({ price: 70, color: '#ef444488', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '70' });
-      rsiSeries.createPriceLine({ price: 30, color: '#22c55e88', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '30' });
-      rsiSeries.createPriceLine({ price: 50, color: '#ffffff18', lineWidth: 1, lineStyle: 1, axisLabelVisible: false, title: '' });
-      chart.priceScale('rsi').applyOptions({ scaleMargins: { top: 0.75, bottom: 0.05 }, borderVisible: false });
+
+      // Sabit 0-100 aralığı
+      rsiSeries.applyOptions({
+        autoscaleInfoProvider: () => ({
+          priceRange: { minValue: 0, maxValue: 100 },
+        }),
+      });
+
+      // Aşırı Alım (70) — kalın kırmızı
+      rsiSeries.createPriceLine({ price: 70, color: 'rgba(239,68,68,0.7)', lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' });
+      // Aşırı Satım (30) — kalın yeşil
+      rsiSeries.createPriceLine({ price: 30, color: 'rgba(34,197,94,0.7)', lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' });
+      // Orta çizgi (50) — ince gri
+      rsiSeries.createPriceLine({ price: 50, color: 'rgba(255,255,255,0.12)', lineWidth: 1, lineStyle: 1, axisLabelVisible: false, title: '' });
+
+      chart.priceScale('right').applyOptions({
+        scaleMargins: { top: 0.06, bottom: 0.06 },
+        borderVisible: false,
+      });
+
       setLegend({ rsi: lastRsi.toFixed(1) });
       chart.subscribeCrosshairMove((param) => {
         if (!param.time || !param.seriesData) { setLegend({ rsi: lastRsi.toFixed(1) }); return; }
