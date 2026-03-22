@@ -58,25 +58,39 @@ const severityRank: Record<SignalSeverity, number> = { güçlü: 3, orta: 2, zay
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Sadece volume > 0 olan mumları döndürür (hafta sonu / tatil filtresi) */
+function tradingDays(candles: OHLCVCandle[]): OHLCVCandle[] {
+  return candles.filter((c) => (c.volume ?? 0) > 0);
+}
+
 function getLastClose(candles: OHLCVCandle[]): number | null {
-  return candles.length > 0 ? (candles[candles.length - 1]?.close ?? null) : null;
+  const td = tradingDays(candles);
+  return td.length > 0 ? (td[td.length - 1]?.close ?? null) : null;
+}
+
+/** Son gerçek işlem günü indeksini döndürür (volume > 0 olan son mum) */
+function lastTradingIdx(candles: OHLCVCandle[]): number {
+  for (let i = candles.length - 1; i >= 0; i--) {
+    if ((candles[i]?.volume ?? 0) > 0) return i;
+  }
+  return candles.length - 1; // fallback
 }
 
 function getLastTradingDate(candles: OHLCVCandle[]): string | null {
   if (!candles.length) return null;
-  const last = candles[candles.length - 1]!;
+  const idx = lastTradingIdx(candles);
+  const last = candles[idx]!;
   const raw = typeof last.date === 'string' ? last.date : new Date((last.date as number) * 1000).toISOString().slice(0, 10);
-  // "YYYY-MM-DD" → "GG Aaa"
   const d = new Date(raw + 'T00:00:00');
   const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
   return `${d.getDate()} ${months[d.getMonth()]}`;
 }
 
 function getDailyChangePct(candles: OHLCVCandle[]): number | null {
-  const n = candles.length;
-  if (n < 2) return null;
-  const prev = candles[n - 2]?.close;
-  const curr = candles[n - 1]?.close;
+  const idx = lastTradingIdx(candles);
+  if (idx < 1) return null;
+  const curr = candles[idx]?.close;
+  const prev = candles[idx - 1]?.close;
   if (!prev || !curr || prev === 0) return null;
   return ((curr - prev) / prev) * 100;
 }
@@ -90,8 +104,9 @@ function get90DayChangePct(candles: OHLCVCandle[]): number | null {
 }
 
 function computeRSI(candles: OHLCVCandle[], period = 14): number | null {
-  if (candles.length < period + 1) return null;
-  const closes = candles.map((c) => c.close);
+  const td = tradingDays(candles);
+  if (td.length < period + 1) return null;
+  const closes = td.map((c) => c.close);
   let gains = 0, losses = 0;
   for (let i = closes.length - period; i < closes.length; i++) {
     const diff = (closes[i] ?? 0) - (closes[i - 1] ?? 0);
@@ -103,7 +118,7 @@ function computeRSI(candles: OHLCVCandle[], period = 14): number | null {
 }
 
 function get30DayVolatility(candles: OHLCVCandle[]): number | null {
-  const last30 = candles.slice(-30);
+  const last30 = tradingDays(candles).slice(-30);
   if (last30.length < 5) return null;
   const returns = last30.slice(1).map((c, i) => {
     const prev = last30[i]!.close;
@@ -115,7 +130,7 @@ function get30DayVolatility(candles: OHLCVCandle[]): number | null {
 }
 
 function getAvgVolume(candles: OHLCVCandle[]): number | null {
-  const last20 = candles.slice(-20).filter((c) => c.volume > 0);
+  const last20 = tradingDays(candles).slice(-20);
   if (!last20.length) return null;
   return last20.reduce((s, c) => s + c.volume, 0) / last20.length;
 }
