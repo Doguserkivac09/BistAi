@@ -12,7 +12,6 @@ function createAdminClient() {
 
 export type SignalTypeRegimeStatsResponse = {
   signal_type: string;
-  regime: string;
 } & SignalEdgeStats;
 
 function parseDaysParam(request: NextRequest): number {
@@ -52,25 +51,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json<SignalTypeRegimeStatsResponse[]>([]);
     }
 
-    const groupKey = (signalType: string, regime: string) =>
-      `${signalType}|${regime}`;
-    const groups = new Map<
-      string,
-      { signalType: string; regime: string; rows: SignalPerformanceRecord[] }
-    >();
+    // Sadece signal_type bazında grupla — regime'e göre bölmek grup başına düşen
+    // kayıt sayısını düşürür ve sufficient_sample eşiğinin (20) altında kalır.
+    const groups = new Map<string, SignalPerformanceRecord[]>();
     for (const rec of records) {
-      const st = rec.signal_type;
-      const reg = rec.regime ?? 'unknown';
-      const key = groupKey(st, reg);
-      const existing = groups.get(key);
-      if (existing) existing.rows.push(rec);
-      else groups.set(key, { signalType: st, regime: reg, rows: [rec] });
+      const list = groups.get(rec.signal_type) ?? [];
+      list.push(rec);
+      groups.set(rec.signal_type, list);
     }
 
     const results: SignalTypeRegimeStatsResponse[] = [];
-    for (const { signalType, regime, rows } of Array.from(groups.values())) {
+    for (const [signalType, rows] of Array.from(groups.entries())) {
       const edge = computeSignalEdge(rows);
-      results.push({ signal_type: signalType, regime, ...edge });
+      results.push({ signal_type: signalType, ...edge });
     }
 
     return NextResponse.json<SignalTypeRegimeStatsResponse[]>(results);
