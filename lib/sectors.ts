@@ -359,3 +359,58 @@ export function groupBySector(symbols: string[]): Record<SectorId, string[]> {
   }
   return groups;
 }
+
+// ── Sektör Momentum ─────────────────────────────────────────────────
+
+import type { OHLCVCandle } from '@/types';
+
+export interface SectorMomentum {
+  sectorId: SectorId;
+  name: string;          // kısa sektör adı
+  score: number;         // ortalama 20 günlük getiri (%)
+  direction: 'yukari' | 'asagi' | 'nötr';
+  stockCount: number;    // hesaplamaya giren hisse sayısı
+}
+
+/** Son 20 işlem gününün getirisini hesaplar (volume > 0 filtreli) */
+function get20DReturn(candles: OHLCVCandle[]): number | null {
+  const td = candles.filter((c) => (c.volume ?? 0) > 0);
+  if (td.length < 5) return null;
+  const last = td[td.length - 1]!.close;
+  const base = td[Math.max(0, td.length - 20)]!.close;
+  if (base === 0) return null;
+  return ((last - base) / base) * 100;
+}
+
+/**
+ * Tarama sonuçlarından sektör momentum haritası üretir.
+ * Her sektör için mevcut hisselerin ortalama 20 günlük getirisini hesaplar.
+ * Ekstra API isteği yok — mevcut candle verisi kullanılır.
+ */
+export function computeSectorMomentum(
+  scanResults: Array<{ sembol: string; candles: OHLCVCandle[] }>
+): Map<string, SectorMomentum> {
+  const accum = new Map<string, { sum: number; count: number; sectorId: SectorId; name: string }>();
+
+  for (const { sembol, candles } of scanResults) {
+    const info = getSector(sembol);
+    if (info.id === 'diger') continue; // bilinmeyen sektörleri atla
+    const ret = get20DReturn(candles);
+    if (ret === null) continue;
+    const key = info.id;
+    const prev = accum.get(key) ?? { sum: 0, count: 0, sectorId: info.id, name: info.shortName };
+    accum.set(key, { ...prev, sum: prev.sum + ret, count: prev.count + 1 });
+  }
+
+  const result = new Map<string, SectorMomentum>();
+  accum.forEach(({ sum, count, sectorId, name }, key) => {
+    if (count < 1) return;
+    const score = Math.round((sum / count) * 100) / 100;
+    const direction: SectorMomentum['direction'] =
+      score >= 2  ? 'yukari' :
+      score <= -2 ? 'asagi'  : 'nötr';
+    result.set(key, { sectorId, name, score, direction, stockCount: count });
+  });
+
+  return result;
+}

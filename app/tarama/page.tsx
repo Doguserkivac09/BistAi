@@ -14,6 +14,8 @@ import type {
 } from '@/types';
 import { fetchOHLCVClient } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
+import { computeSectorMomentum, getSector } from '@/lib/sectors';
+import type { SectorMomentum } from '@/lib/sectors';
 import { Search, RefreshCw, Zap, TrendingUp, TrendingDown, BarChart2, Activity } from 'lucide-react';
 import { saveSignalPerformance } from '@/lib/performance';
 import { ScanProgress } from '@/components/ScanProgress';
@@ -292,6 +294,7 @@ export default function TaramaPage() {
   const [winRateMap, setWinRateMap] = useState<Map<string, { rate: number; sampleSize: number }>>(new Map());
   const [scannedCount, setScannedCount] = useState(0);
   const [selectedTypes, setSelectedTypes] = useState<string[]>(ALL_SIGNAL_TYPES);
+  const [sectorMap, setSectorMap] = useState<Map<string, SectorMomentum>>(new Map());
   // Filtre değişimlerinde açıklamalar kaybolmasın diye sayfa seviyesinde cache
   const explanationCache = useRef<Map<string, string>>(new Map());
 
@@ -381,6 +384,8 @@ export default function TaramaPage() {
 
     try {
       const all: ScanResult[] = [...results];
+      // Sektör momentumu için tüm başarıyla taranan hisseleri ayrı tut
+      const allScanned: Array<{ sembol: string; candles: OHLCVCandle[] }> = [];
       setScanProgress({ current: 0, total: symbols.length, symbol: '' });
       let completed = 0;
 
@@ -404,6 +409,9 @@ export default function TaramaPage() {
           if (result.status === 'fulfilled') {
             const { sembol, signals, candles } = result.value;
             setScanProgress({ current: completed, total: symbols.length, symbol: sembol });
+
+            // Tüm taranan hisseleri sektör momentum hesabı için kaydet
+            allScanned.push({ sembol, candles });
 
             if (signals.length > 0) {
               for (const signal of signals) {
@@ -431,6 +439,9 @@ export default function TaramaPage() {
       setResults(all);
       setFailedSymbols(failed);
       setScannedCount(symbols.length);
+
+      // Sektör momentumunu tüm taranan hisselerin candle verisiyle hesapla
+      setSectorMap(computeSectorMomentum(allScanned));
 
       // Sonuçları sessionStorage'a kaydet (geri tuşu sonrası geri yükleme için)
       try {
@@ -606,6 +617,7 @@ export default function TaramaPage() {
                       allSignals={r.signals}
                       macroScore={macroScore}
                       winRate={winRateMap.get(primarySig.type) ?? null}
+                      sectorMomentum={sectorMap.get(getSector(r.sembol).id) ?? null}
                       cachedExplanation={explanationCache.current.get(`${r.sembol}:${primarySig.type}`) ?? null}
                       onExplanationLoaded={(text) => explanationCache.current.set(`${r.sembol}:${primarySig.type}`, text)}
                     />

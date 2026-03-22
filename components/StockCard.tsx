@@ -14,6 +14,7 @@ const MiniChart = dynamic(
 import { SignalExplanation } from '@/components/SignalExplanation';
 import type { StockSignal, OHLCVCandle, ConfluenceResult } from '@/types';
 import { computeConfluence } from '@/lib/signals';
+import type { SectorMomentum } from '@/lib/sectors';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SRLevels } from '@/components/SRLevels';
 import { calculateSRLevels } from '@/lib/support-resistance';
@@ -24,6 +25,7 @@ interface StockCardProps {
   allSignals?: StockSignal[];
   macroScore?: { score: number; wind: string } | null;
   winRate?: { rate: number; sampleSize: number } | null; // backtest başarı oranı
+  sectorMomentum?: SectorMomentum | null;               // sektör momentumu
   delay?: number;
   cachedExplanation?: string | null;
   onExplanationLoaded?: (text: string) => void;
@@ -77,6 +79,25 @@ function FreshnessBadge({ candlesAgo }: { candlesAgo: number }) {
   );
 }
 
+function SectorBadge({ momentum }: { momentum: SectorMomentum }) {
+  const arrow = momentum.direction === 'yukari' ? '↑' : momentum.direction === 'asagi' ? '↓' : '→';
+  const cls =
+    momentum.direction === 'yukari'
+      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+      : momentum.direction === 'asagi'
+      ? 'text-red-400 bg-red-500/10 border-red-500/30'
+      : 'text-zinc-400 bg-zinc-500/10 border-zinc-500/30';
+  const sign = momentum.score >= 0 ? '+' : '';
+  return (
+    <span
+      title={`${momentum.name} sektörü 20 günlük ortalama getiri: ${sign}${momentum.score.toFixed(1)}% (${momentum.stockCount} hisse)`}
+      className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}
+    >
+      {momentum.name} {arrow}
+    </span>
+  );
+}
+
 function MTFBadge({ aligned }: { aligned: boolean }) {
   return aligned ? (
     <span
@@ -117,7 +138,7 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
   );
 }
 
-export function StockCard({ signal, candleData, allSignals, macroScore, winRate, delay = 0, cachedExplanation, onExplanationLoaded }: StockCardProps) {
+export function StockCard({ signal, candleData, allSignals, macroScore, winRate, sectorMomentum, delay = 0, cachedExplanation, onExplanationLoaded }: StockCardProps) {
   const confluence = allSignals && allSignals.length > 1 ? computeConfluence(allSignals) : null;
   const [explanation, setExplanation] = useState<string | null>(cachedExplanation ?? null);
   const [loading, setLoading] = useState(false);
@@ -199,6 +220,7 @@ export function StockCard({ signal, candleData, allSignals, macroScore, winRate,
               {signal.sembol}
             </span>
             {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
+            {sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
             {confluence && <ConfluenceBadge result={confluence} />}
             {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
             {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
