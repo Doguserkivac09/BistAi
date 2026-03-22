@@ -557,7 +557,7 @@ export default function TaramaPage() {
           </motion.div>
         )}
 
-        {/* Sonuç grid */}
+        {/* Sonuç grid — hisse başına 1 kart, en güçlü sinyal önce */}
         {!loading && displayList.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -565,26 +565,27 @@ export default function TaramaPage() {
             className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           >
             <AnimatePresence>
-              {displayList.flatMap((r) =>
-                r.signals.map((sig) => ({ sig, candles: r.candles, allSignals: r.signals }))
-              ).map(({ sig, candles, allSignals }, idx) => (
-                <motion.div
-                  key={`${sig.sembol}-${sig.type}`}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <StockCard
-                    signal={sig}
-                    candleData={candles}
-                    allSignals={allSignals}
-                    macroScore={macroScore}
-                    cachedExplanation={explanationCache.current.get(`${sig.sembol}:${sig.type}`) ?? null}
-                    onExplanationLoaded={(text) => explanationCache.current.set(`${sig.sembol}:${sig.type}`, text)}
-                  />
-                </motion.div>
-              ))}
+              {displayList.map((r) => {
+                const primarySig = r.signals[0]!;
+                return (
+                  <motion.div
+                    key={r.sembol}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <StockCard
+                      signal={primarySig}
+                      candleData={r.candles}
+                      allSignals={r.signals}
+                      macroScore={macroScore}
+                      cachedExplanation={explanationCache.current.get(`${r.sembol}:${primarySig.type}`) ?? null}
+                      onExplanationLoaded={(text) => explanationCache.current.set(`${r.sembol}:${primarySig.type}`, text)}
+                    />
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </motion.div>
         )}

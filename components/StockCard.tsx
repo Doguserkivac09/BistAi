@@ -174,6 +174,19 @@ export function StockCard({ signal, candleData, allSignals, macroScore, delay = 
           height={56}
           positive={isUp ? true : isDown ? false : undefined}
         />
+        {/* Ek sinyaller */}
+        {allSignals && allSignals.length > 1 && (
+          <div className="flex flex-wrap gap-1">
+            {allSignals.slice(1).map((s) => (
+              <span
+                key={s.type}
+                className="inline-flex items-center gap-0.5 rounded border border-border bg-surface/50 px-1.5 py-0.5 text-[10px] text-text-muted"
+              >
+                {s.direction === 'yukari' ? '↑' : s.direction === 'asagi' ? '↓' : '→'} {s.type}
+              </span>
+            ))}
+          </div>
+        )}
         <SRLevels analysis={calculateSRLevels(candleData)} compact />
         <SignalExplanation text={explanation} isLoading={loading} error={error} />
       </CardContent>

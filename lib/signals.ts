@@ -3,7 +3,7 @@
  * Her sinyal: { type, sembol, severity, direction, data }
  */
 
-import type { OHLCVCandle, StockSignal, SignalSeverity, SignalDirection } from '@/types';
+import type { OHLCVCandle, StockSignal, SignalSeverity, SignalDirection, ConfluenceResult } from '@/types';
 
 // --- RSI (14 periyot) ---
 function calculateRSI(closes: number[], period: number = 14): number[] {
@@ -620,8 +620,6 @@ const SIGNAL_CATEGORY: Record<string, string> = {
 };
 
 const SEVERITY_POINTS: Record<string, number> = { güçlü: 35, orta: 22, zayıf: 12 };
-
-import type { ConfluenceResult } from '@/types';
 
 export function computeConfluence(signals: StockSignal[]): ConfluenceResult {
   if (!signals.length) {
