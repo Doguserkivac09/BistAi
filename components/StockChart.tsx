@@ -72,8 +72,6 @@ interface LegendData {
   price?: string;
   ema9?: string;
   ema21?: string;
-  ema50?: string;
-  ema200?: string;
   rsi?: string;
   change?: string;
   changePositive?: boolean;
@@ -180,7 +178,7 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       });
       candlestickSeries.setData(cdlData);
 
-      const volumeSeries = chart.addHistogramSeries({ priceScaleId: 'volume', color: '#6366f140' });
+      const volumeSeries = chart.addHistogramSeries({ priceScaleId: 'volume', color: '#6366f140', title: '' });
       volumeSeries.setData(normalizedCandles.map((c) => ({
         time: c.date as Time,
         value: c.volume ?? 0,
@@ -188,59 +186,59 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       })));
       chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 }, borderVisible: false });
 
-      // EMA 9 / 21 (her zaman görünür)
+      // EMA 9 / 21 — her zaman görünür
       const ema9 = calculateEMA(closes, 9);
       const ema21 = calculateEMA(closes, 21);
-      const ema9Series = chart.addLineSeries({ color: '#6366f1', lineWidth: 2, title: 'EMA 9', lastValueVisible: false, priceLineVisible: false });
+      const ema9Series = chart.addLineSeries({ color: '#6366f1', lineWidth: 2, title: '', lastValueVisible: false, priceLineVisible: false });
       ema9Series.setData(normalizedCandles.map((c, i) => ({ time: c.date as Time, value: ema9[i] ?? c.close })));
-      const ema21Series = chart.addLineSeries({ color: '#f59e0b', lineWidth: 2, title: 'EMA 21', lastValueVisible: false, priceLineVisible: false });
+      const ema21Series = chart.addLineSeries({ color: '#f59e0b', lineWidth: 2, title: '', lastValueVisible: false, priceLineVisible: false });
       ema21Series.setData(normalizedCandles.map((c, i) => ({ time: c.date as Time, value: ema21[i] ?? c.close })));
 
       // Bollinger Bantları
       if (showBB) {
         const bb = calculateBollingerBands(closes, 20);
-        const bbUpperSeries = chart.addLineSeries({ color: 'rgba(99,102,241,0.6)', lineWidth: 1, lineStyle: 2, title: 'BB+', lastValueVisible: false, priceLineVisible: false });
+        const bbUpperSeries = chart.addLineSeries({ color: 'rgba(99,102,241,0.55)', lineWidth: 1, lineStyle: 2, title: '', lastValueVisible: false, priceLineVisible: false });
         bbUpperSeries.setData(normalizedCandles.map((c, i) => ({ time: c.date as Time, value: bb.upper[i] ?? c.close })));
-        const bbMiddleSeries = chart.addLineSeries({ color: 'rgba(148,163,184,0.4)', lineWidth: 1, lineStyle: 1, title: 'SMA20', lastValueVisible: false, priceLineVisible: false });
+        const bbMiddleSeries = chart.addLineSeries({ color: 'rgba(148,163,184,0.35)', lineWidth: 1, lineStyle: 1, title: '', lastValueVisible: false, priceLineVisible: false });
         bbMiddleSeries.setData(normalizedCandles.map((c, i) => ({ time: c.date as Time, value: bb.middle[i] ?? c.close })));
-        const bbLowerSeries = chart.addLineSeries({ color: 'rgba(99,102,241,0.6)', lineWidth: 1, lineStyle: 2, title: 'BB-', lastValueVisible: false, priceLineVisible: false });
+        const bbLowerSeries = chart.addLineSeries({ color: 'rgba(99,102,241,0.55)', lineWidth: 1, lineStyle: 2, title: '', lastValueVisible: false, priceLineVisible: false });
         bbLowerSeries.setData(normalizedCandles.map((c, i) => ({ time: c.date as Time, value: bb.lower[i] ?? c.close })));
       }
 
       // EMA 50 / 200
       if (showEMA50200 && closes.length >= 50) {
         const ema50 = calculateEMA(closes, 50);
-        const ema50Series = chart.addLineSeries({ color: '#10b981', lineWidth: 1, title: 'EMA 50', lastValueVisible: false, priceLineVisible: false });
+        const ema50Series = chart.addLineSeries({ color: '#10b981', lineWidth: 1, title: '', lastValueVisible: false, priceLineVisible: false });
         ema50Series.setData(normalizedCandles.map((c, i) => ({ time: c.date as Time, value: ema50[i] ?? c.close })));
 
         if (closes.length >= 200) {
           const ema200 = calculateEMA(closes, 200);
-          const ema200Series = chart.addLineSeries({ color: '#f43f5e', lineWidth: 1, title: 'EMA 200', lastValueVisible: false, priceLineVisible: false });
+          const ema200Series = chart.addLineSeries({ color: '#f43f5e', lineWidth: 1, title: '', lastValueVisible: false, priceLineVisible: false });
           ema200Series.setData(normalizedCandles.map((c, i) => ({ time: c.date as Time, value: ema200[i] ?? c.close })));
         }
       }
 
-      // Destek / Direnç yatay çizgileri
+      // Destek / Direnç — solid çizgi, eksen etiketi yok (sağ ekseni kirletmez)
       if (showSR) {
         const sr = calculateSRLevels(candles, 90, 3);
         sr.resistances.forEach((r) => {
           candlestickSeries.createPriceLine({
             price: r.price,
-            color: `rgba(239,68,68,${0.3 + r.strength * 0.1})`,
-            lineWidth: 1,
-            lineStyle: 2,
-            axisLabelVisible: true,
-            title: `D ₺${r.price.toFixed(2)}`,
+            color: `rgba(239,68,68,${0.45 + r.strength * 0.1})`,
+            lineWidth: 2,
+            lineStyle: 0,
+            axisLabelVisible: false,
+            title: `↔ D`,
           });
         });
         sr.supports.forEach((s) => {
           candlestickSeries.createPriceLine({
             price: s.price,
-            color: `rgba(34,197,94,${0.3 + s.strength * 0.1})`,
-            lineWidth: 1,
-            lineStyle: 2,
-            axisLabelVisible: true,
-            title: `S ₺${s.price.toFixed(2)}`,
+            color: `rgba(34,197,94,${0.45 + s.strength * 0.1})`,
+            lineWidth: 2,
+            lineStyle: 0,
+            axisLabelVisible: false,
+            title: `↔ S`,
           });
         });
       }
@@ -317,56 +315,84 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
   const rsiZone = rsiVal >= 70 ? 'Aşırı Alım' : rsiVal <= 30 ? 'Aşırı Satım' : '';
 
   return (
-    <div className={`relative ${className ?? ''}`}>
-      {/* Legend */}
-      <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-background/80 px-2 py-1 text-xs backdrop-blur-sm">
-        {showRsi ? (
-          <>
-            <span className="text-text-secondary/60">RSI(14)</span>
-            <span className="font-mono font-semibold" style={{ color: rsiColor }}>{legend.rsi ?? '—'}</span>
-            {rsiZone && <span className="text-[10px] font-medium" style={{ color: rsiColor + 'bb' }}>{rsiZone}</span>}
-          </>
-        ) : (
-          <>
-            {legend.price && <><span className="text-text-secondary">Fiyat</span><span className="font-mono font-medium text-text-primary">{legend.price}</span></>}
-            {legend.change && <span className={`font-mono font-medium ${legend.changePositive ? 'text-bullish' : 'text-bearish'}`}>{legend.changePositive ? '+' : ''}{legend.change}%</span>}
-            {legend.ema9 && <><span className="text-indigo-400">EMA9</span><span className="font-mono text-indigo-400">{legend.ema9}</span></>}
-            {legend.ema21 && <><span className="text-amber-400">EMA21</span><span className="font-mono text-amber-400">{legend.ema21}</span></>}
-            {legend.volume && <><span className="text-text-secondary/60">Hacim</span><span className="font-mono text-text-secondary/80">{legend.volume}</span></>}
-          </>
-        )}
-      </div>
-
-      {/* İndikatör toggle butonları */}
+    <div className={`flex flex-col ${className ?? ''}`}>
+      {/* ── İndikatör Araç Çubuğu ────────────────────────────────────────── */}
       {!showRsi && (
-        <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <span className="text-[11px] text-text-secondary/60 select-none">İndikatör:</span>
           <button
+            type="button"
             onClick={() => setShowBB((v) => !v)}
-            className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${showBB ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/50' : 'bg-surface/80 text-text-secondary border border-white/10 hover:border-white/20'}`}
+            className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+              showBB
+                ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/50'
+                : 'text-text-secondary hover:text-text-primary hover:bg-surface-alt'
+            }`}
           >
             BB
           </button>
           <button
+            type="button"
             onClick={() => setShowEMA50200((v) => !v)}
-            className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${showEMA50200 ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50' : 'bg-surface/80 text-text-secondary border border-white/10 hover:border-white/20'}`}
+            className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+              showEMA50200
+                ? 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50'
+                : 'text-text-secondary hover:text-text-primary hover:bg-surface-alt'
+            }`}
           >
-            EMA50/200
+            EMA 50/200
           </button>
           <button
+            type="button"
             onClick={() => setShowSR((v) => !v)}
-            className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${showSR ? 'bg-sky-500/30 text-sky-300 border border-sky-500/50' : 'bg-surface/80 text-text-secondary border border-white/10 hover:border-white/20'}`}
+            className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+              showSR
+                ? 'bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/50'
+                : 'text-text-secondary hover:text-text-primary hover:bg-surface-alt'
+            }`}
           >
-            D/R
+            Destek/Direnç
           </button>
+
+          {/* Aktif indikatör renk göstergeleri */}
+          <div className="ml-auto flex items-center gap-3 text-[10px] text-text-secondary/60 select-none">
+            <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-indigo-400 rounded" />EMA9</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-amber-400 rounded" />EMA21</span>
+            {showBB && <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-indigo-400/60 rounded border-t border-dashed border-indigo-400/60" />BB</span>}
+            {showEMA50200 && <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-emerald-400 rounded" />EMA50</span>}
+            {showEMA50200 && <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-rose-400 rounded" />EMA200</span>}
+            {showSR && <span className="flex items-center gap-1"><span className="inline-block h-2 w-0.5 bg-red-400 rounded" /><span className="inline-block h-2 w-0.5 bg-emerald-400 rounded" />D/R</span>}
+          </div>
         </div>
       )}
 
-      <div
-        ref={containerRef}
-        className="w-full"
-        role="img"
-        aria-label={showRsi ? 'RSI göstergesi grafiği' : 'Hisse fiyat grafiği'}
-      />
+      {/* ── Grafik + Legend ───────────────────────────────────────────────── */}
+      <div className="relative">
+        <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-x-3 gap-y-1 rounded bg-background/80 px-2 py-1 text-xs backdrop-blur-sm">
+          {showRsi ? (
+            <>
+              <span className="text-text-secondary/60">RSI(14)</span>
+              <span className="font-mono font-semibold" style={{ color: rsiColor }}>{legend.rsi ?? '—'}</span>
+              {rsiZone && <span className="text-[10px] font-medium" style={{ color: rsiColor + 'bb' }}>{rsiZone}</span>}
+            </>
+          ) : (
+            <>
+              {legend.price && <><span className="text-text-secondary">Fiyat</span><span className="font-mono font-medium text-text-primary">{legend.price}</span></>}
+              {legend.change && <span className={`font-mono font-medium ${legend.changePositive ? 'text-bullish' : 'text-bearish'}`}>{legend.changePositive ? '+' : ''}{legend.change}%</span>}
+              {legend.ema9 && <><span className="text-indigo-400">EMA9</span><span className="font-mono text-indigo-400">{legend.ema9}</span></>}
+              {legend.ema21 && <><span className="text-amber-400">EMA21</span><span className="font-mono text-amber-400">{legend.ema21}</span></>}
+              {legend.volume && <><span className="text-text-secondary/60">Hacim</span><span className="font-mono text-text-secondary/80">{legend.volume}</span></>}
+            </>
+          )}
+        </div>
+
+        <div
+          ref={containerRef}
+          className="w-full"
+          role="img"
+          aria-label={showRsi ? 'RSI göstergesi grafiği' : 'Hisse fiyat grafiği'}
+        />
+      </div>
     </div>
   );
 }
