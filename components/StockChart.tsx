@@ -162,6 +162,15 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       rsiSeries.createPriceLine({ price: 30, color: 'rgba(34,197,94,0.7)', lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' });
       // Orta çizgi (50) — ince gri
       rsiSeries.createPriceLine({ price: 50, color: 'rgba(255,255,255,0.12)', lineWidth: 1, lineStyle: 1, axisLabelVisible: false, title: '' });
+      // Mevcut RSI değeri çizgisi — dinamik konum
+      const currentRsiLine = rsiSeries.createPriceLine({
+        price: lastRsi,
+        color: rsiColor(lastRsi),
+        lineWidth: 1,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: '',
+      });
 
       chart.priceScale('right').applyOptions({
         scaleMargins: { top: 0.06, bottom: 0.06 },
@@ -170,9 +179,17 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
 
       setLegend({ rsi: lastRsi.toFixed(1) });
       chart.subscribeCrosshairMove((param) => {
-        if (!param.time || !param.seriesData) { setLegend({ rsi: lastRsi.toFixed(1) }); return; }
+        if (!param.time || !param.seriesData) {
+          currentRsiLine.applyOptions({ price: lastRsi, color: rsiColor(lastRsi) });
+          setLegend({ rsi: lastRsi.toFixed(1) });
+          return;
+        }
         const p = param.seriesData.get(rsiSeries);
-        if (p && 'value' in p) setLegend({ rsi: p.value.toFixed(1) });
+        if (p && 'value' in p) {
+          const v = p.value;
+          currentRsiLine.applyOptions({ price: v, color: rsiColor(v) });
+          setLegend({ rsi: v.toFixed(1) });
+        }
       });
     } else {
       const cdlData: CandlestickData[] = normalized.map((c) => ({
