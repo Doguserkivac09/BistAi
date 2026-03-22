@@ -110,6 +110,7 @@ export default function SifreGuncellePage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={loading}
                     minLength={6}
                     autoComplete="new-password"
                     className="border-border bg-surface"
@@ -123,6 +124,7 @@ export default function SifreGuncellePage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
+                    disabled={loading}
                     minLength={6}
                     autoComplete="new-password"
                     className="border-border bg-surface"

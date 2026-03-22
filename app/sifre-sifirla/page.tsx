@@ -76,6 +76,7 @@ export default function SifreSifirlaPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={loading}
                     autoComplete="email"
                     className="border-border bg-surface"
                   />

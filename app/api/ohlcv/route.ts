@@ -3,8 +3,8 @@ import { fetchOHLCV, fetchOHLCVByTimeframe, type YahooTimeframe } from '@/lib/ya
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import type { OHLCVCandle } from '@/types';
 
-// IP başına dakikada 120 istek (tarama 101 sembol paralel yapıyor)
-const RATE_LIMIT = 120;
+// IP başına dakikada 300 istek (tarama 101 sembol + regime fetch + retry)
+const RATE_LIMIT = 300;
 const WINDOW_MS = 60_000;
 
 export async function GET(request: NextRequest) {

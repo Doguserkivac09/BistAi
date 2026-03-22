@@ -186,7 +186,9 @@ export default function ToplulukPage() {
           {CATEGORIES.map((c) => (
             <button
               key={c.value}
+              type="button"
               onClick={() => { setCategory(c.value); setPage(1); }}
+              aria-pressed={category === c.value}
               className={cn(
                 'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                 category === c.value
@@ -202,7 +204,9 @@ export default function ToplulukPage() {
         {/* Sort */}
         <div className="flex items-center gap-2 mb-4">
           <button
+            type="button"
             onClick={() => { setSort('newest'); setPage(1); }}
+            aria-pressed={sort === 'newest'}
             className={cn(
               'text-xs font-medium transition-colors',
               sort === 'newest' ? 'text-primary' : 'text-text-secondary hover:text-text-primary'
@@ -212,7 +216,9 @@ export default function ToplulukPage() {
           </button>
           <span className="text-text-secondary/30">|</span>
           <button
+            type="button"
             onClick={() => { setSort('popular'); setPage(1); }}
+            aria-pressed={sort === 'popular'}
             className={cn(
               'text-xs font-medium transition-colors',
               sort === 'popular' ? 'text-primary' : 'text-text-secondary hover:text-text-primary'

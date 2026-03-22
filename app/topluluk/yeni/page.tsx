@@ -110,10 +110,16 @@ export default function YeniPaylaşımPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={200}
+                disabled={submitting}
                 placeholder="Başlık girin..."
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
               />
-              <p className="text-[11px] text-text-secondary/60 mt-1">{title.length}/200</p>
+              <p className="text-[11px] text-text-secondary/60 mt-1">
+                {title.length}/200
+                {title.length > 0 && title.trim().length < 3 && (
+                  <span className="ml-2 text-bearish">En az 3 karakter gerekli</span>
+                )}
+              </p>
             </div>
 
             {/* Body */}
@@ -127,10 +133,16 @@ export default function YeniPaylaşımPage() {
                 onChange={(e) => setBody(e.target.value)}
                 maxLength={5000}
                 rows={8}
+                disabled={submitting}
                 placeholder="Analizinizi, sorunuzu veya görüşünüzü paylaşın..."
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none disabled:opacity-50"
               />
-              <p className="text-[11px] text-text-secondary/60 mt-1">{body.length}/5000</p>
+              <p className="text-[11px] text-text-secondary/60 mt-1">
+                {body.length}/5000
+                {body.length > 0 && body.trim().length < 10 && (
+                  <span className="ml-2 text-bearish">En az 10 karakter gerekli</span>
+                )}
+              </p>
             </div>
 
             {/* Sembol (optional) */}
@@ -144,8 +156,9 @@ export default function YeniPaylaşımPage() {
                 value={sembol}
                 onChange={(e) => setSembol(e.target.value.toUpperCase())}
                 maxLength={10}
+                disabled={submitting}
                 placeholder="Ör: THYAO"
-                className="w-full max-w-[200px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full max-w-[200px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-secondary/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
               />
             </div>
 

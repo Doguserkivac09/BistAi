@@ -117,7 +117,7 @@ export default function ProfilPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <main className="container mx-auto max-w-2xl px-4 py-8">
+        <main className="container mx-auto max-w-2xl px-4 py-6">
           <Skeleton className="h-8 w-40 mb-6" />
           <Skeleton className="h-64 rounded-lg mb-4" />
           <Skeleton className="h-40 rounded-lg" />
@@ -149,7 +149,7 @@ export default function ProfilPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto max-w-2xl px-4 py-8">
+      <main className="container mx-auto max-w-2xl px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
