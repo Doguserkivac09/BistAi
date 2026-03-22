@@ -16,8 +16,9 @@ import { calculateSRLevels } from '@/lib/support-resistance';
 interface StockCardProps {
   signal: StockSignal;
   candleData: OHLCVCandle[];
-  allSignals?: StockSignal[]; // aynı hissenin tüm sinyalleri (confluence için)
+  allSignals?: StockSignal[];
   macroScore?: { score: number; wind: string } | null;
+  winRate?: { rate: number; sampleSize: number } | null; // backtest başarı oranı
   delay?: number;
   cachedExplanation?: string | null;
   onExplanationLoaded?: (text: string) => void;
@@ -38,6 +39,23 @@ function ConfluenceBadge({ result }: { result: ConfluenceResult }) {
       className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
     >
       <span className="opacity-70">Güven</span> {result.score}
+    </span>
+  );
+}
+
+function WinRateBadge({ rate, sampleSize }: { rate: number; sampleSize: number }) {
+  const pct = Math.round(rate * 100);
+  const cls = pct >= 60
+    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+    : pct >= 45
+    ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30'
+    : 'text-red-400 bg-red-500/10 border-red-500/30';
+  return (
+    <span
+      title={`${sampleSize} geçmiş sinyale göre 7 günlük başarı oranı`}
+      className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
+    >
+      7g %{pct}
     </span>
   );
 }
@@ -76,7 +94,7 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
   );
 }
 
-export function StockCard({ signal, candleData, allSignals, macroScore, delay = 0, cachedExplanation, onExplanationLoaded }: StockCardProps) {
+export function StockCard({ signal, candleData, allSignals, macroScore, winRate, delay = 0, cachedExplanation, onExplanationLoaded }: StockCardProps) {
   const confluence = allSignals && allSignals.length > 1 ? computeConfluence(allSignals) : null;
   const [explanation, setExplanation] = useState<string | null>(cachedExplanation ?? null);
   const [loading, setLoading] = useState(false);
@@ -159,6 +177,7 @@ export function StockCard({ signal, candleData, allSignals, macroScore, delay = 
             </span>
             {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
             {confluence && <ConfluenceBadge result={confluence} />}
+            {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
             {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
           </div>
           <SignalBadge

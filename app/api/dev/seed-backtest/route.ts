@@ -10,9 +10,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Sadece development'ta çalış
-function isDev() {
-  return process.env.NODE_ENV !== 'production';
+function isAllowed(req: NextRequest) {
+  if (process.env.NODE_ENV !== 'production') return true;
+  // Production'da CRON_SECRET ile yetkilen
+  const auth = req.headers.get('authorization') ?? '';
+  return auth === `Bearer ${process.env.CRON_SECRET}`;
 }
 
 // Gerçekçi sinyal dağılımı
@@ -104,8 +106,8 @@ function generateRecord(daysAgo: number) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isDev()) {
-    return NextResponse.json({ error: 'Sadece geliştirme ortamında çalışır.' }, { status: 403 });
+  if (!isAllowed(request)) {
+    return NextResponse.json({ error: 'Yetkisiz.' }, { status: 403 });
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -145,9 +147,9 @@ export async function POST(request: NextRequest) {
 }
 
 /** Seed edilen kayıtları temizle (evaluated=true AND user_id IS NULL) */
-export async function DELETE() {
-  if (!isDev()) {
-    return NextResponse.json({ error: 'Sadece geliştirme ortamında çalışır.' }, { status: 403 });
+export async function DELETE(request: NextRequest) {
+  if (!isAllowed(request)) {
+    return NextResponse.json({ error: 'Yetkisiz.' }, { status: 403 });
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

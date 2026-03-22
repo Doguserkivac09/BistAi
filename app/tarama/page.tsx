@@ -289,6 +289,7 @@ export default function TaramaPage() {
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, symbol: '' });
   const [failedSymbols, setFailedSymbols] = useState<string[]>([]);
   const [macroScore, setMacroScore] = useState<{ score: number; wind: string } | null>(null);
+  const [winRateMap, setWinRateMap] = useState<Map<string, { rate: number; sampleSize: number }>>(new Map());
   const [scannedCount, setScannedCount] = useState(0);
   const [selectedTypes, setSelectedTypes] = useState<string[]>(ALL_SIGNAL_TYPES);
   // Filtre değişimlerinde açıklamalar kaybolmasın diye sayfa seviyesinde cache
@@ -341,10 +342,34 @@ export default function TaramaPage() {
         if (!cancelled && data.score) setMacroScore({ score: data.score.score, wind: data.score.wind });
       })
       .catch(() => {});
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
+    return () => { cancelled = true; controller.abort(); };
+  }, []);
+
+  // Backtest başarı oranlarını çek — sinyal kartlarında gösterilir
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/signal-stats')
+      .then(r => r.ok ? r.json() : [])
+      .then((stats: Array<{ signal_type: string; sufficient_sample: boolean; total_signals: number; horizon_7d: { win_rate: number | null } | null }>) => {
+        if (cancelled || !Array.isArray(stats)) return;
+        // sinyal tipi bazında ağırlıklı ortalama win rate
+        const agg = new Map<string, { totalWR: number; totalN: number }>();
+        for (const s of stats) {
+          if (!s.sufficient_sample || !s.horizon_7d?.win_rate) continue;
+          const cur = agg.get(s.signal_type) ?? { totalWR: 0, totalN: 0 };
+          agg.set(s.signal_type, {
+            totalWR: cur.totalWR + s.horizon_7d.win_rate * s.total_signals,
+            totalN:  cur.totalN  + s.total_signals,
+          });
+        }
+        const result = new Map<string, { rate: number; sampleSize: number }>();
+        agg.forEach(({ totalWR, totalN }, type) => {
+          result.set(type, { rate: totalWR / totalN, sampleSize: totalN });
+        });
+        setWinRateMap(result);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   const scanSymbols = useCallback(async (symbols: string[], types: string[]) => {
@@ -580,6 +605,7 @@ export default function TaramaPage() {
                       candleData={r.candles}
                       allSignals={r.signals}
                       macroScore={macroScore}
+                      winRate={winRateMap.get(primarySig.type) ?? null}
                       cachedExplanation={explanationCache.current.get(`${r.sembol}:${primarySig.type}`) ?? null}
                       onExplanationLoaded={(text) => explanationCache.current.set(`${r.sembol}:${primarySig.type}`, text)}
                     />
