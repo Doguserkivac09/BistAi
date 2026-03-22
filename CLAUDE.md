@@ -10,8 +10,8 @@
 
 | # | Görev | Açıklama | Durum |
 |---|-------|----------|-------|
-| Q1 | **Confluence Skoru** | Birden fazla indikatör aynı yönü → 0-100 güven skoru. Tarama+hisse sayfasında göster | 🔄 Devam ediyor |
-| Q2 | **Sinyal Yaşı (Freshness)** | Her sinyale `daysAgo` ekle — 1g vs 5g farkı kullanıcı görsün | ⏳ Bekliyor |
+| Q1 | ~~**Confluence Skoru**~~ | ✅ `computeConfluence()` — 4 kategori, severity+hizalama+çeşitlilik → 0-100. StockCard badge | ✅ |
+| Q2 | ~~**Sinyal Yaşı (Freshness)**~~ | ✅ `candlesAgo` field, "Xg önce" badge StockCard'da gösteriliyor | ✅ |
 | Q3 | **Backtest Başarı Oranı UI** | `signal_performance` tablosundaki veriyi sinyal kartlarında göster — "Bu sinyal %67 başarılı" | ⏳ Bekliyor |
 | Q4 | **Korelasyon Katsayısı** | Karşılaştırma sayfasına hisseler arası korelasyon ekle — portföy çeşitlendirmesi için | ⏳ Bekliyor |
 | Q5 | **Multi-timeframe Doğrulama** | Günlük + haftalık aynı sinyali veriyorsa güçlü; çakışmıyorsa zayıf işaretle | ⏳ Bekliyor |
