@@ -46,9 +46,15 @@ export default async function DashboardPage() {
   const savedSignalsCount = savedSignals.length;
   const lastSignalAt = savedSignals.length > 0 ? formatDate(savedSignals[0]!.created_at) : '—';
 
+  // İsim: user_metadata.full_name → email prefix sıralaması
+  const meta = user.user_metadata as Record<string, string> | undefined;
+  const fullName = meta?.full_name?.trim() || meta?.name?.trim() || '';
+  const displayName = fullName || (user.email?.split('@')[0] ?? 'Kullanıcı');
+
   return (
     <DashboardClient
       email={user.email ?? 'Kullanıcı'}
+      displayName={displayName}
       watchlist={watchlist}
       savedSignals={savedSignals}
       savedSignalsCount={savedSignalsCount}

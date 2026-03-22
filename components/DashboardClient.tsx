@@ -156,6 +156,7 @@ function SignalDistribution({ signals }: { signals: SavedSignal[] }) {
 
 interface Props {
   email: string;
+  displayName: string;
   watchlist: WatchlistItem[];
   savedSignals: SavedSignal[];
   savedSignalsCount: number;
@@ -165,13 +166,13 @@ interface Props {
 
 export function DashboardClient({
   email,
+  displayName,
   watchlist,
   savedSignals,
   savedSignalsCount,
   lastSignalAt,
   portfolyoCount,
 }: Props) {
-  const displayName = email.split('@')[0] ?? 'U';
 
   const STAT_CARDS = [
     {

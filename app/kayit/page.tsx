@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { createClient } from '@/lib/supabase';
 
 export default function KayitPage() {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -20,14 +22,32 @@ export default function KayitPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const trimFirst = firstName.trim();
+    const trimLast  = lastName.trim();
+    if (!trimFirst || !trimLast) {
+      setError('Ad ve soyad alanları zorunludur.');
+      return;
+    }
+
     setLoading(true);
     try {
       const supabase = createClient();
+      const fullName = `${trimFirst} ${trimLast}`;
+
       const { error: err } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback` },
+        options: {
+          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+          data: {
+            full_name:  fullName,
+            first_name: trimFirst,
+            last_name:  trimLast,
+          },
+        },
       });
+
       if (err) {
         setError(
           err.message.includes('already registered')
@@ -56,7 +76,7 @@ export default function KayitPage() {
           <CardContent>
             {success ? (
               <div className="rounded-lg border border-bullish/50 bg-bullish/10 px-3 py-2 text-sm text-bullish">
-                Kayıt başarılı. E-posta doğrulama linki gönderildi (veya oturum açıldı). Yönlendiriliyorsunuz...
+                Kayıt başarılı! E-posta doğrulama linki gönderildi. Yönlendiriliyorsunuz...
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -65,6 +85,40 @@ export default function KayitPage() {
                     {error}
                   </div>
                 )}
+
+                {/* Ad / Soyad */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">Ad</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      placeholder="Adınız"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                      disabled={loading}
+                      autoComplete="given-name"
+                      className="border-border bg-surface"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Soyad</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Soyadınız"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                      disabled={loading}
+                      autoComplete="family-name"
+                      className="border-border bg-surface"
+                    />
+                  </div>
+                </div>
+
+                {/* E-posta */}
                 <div className="space-y-2">
                   <Label htmlFor="email">E-posta</Label>
                   <Input
@@ -79,6 +133,8 @@ export default function KayitPage() {
                     className="border-border bg-surface"
                   />
                 </div>
+
+                {/* Şifre */}
                 <div className="space-y-2">
                   <Label htmlFor="password">Şifre</Label>
                   <Input
@@ -94,6 +150,7 @@ export default function KayitPage() {
                   />
                   <p className="text-xs text-text-secondary">En az 6 karakter.</p>
                 </div>
+
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Kaydediliyor...' : 'Kayıt Ol'}
                 </Button>
