@@ -62,6 +62,16 @@ function getLastClose(candles: OHLCVCandle[]): number | null {
   return candles.length > 0 ? (candles[candles.length - 1]?.close ?? null) : null;
 }
 
+function getLastTradingDate(candles: OHLCVCandle[]): string | null {
+  if (!candles.length) return null;
+  const last = candles[candles.length - 1]!;
+  const raw = typeof last.date === 'string' ? last.date : new Date((last.date as number) * 1000).toISOString().slice(0, 10);
+  // "YYYY-MM-DD" → "GG Aaa"
+  const d = new Date(raw + 'T00:00:00');
+  const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+  return `${d.getDate()} ${months[d.getMonth()]}`;
+}
+
 function getDailyChangePct(candles: OHLCVCandle[]): number | null {
   const n = candles.length;
   if (n < 2) return null;
@@ -77,6 +87,44 @@ function get90DayChangePct(candles: OHLCVCandle[]): number | null {
   const last = candles[candles.length - 1]?.close;
   if (!first || !last || first === 0) return null;
   return ((last - first) / first) * 100;
+}
+
+function computeRSI(candles: OHLCVCandle[], period = 14): number | null {
+  if (candles.length < period + 1) return null;
+  const closes = candles.map((c) => c.close);
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const diff = (closes[i] ?? 0) - (closes[i - 1] ?? 0);
+    if (diff > 0) gains += diff;
+    else losses -= diff;
+  }
+  if (losses === 0) return 100;
+  return 100 - 100 / (1 + gains / losses);
+}
+
+function get30DayVolatility(candles: OHLCVCandle[]): number | null {
+  const last30 = candles.slice(-30);
+  if (last30.length < 5) return null;
+  const returns = last30.slice(1).map((c, i) => {
+    const prev = last30[i]!.close;
+    return prev > 0 ? ((c.close - prev) / prev) * 100 : 0;
+  });
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length;
+  return Math.sqrt(variance);
+}
+
+function getAvgVolume(candles: OHLCVCandle[]): number | null {
+  const last20 = candles.slice(-20).filter((c) => c.volume > 0);
+  if (!last20.length) return null;
+  return last20.reduce((s, c) => s + c.volume, 0) / last20.length;
+}
+
+function formatVolume(v: number | null): string {
+  if (v === null) return '—';
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+  if (v >= 1_000) return (v / 1_000).toFixed(0) + 'K';
+  return String(Math.round(v));
 }
 
 function getStrongestSignal(signals: StockSignal[]): StockSignal | null {
@@ -270,10 +318,16 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
 
   // loaded
   const { data } = state;
-  const lastClose = getLastClose(data.candles);
-  const dailyPct = getDailyChangePct(data.candles);
-  const change90 = get90DayChangePct(data.candles);
+  const dailyPct   = getDailyChangePct(data.candles);
+  const change90   = get90DayChangePct(data.candles);
+  const rsi        = computeRSI(data.candles);
+  const lastDate   = getLastTradingDate(data.candles);
   const isPositiveDay = dailyPct !== null && dailyPct >= 0;
+
+  const rsiColor = rsi === null ? 'text-text-secondary'
+    : rsi >= 70 ? 'text-red-400'
+    : rsi <= 30 ? 'text-emerald-400'
+    : 'text-text-primary';
 
   return (
     <motion.div
@@ -286,7 +340,9 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
           <div className={cn('flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold', colorCls.badge)}>
             {index + 1}
           </div>
-          <span className={cn('text-base font-bold', colorCls.text)}>{data.sembol}</span>
+          <a href={`/hisse/${data.sembol}`} className={cn('text-base font-bold hover:underline', colorCls.text)}>
+            {data.sembol}
+          </a>
         </div>
         <button onClick={onRemove} className="rounded-md p-1 text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors">
           <X className="h-3.5 w-3.5" />
@@ -295,11 +351,16 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
 
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="rounded-lg bg-white/[0.03] px-3 py-2">
-          <p className="text-xs text-text-muted mb-0.5">Son Fiyat</p>
-          <p className="font-semibold text-text-primary tabular-nums">{formatPrice(lastClose)} ₺</p>
+          <p className="text-xs text-text-muted mb-0.5">RSI (14)</p>
+          <p className={cn('font-semibold tabular-nums', rsiColor)}>
+            {rsi !== null ? rsi.toFixed(1) : '—'}
+          </p>
         </div>
         <div className="rounded-lg bg-white/[0.03] px-3 py-2">
-          <p className="text-xs text-text-muted mb-0.5">Günlük</p>
+          <div className="flex items-center justify-between mb-0.5">
+            <p className="text-xs text-text-muted">Günlük</p>
+            {lastDate && <p className="text-[10px] text-text-muted/60">{lastDate}</p>}
+          </div>
           <p className={cn('font-semibold tabular-nums', dailyPct === null ? 'text-text-secondary' : isPositiveDay ? 'text-bullish' : 'text-bearish')}>
             {formatPct(dailyPct)}
           </p>
@@ -474,13 +535,7 @@ interface MetricRow {
 
 const METRICS: MetricRow[] = [
   {
-    label: 'Son Fiyat (₺)',
-    getValue: (d) => getLastClose(d.candles),
-    format: formatPrice,
-    higherIsBetter: true,
-  },
-  {
-    label: 'Günlük Değişim %',
+    label: 'Son İşlem Günü Değişim %',
     getValue: (d) => getDailyChangePct(d.candles),
     format: formatPct,
     higherIsBetter: true,
@@ -489,6 +544,24 @@ const METRICS: MetricRow[] = [
     label: '90 Günlük Değişim %',
     getValue: (d) => get90DayChangePct(d.candles),
     format: formatPct,
+    higherIsBetter: true,
+  },
+  {
+    label: 'RSI (14)',
+    getValue: (d) => computeRSI(d.candles),
+    format: (v) => v === null ? '—' : v.toFixed(1),
+    higherIsBetter: false, // düşük RSI = daha ucuz/oversold, yüksek = pahalı
+  },
+  {
+    label: '30g Volatilite %',
+    getValue: (d) => get30DayVolatility(d.candles),
+    format: (v) => v === null ? '—' : v.toFixed(2) + '%',
+    higherIsBetter: false, // düşük volatilite daha istikrarlı
+  },
+  {
+    label: 'Ort. Hacim (20g)',
+    getValue: (d) => getAvgVolume(d.candles),
+    format: formatVolume,
     higherIsBetter: true,
   },
   {
