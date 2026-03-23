@@ -82,9 +82,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const signals: SignalRecord[] = (rows ?? []).map((r) => {
       let success: boolean | null = null;
-      if (r.evaluated && r.return_7d != null) {
-        // Yükseliş sinyali başarılı = 7 günlük getiri pozitif
-        // Düşüş sinyali başarılı = 7 günlük getiri negatif
+      // return_7d varsa başarı hesaplanabilir (kısmi veya tam değerlendirme)
+      if (r.return_7d != null) {
         success = r.direction === 'asagi'
           ? r.return_7d < 0
           : r.return_7d > 0;
@@ -102,7 +101,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (statsErr) throw statsErr;
 
     const all = allRows ?? [];
-    const evaluatedRows = all.filter((r) => r.evaluated && r.return_7d != null);
+    // return_7d varsa değerlendirilebilir (evaluated=true veya partial)
+    const evaluatedRows = all.filter((r) => r.return_7d != null);
     const successRows = evaluatedRows.filter((r) =>
       r.direction === 'asagi' ? r.return_7d < 0 : r.return_7d > 0
     );

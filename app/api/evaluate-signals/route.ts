@@ -179,7 +179,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       const ageDays = daysBetween(String(rec.entry_time), now);
-      if (ageDays < 14) {
+      // 3 günden kısa → veri yok, atla
+      // 3-14 gün → kısmi değerlendirme (return_3d/7d hesapla, evaluated=false kal)
+      // 14+ gün → tam değerlendirme, evaluated=true
+      if (ageDays < 3) {
         continue;
       }
 
@@ -214,6 +217,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
         const { mfe, mae } = computeMfeMae(entryPrice, afterEntry, direction);
 
+        // 14+ gün geçmişse tam değerlendirme tamamlandı
+        const isFullyEvaluated = ageDays >= 14;
+
         const { error: updateError } = await supabase
           .from('signal_performance')
           .update({
@@ -222,7 +228,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             return_14d: returns.return_14d,
             mfe,
             mae,
-            evaluated: true,
+            evaluated: isFullyEvaluated,
           })
           .eq('id', rec.id);
 
