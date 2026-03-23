@@ -15,6 +15,7 @@ import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client
 import { detectAllSignals } from '@/lib/signals';
 import { calculateSRLevels } from '@/lib/support-resistance';
 import { SRLevels } from '@/components/SRLevels';
+import { HisseAIYorum } from '@/components/HisseAIYorum';
 import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
 import { saveSignalPerformance } from '@/lib/performance';
@@ -204,6 +205,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 </div>
               </CardContent>
             </Card>
+
+            <HisseAIYorum sembol={sembol} />
 
             <Card className="mb-6 overflow-hidden">
               <CardHeader>
