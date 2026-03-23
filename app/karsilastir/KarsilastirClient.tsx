@@ -849,7 +849,7 @@ export function KarsilastirClient() {
     });
 
     try {
-      const candles = await fetchOHLCVClient(sembol, days);
+      const { candles } = await fetchOHLCVClient(sembol, days);
       if (candles.length === 0) {
         setSlots((prev) => {
           const next = [...prev];

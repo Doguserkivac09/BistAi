@@ -110,7 +110,7 @@ async function fetchSectorData(
 ): Promise<Record<string, OHLCVCandle[]>> {
   const results = await Promise.allSettled(
     symbols.map(async (s) => {
-      const data = await fetchOHLCV(s, 90);
+      const { candles: data } = await fetchOHLCV(s, 90);
       return { symbol: s, data };
     })
   );

@@ -53,7 +53,8 @@ class YahooDataProvider implements DataProvider {
   readonly name: DataSource = 'yahoo';
 
   async getOHLCV(symbol: string): Promise<OHLCVCandle[]> {
-    return fetchOHLCV(symbol, 90);
+    const { candles } = await fetchOHLCV(symbol, 90);
+    return candles;
   }
 
   async getQuote(symbol: string): Promise<QuoteData> {

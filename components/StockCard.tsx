@@ -30,6 +30,8 @@ interface StockCardProps {
   cachedExplanation?: string | null;
   onExplanationLoaded?: (text: string) => void;
   viewMode?: 'grid' | 'list';
+  /** Yahoo meta.regularMarketChangePercent — gün sonu %0.00 sorununu önler */
+  marketChangePercent?: number;
 }
 
 // ─── Badge bileşenleri ────────────────────────────────────────────────────────
@@ -187,6 +189,7 @@ export function StockCard({
   cachedExplanation,
   onExplanationLoaded,
   viewMode = 'grid',
+  marketChangePercent,
 }: StockCardProps) {
   const confluence = allSignals && allSignals.length > 1 ? computeConfluence(allSignals) : null;
   const [explanation, setExplanation] = useState<string | null>(cachedExplanation ?? null);
@@ -199,8 +202,12 @@ export function StockCard({
   const lastCandle = candleData.length > 0 ? candleData[candleData.length - 1] : null;
   const prevCandle = candleData.length > 1 ? candleData[candleData.length - 2] : null;
   const lastPrice = lastCandle?.close ?? null;
+  // marketChangePercent: Yahoo meta'dan gelen doğru günlük değişim (gün sonu %0.00 sorununu önler)
+  // yoksa candle karşılaştırmasına fallback
   const dailyChange =
-    lastPrice !== null && prevCandle
+    marketChangePercent !== undefined
+      ? marketChangePercent
+      : lastPrice !== null && prevCandle
       ? ((lastPrice - prevCandle.close) / prevCandle.close) * 100
       : null;
 

@@ -39,13 +39,20 @@ export function DashboardWatchlist({ watchlist }: DashboardWatchlistProps) {
       )
     ).then((results) => {
       const map: Record<string, PriceData> = {};
-      results.forEach((candles, i) => {
+      results.forEach((data, i) => {
         const sym = symbols[i]!;
-        if (Array.isArray(candles) && candles.length >= 2) {
-          const last = candles[candles.length - 1] as { close: number };
-          const prev = candles[candles.length - 2] as { close: number };
+        // API { candles: [...], changePercent?, currentPrice? } döndürür
+        const candles: { close: number }[] = Array.isArray(data) ? data : (data?.candles ?? []);
+        if (candles.length >= 1) {
+          const last = candles[candles.length - 1]!;
+          const prev = candles.length >= 2 ? candles[candles.length - 2]! : null;
+          // Yahoo meta.changePercent varsa kullan, yoksa candle karşılaştırması
           const change1d =
-            prev.close > 0 ? ((last.close - prev.close) / prev.close) * 100 : 0;
+            data?.changePercent !== undefined
+              ? data.changePercent
+              : prev && prev.close > 0
+              ? ((last.close - prev.close) / prev.close) * 100
+              : 0;
           map[sym] = { price: last.close, change1d };
         }
       });

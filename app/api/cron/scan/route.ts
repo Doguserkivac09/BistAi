@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
   // Piyasa rejimini bir kez çek (tüm hisseler için aynı)
   let regime = 'sideways';
   try {
-    const xu100 = await fetchOHLCV('^XU100', 365);
+    const { candles: xu100 } = await fetchOHLCV('^XU100', 365);
     regime = getMarketRegime(xu100);
   } catch {
     // Başarısız olursa sideways devam et
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     const results = await Promise.allSettled(
       batch.map(async (sembol) => {
-        const candles = await fetchOHLCV(sembol, 90);
+        const { candles } = await fetchOHLCV(sembol, 90);
         if (candles.length === 0) throw new Error('Veri yok');
         const signals = detectAllSignals(sembol, candles);
         return { sembol, signals, candles };

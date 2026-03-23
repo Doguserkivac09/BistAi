@@ -15,10 +15,17 @@ import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client
 import { detectAllSignals } from '@/lib/signals';
 import { calculateSRLevels } from '@/lib/support-resistance';
 import { SRLevels } from '@/components/SRLevels';
+import { HisseAIYorum } from '@/components/HisseAIYorum';
+import { AdilDegerMetre } from '@/components/AdilDegerMetre';
+import { HisseSkorKarti } from '@/components/HisseSkorKarti';
+import { SinyalGecmisi } from '@/components/SinyalGecmisi';
+import { computeTechFairValue } from '@/lib/tech-fair-value';
+import { computeStockScore } from '@/lib/stock-score';
 import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
 import { saveSignalPerformance } from '@/lib/performance';
 import { toast } from 'sonner';
+import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 
 // Lazy-load chart component (lightweight-charts ~40KB gzipped)
 const StockChart = lazy(() =>
@@ -40,14 +47,117 @@ interface HisseDetailClientProps {
   savedSignalTypes: string[];
 }
 
+// ── Bölüm başlığı bileşeni (Bloomberg/Matriks stili) ─────────────────
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-text-muted">
+      {children}
+    </h2>
+  );
+}
+
+// ── Fiyat değişim badge'i ──────────────────────────────────────────────
+function ChangeBadge({ value }: { value: number }) {
+  const isPos = value >= 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-sm font-semibold ${
+      isPos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+    }`}>
+      {isPos ? '▲' : '▼'} {Math.abs(value).toFixed(2)}%
+    </span>
+  );
+}
+
+// ── Hero meta hücre ────────────────────────────────────────────────────
+function MetaCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wide text-text-muted">{label}</p>
+      <p className="truncate text-sm font-medium text-text-primary">{value}</p>
+    </div>
+  );
+}
+
+function formatVolume(v: number): string {
+  if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1) + 'B';
+  if (v >= 1_000_000)     return (v / 1_000_000).toFixed(1) + 'M';
+  if (v >= 1_000)         return (v / 1_000).toFixed(0) + 'K';
+  return String(v);
+}
+
+// ── Accordion sinyal satırı ────────────────────────────────────────────
+function AccordionSignalRow({
+  sig,
+  explanation,
+  sembol,
+  savedSignalTypes,
+}: {
+  sig: StockSignal;
+  explanation: string | null;
+  sembol: string;
+  savedSignalTypes: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-border last:border-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-surface-alt/50 transition-colors"
+      >
+        <SignalBadge type={sig.type} direction={sig.direction} severity={sig.severity} />
+        {!open && explanation && (
+          <span className="min-w-0 flex-1 truncate text-xs text-text-muted hidden sm:block">
+            {explanation}
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-text-muted text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="px-3 pb-3 pt-1 space-y-2">
+          <SignalExplanation text={explanation} isLoading={!explanation} />
+          <div className="flex justify-end">
+            <SaveSignalButton
+              sembol={sembol}
+              signalType={sig.type}
+              signalData={sig.data}
+              aiExplanation={explanation ?? ''}
+              isSaved={savedSignalTypes.includes(sig.type)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: HisseDetailClientProps) {
-  const [candles, setCandles]         = useState<OHLCVCandle[]>([]);
-  const [signals, setSignals]         = useState<StockSignal[]>([]);
+  const [candles, setCandles]           = useState<OHLCVCandle[]>([]);
+  const [signals, setSignals]           = useState<StockSignal[]>([]);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
-  const [loading, setLoading]         = useState(true);
-  const [timeframe, setTimeframe]     = useState<TimeframeKey>('1d');
-  const [haberler, setHaberler]       = useState<HaberItem[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [timeframe, setTimeframe]       = useState<TimeframeKey>('1d');
+  const [haberler, setHaberler]         = useState<HaberItem[]>([]);
   const [haberLoading, setHaberLoading] = useState(true);
+
+  // Hisse analizi (AI + fiyat hedefleri + hero meta)
+  const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
+  const [analizLoading, setAnalizLoading] = useState(true);
+
+  // ── Hisse Analizi (AI, Fiyat Hedefleri, Hero Meta) ───────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setAnalizLoading(true);
+    setAnaliz(null);
+    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: HisseAnalizResponse | null) => {
+        if (!cancelled) setAnaliz(data);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setAnalizLoading(false); });
+    return () => { cancelled = true; };
+  }, [sembol]);
 
   // ── Haberler ────────────────────────────────────────────────────────────────
   const loadHaberler = useCallback(async () => {
@@ -122,19 +232,29 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     };
   }, [sembol, timeframe]);
 
+  // Fiyat bilgileri (hero için)
+  const lastCandle    = candles[candles.length - 1];
+  const currentPrice  = analiz?.currentPrice ?? lastCandle?.close;
+  const changePercent = analiz?.changePercent;
+  const shortName     = analiz?.shortName;
+  const volume        = analiz?.volume ?? lastCandle?.volume;
+  const avgVolume20d  = analiz?.avgVolume20d;
+  const high90d       = analiz?.high90d;
+  const low90d        = analiz?.low90d;
+
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
+        {/* Breadcrumb */}
         <div className="mb-4 flex items-center gap-2 text-text-secondary">
-          <Link href="/tarama" className="hover:text-primary">
-            Tarama
-          </Link>
+          <Link href="/tarama" className="hover:text-primary">Tarama</Link>
           <span>/</span>
           <span className="text-text-primary">{sembol}</span>
         </div>
 
         {loading && (
           <>
+            <Skeleton className="mb-4 h-32 w-full rounded-xl" />
             <Skeleton className="mb-6 h-[400px] w-full rounded-card" />
             <Skeleton className="h-32 w-full rounded-card" />
           </>
@@ -153,10 +273,77 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
         {!loading && candles.length > 0 && (
           <>
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-text-primary">{sembol}</h1>
-                <div className="overflow-x-auto">
+            {/* ── HERO BÖLÜMÜ ──────────────────────────────────────────────── */}
+            <div className="mb-6 rounded-xl border border-border bg-surface p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                {/* Sol: Sembol + Fiyat */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-2xl font-bold text-text-primary">{sembol}</h1>
+                    {shortName && (
+                      <span className="text-sm text-text-muted truncate max-w-[200px]">{shortName}</span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-3 flex-wrap">
+                    {currentPrice && (
+                      <span className="text-2xl font-mono font-bold text-text-primary">
+                        {currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}₺
+                      </span>
+                    )}
+                    {changePercent !== undefined && changePercent !== null && (
+                      <ChangeBadge value={changePercent} />
+                    )}
+                    {/* AI Karar Badge */}
+                    {!analizLoading && analiz && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                        style={{ color: analiz.color, borderColor: analiz.color + '66', backgroundColor: analiz.color + '18' }}
+                      >
+                        {analiz.emoji} {analiz.decisionTr}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sağ: Butonlar */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <PortfolyoEkleButton
+                    sembol={sembol}
+                    defaultFiyat={lastCandle?.close}
+                  />
+                  <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
+                </div>
+              </div>
+
+              {/* Meta ızgara */}
+              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 border-t border-border/50 pt-4">
+                {volume !== undefined && (
+                  <MetaCell label="Hacim" value={formatVolume(volume)} />
+                )}
+                {avgVolume20d !== undefined && (
+                  <MetaCell
+                    label="Ort. Hacim (20g)"
+                    value={formatVolume(avgVolume20d)}
+                  />
+                )}
+                {high90d !== undefined && (
+                  <MetaCell
+                    label="90G Yüksek"
+                    value={high90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'}
+                  />
+                )}
+                {low90d !== undefined && (
+                  <MetaCell
+                    label="90G Düşük"
+                    value={low90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* ── Zaman dilimi seçici ──────────────────────────────────────── */}
+            <div className="mb-4 flex items-center">
+              <div className="overflow-x-auto">
                 <div className="inline-flex items-center rounded-lg border border-border bg-surface/80 p-1 text-xs text-text-secondary whitespace-nowrap">
                   {TIMEFRAMES.map((tf, i) => {
                     const prev = TIMEFRAMES[i - 1];
@@ -181,146 +368,205 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     );
                   })}
                 </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <PortfolyoEkleButton
-                  sembol={sembol}
-                  defaultFiyat={candles[candles.length - 1]?.close}
-                />
-                <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
               </div>
             </div>
 
-            <Card className="mb-6 overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-base">Fiyat & EMA</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="h-[400px] w-full">
-                  <Suspense fallback={<div className="flex h-[400px] w-full items-center justify-center bg-surface/50"><span className="text-sm text-text-secondary">Grafik yükleniyor...</span></div>}>
-                    <StockChart candles={candles} height={400} />
-                  </Suspense>
-                </div>
-              </CardContent>
-            </Card>
+            {/* ── 2-KOLON LAYOUT (lg: 2/3 + 1/3) ─────────────────────────── */}
+            <div className="lg:grid lg:grid-cols-3 lg:gap-6">
 
-            <Card className="mb-6 overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-base">RSI (14)</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="h-[180px] w-full">
-                  <Suspense fallback={<div className="flex h-[180px] w-full items-center justify-center bg-surface/50"><span className="text-sm text-text-secondary">RSI yükleniyor...</span></div>}>
-                    <StockChart candles={candles} showRsi height={180} />
-                  </Suspense>
-                </div>
-              </CardContent>
-            </Card>
+              {/* ── SOL KOLON: Grafik + S/R + Sinyaller ─────────────────── */}
+              <div className="lg:col-span-2 space-y-4">
 
-            {candles.length >= 20 && (
-              <Card className="mb-6 overflow-hidden">
-                <CardHeader>
-                  <CardTitle className="text-base">Destek &amp; Direnç Seviyeleri</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <SRLevels analysis={calculateSRLevels(candles)} />
-                </CardContent>
-              </Card>
-            )}
+                {/* Fiyat grafik + RSI birleşik kart */}
+                <Card className="overflow-hidden">
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                      Fiyat & EMA
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="h-[320px] w-full">
+                      <Suspense fallback={
+                        <div className="flex h-[320px] w-full items-center justify-center bg-surface/50">
+                          <span className="text-sm text-text-secondary">Grafik yükleniyor...</span>
+                        </div>
+                      }>
+                        <StockChart candles={candles} height={320} signals={signals} />
+                      </Suspense>
+                    </div>
+                    <div className="h-px bg-border/40" />
+                    <div className="h-[140px] w-full">
+                      <Suspense fallback={
+                        <div className="flex h-[140px] w-full items-center justify-center bg-surface/50">
+                          <span className="text-sm text-text-secondary">RSI yükleniyor...</span>
+                        </div>
+                      }>
+                        <StockChart candles={candles} showRsi height={140} />
+                      </Suspense>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            <h2 className="mb-4 text-lg font-semibold text-text-primary">Tespit Edilen Sinyaller</h2>
-            {signals.length === 0 ? (
-              <p className="text-text-secondary">Bu hisse için şu an tespit edilen sinyal yok.</p>
-            ) : (
-              <div className="space-y-4">
-                {signals.map((sig) => (
-                  <Card key={sig.type}>
-                    <CardHeader className="pb-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <SignalBadge
-                          type={sig.type}
-                          direction={sig.direction}
-                          severity={sig.severity}
-                        />
-                        <SaveSignalButton
-                          sembol={sembol}
-                          signalType={sig.type}
-                          signalData={sig.data}
-                          aiExplanation={explanations[sig.type] ?? ''}
-                          isSaved={savedSignalTypes.includes(sig.type)}
-                        />
-                      </div>
+                {/* Destek & Direnç */}
+                {candles.length >= 20 && (
+                  <Card className="overflow-hidden">
+                    <CardHeader className="py-2 px-3">
+                      <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                        Destek &amp; Direnç
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <SignalExplanation
-                        text={explanations[sig.type] ?? null}
-                        isLoading={!explanations[sig.type]}
-                      />
+                      <SRLevels analysis={calculateSRLevels(candles)} />
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            )}
+                )}
 
-            {/* ── Haberler ──────────────────────────────────────────────────── */}
-            <h2 className="mb-4 mt-8 text-lg font-semibold text-text-primary">
-              📰 {sembol} Haberleri
-            </h2>
-            {haberLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 animate-pulse rounded-xl bg-surface" />
-                ))}
+                {/* Tespit Edilen Sinyaller — accordion */}
+                <Card className="overflow-hidden">
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                      Tespit Edilen Sinyaller
+                    </CardTitle>
+                  </CardHeader>
+                  {signals.length === 0 ? (
+                    <CardContent>
+                      <p className="text-sm text-text-secondary">
+                        Bu hisse için şu an tespit edilen sinyal yok.
+                      </p>
+                    </CardContent>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {signals.map((sig) => (
+                        <AccordionSignalRow
+                          key={sig.type}
+                          sig={sig}
+                          explanation={explanations[sig.type] ?? null}
+                          sembol={sembol}
+                          savedSignalTypes={savedSignalTypes}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </Card>
               </div>
-            ) : haberler.length === 0 ? (
-              <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-surface py-8 text-center">
-                <p className="text-sm text-text-secondary">
-                  {sembol} için güncel haber bulunamadı.
-                </p>
-                <Link
-                  href="/haberler"
-                  className="group relative inline-flex items-center gap-2 overflow-hidden rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40"
-                >
-                  <span className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-300 group-hover:translate-x-0" />
-                  <span>📰 Günün Tüm Haberlerini Gör</span>
-                  <span className="transition-transform group-hover:translate-x-1">→</span>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {haberler.map((h, i) => {
-                  const tarihStr = h.tarih
-                    ? new Date(h.tarih).toLocaleDateString('tr-TR', {
-                        day: 'numeric', month: 'short', year: 'numeric',
-                      })
-                    : '';
+
+              {/* ── SAĞ KOLON: AI Yorum + Adil Değer + Skor ────────────── */}
+              <div className="mt-4 lg:mt-0 space-y-4">
+
+                {/* AI Genel Yorumu */}
+                <Card>
+                  <CardHeader className="py-2 px-3 pb-0">
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                      🤖 AI Yorumu
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    <HisseAIYorum analiz={analiz} loading={analizLoading} />
+                  </CardContent>
+                </Card>
+
+                {/* Teknik Adil Değer */}
+                {candles.length >= 50 && (() => {
+                  const fairValue = computeTechFairValue(candles);
                   return (
-                    <a
-                      key={i}
-                      href={h.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 hover:border-primary/40 hover:bg-surface-alt transition-colors group"
-                    >
-                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm">
-                        📰
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-text-primary group-hover:text-primary transition-colors line-clamp-2">
-                          {h.baslik}
-                        </p>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
-                          <span>{h.kaynak}</span>
-                          {tarihStr && <><span>·</span><span>{tarihStr}</span></>}
-                        </div>
-                      </div>
-                      <span className="shrink-0 text-text-muted group-hover:text-primary transition-colors">↗</span>
-                    </a>
+                    <Card>
+                      <CardHeader className="py-2 px-3 pb-0">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                          📐 Teknik Adil Değer
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        <AdilDegerMetre result={fairValue} />
+                      </CardContent>
+                    </Card>
                   );
-                })}
+                })()}
+
+                {/* Hisse Skor Kartı */}
+                {candles.length >= 50 && (() => {
+                  const stockScore = computeStockScore(candles, signals);
+                  return (
+                    <Card>
+                      <CardHeader className="py-2 px-3 pb-0">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                          🏆 Hisse Skor Kartı
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        <HisseSkorKarti result={stockScore} />
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
               </div>
-            )}
+            </div>
+
+            {/* ── TAM GENİŞLİK: Sinyal Geçmişi ───────────────────────────── */}
+            <div className="mt-6">
+              <SectionHeader>📋 Sinyal Geçmişi</SectionHeader>
+              <div className="mb-8">
+                <SinyalGecmisi sembol={sembol} />
+              </div>
+            </div>
+
+            {/* ── TAM GENİŞLİK: Haberler ──────────────────────────────────── */}
+            <div className="mt-2">
+              <SectionHeader>📰 {sembol} Haberleri</SectionHeader>
+              {haberLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 animate-pulse rounded-xl bg-surface" />
+                  ))}
+                </div>
+              ) : haberler.length === 0 ? (
+                <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-surface py-8 text-center">
+                  <p className="text-sm text-text-secondary">
+                    {sembol} için güncel haber bulunamadı.
+                  </p>
+                  <Link
+                    href="/haberler"
+                    className="group relative inline-flex items-center gap-2 overflow-hidden rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40"
+                  >
+                    <span className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-300 group-hover:translate-x-0" />
+                    <span>📰 Günün Tüm Haberlerini Gör</span>
+                    <span className="transition-transform group-hover:translate-x-1">→</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {haberler.map((h, i) => {
+                    const tarihStr = h.tarih
+                      ? new Date(h.tarih).toLocaleDateString('tr-TR', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                        })
+                      : '';
+                    return (
+                      <a
+                        key={i}
+                        href={h.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 hover:border-primary/40 hover:bg-surface-alt transition-colors group"
+                      >
+                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm">
+                          📰
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-text-primary group-hover:text-primary transition-colors line-clamp-2">
+                            {h.baslik}
+                          </p>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
+                            <span>{h.kaynak}</span>
+                            {tarihStr && <><span>·</span><span>{tarihStr}</span></>}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-text-muted group-hover:text-primary transition-colors">↗</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </>
         )}
       </main>

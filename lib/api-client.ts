@@ -4,12 +4,13 @@
  */
 
 import type { OHLCVCandle } from '@/types';
+import type { OHLCVFetchResult } from '@/lib/yahoo';
 import type { MacroSnapshot, MacroDataRow, RiskScore, SectorMomentum } from '@/types/macro';
 
 export async function fetchOHLCVClient(
   sembol: string,
   days: number = 90
-): Promise<OHLCVCandle[]> {
+): Promise<OHLCVFetchResult> {
   const params = new URLSearchParams({
     symbol: sembol.trim(),
     days: String(days),
@@ -29,9 +30,13 @@ export async function fetchOHLCVClient(
     if (!res.ok) {
       throw new Error(data.error ?? 'Veri alınamadı.');
     }
-    return data.candles ?? [];
+    return {
+      candles: data.candles ?? [],
+      changePercent: data.changePercent,
+      currentPrice: data.currentPrice,
+    };
   }
-  return [];
+  return { candles: [] };
 }
 
 export type TimeframeKey = '15m' | '30m' | '1h' | '1d' | '1wk' | '1mo';

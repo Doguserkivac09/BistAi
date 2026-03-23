@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Yahoo: VIX ve US 10Y Yield
-    const vixCandles = await fetchOHLCV('^VIX', 5);
+    const { candles: vixCandles } = await fetchOHLCV('^VIX', 5);
     if (vixCandles.length > 0) {
       const latestVix = vixCandles[vixCandles.length - 1];
       const { error } = await supabase.from('macro_data').upsert(
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       if (!error) updated++;
     }
 
-    const tnxCandles = await fetchOHLCV('^TNX', 5);
+    const { candles: tnxCandles } = await fetchOHLCV('^TNX', 5);
     if (tnxCandles.length > 0) {
       const latestTnx = tnxCandles[tnxCandles.length - 1];
       const { error } = await supabase.from('macro_data').upsert(

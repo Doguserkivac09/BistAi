@@ -184,8 +184,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       try {
-        const candles = await fetchOHLCV(rec.sembol.trim(), 120);
-        if (!Array.isArray(candles) || candles.length === 0) {
+        const { candles } = await fetchOHLCV(rec.sembol.trim(), 120);
+        if (candles.length === 0) {
           continue;
         }
 
