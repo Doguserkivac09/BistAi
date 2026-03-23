@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     await Promise.allSettled(
       batch.map(async (sembol) => {
         try {
-          const candles = await fetchOHLCV(sembol, 90);
+          const { candles } = await fetchOHLCV(sembol, 90);
           if (!candles?.length) return;
           const signals = detectAllSignals(sembol, candles);
           if (signals.length > 0) signalMap[sembol] = signals;

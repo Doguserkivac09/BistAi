@@ -9,13 +9,22 @@ const BIST_SUFFIX = '.IS';
 
 // --- In-memory OHLCV cache (5 dakika TTL) ---
 const CACHE_TTL_MS = 5 * 60 * 1000;
+
+export type OHLCVFetchResult = {
+  candles: OHLCVCandle[];
+  /** Yahoo Finance meta.regularMarketChangePercent — günlük değişim % (her zaman doğru) */
+  changePercent?: number;
+  /** Yahoo Finance meta.regularMarketPrice — anlık fiyat */
+  currentPrice?: number;
+};
+
 interface CacheEntry {
-  data: OHLCVCandle[];
+  data: OHLCVFetchResult;
   expiry: number;
 }
 const ohlcvCache = new Map<string, CacheEntry>();
 
-function getCached(key: string): OHLCVCandle[] | null {
+function getCached(key: string): OHLCVFetchResult | null {
   const entry = ohlcvCache.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiry) {
@@ -25,7 +34,7 @@ function getCached(key: string): OHLCVCandle[] | null {
   return entry.data;
 }
 
-function setCache(key: string, data: OHLCVCandle[]): void {
+function setCache(key: string, data: OHLCVFetchResult): void {
   // Bellek sızıntısını önle — max 500 entry
   if (ohlcvCache.size > 500) {
     const firstKey = ohlcvCache.keys().next().value;
@@ -84,7 +93,7 @@ function getTimeframeParams(timeframe: YahooTimeframe): { range: string; interva
 export async function fetchOHLCV(
   sembol: string,
   days: number = 90
-): Promise<OHLCVCandle[]> {
+): Promise<OHLCVFetchResult> {
   const yahooSymbol = toYahooSymbol(sembol);
   const range = days <= 5 ? '5d' : days <= 30 ? '1mo' : days <= 90 ? '3mo' : days <= 180 ? '6mo' : '1y';
 
@@ -106,17 +115,22 @@ export async function fetchOHLCV(
     clearTimeout(timeout);
   } catch {
     console.error(`[Yahoo] fetchOHLCV ağ hatası / timeout (${sembol})`);
-    return [];
+    return { candles: [] };
   }
 
   if (!res.ok) {
     console.error(`[Yahoo] fetchOHLCV HTTP ${res.status} (${sembol})`);
-    return [];
+    return { candles: [] };
   }
 
   const json = (await res.json()) as {
     chart?: {
       result?: Array<{
+        meta?: {
+          regularMarketPrice?: number;
+          regularMarketChangePercent?: number;
+          chartPreviousClose?: number;
+        };
         timestamp?: number[];
         indicators?: {
           quote?: Array<{
@@ -135,15 +149,20 @@ export async function fetchOHLCV(
   const err = json.chart?.error;
   if (err?.description) {
     console.error(`[Yahoo] fetchOHLCV API hatası (${sembol}): ${err.description}`);
-    return [];
+    return { candles: [] };
   }
 
   const result = json.chart?.result?.[0];
   const timestamps = result?.timestamp;
   const quote = result?.indicators?.quote?.[0];
   if (!timestamps?.length || !quote) {
-    return [];
+    return { candles: [] };
   }
+
+  // Meta alanları — gün sonu %0.00 sorununu önler
+  const meta = result?.meta;
+  const changePercent = meta?.regularMarketChangePercent;
+  const currentPrice = meta?.regularMarketPrice;
 
   const candles: OHLCVCandle[] = [];
   const opens = quote.open ?? [];
@@ -169,8 +188,23 @@ export async function fetchOHLCV(
     });
   }
 
-  if (candles.length > 0) setCache(cacheKey, candles);
-  return candles;
+  const fetchResult: OHLCVFetchResult = { candles, changePercent, currentPrice };
+  if (candles.length > 0) setCache(cacheKey, fetchResult);
+  return fetchResult;
+}
+
+// fetchOHLCVByTimeframe için ayrı cache (OHLCVCandle[] döndürür, meta gerekmez)
+interface TFCacheEntry { data: OHLCVCandle[]; expiry: number; }
+const tfCache = new Map<string, TFCacheEntry>();
+function getTFCached(key: string): OHLCVCandle[] | null {
+  const entry = tfCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiry) { tfCache.delete(key); return null; }
+  return entry.data;
+}
+function setTFCache(key: string, data: OHLCVCandle[]): void {
+  if (tfCache.size > 500) { const k = tfCache.keys().next().value; if (k) tfCache.delete(k); }
+  tfCache.set(key, { data, expiry: Date.now() + CACHE_TTL_MS });
 }
 
 /**
@@ -184,7 +218,7 @@ export async function fetchOHLCVByTimeframe(
   const { range, interval } = getTimeframeParams(timeframe);
 
   const cacheKey = `tf:${yahooSymbol}:${range}:${interval}`;
-  const cached = getCached(cacheKey);
+  const cached = getTFCached(cacheKey);
   if (cached) return cached;
 
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
@@ -262,7 +296,7 @@ export async function fetchOHLCVByTimeframe(
     candles.push({ date, open, high, low, close, volume: volumes[i] ?? 0 });
   }
 
-  if (candles.length > 0) setCache(cacheKey, candles);
+  if (candles.length > 0) setTFCache(cacheKey, candles);
   return candles;
 }
 
@@ -313,9 +347,9 @@ export async function fetchOHLCVMultiple(
 ): Promise<Record<string, OHLCVCandle[]>> {
   const results = await Promise.allSettled(
     semboller.map(async (s) => {
-      const data = await fetchOHLCV(s, days);
+      const { candles } = await fetchOHLCV(s, days);
       const normalized = s.replace(BIST_SUFFIX, '').replace(/\.IS$/i, '') || s;
-      return { sembol: normalized, data };
+      return { sembol: normalized, data: candles };
     })
   );
 

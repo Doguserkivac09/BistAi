@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ candles } as { candles: OHLCVCandle[] });
     }
 
-    const candles = await fetchOHLCV(trimmed, days);
-    return NextResponse.json({ candles } as { candles: OHLCVCandle[] });
+    const { candles, changePercent, currentPrice } = await fetchOHLCV(trimmed, days);
+    return NextResponse.json({ candles, changePercent, currentPrice });
   } catch (err) {
     console.error('[ohlcv] Hata:', err instanceof Error ? err.message : err);
     return NextResponse.json({ candles: [] });

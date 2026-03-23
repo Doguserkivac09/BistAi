@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   const results = await Promise.allSettled(
     semboller.map(async (sembol) => {
-      const candles = await fetchOHLCV(sembol, 90);
+      const { candles } = await fetchOHLCV(sembol, 90);
       if (candles.length === 0) return { sembol, signals: [] };
       const signals = detectAllSignals(sembol, candles);
       return {

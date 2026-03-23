@@ -14,7 +14,9 @@ import type { CompositeContext } from './composite-signal';
 // ── AI Cache (Supabase) ─────────────────────────────────────────────
 
 function createCacheKey(signal: StockSignal, version: 1 | 2): string {
-  return `${signal.sembol}:${signal.type}:${signal.direction}:${signal.severity}:v${version}`;
+  // Tarih eklendi: her gün yeni açıklama üretilir, eski fiyat referansı kalmaz
+  const today = new Date().toISOString().slice(0, 10);
+  return `${signal.sembol}:${signal.type}:${signal.direction}:${signal.severity}:${today}:v${version}`;
 }
 
 async function getCachedExplanation(cacheKey: string): Promise<string | null> {
@@ -77,7 +79,7 @@ Kurallar:
  */
 export async function generateSignalExplanation(
   signal: StockSignal,
-  _priceData?: { lastClose?: number; lastDate?: string }
+  priceData?: { lastClose?: number; lastDate?: string }
 ): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -100,10 +102,19 @@ export async function generateSignalExplanation(
     if (data.priceChange != null)  extraLines.push(`Günlük fiyat değişimi: %${data.priceChange}`);
   }
 
+  const priceLines: string[] = [];
+  if (priceData?.lastClose !== undefined) {
+    priceLines.push(`Güncel fiyat: ${priceData.lastClose}₺`);
+  }
+  if (priceData?.lastDate) {
+    priceLines.push(`Fiyat tarihi: ${priceData.lastDate}`);
+  }
+
   const userPrompt = `Hisse: ${signal.sembol}
 Sinyal tipi: ${signal.type}
 Sinyal yönü: ${signal.direction}
 Sinyal şiddeti: ${signal.severity}
+${priceLines.length > 0 ? priceLines.join('\n') : ''}
 ${extraLines.length > 0 ? extraLines.join('\n') : `Ek veri: ${JSON.stringify(signal.data)}`}
 Bu sinyali yatırımcıya kısaca açıkla.`;
 

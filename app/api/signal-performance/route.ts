@@ -12,7 +12,7 @@ async function getCachedRegime(): Promise<string> {
   const now = Date.now();
   if (regimeCache && regimeCache.expiresAt > now) return regimeCache.value;
   try {
-    const xu100Candles = await fetchOHLCV('^XU100', 365);
+    const { candles: xu100Candles } = await fetchOHLCV('^XU100', 365);
     const regime = getMarketRegime(xu100Candles);
     regimeCache = { value: regime, expiresAt: now + 5 * 60 * 1000 };
     return regime;

@@ -27,6 +27,7 @@ interface ScanResult {
   sembol: string;
   signals: StockSignal[];
   candles: OHLCVCandle[];
+  changePercent?: number;  // Yahoo meta.regularMarketChangePercent — gün sonu %0.00 sorununu önler
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -89,7 +90,9 @@ const PRESETS: { label: string; types: string[] }[] = [
 
 const severityRank: Record<SignalSeverity, number> = { zayıf: 1, orta: 2, güçlü: 3 };
 
-function getDailyChange(candles: OHLCVCandle[]): number {
+function getDailyChange(candles: OHLCVCandle[], changePercent?: number): number {
+  // Yahoo meta.regularMarketChangePercent varsa kullan — gün sonu %0.00 sorununu önler
+  if (changePercent !== undefined) return changePercent / 100;
   const last = candles[candles.length - 1];
   const prev = candles[candles.length - 2];
   if (!last || !prev || prev.close === 0) return 0;
@@ -112,7 +115,7 @@ function getSortScore(
       return wr ? wr.rate : 0;
     }
     case 'severity': return severityRank[primary.severity as SignalSeverity] ?? 0;
-    case 'change':   return getDailyChange(r.candles);
+    case 'change':   return getDailyChange(r.candles, r.changePercent);
     default:         return 0;
   }
 }
@@ -551,9 +554,9 @@ function TaramaPageInner() {
 
         const batchResults = await Promise.allSettled(
           batch.map(async (sembol) => {
-            const candles = await fetchOHLCVClient(sembol, days);
+            const { candles, changePercent } = await fetchOHLCVClient(sembol, days);
             const signals = detectAllSignals(sembol, candles, { types });
-            return { sembol, signals, candles };
+            return { sembol, signals, candles, changePercent };
           }),
         );
 
@@ -828,6 +831,7 @@ function TaramaPageInner() {
                       winRate={winRateMap.get(primarySig.type) ?? null}
                       sectorMomentum={sectorMap.get(getSector(r.sembol).id) ?? null}
                       viewMode={viewMode}
+                      marketChangePercent={r.changePercent}
                       cachedExplanation={explanationCache.current.get(`${r.sembol}:${primarySig.type}`) ?? null}
                       onExplanationLoaded={(text) => explanationCache.current.set(`${r.sembol}:${primarySig.type}`, text)}
                     />
