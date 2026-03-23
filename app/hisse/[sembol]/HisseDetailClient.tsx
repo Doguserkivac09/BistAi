@@ -16,6 +16,10 @@ import { detectAllSignals } from '@/lib/signals';
 import { calculateSRLevels } from '@/lib/support-resistance';
 import { SRLevels } from '@/components/SRLevels';
 import { HisseAIYorum } from '@/components/HisseAIYorum';
+import { AdilDegerMetre } from '@/components/AdilDegerMetre';
+import { HisseSkorKarti } from '@/components/HisseSkorKarti';
+import { computeTechFairValue } from '@/lib/tech-fair-value';
+import { computeStockScore } from '@/lib/stock-score';
 import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
 import { saveSignalPerformance } from '@/lib/performance';
@@ -231,6 +235,32 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 </CardContent>
               </Card>
             )}
+
+            {/* ── Teknik Adil Değer + Skor Kartı ──────────────────── */}
+            {candles.length >= 50 && (() => {
+              const fairValue = computeTechFairValue(candles);
+              const stockScore = computeStockScore(candles, signals);
+              return (
+                <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">📐 Teknik Adil Değer</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <AdilDegerMetre result={fairValue} />
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">🏆 Hisse Skor Kartı</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <HisseSkorKarti result={stockScore} />
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
 
             <h2 className="mb-4 text-lg font-semibold text-text-primary">Tespit Edilen Sinyaller</h2>
             {signals.length === 0 ? (
