@@ -16,6 +16,8 @@ export type OHLCVFetchResult = {
   changePercent?: number;
   /** Yahoo Finance meta.regularMarketPrice — anlık fiyat */
   currentPrice?: number;
+  /** Yahoo Finance meta.shortName — hisse kısa adı */
+  shortName?: string;
 };
 
 interface CacheEntry {
@@ -130,6 +132,7 @@ export async function fetchOHLCV(
           regularMarketPrice?: number;
           regularMarketChangePercent?: number;
           chartPreviousClose?: number;
+          shortName?: string;
         };
         timestamp?: number[];
         indicators?: {
@@ -163,6 +166,7 @@ export async function fetchOHLCV(
   const meta = result?.meta;
   const changePercent = meta?.regularMarketChangePercent;
   const currentPrice = meta?.regularMarketPrice;
+  const shortName = meta?.shortName;
 
   const candles: OHLCVCandle[] = [];
   const opens = quote.open ?? [];
@@ -188,7 +192,7 @@ export async function fetchOHLCV(
     });
   }
 
-  const fetchResult: OHLCVFetchResult = { candles, changePercent, currentPrice };
+  const fetchResult: OHLCVFetchResult = { candles, changePercent, currentPrice, shortName };
   if (candles.length > 0) setCache(cacheKey, fetchResult);
   return fetchResult;
 }

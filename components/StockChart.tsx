@@ -8,9 +8,10 @@ import {
   type ISeriesApi,
   type IPriceLine,
   type CandlestickData,
+  type SeriesMarker,
   type Time,
 } from 'lightweight-charts';
-import type { OHLCVCandle } from '@/types';
+import type { OHLCVCandle, StockSignal } from '@/types';
 import { calculateSRLevels } from '@/lib/support-resistance';
 
 function calculateEMA(values: number[], period: number): number[] {
@@ -68,9 +69,11 @@ interface StockChartProps {
   showRsi?: boolean;
   height?: number;
   className?: string;
+  /** Grafikte marker olarak gösterilecek sinyaller */
+  signals?: StockSignal[];
 }
 
-export function StockChart({ candles, showRsi, height, className }: StockChartProps) {
+export function StockChart({ candles, showRsi, height, className, signals }: StockChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
 
@@ -344,6 +347,35 @@ export function StockChart({ candles, showRsi, height, className }: StockChartPr
       });
     }
   }, [showSR, candles, showRsi]);
+
+  // ── Effect 5: Sinyal marker'ları ─────────────────────────────────────────
+  useEffect(() => {
+    const cdlSeries = candlestickSeriesRef.current;
+    const nc = normalizedRef.current;
+    if (!cdlSeries || showRsi || !nc.length) return;
+
+    if (!signals?.length) {
+      cdlSeries.setMarkers([]);
+      return;
+    }
+
+    const lastTime = nc[nc.length - 1]!.date as Time;
+
+    const markers: SeriesMarker<Time>[] = signals.map((sig) => {
+      const isDown = sig.direction === 'asagi';
+      const isUp   = sig.direction === 'yukari';
+      return {
+        time:     lastTime,
+        position: isDown ? 'aboveBar' : 'belowBar',
+        shape:    isDown ? 'arrowDown' : isUp ? 'arrowUp' : 'circle',
+        color:    isDown ? '#ef4444' : isUp ? '#22c55e' : '#94a3b8',
+        text:     sig.type.length > 12 ? sig.type.slice(0, 12) : sig.type,
+        size:     sig.severity === 'güçlü' ? 2 : 1,
+      };
+    });
+
+    cdlSeries.setMarkers(markers);
+  }, [signals, showRsi]);
 
   if (!candles.length) return null;
 

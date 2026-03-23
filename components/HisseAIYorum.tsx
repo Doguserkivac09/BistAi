@@ -1,106 +1,71 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FiyatHedefleri } from '@/components/FiyatHedefleri';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 
 interface HisseAIYorumProps {
-  sembol: string;
+  analiz: HisseAnalizResponse | null;
+  loading: boolean;
 }
 
 /**
  * Hisse Detay Sayfası — AI Genel Yorum + Fiyat Hedefleri
  *
- * /api/hisse-analiz?symbol=X endpoint'inden veri çeker.
- * Kompozit karar (BUY/HOLD/SELL), güven skoru, AI açıklaması
- * ve fiyat hedeflerini tek kartta gösterir.
+ * Veri üst bileşenden props olarak gelir (HisseDetailClient fetch eder).
  */
-export function HisseAIYorum({ sembol }: HisseAIYorumProps) {
-  const [analiz, setAnaliz] = useState<HisseAnalizResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
-      .then((data: HisseAnalizResponse) => {
-        if (!cancelled) setAnaliz(data);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(String(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [sembol]);
-
+export function HisseAIYorum({ analiz, loading }: HisseAIYorumProps) {
   return (
-    <Card className="mb-6">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <span>🤖</span>
-          <span>AI Genel Yorumu</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {loading && <AIYorumSkeleton />}
+    <div className="space-y-4">
+      {loading && <AIYorumSkeleton />}
 
-        {!loading && error && (
-          <p className="text-sm text-text-secondary">Analiz yüklenemedi.</p>
-        )}
+      {!loading && !analiz && (
+        <p className="text-sm text-text-secondary">Analiz yüklenemedi.</p>
+      )}
 
-        {!loading && analiz && (
-          <>
-            {/* Karar + Güven */}
-            <div className="flex flex-wrap items-center gap-3">
-              <DecisionBadge
-                decision={analiz.decision}
-                decisionTr={analiz.decisionTr}
-                color={analiz.color}
-                emoji={analiz.emoji}
-              />
-              <ConfidenceMeter confidence={analiz.confidence} />
-              {!analiz.noSignal && (
-                <span className="text-xs text-text-muted">
-                  Sektör: {analiz.sectorName}
-                </span>
-              )}
-            </div>
-
-            {/* AI Açıklaması */}
-            <p className="text-sm leading-relaxed text-text-secondary">
-              {analiz.explanation}
-            </p>
-
-            {/* Skor çubukları */}
+      {!loading && analiz && (
+        <>
+          {/* Karar + Güven */}
+          <div className="flex flex-wrap items-center gap-3">
+            <DecisionBadge
+              decision={analiz.decision}
+              decisionTr={analiz.decisionTr}
+              color={analiz.color}
+              emoji={analiz.emoji}
+            />
+            <ConfidenceMeter confidence={analiz.confidence} />
             {!analiz.noSignal && (
-              <div className="grid grid-cols-3 gap-2">
-                <ScoreBar label="Teknik" score={analiz.technicalScore} />
-                <ScoreBar label="Makro" score={analiz.macroScore} />
-                <ScoreBar label="Sektör" score={analiz.sectorScore} />
-              </div>
+              <span className="text-xs text-text-muted">
+                Sektör: {analiz.sectorName}
+              </span>
             )}
+          </div>
 
-            {/* Fiyat Hedefleri */}
-            {!analiz.noSignal && analiz.priceTargets && (
-              <div className="rounded-xl border border-border bg-surface/50 p-4">
-                <p className="mb-3 text-xs font-medium text-text-secondary uppercase tracking-wide">
-                  Fiyat Hedefleri
-                </p>
-                <FiyatHedefleri priceTargets={analiz.priceTargets} />
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+          {/* AI Açıklaması */}
+          <p className="text-sm leading-relaxed text-text-secondary">
+            {analiz.explanation}
+          </p>
+
+          {/* Skor çubukları */}
+          {!analiz.noSignal && (
+            <div className="grid grid-cols-3 gap-2">
+              <ScoreBar label="Teknik" score={analiz.technicalScore} />
+              <ScoreBar label="Makro" score={analiz.macroScore} />
+              <ScoreBar label="Sektör" score={analiz.sectorScore} />
+            </div>
+          )}
+
+          {/* Fiyat Hedefleri */}
+          {!analiz.noSignal && analiz.priceTargets && (
+            <div className="rounded-xl border border-border bg-surface/50 p-4">
+              <p className="mb-3 text-xs font-medium text-text-secondary uppercase tracking-wide">
+                Fiyat Hedefleri
+              </p>
+              <FiyatHedefleri priceTargets={analiz.priceTargets} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

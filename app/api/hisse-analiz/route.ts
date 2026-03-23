@@ -67,6 +67,14 @@ export interface HisseAnalizResponse {
   sectorName: string;
   /** Karar üretilemeyen durumda true */
   noSignal?: boolean;
+  /** Hero bölümü için ek meta */
+  shortName?: string;
+  changePercent?: number;
+  currentPrice?: number;
+  volume?: number;
+  avgVolume20d?: number;
+  high90d?: number;
+  low90d?: number;
 }
 
 // ── Handler ─────────────────────────────────────────────────────────
@@ -84,12 +92,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     // 1. OHLCV (90 günlük günlük)
-    const { candles } = await fetchOHLCV(symbol, 90);
+    const { candles, changePercent: yahooChangePercent, currentPrice: yahooCurrentPrice, shortName } = await fetchOHLCV(symbol, 90);
     if (!candles.length) {
       return NextResponse.json({ error: `${symbol} için veri bulunamadı.` }, { status: 404 });
     }
 
-    const currentPrice = candles[candles.length - 1]!.close;
+    const lastCandle = candles[candles.length - 1]!;
+    const currentPrice = yahooCurrentPrice ?? lastCandle.close;
+
+    // Hero meta hesapla
+    const last20 = candles.slice(-20);
+    const avgVolume20d = Math.round(last20.reduce((s, c) => s + c.volume, 0) / last20.length);
+    const high90d = Math.max(...candles.map((c) => c.high));
+    const low90d  = Math.min(...candles.map((c) => c.low));
 
     // 2. Sinyaller — en güçlü sinyali bul
     const signals = detectAllSignals(symbol, candles);
@@ -112,6 +127,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         sectorScore: 0,
         sectorName: 'Bilinmiyor',
         noSignal: true,
+        shortName,
+        changePercent: yahooChangePercent,
+        currentPrice,
+        volume: lastCandle.volume,
+        avgVolume20d,
+        high90d,
+        low90d,
       };
       return NextResponse.json(noSignalResponse);
     }
@@ -179,6 +201,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       macroScore: composite.macroScore,
       sectorScore: composite.sectorScore,
       sectorName: sectorMomentum.sectorName,
+      shortName,
+      changePercent: yahooChangePercent,
+      currentPrice,
+      volume: lastCandle.volume,
+      avgVolume20d,
+      high90d,
+      low90d,
     };
 
     setCache(cacheKey, response);
