@@ -60,7 +60,16 @@ export function HisseAIYorum({ analiz, loading }: HisseAIYorumProps) {
               <p className="mb-3 text-xs font-medium text-text-secondary uppercase tracking-wide">
                 Fiyat Hedefleri
               </p>
-              <FiyatHedefleri priceTargets={analiz.priceTargets} />
+              <FiyatHedefleri
+                priceTargets={analiz.priceTargets}
+                direction={
+                  analiz.decision === 'BUY' || analiz.decision === 'STRONG_BUY'
+                    ? 'yukari'
+                    : analiz.decision === 'SELL' || analiz.decision === 'STRONG_SELL'
+                    ? 'asagi'
+                    : 'nötr'
+                }
+              />
             </div>
           )}
         </>

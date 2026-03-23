@@ -361,20 +361,38 @@ export function StockChart({ candles, showRsi, height, className, signals }: Sto
 
     const lastTime = nc[nc.length - 1]!.date as Time;
 
-    const markers: SeriesMarker<Time>[] = signals.map((sig) => {
-      const isDown = sig.direction === 'asagi';
-      const isUp   = sig.direction === 'yukari';
-      return {
-        time:     lastTime,
-        position: isDown ? 'aboveBar' : 'belowBar',
-        shape:    isDown ? 'arrowDown' : isUp ? 'arrowUp' : 'circle',
-        color:    isDown ? '#ef4444' : isUp ? '#22c55e' : '#94a3b8',
-        text:     sig.type.length > 12 ? sig.type.slice(0, 12) : sig.type,
-        size:     sig.severity === 'güçlü' ? 2 : 1,
-      };
-    });
+    // Sadece dominant sinyali göster — en güçlü olanı seç
+    const sevMap: Record<string, number> = { 'güçlü': 2, 'orta': 1, 'zayıf': 0 };
+    const dominant = [...signals].sort(
+      (a, b) => (sevMap[b.severity] ?? 0) - (sevMap[a.severity] ?? 0)
+    )[0]!;
 
-    cdlSeries.setMarkers(markers);
+    const isDown = dominant.direction === 'asagi';
+    const isUp   = dominant.direction === 'yukari';
+
+    const shortNames: Record<string, string> = {
+      'RSI Uyumsuzluğu': 'RSI Div',
+      'Hacim Anomalisi': 'Hacim',
+      'Trend Başlangıcı': 'Trend',
+      'Destek/Direnç Kırılımı': 'S/R Kırılım',
+      'MACD Kesişimi': 'MACD',
+      'Altın Çapraz': 'Golden X',
+      'Ölüm Çaprazı': 'Death X',
+      'Bollinger Sıkışması': 'BB Sıkışma',
+      'RSI Seviyesi': 'RSI',
+    };
+    const label = signals.length > 1
+      ? `${signals.length} sinyal`
+      : (shortNames[dominant.type] ?? dominant.type);
+
+    cdlSeries.setMarkers([{
+      time:     lastTime,
+      position: isDown ? 'aboveBar' : 'belowBar',
+      shape:    isDown ? 'arrowDown' : isUp ? 'arrowUp' : 'circle',
+      color:    isDown ? '#ef4444' : isUp ? '#22c55e' : '#94a3b8',
+      text:     label,
+      size:     2,
+    }]);
   }, [signals, showRsi]);
 
   if (!candles.length) return null;
