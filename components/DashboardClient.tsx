@@ -23,7 +23,7 @@ const METEORS = [
 
 function Meteors() {
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none z-[1]">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
       {METEORS.map((m, i) => (
         <div
           key={i}
@@ -34,8 +34,6 @@ function Meteors() {
             width: `${m.width}px`,
             height: '1.5px',
             background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.75) 50%, transparent 100%)',
-            rotate: '30deg',
-            transformOrigin: 'left center',
             animationDuration: `${m.duration + 4}s`,
             animationDelay: `${m.delay}s`,
           }}
@@ -197,7 +195,7 @@ export function DashboardClient({
   ];
 
   return (
-    <div className="min-h-screen bg-[#050510]">
+    <div className="relative isolate min-h-screen bg-[#050510]">
       <BeamsBackground fixed intensity="medium" />
       <Meteors />
 

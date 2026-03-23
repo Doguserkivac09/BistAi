@@ -230,15 +230,14 @@ html {
   will-change: width;
 }
 
-/* Meteor animation (GPU-accelerated) */
-@keyframes meteor-move {
-  0% { transform: rotate(30deg) translate3d(0, 0, 0); opacity: 0; }
-  10% { opacity: 0.9; }
-  60% { opacity: 0.9; }
-  100% { transform: rotate(30deg) translate3d(380px, 220px, 0); opacity: 0; }
+/* Meteor animation (GPU-accelerated) — soldan sağa çapraz düşüş */
+@keyframes meteor-fall {
+  0%   { transform: rotate(35deg) translateX(0);     opacity: 0; }
+  5%   {                                              opacity: 0.7; }
+  50%  {                                              opacity: 0.7; }
+  100% { transform: rotate(35deg) translateX(500px);  opacity: 0; }
 }
 
 .meteor-line {
-  animation: meteor-move 6s ease-in infinite;
-  will-change: transform, opacity;
+  animation: meteor-fall 6s ease-in infinite backwards;
 }
