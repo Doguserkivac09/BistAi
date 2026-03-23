@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Newspaper, RefreshCw, ExternalLink, TrendingUp, Clock,
   Search, Copy, Check, ChevronDown, Bell,
@@ -200,20 +199,15 @@ export default function HaberlerPage() {
         </div>
 
         {/* Yeni haber banner */}
-        <AnimatePresence>
-          {pendingCount > 0 && (
-            <motion.button
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              onClick={showPending}
-              className="mb-4 w-full flex items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
-            >
-              <Bell className="h-4 w-4" />
-              {pendingCount} yeni haber yüklendi — göster
-            </motion.button>
-          )}
-        </AnimatePresence>
+        {pendingCount > 0 && (
+          <button
+            onClick={showPending}
+            className="mb-4 w-full flex items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm font-medium text-primary hover:bg-primary/20 transition-colors animate-fade-in-up-sm"
+          >
+            <Bell className="h-4 w-4" />
+            {pendingCount} yeni haber yüklendi — göster
+          </button>
+        )}
 
         {/* Arama + Kaynak filtresi */}
         {!loading && haberler.length > 0 && (
@@ -270,13 +264,9 @@ export default function HaberlerPage() {
 
         {/* İçerik */}
         {!loading && (
-          <AnimatePresence>
+          <>
             {filteredHaberler.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-24 text-center"
-              >
+              <div className="flex flex-col items-center justify-center py-24 text-center animate-fade-in">
                 <Newspaper className="mb-4 h-12 w-12 text-text-muted" />
                 <p className="text-text-secondary">
                   {haberler.length === 0
@@ -291,7 +281,7 @@ export default function HaberlerPage() {
                     Tekrar Dene
                   </button>
                 )}
-              </motion.div>
+              </div>
             ) : (
               <div>
                 {/* Öne çıkan 3 haber */}
@@ -300,12 +290,9 @@ export default function HaberlerPage() {
                     {onceCikanlar.map((haber, i) => {
                       const cat = detectCategory(haber.baslik ?? '');
                       return (
-                        <motion.div
+                        <div
                           key={haber.link ?? i}
-                          initial={{ opacity: 0, y: 16 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.08 }}
-                          className="group flex flex-col rounded-xl border border-border bg-surface p-4 hover:border-primary/50 hover:bg-surface-alt transition-all duration-200 hover:shadow-lg hover:shadow-primary/5"
+                          className={`group flex flex-col rounded-xl border border-border bg-surface p-4 hover:border-primary/50 hover:bg-surface-alt transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 animate-fade-in-up-sm stagger-${i + 1}`}
                         >
                           <div className="mb-3 flex items-center justify-between gap-1 flex-wrap">
                             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${KAYNAK_RENK[haber.kaynak] ?? 'bg-zinc-500/20 text-zinc-400'}`}>
@@ -358,7 +345,7 @@ export default function HaberlerPage() {
                               </a>
                             </div>
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
                   </div>
@@ -369,12 +356,10 @@ export default function HaberlerPage() {
                   {digerler.map((haber, i) => {
                     const cat = detectCategory(haber.baslik ?? '');
                     return (
-                      <motion.div
+                      <div
                         key={haber.link ?? (i + 3)}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.24 + i * 0.04 }}
-                        className="group flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 hover:border-primary/40 hover:bg-surface-alt transition-all duration-150"
+                        className="group flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 hover:border-primary/40 hover:bg-surface-alt transition-all duration-150 animate-fade-in-up-sm"
+                        style={{ animationDelay: `${240 + i * 40}ms` }}
                       >
                         <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${KAYNAK_RENK[haber.kaynak] ?? 'bg-zinc-500/20 text-zinc-400'}`}>
                           {haber.kaynak?.replace(' Ekonomi', '')}
@@ -411,22 +396,20 @@ export default function HaberlerPage() {
                           </button>
                           <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
 
                 {/* Daha fazla yükle */}
                 {hasMore && (
-                  <motion.button
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                  <button
                     onClick={() => setVisibleCount((c) => c + 8)}
-                    className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-surface/50 py-3 text-sm text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
+                    className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-surface/50 py-3 text-sm text-text-secondary hover:text-text-primary hover:bg-surface transition-colors animate-fade-in"
                   >
                     <ChevronDown className="h-4 w-4" />
                     Daha fazla yükle ({filteredHaberler.length - visibleCount} haber kaldı)
-                  </motion.button>
+                  </button>
                 )}
 
                 <p className="mt-6 text-center text-xs text-text-muted">
@@ -434,7 +417,7 @@ export default function HaberlerPage() {
                 </p>
               </div>
             )}
-          </AnimatePresence>
+          </>
         )}
       </div>
     </div>

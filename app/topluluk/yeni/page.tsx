@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -189,28 +188,20 @@ export default function YeniPaylaşımPage() {
         <h1 className="text-xl font-bold text-text-primary mb-6">Yeni Paylaşım</h1>
 
         {/* Draft banner */}
-        <AnimatePresence>
-          {hasDraft && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-              className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 mb-4"
+        {hasDraft && (
+          <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 mb-4 animate-fade-in-up-sm">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+            <span className="text-sm text-emerald-400 flex-1">Taslak yüklendi</span>
+            <button
+              type="button"
+              onClick={clearDraft}
+              className="flex items-center gap-1 text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors"
             >
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-              <span className="text-sm text-emerald-400 flex-1">Taslak yüklendi</span>
-              <button
-                type="button"
-                onClick={clearDraft}
-                className="flex items-center gap-1 text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors"
-              >
-                <Trash2 className="h-3 w-3" />
-                Temizle
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <Trash2 className="h-3 w-3" />
+              Temizle
+            </button>
+          </div>
+        )}
 
         <Card className="border-border">
           <CardHeader className="pb-4">
@@ -259,169 +250,151 @@ export default function YeniPaylaşımPage() {
               </div>
             )}
 
-            <AnimatePresence mode="wait">
-              {tab === 'yaz' ? (
-                <motion.div
-                  key="yaz"
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -8 }}
-                  transition={{ duration: 0.15 }}
-                  className="space-y-6"
-                >
-                  {/* Category */}
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-3">Kategori</label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {CATEGORY_CONFIG.map((cfg) => {
-                        const Icon = cfg.icon;
-                        const isActive = category === cfg.value;
-                        return (
-                          <motion.button
-                            key={cfg.value}
-                            type="button"
-                            onClick={() => setCategory(cfg.value)}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className={cn(
-                              'rounded-xl border-2 p-4 flex flex-col items-center gap-2 cursor-pointer transition-all duration-150',
-                              isActive
-                                ? `${cfg.activeBg} ${cfg.activeBorder} ${cfg.activeText}`
-                                : 'border-white/10 bg-white/[0.03] text-white/40 hover:border-white/20'
-                            )}
-                          >
-                            <Icon className={cn('h-6 w-6', isActive ? cfg.icon_color : 'text-white/30')} />
-                            <span className="text-xs font-semibold leading-none">{cfg.label}</span>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
+            {tab === 'yaz' ? (
+              <div className="space-y-6 animate-fade-in">
+                {/* Category */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-3">Kategori</label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {CATEGORY_CONFIG.map((cfg) => {
+                      const Icon = cfg.icon;
+                      const isActive = category === cfg.value;
+                      return (
+                        <button
+                          key={cfg.value}
+                          type="button"
+                          onClick={() => setCategory(cfg.value)}
+                          className={cn(
+                            'hover-scale',
+                            'rounded-xl border-2 p-4 flex flex-col items-center gap-2 cursor-pointer transition-all duration-150',
+                            isActive
+                              ? `${cfg.activeBg} ${cfg.activeBorder} ${cfg.activeText}`
+                              : 'border-white/10 bg-white/[0.03] text-white/40 hover:border-white/20'
+                          )}
+                        >
+                          <Icon className={cn('h-6 w-6', isActive ? cfg.icon_color : 'text-white/30')} />
+                          <span className="text-xs font-semibold leading-none">{cfg.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
+                </div>
 
-                  {/* Title */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label htmlFor="title" className="text-sm font-medium text-text-primary">
-                        Başlık
-                      </label>
-                      <span className={cn('text-xs font-mono tabular-nums transition-colors', titleCounterColor(title.length))}>
-                        {title.length}/200
-                      </span>
-                    </div>
-                    <input
-                      id="title"
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      maxLength={200}
-                      disabled={submitting}
-                      placeholder="Başlık girin..."
-                      className="w-full rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-50"
-                    />
-                    {title.length > 0 && title.trim().length < 3 && (
-                      <p className="mt-1 text-xs text-bearish">En az 3 karakter gerekli</p>
-                    )}
-                  </div>
-
-                  {/* Body */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label htmlFor="body" className="text-sm font-medium text-text-primary">
-                        İçerik
-                      </label>
-                      <span className="text-xs font-mono tabular-nums text-white/40">
-                        {body.length}/5000
-                      </span>
-                    </div>
-                    <textarea
-                      id="body"
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
-                      maxLength={5000}
-                      rows={8}
-                      disabled={submitting}
-                      placeholder="Analizinizi, sorunuzu veya görüşünüzü paylaşın..."
-                      className="w-full rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none transition-colors disabled:opacity-50"
-                    />
-                    {/* Progress bar */}
-                    <div className="mt-2 h-1 rounded-full bg-white/8 overflow-hidden">
-                      <motion.div
-                        className={cn('h-full rounded-full transition-colors duration-300', bodyBarColor(bodyPct))}
-                        animate={{ width: `${bodyPct}%` }}
-                        transition={{ duration: 0.2, ease: 'easeOut' }}
-                        style={{ width: `${bodyPct}%` }}
-                      />
-                    </div>
-                    {body.length > 0 && body.trim().length < 10 && (
-                      <p className="mt-1 text-xs text-bearish">En az 10 karakter gerekli</p>
-                    )}
-                  </div>
-
-                  {/* Sembol */}
-                  <div>
-                    <label htmlFor="sembol" className="block text-sm font-medium text-text-primary mb-2">
-                      Hisse Sembolü{' '}
-                      <span className="text-xs font-normal text-text-secondary/50">(opsiyonel)</span>
+                {/* Title */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label htmlFor="title" className="text-sm font-medium text-text-primary">
+                      Başlık
                     </label>
-                    <input
-                      id="sembol"
-                      type="text"
-                      value={sembol}
-                      onChange={(e) => setSembol(e.target.value.toUpperCase())}
-                      maxLength={10}
-                      disabled={submitting}
-                      placeholder="Örn: THYAO"
-                      className="w-full max-w-[200px] rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-50"
+                    <span className={cn('text-xs font-mono tabular-nums transition-colors', titleCounterColor(title.length))}>
+                      {title.length}/200
+                    </span>
+                  </div>
+                  <input
+                    id="title"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    maxLength={200}
+                    disabled={submitting}
+                    placeholder="Başlık girin..."
+                    className="w-full rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-50"
+                  />
+                  {title.length > 0 && title.trim().length < 3 && (
+                    <p className="mt-1 text-xs text-bearish">En az 3 karakter gerekli</p>
+                  )}
+                </div>
+
+                {/* Body */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label htmlFor="body" className="text-sm font-medium text-text-primary">
+                      İçerik
+                    </label>
+                    <span className="text-xs font-mono tabular-nums text-white/40">
+                      {body.length}/5000
+                    </span>
+                  </div>
+                  <textarea
+                    id="body"
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    maxLength={5000}
+                    rows={8}
+                    disabled={submitting}
+                    placeholder="Analizinizi, sorunuzu veya görüşünüzü paylaşın..."
+                    className="w-full rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none transition-colors disabled:opacity-50"
+                  />
+                  {/* Progress bar */}
+                  <div className="mt-2 h-1 rounded-full bg-white/8 overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full progress-bar', bodyBarColor(bodyPct))}
+                      style={{ width: `${bodyPct}%` }}
                     />
-                    {sembol && !sembolValid && (
-                      <p className="mt-1 text-xs text-yellow-400">⚠ Tanımlanamayan sembol</p>
+                  </div>
+                  {body.length > 0 && body.trim().length < 10 && (
+                    <p className="mt-1 text-xs text-bearish">En az 10 karakter gerekli</p>
+                  )}
+                </div>
+
+                {/* Sembol */}
+                <div>
+                  <label htmlFor="sembol" className="block text-sm font-medium text-text-primary mb-2">
+                    Hisse Sembolü{' '}
+                    <span className="text-xs font-normal text-text-secondary/50">(opsiyonel)</span>
+                  </label>
+                  <input
+                    id="sembol"
+                    type="text"
+                    value={sembol}
+                    onChange={(e) => setSembol(e.target.value.toUpperCase())}
+                    maxLength={10}
+                    disabled={submitting}
+                    placeholder="Örn: THYAO"
+                    className="w-full max-w-[200px] rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm text-text-primary placeholder-text-secondary/40 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-50"
+                  />
+                  {sembol && !sembolValid && (
+                    <p className="mt-1 text-xs text-yellow-400">&#x26A0; Tanımlanamayan sembol</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="animate-fade-in">
+                {/* Önizleme */}
+                <div className="rounded-xl border border-dashed border-border p-5 space-y-3 bg-white/[0.01]">
+                  <p className="text-xs text-text-secondary text-center mb-4 pb-3 border-b border-border/50">
+                    Paylaşımınız şu şekilde görünecek
+                  </p>
+
+                  {/* Başlık */}
+                  <h2 className="text-base font-bold text-text-primary">
+                    {title || <span className="text-text-secondary/40 italic">Başlık...</span>}
+                  </h2>
+
+                  {/* Kategori + sembol badges */}
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                        activeCatConfig?.previewColor ?? 'border-white/15 bg-white/5 text-white/50'
+                      )}
+                    >
+                      {activeCatConfig?.label}
+                    </span>
+                    {sembol && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                        {sembol}
+                      </span>
                     )}
                   </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="önizle"
-                  initial={{ opacity: 0, x: 8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 8 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  {/* Önizleme */}
-                  <div className="rounded-xl border border-dashed border-border p-5 space-y-3 bg-white/[0.01]">
-                    <p className="text-xs text-text-secondary text-center mb-4 pb-3 border-b border-border/50">
-                      Paylaşımınız şu şekilde görünecek
-                    </p>
 
-                    {/* Başlık */}
-                    <h2 className="text-base font-bold text-text-primary">
-                      {title || <span className="text-text-secondary/40 italic">Başlık...</span>}
-                    </h2>
-
-                    {/* Kategori + sembol badges */}
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
-                          activeCatConfig?.previewColor ?? 'border-white/15 bg-white/5 text-white/50'
-                        )}
-                      >
-                        {activeCatConfig?.label}
-                      </span>
-                      {sembol && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                          {sembol}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* İçerik */}
-                    <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
-                      {body || <span className="italic opacity-40">İçerik...</span>}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  {/* İçerik */}
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                    {body || <span className="italic opacity-40">İçerik...</span>}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Submit */}
             <div className="flex justify-end pt-2">

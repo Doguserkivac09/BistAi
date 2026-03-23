@@ -142,3 +142,103 @@ html {
 .stat-number {
   text-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
 }
+
+/* ── GPU-accelerated animation utilities ─────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translate3d(0, 20px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes fade-in-up-sm {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale3d(0.95, 0.95, 1); }
+  to { opacity: 1; transform: scale3d(1, 1, 1); }
+}
+
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale3d(0.95, 0.95, 1) translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: scale3d(1, 1, 1) translate3d(0, 0, 0); }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.05; }
+  50% { opacity: 0.15; }
+}
+
+@keyframes width-grow {
+  from { width: 0; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-fade-in { animation: fade-in 0.5s ease-out both; }
+.animate-fade-in-up { animation: fade-in-up 0.5s ease-out both; }
+.animate-fade-in-up-sm { animation: fade-in-up-sm 0.3s ease-out both; }
+.animate-scale-in { animation: scale-in 0.3s ease-out both; }
+.animate-fade-in-scale { animation: fade-in-scale 0.4s ease-out both; }
+.animate-pulse-slow { animation: pulse-slow 10s ease-in-out infinite; }
+.animate-blink { animation: blink 0.75s step-end infinite; }
+
+/* Stagger delay utilities (use with animation-delay) */
+.stagger-1 { animation-delay: 40ms; }
+.stagger-2 { animation-delay: 80ms; }
+.stagger-3 { animation-delay: 120ms; }
+.stagger-4 { animation-delay: 160ms; }
+.stagger-5 { animation-delay: 200ms; }
+.stagger-6 { animation-delay: 240ms; }
+.stagger-7 { animation-delay: 280ms; }
+.stagger-8 { animation-delay: 320ms; }
+
+/* Interactive scale (replaces whileHover/whileTap) */
+.hover-lift {
+  transition: transform 0.2s ease;
+  will-change: transform;
+}
+.hover-lift:hover { transform: translate3d(0, -2px, 0); }
+.hover-lift:active { transform: translate3d(0, 0, 0); }
+
+.hover-scale {
+  transition: transform 0.15s ease;
+  will-change: transform;
+}
+.hover-scale:hover { transform: scale3d(1.05, 1.05, 1); }
+.hover-scale:active { transform: scale3d(0.95, 0.95, 1); }
+
+/* Modal overlay + content */
+.modal-overlay {
+  animation: fade-in 0.15s ease-out both;
+}
+.modal-content {
+  animation: fade-in-scale 0.2s ease-out both;
+}
+
+/* Progress bar width transition */
+.progress-bar {
+  transition: width 0.3s ease-out;
+  will-change: width;
+}
+
+/* Meteor animation (GPU-accelerated) */
+@keyframes meteor-move {
+  0% { transform: rotate(30deg) translate3d(0, 0, 0); opacity: 0; }
+  10% { opacity: 0.9; }
+  60% { opacity: 0.9; }
+  100% { transform: rotate(30deg) translate3d(380px, 220px, 0); opacity: 0; }
+}
+
+.meteor-line {
+  animation: meteor-move 6s ease-in infinite;
+  will-change: transform, opacity;
+}

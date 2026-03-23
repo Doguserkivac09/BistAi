@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, BarChart2, TrendingUp, TrendingDown, Minus, Search, AlertCircle, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignalBadge } from '@/components/SignalBadge';
@@ -281,15 +280,8 @@ function SymbolInput({ onSelect, excluded, placeholder = 'Hisse ara... (örn. AK
         />
       </div>
 
-      <AnimatePresence>
-        {open && filtered.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12 }}
-            className="absolute left-0 top-full z-50 mt-1.5 w-full rounded-xl border border-border bg-surface shadow-xl overflow-hidden"
-          >
+      {open && filtered.length > 0 && (
+          <div className="absolute left-0 top-full z-50 mt-1.5 w-full rounded-xl border border-border bg-surface shadow-xl overflow-hidden animate-fade-in-up-sm">
             {filtered.map((s) => (
               <button
                 key={s}
@@ -300,9 +292,8 @@ function SymbolInput({ onSelect, excluded, placeholder = 'Hisse ara... (örn. AK
                 {s}
               </button>
             ))}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -323,11 +314,8 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
 
   if (state.status === 'empty') {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.07 }}
-        className="rounded-xl border border-dashed border-border bg-surface/30 p-4 flex flex-col gap-3"
+      <div
+        className={`rounded-xl border border-dashed border-border bg-surface/30 p-4 flex flex-col gap-3 animate-fade-in-up-sm stagger-${index + 1}`}
       >
         <div className="flex items-center gap-2">
           <div className={cn('flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold', colorCls.badge)}>
@@ -340,17 +328,13 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
           <Plus className="h-3.5 w-3.5 text-text-muted" />
           <span className="text-xs text-text-muted">Karşılaştırmak için bir hisse seçin</span>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   if (state.status === 'loading') {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={cn('rounded-xl border bg-surface/50 p-4', colorCls.border)}
-      >
+      <div className={cn('rounded-xl border bg-surface/50 p-4 animate-fade-in-up-sm', colorCls.border)}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className={cn('flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold', colorCls.badge)}>
@@ -367,17 +351,13 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
             <div key={i} className="h-4 animate-pulse rounded bg-white/5" style={{ width: `${70 + i * 10}%` }} />
           ))}
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   if (state.status === 'error') {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border border-red-500/30 bg-surface/50 p-4"
-      >
+      <div className="rounded-xl border border-red-500/30 bg-surface/50 p-4 animate-fade-in-up-sm">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-semibold text-red-400">{state.sembol}</span>
           <button onClick={onRemove} className="rounded-md p-1 text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors">
@@ -388,7 +368,7 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
           <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
           <span className="text-xs text-red-300">{state.message}</span>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -409,11 +389,7 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
   const satCount = data.signals.filter((s) => s.direction === 'asagi').length;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={cn('rounded-xl border bg-surface/60 p-4', colorCls.border)}
-    >
+    <div className={cn('rounded-xl border bg-surface/60 p-4 animate-fade-in-up-sm', colorCls.border)}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className={cn('flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold', colorCls.badge)}>
@@ -460,7 +436,7 @@ function SlotCard({ index, state, color, onSelect, onRemove, excluded }: SlotCar
           </p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -718,11 +694,9 @@ function SignalsSection({ loadedSlots }: { loadedSlots: Array<{ data: HisseData;
         const strongest = getStrongestSignal(data.signals);
 
         return (
-          <motion.div
+          <div
             key={data.sembol}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn('rounded-xl border bg-surface/50 p-4', colorCls.border)}
+            className={cn('rounded-xl border bg-surface/50 p-4 animate-fade-in-up-sm', colorCls.border)}
           >
             <div className="mb-3 flex items-center gap-2">
               <span className={cn('text-sm font-bold', colorCls.text)}>{data.sembol}</span>
@@ -747,7 +721,7 @@ function SignalsSection({ loadedSlots }: { loadedSlots: Array<{ data: HisseData;
                 ))}
               </div>
             )}
-          </motion.div>
+          </div>
         );
       })}
     </div>
@@ -780,7 +754,7 @@ function CorrelationMatrix({ loadedSlots }: { loadedSlots: Array<{ data: HisseDa
         title="Yüksek korelasyon = hisseler birlikte hareket eder, çeşitlendirme azalır."
       >
         Pearson korelasyonu — sarı (&ge;0.70) yüksek bağlantı, çeşitlendirme düşük &nbsp;
-        <span className="underline decoration-dotted">ℹ</span>
+        <span className="underline decoration-dotted">&#x2139;</span>
       </p>
       <div className="overflow-x-auto rounded-xl border border-border bg-surface/50">
         <table className="text-sm">
@@ -957,11 +931,7 @@ export function KarsilastirClient() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 flex items-start justify-between gap-4"
-        >
+        <div className="mb-6 flex items-start justify-between gap-4 animate-fade-in-up-sm">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Hisse Karşılaştırma</h1>
             <p className="mt-1 text-sm text-text-secondary">
@@ -998,21 +968,14 @@ export function KarsilastirClient() {
               </button>
             )}
           </div>
-        </motion.div>
+        </div>
 
         {/* Kopyalandı toast */}
-        <AnimatePresence>
-          {copied && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400"
-            >
-              ✓ Link kopyalandı!
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {copied && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400 animate-fade-in-up-sm">
+            &#x2713; Link kopyalandı!
+          </div>
+        )}
 
         {/* Slot cards */}
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1031,27 +994,16 @@ export function KarsilastirClient() {
 
         {/* Loading */}
         {loadingCount > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-6 flex items-center gap-3 rounded-xl border border-border bg-surface/50 px-4 py-3"
-          >
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-border bg-surface/50 px-4 py-3 animate-fade-in">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             <span className="text-sm text-text-secondary">
               {loadingCount} hisse verisi yükleniyor...
             </span>
-          </motion.div>
+          </div>
         )}
 
-        <AnimatePresence>
-          {hasAnyData && (
-            <motion.div
-              key="comparison-content"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="space-y-8"
-            >
+        {hasAnyData && (
+            <div className="space-y-8 animate-fade-in-up">
               {/* Comparison Table */}
               <section>
                 <h2 className="mb-3 text-lg font-semibold text-text-primary">Metrik Karşılaştırması</h2>
@@ -1086,24 +1038,17 @@ export function KarsilastirClient() {
                 <h2 className="mb-3 text-lg font-semibold text-text-primary">Sinyal Karşılaştırması</h2>
                 <SignalsSection loadedSlots={loadedSlots} />
               </section>
-            </motion.div>
+            </div>
           )}
 
           {!hasAnyData && loadingCount === 0 && (
-            <motion.div
-              key="empty-hint"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="rounded-xl border border-dashed border-border bg-surface/20 p-10 text-center"
-            >
+            <div className="rounded-xl border border-dashed border-border bg-surface/20 p-10 text-center animate-fade-in">
               <BarChart2 className="mx-auto mb-3 h-8 w-8 text-text-muted" />
               <p className="text-sm text-text-secondary">
                 Karşılaştırmak için yukarıdan en az bir hisse seçin.
               </p>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
       </main>
     </div>
   );

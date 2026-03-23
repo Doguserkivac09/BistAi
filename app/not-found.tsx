@@ -1,18 +1,10 @@
-'use client';
-
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { Home, Search, TrendingUp } from 'lucide-react';
 
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-center"
-      >
+      <div className="text-center animate-fade-in-up">
         {/* 404 numarası */}
         <div className="relative mb-6">
           <span className="text-[120px] font-black leading-none text-primary/10 select-none">
@@ -49,7 +41,7 @@ export default function NotFound() {
             Hisse Tara
           </Link>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

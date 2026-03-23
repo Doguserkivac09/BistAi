@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface AnimatedGradientBackgroundProps {
@@ -148,10 +147,8 @@ export function BeamsBackground({
           className="fixed inset-0 z-0"
           style={{ filter: "blur(15px)" }}
         />
-        <motion.div
-          className="fixed inset-0 z-0 bg-neutral-950/5"
-          animate={{ opacity: [0.05, 0.15, 0.05] }}
-          transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
+        <div
+          className="fixed inset-0 z-0 bg-neutral-950/5 animate-pulse-slow"
           style={{ backdropFilter: "blur(50px)" }}
         />
       </>
@@ -170,10 +167,8 @@ export function BeamsBackground({
         className="absolute inset-0"
         style={{ filter: "blur(15px)" }}
       />
-      <motion.div
-        className="absolute inset-0 bg-neutral-950/5"
-        animate={{ opacity: [0.05, 0.15, 0.05] }}
-        transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
+      <div
+        className="absolute inset-0 bg-neutral-950/5 animate-pulse-slow"
         style={{ backdropFilter: "blur(50px)" }}
       />
       <div className="relative z-10">{children}</div>

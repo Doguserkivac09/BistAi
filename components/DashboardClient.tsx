@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   Star, BookMarked, Clock, Search, BarChart2, TrendingUp, Users,
@@ -12,29 +11,23 @@ import { DashboardWatchlist } from '@/components/DashboardWatchlist';
 import { DashboardSignals } from '@/components/DashboardSignals';
 import type { WatchlistItem, SavedSignal } from '@/types';
 
-// Sabit meteor verileri — Math.random() yok (hydration güvenli)
+// 6 meteor yeterli (12'den düşürüldü — jank azaltma)
 const METEORS = [
   { top: '8%',  left: '5%',  delay: 0,   duration: 2.2, width: 70 },
-  { top: '18%', left: '20%', delay: 1.1, duration: 1.9, width: 50 },
   { top: '35%', left: '3%',  delay: 2.4, duration: 2.6, width: 90 },
-  { top: '50%', left: '15%', delay: 0.6, duration: 2.0, width: 60 },
   { top: '65%', left: '8%',  delay: 1.8, duration: 2.3, width: 80 },
   { top: '12%', left: '40%', delay: 3.0, duration: 1.7, width: 55 },
-  { top: '28%', left: '55%', delay: 0.3, duration: 2.8, width: 65 },
   { top: '45%', left: '35%', delay: 2.0, duration: 2.1, width: 45 },
-  { top: '75%', left: '25%', delay: 1.4, duration: 2.4, width: 75 },
   { top: '20%', left: '70%', delay: 3.5, duration: 1.8, width: 50 },
-  { top: '55%', left: '60%', delay: 0.9, duration: 2.5, width: 85 },
-  { top: '82%', left: '50%', delay: 2.7, duration: 2.0, width: 60 },
 ];
 
 function Meteors() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-[1]">
       {METEORS.map((m, i) => (
-        <motion.div
+        <div
           key={i}
-          className="absolute rounded-full"
+          className="absolute rounded-full meteor-line"
           style={{
             top: m.top,
             left: m.left,
@@ -43,9 +36,9 @@ function Meteors() {
             background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.75) 50%, transparent 100%)',
             rotate: '30deg',
             transformOrigin: 'left center',
+            animationDuration: `${m.duration + 4}s`,
+            animationDelay: `${m.delay}s`,
           }}
-          animate={{ x: [0, 380], y: [0, 220], opacity: [0, 0.9, 0.9, 0] }}
-          transition={{ duration: m.duration, delay: m.delay, repeat: Infinity, repeatDelay: 4, ease: 'easeIn' }}
         />
       ))}
     </div>
@@ -140,11 +133,9 @@ function SignalDistribution({ signals }: { signals: SavedSignal[] }) {
               </span>
             </div>
             <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-primary/60"
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 0.6, ease: 'easeOut', delay: 0.2 }}
+              <div
+                className="h-full rounded-full bg-primary/60 progress-bar"
+                style={{ width: `${pct}%` }}
               />
             </div>
           </div>
@@ -215,11 +206,7 @@ export function DashboardClient({
 
           {/* ── Hero ── */}
           <div className="pt-10 pb-10 text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7 }}
-            >
+            <div className="animate-fade-in-up">
               {/* Avatar */}
               <div
                 className={cn(
@@ -237,18 +224,16 @@ export function DashboardClient({
                 {displayName}
               </h1>
               <p className="text-white/35 text-sm">{email}</p>
-            </motion.div>
+            </div>
 
             {/* Stat Kartları */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-10 mb-8">
               {STAT_CARDS.map((stat, i) => {
                 const Icon = stat.icon;
                 return (
-                  <motion.div
+                  <div
                     key={stat.label}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 + i * 0.08, duration: 0.5 }}
+                    className={`animate-fade-in-up stagger-${i + 4}`}
                   >
                     <Link
                       href={stat.href}
@@ -262,18 +247,13 @@ export function DashboardClient({
                       <p className="text-xl font-bold text-white leading-none">{stat.value}</p>
                       <p className="text-xs text-white/40 mt-1.5">{stat.label}</p>
                     </Link>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
 
             {/* Hızlı Eylemler */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
-              className="grid grid-cols-3 sm:grid-cols-6 gap-3"
-            >
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 animate-fade-in-up stagger-7">
               {QUICK_ACTIONS.map((action) => {
                 const Icon = action.icon;
                 return (
@@ -292,7 +272,7 @@ export function DashboardClient({
                   </Link>
                 );
               })}
-            </motion.div>
+            </div>
           </div>
 
           {/* ── İçerik Bölümleri ── */}
@@ -300,26 +280,16 @@ export function DashboardClient({
 
             {/* Sinyal Dağılımı */}
             {savedSignals.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8, duration: 0.5 }}
-                className="rounded-2xl border border-white/8 bg-black/35 backdrop-blur-md p-5"
-              >
+              <div className="rounded-2xl border border-white/8 bg-black/35 backdrop-blur-md p-5 animate-fade-in-up stagger-8">
                 <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">
                   Sinyal Dağılımı
                 </h2>
                 <SignalDistribution signals={savedSignals} />
-              </motion.div>
+              </div>
             )}
 
             {/* İzleme Listesi */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.85, duration: 0.5 }}
-              className="rounded-2xl border border-white/8 bg-black/35 backdrop-blur-md overflow-hidden"
-            >
+            <div className="rounded-2xl border border-white/8 bg-black/35 backdrop-blur-md overflow-hidden animate-fade-in-up" style={{ animationDelay: '340ms' }}>
               <div className="flex items-center gap-2.5 px-6 py-4 border-b border-white/6">
                 <Star className="h-4 w-4 text-primary" />
                 <h2 className="text-base font-semibold text-white">İzleme Listesi</h2>
@@ -350,15 +320,13 @@ export function DashboardClient({
                   <DashboardWatchlist watchlist={watchlist} />
                 </div>
               )}
-            </motion.div>
+            </div>
 
             {/* Kayıtlı Sinyaller */}
-            <motion.div
+            <div
               id="sinyaller"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.95, duration: 0.5 }}
-              className="rounded-2xl border border-white/8 bg-black/35 backdrop-blur-md overflow-hidden"
+              className="rounded-2xl border border-white/8 bg-black/35 backdrop-blur-md overflow-hidden animate-fade-in-up"
+              style={{ animationDelay: '380ms' }}
             >
               <div className="flex items-center gap-2.5 px-6 py-4 border-b border-white/6">
                 <BookMarked className="h-4 w-4 text-primary" />
@@ -390,7 +358,7 @@ export function DashboardClient({
                   <DashboardSignals signals={savedSignals} totalCount={savedSignalsCount} />
                 </div>
               )}
-            </motion.div>
+            </div>
 
           </div>
         </div>
