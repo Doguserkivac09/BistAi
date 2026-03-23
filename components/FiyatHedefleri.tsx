@@ -8,8 +8,15 @@ interface FiyatHedefleriProps {
   direction?: 'yukari' | 'asagi' | 'nötr';
 }
 
-export function FiyatHedefleri({ priceTargets, direction = 'yukari' }: FiyatHedefleriProps) {
+export function FiyatHedefleri({ priceTargets, direction }: FiyatHedefleriProps) {
   const { currentPrice, stopLoss, target1, target2, riskReward } = priceTargets;
+
+  // Direction'ı veriden otomatik türet — stop loss mevcut fiyatın üstündeyse düşüş (asagi)
+  const autoDirection: 'yukari' | 'asagi' | 'nötr' =
+    direction ??
+    (stopLoss
+      ? stopLoss.price > currentPrice ? 'asagi' : 'yukari'
+      : 'nötr');
 
   // Tüm fiyat noktalarını topla
   const allPrices = [
@@ -24,7 +31,7 @@ export function FiyatHedefleri({ priceTargets, direction = 'yukari' }: FiyatHede
   const range    = maxPrice - minPrice || 1;
   const toPct    = (p: number) => Math.max(2, Math.min(98, ((p - minPrice) / range) * 100));
 
-  const isDown  = direction === 'asagi';
+  const isDown  = autoDirection === 'asagi';
   const hasData = stopLoss || target1 || target2;
 
   if (!hasData) {
@@ -59,11 +66,11 @@ export function FiyatHedefleri({ priceTargets, direction = 'yukari' }: FiyatHede
   return (
     <div className="space-y-4">
       {/* ── Ruler görselleştirmesi ───────────────────────────────── */}
-      <div className="relative h-8 rounded-full bg-surface-alt overflow-hidden">
+      <div className="relative h-9 rounded-lg bg-white/5 overflow-visible border border-white/10">
         {/* Stop bölgesi (kırmızı) */}
         {stopLoss && (
           <div
-            className={`absolute inset-y-0 ${isDown ? 'bg-red-500/20' : 'bg-red-500/20'}`}
+            className="absolute inset-y-0 bg-red-500/25"
             style={isDown
               ? { left: `${toPct(currentPrice)}%`, right: `${100 - toPct(stopLoss.price)}%` }
               : { left: `${toPct(stopLoss.price)}%`, right: `${100 - toPct(currentPrice)}%` }
@@ -73,7 +80,7 @@ export function FiyatHedefleri({ priceTargets, direction = 'yukari' }: FiyatHede
         {/* Hedef bölgesi (yeşil) */}
         {target1 && (
           <div
-            className="absolute inset-y-0 bg-emerald-500/20"
+            className="absolute inset-y-0 bg-emerald-500/25"
             style={isDown
               ? { left: `${toPct(target1.price)}%`, right: `${100 - toPct(currentPrice)}%` }
               : { left: `${toPct(currentPrice)}%`, right: `${100 - toPct(target1.price)}%` }
@@ -81,27 +88,39 @@ export function FiyatHedefleri({ priceTargets, direction = 'yukari' }: FiyatHede
           />
         )}
 
-        {/* Stop Loss çizgisi */}
+        {/* Stop Loss çizgisi + etiket */}
         {stopLoss && (
-          <div className="absolute inset-y-0 w-px bg-red-500/80"
-            style={{ left: `${toPct(stopLoss.price)}%` }} />
+          <div className="absolute inset-y-0 flex flex-col items-center"
+            style={{ left: `${toPct(stopLoss.price)}%` }}>
+            <div className="w-0.5 h-full bg-red-400" />
+            <span className="absolute -top-4 -translate-x-1/2 text-[9px] text-red-400 whitespace-nowrap">SL</span>
+          </div>
         )}
-        {/* Hedef 1 çizgisi */}
+        {/* Hedef 1 çizgisi + etiket */}
         {target1 && (
-          <div className="absolute inset-y-0 w-px bg-emerald-500/80"
-            style={{ left: `${toPct(target1.price)}%` }} />
+          <div className="absolute inset-y-0 flex flex-col items-center"
+            style={{ left: `${toPct(target1.price)}%` }}>
+            <div className="w-0.5 h-full bg-emerald-400" />
+            <span className="absolute -top-4 -translate-x-1/2 text-[9px] text-emerald-400 whitespace-nowrap">H1</span>
+          </div>
         )}
-        {/* Hedef 2 çizgisi */}
+        {/* Hedef 2 çizgisi + etiket */}
         {target2 && (
-          <div className="absolute inset-y-0 w-px bg-emerald-400/50"
-            style={{ left: `${toPct(target2.price)}%` }} />
+          <div className="absolute inset-y-0 flex flex-col items-center"
+            style={{ left: `${toPct(target2.price)}%` }}>
+            <div className="w-0.5 h-full bg-emerald-300/60" />
+            <span className="absolute -top-4 -translate-x-1/2 text-[9px] text-emerald-300/70 whitespace-nowrap">H2</span>
+          </div>
         )}
         {/* Mevcut fiyat iğnesi */}
         <div
-          className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/80 bg-background shadow-lg"
+          className="absolute top-1/2 z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-background shadow-lg"
           style={{ left: `${toPct(currentPrice)}%` }}
+          title={`Mevcut: ${currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}₺`}
         />
       </div>
+      {/* Etiket boşluğu */}
+      <div className="h-3" />
 
       {/* ── Fiyat hücreleri ──────────────────────────────────────── */}
       <div className={`grid gap-2 ${visibleCells.length === 4 ? 'grid-cols-4' : visibleCells.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>

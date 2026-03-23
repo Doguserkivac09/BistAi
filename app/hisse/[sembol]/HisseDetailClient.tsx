@@ -394,7 +394,27 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                         <StockChart candles={candles} height={320} signals={signals} />
                       </Suspense>
                     </div>
-                    <div className="h-px bg-border/40" />
+                    {/* Sinyal chips — grafik marker'larına karşılık gelen liste */}
+                    {signals.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 border-y border-border/40 px-3 py-1.5">
+                        <span className="text-[10px] text-text-muted mr-1">Aktif:</span>
+                        {signals.map((s) => (
+                          <span
+                            key={s.type}
+                            title={`${s.type} — ${s.severity} — ${s.direction === 'yukari' ? 'Yükseliş' : s.direction === 'asagi' ? 'Düşüş' : 'Nötr'}`}
+                            className={`inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-medium cursor-default select-none ${
+                              s.direction === 'yukari'
+                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                                : s.direction === 'asagi'
+                                ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                                : 'border-border bg-surface/50 text-text-muted'
+                            }`}
+                          >
+                            {s.direction === 'yukari' ? '↑' : s.direction === 'asagi' ? '↓' : '→'} {s.type}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="h-[140px] w-full">
                       <Suspense fallback={
                         <div className="flex h-[140px] w-full items-center justify-center bg-surface/50">
