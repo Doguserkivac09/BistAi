@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
 
@@ -18,12 +17,7 @@ export default function GlobalError({ error, reset }: ErrorProps) {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-center max-w-md"
-      >
+      <div className="text-center max-w-md animate-fade-in-up">
         <div className="mb-6 flex justify-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10">
             <AlertTriangle className="h-10 w-10 text-red-400" />
@@ -54,7 +48,7 @@ export default function GlobalError({ error, reset }: ErrorProps) {
             Ana Sayfa
           </Link>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

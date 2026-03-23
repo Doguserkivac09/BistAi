@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Newspaper, RefreshCw, ExternalLink, TrendingUp, Clock } from 'lucide-react';
 import type { HaberItem } from '@/app/api/haber/route';
 
@@ -92,13 +91,9 @@ export default function HaberlerPage() {
 
         {/* İçerik */}
         {!loading && (
-          <AnimatePresence>
+          <>
             {haberler.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-24 text-center"
-              >
+              <div className="flex flex-col items-center justify-center py-24 text-center animate-fade-in">
                 <Newspaper className="mb-4 h-12 w-12 text-text-muted" />
                 <p className="text-text-secondary">Şu an haber yüklenemiyor.</p>
                 <button
@@ -107,21 +102,18 @@ export default function HaberlerPage() {
                 >
                   Tekrar Dene
                 </button>
-              </motion.div>
+              </div>
             ) : (
               <div>
                 {/* Öne çıkan 3 haber — büyük kartlar */}
                 <div className="mb-6 grid gap-4 md:grid-cols-3">
                   {onceCikanlar.map((haber, i) => (
-                    <motion.a
+                    <a
                       key={i}
                       href={haber.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.08 }}
-                      className="group flex flex-col rounded-xl border border-border bg-surface p-4 hover:border-primary/50 hover:bg-surface-alt transition-all duration-200 hover:shadow-lg hover:shadow-primary/5"
+                      className={`group flex flex-col rounded-xl border border-border bg-surface p-4 hover:border-primary/50 hover:bg-surface-alt transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 animate-fade-in-up-sm stagger-${i + 1}`}
                     >
                       <div className="mb-3 flex items-center justify-between">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${KAYNAK_RENK[haber.kaynak] ?? 'bg-zinc-500/20 text-zinc-400'}`}>
@@ -144,22 +136,20 @@ export default function HaberlerPage() {
                         </span>
                         <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                    </motion.a>
+                    </a>
                   ))}
                 </div>
 
                 {/* Diğer haberler — liste */}
                 <div className="space-y-2">
                   {digerler.map((haber, i) => (
-                    <motion.a
+                    <a
                       key={i + 3}
                       href={haber.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.24 + i * 0.05 }}
-                      className="group flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 hover:border-primary/40 hover:bg-surface-alt transition-all duration-150"
+                      className="group flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 hover:border-primary/40 hover:bg-surface-alt transition-all duration-150 animate-fade-in-up-sm"
+                      style={{ animationDelay: `${240 + i * 50}ms` }}
                     >
                       <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${KAYNAK_RENK[haber.kaynak] ?? 'bg-zinc-500/20 text-zinc-400'}`}>
                         {haber.kaynak?.replace(' Ekonomi', '')}
@@ -171,7 +161,7 @@ export default function HaberlerPage() {
                         <span>{zamanFarki(haber.tarih)}</span>
                         <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                    </motion.a>
+                    </a>
                   ))}
                 </div>
 
@@ -180,7 +170,7 @@ export default function HaberlerPage() {
                 </p>
               </div>
             )}
-          </AnimatePresence>
+          </>
         )}
       </div>
     </div>

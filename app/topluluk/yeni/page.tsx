@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -159,13 +158,12 @@ export default function YeniPaylaşımPage() {
                   const Icon = cfg.icon;
                   const isActive = category === cfg.value;
                   return (
-                    <motion.button
+                    <button
                       key={cfg.value}
                       type="button"
                       onClick={() => setCategory(cfg.value)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                       className={cn(
+                        'hover-scale',
                         'rounded-xl border-2 p-4 flex flex-col items-center gap-2 cursor-pointer transition-all duration-150',
                         isActive
                           ? `${cfg.activeBg} ${cfg.activeBorder} ${cfg.activeText}`
@@ -176,7 +174,7 @@ export default function YeniPaylaşımPage() {
                         className={cn('h-6 w-6', isActive ? cfg.icon_color : 'text-white/30')}
                       />
                       <span className="text-xs font-semibold leading-none">{cfg.label}</span>
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
@@ -229,10 +227,8 @@ export default function YeniPaylaşımPage() {
               />
               {/* Progress bar */}
               <div className="mt-2 h-1 rounded-full bg-white/8 overflow-hidden">
-                <motion.div
-                  className={cn('h-full rounded-full transition-colors duration-300', bodyBarColor(bodyPct))}
-                  animate={{ width: `${bodyPct}%` }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                <div
+                  className={cn('h-full rounded-full progress-bar', bodyBarColor(bodyPct))}
                   style={{ width: `${bodyPct}%` }}
                 />
               </div>

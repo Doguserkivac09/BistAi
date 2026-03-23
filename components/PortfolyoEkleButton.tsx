@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Briefcase, Check } from 'lucide-react';
 
 interface Props {
@@ -58,16 +57,10 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
         Portföye Ekle
       </button>
 
-      <AnimatePresence>
-        {open && (
+      {open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 8 }}
-              className="relative w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-2xl"
-            >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm modal-overlay" onClick={() => setOpen(false)} />
+            <div className="relative w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-2xl modal-content">
               {/* Başlık */}
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -150,10 +143,9 @@ export function PortfolyoEkleButton({ sembol, defaultFiyat }: Props) {
                   <><Plus className="h-4 w-4" /> Portföye Ekle</>
                 )}
               </button>
-            </motion.div>
+            </div>
           </div>
         )}
-      </AnimatePresence>
     </>
   );
 }
