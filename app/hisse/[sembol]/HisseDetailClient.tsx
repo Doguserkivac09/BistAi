@@ -18,6 +18,7 @@ import { SRLevels } from '@/components/SRLevels';
 import { HisseAIYorum } from '@/components/HisseAIYorum';
 import { AdilDegerMetre } from '@/components/AdilDegerMetre';
 import { HisseSkorKarti } from '@/components/HisseSkorKarti';
+import { SinyalGecmisi } from '@/components/SinyalGecmisi';
 import { computeTechFairValue } from '@/lib/tech-fair-value';
 import { computeStockScore } from '@/lib/stock-score';
 import { createClient } from '@/lib/supabase';
@@ -295,6 +296,14 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 ))}
               </div>
             )}
+
+            {/* ── Sinyal Geçmişi ────────────────────────────────────────────── */}
+            <h2 className="mb-4 mt-8 text-lg font-semibold text-text-primary">
+              📋 Sinyal Geçmişi
+            </h2>
+            <div className="mb-8">
+              <SinyalGecmisi sembol={sembol} />
+            </div>
 
             {/* ── Haberler ──────────────────────────────────────────────────── */}
             <h2 className="mb-4 mt-8 text-lg font-semibold text-text-primary">
