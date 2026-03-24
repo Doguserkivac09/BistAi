@@ -821,14 +821,14 @@ export default function PortfolyoPage() {
       <div className="mx-auto max-w-6xl">
 
         {/* Başlık */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Portföyüm</h1>
             <p className="mt-1 text-sm text-text-secondary">
               Hisse pozisyonlarını takip et, kar/zarar hesapla
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Bildirim toggle */}
             <div className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2">
               <button

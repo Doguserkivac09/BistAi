@@ -397,9 +397,9 @@ function ToplulukPageInner() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto max-w-5xl px-4 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
           <h1 className="text-2xl font-bold text-text-primary">Topluluk</h1>
-          <Button size="sm" asChild>
+          <Button size="sm" asChild className="shrink-0">
             <Link href="/topluluk/yeni">
               <Plus className="h-4 w-4 mr-1.5" />
               Yeni Paylaşım
