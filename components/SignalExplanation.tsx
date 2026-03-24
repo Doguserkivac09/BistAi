@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -8,6 +9,8 @@ interface SignalExplanationProps {
   isLoading?: boolean;
   error?: string | null;
   className?: string;
+  /** Metni 4 satırla sınırla, taşıyorsa "Daha fazla" toggle göster */
+  clamp?: boolean;
 }
 
 export function SignalExplanation({
@@ -15,11 +18,20 @@ export function SignalExplanation({
   isLoading,
   error,
   className,
+  clamp = false,
 }: SignalExplanationProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const pRef = useRef<HTMLParagraphElement>(null);
+
+  // Metnin gerçekten taşıp taşmadığını ölç
+  useEffect(() => {
+    if (!clamp || !pRef.current || expanded) return;
+    setIsClamped(pRef.current.scrollHeight > pRef.current.offsetHeight + 2);
+  }, [text, clamp, expanded]);
+
   if (error) {
-    return (
-      <p className={cn('text-sm text-bearish', className)}>{error}</p>
-    );
+    return <p className={cn('text-sm text-bearish', className)}>{error}</p>;
   }
   if (isLoading) {
     return (
@@ -32,13 +44,32 @@ export function SignalExplanation({
   }
   if (!text) {
     return (
-      <p className={cn('text-sm text-text-secondary', className)}>Açıklama yükleniyor...</p>
+      <p className={cn('text-sm text-text-secondary', className)}>
+        Açıklama yükleniyor...
+      </p>
     );
   }
+
   return (
-    <p className={cn('text-sm text-text-secondary leading-relaxed', className)}>
-      {renderBoldText(text)}
-    </p>
+    <div className={className}>
+      <p
+        ref={pRef}
+        className={cn(
+          'text-sm text-text-secondary leading-relaxed',
+          clamp && !expanded && 'line-clamp-4'
+        )}
+      >
+        {renderBoldText(text)}
+      </p>
+      {clamp && (isClamped || expanded) && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-xs text-primary hover:underline"
+        >
+          {expanded ? 'Daha az' : 'Daha fazla'}
+        </button>
+      )}
+    </div>
   );
 }
 
