@@ -173,7 +173,7 @@ export default function HaberlerPage() {
       <div className="mx-auto max-w-4xl">
 
         {/* Başlık */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold text-text-primary">
               <Newspaper className="h-6 w-6 text-primary" />

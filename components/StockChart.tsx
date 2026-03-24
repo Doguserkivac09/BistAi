@@ -205,7 +205,17 @@ export function StockChart({ candles, showRsi, height, className, signals }: Sto
       candlestickSeries.setData(cdlData);
       candlestickSeriesRef.current = candlestickSeries;
 
-      const volumeSeries = chart.addHistogramSeries({ priceScaleId: 'volume', color: '#6366f140', title: '' });
+      const volumeSeries = chart.addHistogramSeries({
+        priceScaleId: 'volume', color: '#6366f140', title: '',
+        priceFormat: {
+          type: 'custom',
+          formatter: (price: number) => {
+            if (price >= 1_000_000) return (price / 1_000_000).toFixed(1) + 'M';
+            if (price >= 1_000) return (price / 1_000).toFixed(0) + 'K';
+            return price.toFixed(0);
+          },
+        },
+      });
       volumeSeries.setData(normalized.map((c) => ({
         time: c.date as Time, value: c.volume ?? 0,
         color: c.close >= c.open ? '#22c55e28' : '#ef444428',
