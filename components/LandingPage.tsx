@@ -643,17 +643,19 @@ export default function LandingPage() {
             <Link
               key={i}
               href={`/hisse/${item.s}`}
-              className="flex items-center gap-1.5 whitespace-nowrap text-xs transition-opacity hover:opacity-80"
+              className="flex items-center gap-2 whitespace-nowrap text-xs transition-opacity hover:opacity-80"
             >
               <span className="font-semibold text-text-primary">{item.s}</span>
-              <span className="text-text-secondary">{item.p}</span>
-              <span className={item.up ? 'text-bullish' : 'text-bearish'}>
-                {item.up
-                  ? <TrendingUp className="inline h-3 w-3" />
-                  : <TrendingDown className="inline h-3 w-3" />}
-                {' '}{item.c}
-              </span>
-              <span className="text-border/60 mx-1">|</span>
+              <span className="font-medium text-text-primary">{item.p}</span>
+              {item.c !== '—' && (
+                <span className={`flex items-center gap-0.5 font-semibold ${item.up ? 'text-bullish' : 'text-bearish'}`}>
+                  {item.up
+                    ? <TrendingUp className="h-3 w-3" />
+                    : <TrendingDown className="h-3 w-3" />}
+                  {item.c}
+                </span>
+              )}
+              <span className="text-border/60">|</span>
             </Link>
           ))}
         </div>

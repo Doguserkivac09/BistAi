@@ -16,8 +16,14 @@ export async function GET() {
       TICKER_SYMBOLS.map(async (sembol) => {
         const { candles, changePercent, currentPrice } = await fetchOHLCV(sembol, 5);
         const lastClose = candles[candles.length - 1]?.close;
+        const prevClose = candles[candles.length - 2]?.close;
         const price = currentPrice ?? lastClose ?? null;
-        const change = changePercent ?? null;
+        // changePercent önce Yahoo meta'dan, yoksa son iki kapanıştan hesapla
+        const change = changePercent != null
+          ? changePercent
+          : (lastClose && prevClose && prevClose > 0)
+            ? Math.round(((lastClose - prevClose) / prevClose) * 10000) / 100
+            : null;
         return { sembol, price, change };
       })
     );
