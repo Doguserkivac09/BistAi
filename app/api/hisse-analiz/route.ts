@@ -65,6 +65,8 @@ export interface HisseAnalizResponse {
   macroScore: number;
   sectorScore: number;
   sectorName: string;
+  /** Ham teknik sinyal yönü (kompozit karardan bağımsız) */
+  signalDirection?: 'yukari' | 'asagi' | 'nötr';
   /** Karar üretilemeyen durumda true */
   noSignal?: boolean;
   /** Hero bölümü için ek meta */
@@ -201,6 +203,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       macroScore: composite.macroScore,
       sectorScore: composite.sectorScore,
       sectorName: sectorMomentum.sectorName,
+      signalDirection: dominantSignal.direction as 'yukari' | 'asagi' | 'nötr',
       shortName,
       changePercent: yahooChangePercent,
       currentPrice,
