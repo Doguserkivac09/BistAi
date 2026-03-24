@@ -140,26 +140,18 @@ function DecisionBadge({
     STRONG_SELL: 'bg-red-500/15 border-red-500/40 text-red-300',
   };
 
-  const lowConfidenceBg =
-    confidence < 25
-      ? 'bg-gray-500/10 border-gray-500/20 text-gray-500'
-      : confidence < 40
-      ? 'bg-yellow-500/8 border-yellow-500/20 text-yellow-600'
-      : null;
-
-  const classes = lowConfidenceBg ?? (bgMap[decision] ?? 'border-border text-text-primary');
-  const textColor = confidence >= 40 ? color : undefined;
+  const classes = bgMap[decision] ?? 'border-border text-text-primary';
 
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${classes}`}
-      style={textColor ? { color: textColor } : undefined}
+      style={{ color }}
     >
       <span>{emoji}</span>
       <span>{decisionTr}</span>
       {confidence < 40 && (
-        <span className="text-[10px] font-normal opacity-70">
-          ({confidence < 25 ? 'zayıf' : 'düşük'})
+        <span className="text-[11px] font-bold uppercase tracking-wide opacity-80">
+          {confidence < 25 ? 'ZAYIF' : 'DÜŞÜK'}
         </span>
       )}
     </span>
