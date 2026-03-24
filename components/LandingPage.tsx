@@ -638,11 +638,11 @@ export default function LandingPage() {
 
       {/* ── Ticker ───────────────────────────────────────────────── */}
       <div className="relative z-10 overflow-hidden border-b border-border/50 bg-surface/60 py-2 backdrop-blur-sm">
-        <div className="ticker-track flex items-center gap-8">
-          {/* Gecikme notu — ticker başında sabit */}
-          <span className="shrink-0 whitespace-nowrap rounded border border-border/40 bg-surface px-2 py-0.5 text-[10px] text-text-secondary">
-            ~15dk gecikme
-          </span>
+        {/* Gecikme notu — sol kenarda sabit, kaydırmaz */}
+        <span className="absolute left-0 top-0 z-10 flex h-full items-center border-r border-border/40 bg-surface/90 px-2.5 text-[10px] text-text-secondary backdrop-blur-sm">
+          ~15dk gecikme
+        </span>
+        <div className="ticker-track flex items-center gap-8 pl-28">
           {[...tickerItems, ...tickerItems].map((item, i) => (
             <Link
               key={i}
