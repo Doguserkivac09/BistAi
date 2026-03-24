@@ -20,21 +20,21 @@ import { Button } from '@/components/ui/button';
 
 // ── Ticker data ───────────────────────────────────────────────────
 
-const TICKER_ITEMS = [
-  { s: 'THYAO', p: '342.50', c: '+2.4%', up: true },
-  { s: 'AKBNK', p: '58.30', c: '+1.1%', up: true },
-  { s: 'SISE',  p: '89.70',  c: '-0.8%', up: false },
-  { s: 'EREGL', p: '124.20', c: '+3.2%', up: true },
-  { s: 'KCHOL', p: '198.40', c: '-1.4%', up: false },
-  { s: 'BIMAS', p: '456.00', c: '+0.6%', up: true },
-  { s: 'ARCLK', p: '237.80', c: '-2.1%', up: false },
-  { s: 'TUPRS', p: '512.50', c: '+4.1%', up: true },
-  { s: 'GARAN', p: '72.40',  c: '+1.8%', up: true },
-  { s: 'TOASO', p: '310.90', c: '-0.5%', up: false },
-  { s: 'PGSUS', p: '850.20', c: '+5.3%', up: true },
-  { s: 'VESTL', p: '47.60',  c: '-1.2%', up: false },
-  { s: 'HEKTS', p: '38.90',  c: '+0.9%', up: true },
-  { s: 'EKGYO', p: '25.40',  c: '-0.3%', up: false },
+const TICKER_ITEMS_STATIC = [
+  { s: 'THYAO', p: '—', c: '—', up: true },
+  { s: 'AKBNK', p: '—', c: '—', up: true },
+  { s: 'SISE',  p: '—', c: '—', up: true },
+  { s: 'EREGL', p: '—', c: '—', up: true },
+  { s: 'KCHOL', p: '—', c: '—', up: false },
+  { s: 'BIMAS', p: '—', c: '—', up: true },
+  { s: 'ARCLK', p: '—', c: '—', up: false },
+  { s: 'TUPRS', p: '—', c: '—', up: true },
+  { s: 'GARAN', p: '—', c: '—', up: true },
+  { s: 'TOASO', p: '—', c: '—', up: false },
+  { s: 'PGSUS', p: '—', c: '—', up: true },
+  { s: 'VESTL', p: '—', c: '—', up: false },
+  { s: 'HEKTS', p: '—', c: '—', up: true },
+  { s: 'EKGYO', p: '—', c: '—', up: false },
 ];
 
 // ── Mock live signals ─────────────────────────────────────────────
@@ -588,6 +588,7 @@ export default function LandingPage() {
   const heroY = useTransform(scrollYProgress, [0, 1], [0, -60]);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [tickerItems, setTickerItems] = useState(TICKER_ITEMS_STATIC);
 
   useEffect(() => {
     const supabase = createBrowserClient(
@@ -597,6 +598,27 @@ export default function LandingPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setIsLoggedIn(!!user);
     });
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/ticker')
+      .then(r => r.json())
+      .then((data: Array<{ sembol: string; price: number | null; change: number | null }>) => {
+        if (!Array.isArray(data) || data.length === 0) return;
+        setTickerItems(prev => prev.map(item => {
+          const match = data.find(d => d.sembol === item.s);
+          if (!match || match.price == null) return item;
+          const up = (match.change ?? 0) >= 0;
+          const p = match.price >= 100
+            ? match.price.toLocaleString('tr-TR', { maximumFractionDigits: 2 })
+            : match.price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const c = match.change != null
+            ? `${up ? '+' : ''}${match.change.toFixed(2)}%`
+            : '—';
+          return { ...item, p, c, up };
+        }));
+      })
+      .catch(() => {/* static fallback */});
   }, []);
 
   return (
@@ -616,22 +638,28 @@ export default function LandingPage() {
 
       {/* ── Ticker ───────────────────────────────────────────────── */}
       <div className="relative z-10 overflow-hidden border-b border-border/50 bg-surface/60 py-2 backdrop-blur-sm">
-        <div className="ticker-track flex items-center gap-8">
-          {[...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
+        {/* Gecikme notu — sol kenarda sabit, kaydırmaz */}
+        <span className="absolute left-0 top-0 z-10 flex h-full items-center border-r border-border/40 bg-surface/90 px-3 text-xs font-medium uppercase tracking-wide text-text-secondary backdrop-blur-sm">
+          ~15DK GECİKME
+        </span>
+        <div className="ticker-track flex items-center gap-8 pl-28">
+          {[...tickerItems, ...tickerItems].map((item, i) => (
             <Link
               key={i}
               href={`/hisse/${item.s}`}
-              className="flex items-center gap-1.5 whitespace-nowrap text-xs transition-opacity hover:opacity-80"
+              className="flex items-center gap-2 whitespace-nowrap text-xs transition-opacity hover:opacity-80"
             >
               <span className="font-semibold text-text-primary">{item.s}</span>
-              <span className="text-text-secondary">{item.p}</span>
-              <span className={item.up ? 'text-bullish' : 'text-bearish'}>
-                {item.up
-                  ? <TrendingUp className="inline h-3 w-3" />
-                  : <TrendingDown className="inline h-3 w-3" />}
-                {' '}{item.c}
-              </span>
-              <span className="text-border/60 mx-1">|</span>
+              <span className="font-medium text-text-primary">{item.p}</span>
+              {item.c !== '—' && (
+                <span className={`flex items-center gap-0.5 font-semibold ${item.up ? 'text-bullish' : 'text-bearish'}`}>
+                  {item.up
+                    ? <TrendingUp className="h-3 w-3" />
+                    : <TrendingDown className="h-3 w-3" />}
+                  {item.c}
+                </span>
+              )}
+              <span className="text-border/60">|</span>
             </Link>
           ))}
         </div>

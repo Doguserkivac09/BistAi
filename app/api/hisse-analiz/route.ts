@@ -65,6 +65,8 @@ export interface HisseAnalizResponse {
   macroScore: number;
   sectorScore: number;
   sectorName: string;
+  /** Ham teknik sinyal yönü (kompozit karardan bağımsız) */
+  signalDirection?: 'yukari' | 'asagi' | 'nötr';
   /** Karar üretilemeyen durumda true */
   noSignal?: boolean;
   /** Hero bölümü için ek meta */
@@ -91,8 +93,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (cached) return NextResponse.json(cached);
 
   try {
-    // 1. OHLCV (90 günlük günlük)
-    const { candles, changePercent: yahooChangePercent, currentPrice: yahooCurrentPrice, shortName } = await fetchOHLCV(symbol, 90);
+    // 1. OHLCV (252 günlük günlük — MTF 1G ile aynı veri aralığı)
+    const { candles, changePercent: yahooChangePercent, currentPrice: yahooCurrentPrice, shortName } = await fetchOHLCV(symbol, 252);
     if (!candles.length) {
       return NextResponse.json({ error: `${symbol} için veri bulunamadı.` }, { status: 404 });
     }
@@ -201,6 +203,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       macroScore: composite.macroScore,
       sectorScore: composite.sectorScore,
       sectorName: sectorMomentum.sectorName,
+      signalDirection: dominantSignal.direction as 'yukari' | 'asagi' | 'nötr',
       shortName,
       changePercent: yahooChangePercent,
       currentPrice,

@@ -31,6 +31,7 @@ export function HisseAIYorum({ analiz, loading }: HisseAIYorumProps) {
               decisionTr={analiz.decisionTr}
               color={analiz.color}
               emoji={analiz.emoji}
+              confidence={analiz.confidence}
             />
             <ConfidenceMeter confidence={analiz.confidence} />
             {!analiz.noSignal && (
@@ -39,6 +40,25 @@ export function HisseAIYorum({ analiz, loading }: HisseAIYorumProps) {
               </span>
             )}
           </div>
+
+          {/* Makro/Sektör override uyarısı */}
+          {!analiz.noSignal && analiz.signalDirection && (() => {
+            const techDir = analiz.signalDirection;
+            const isOverride =
+              (techDir === 'yukari' && (analiz.decision === 'SELL' || analiz.decision === 'STRONG_SELL')) ||
+              (techDir === 'asagi' && (analiz.decision === 'BUY' || analiz.decision === 'STRONG_BUY'));
+            if (!isOverride) return null;
+            const techLabel = techDir === 'yukari' ? 'AL' : 'SAT';
+            return (
+              <div className="flex items-center gap-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
+                <span className="text-yellow-400 text-xs">⚠</span>
+                <span className="text-xs text-yellow-300/80">
+                  Teknik sinyal <strong>{techLabel}</strong> — makro/sektör etkisiyle{' '}
+                  <strong>{analiz.decisionTr}</strong> kararı verildi
+                </span>
+              </div>
+            );
+          })()}
 
           {/* AI Açıklaması */}
           <p className="text-sm leading-relaxed text-text-secondary">
@@ -51,10 +71,24 @@ export function HisseAIYorum({ analiz, loading }: HisseAIYorumProps) {
 
           {/* Skor çubukları */}
           {!analiz.noSignal && (
-            <div className="grid grid-cols-3 gap-2">
-              <ScoreBar label="Teknik" score={analiz.technicalScore} />
-              <ScoreBar label="Makro" score={analiz.macroScore} />
-              <ScoreBar label="Sektör" score={analiz.sectorScore} />
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2">
+                <ScoreBar label="Teknik" score={analiz.technicalScore} />
+                <ScoreBar label="Makro" score={analiz.macroScore} />
+                <ScoreBar label="Sektör" score={analiz.sectorScore} />
+              </div>
+              <p className="text-[10px] text-text-muted leading-snug">
+                {(() => {
+                  const scores = [
+                    { label: 'Teknik', val: analiz.technicalScore },
+                    { label: 'Makro', val: analiz.macroScore },
+                    { label: 'Sektör', val: analiz.sectorScore },
+                  ];
+                  const dominant = scores.sort((a, b) => Math.abs(b.val) - Math.abs(a.val))[0]!;
+                  const dir = dominant.val >= 0 ? 'pozitif' : 'negatif';
+                  return `${dominant.label} faktörü en belirleyici (${dominant.val > 0 ? '+' : ''}${dominant.val}) — kompozit ${dir} yönde.`;
+                })()}
+              </p>
             </div>
           )}
 
@@ -66,13 +100,13 @@ export function HisseAIYorum({ analiz, loading }: HisseAIYorumProps) {
               </p>
               <FiyatHedefleri
                 priceTargets={analiz.priceTargets}
-                direction={
+                direction={analiz.signalDirection ?? (
                   analiz.decision === 'BUY' || analiz.decision === 'STRONG_BUY'
                     ? 'yukari'
                     : analiz.decision === 'SELL' || analiz.decision === 'STRONG_SELL'
                     ? 'asagi'
                     : 'nötr'
-                }
+                )}
               />
             </div>
           )}
@@ -89,12 +123,15 @@ function DecisionBadge({
   decisionTr,
   color,
   emoji,
+  confidence,
 }: {
   decision: string;
   decisionTr: string;
   color: string;
   emoji: string;
+  confidence: number;
 }) {
+  // Düşük güvende badge soluklaşır
   const bgMap: Record<string, string> = {
     STRONG_BUY:  'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
     BUY:         'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
@@ -103,13 +140,20 @@ function DecisionBadge({
     STRONG_SELL: 'bg-red-500/15 border-red-500/40 text-red-300',
   };
 
+  const classes = bgMap[decision] ?? 'border-border text-text-primary';
+
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${bgMap[decision] ?? 'border-border text-text-primary'}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${classes}`}
       style={{ color }}
     >
       <span>{emoji}</span>
       <span>{decisionTr}</span>
+      {confidence < 40 && (
+        <span className="text-[11px] font-bold uppercase tracking-wide opacity-80">
+          {confidence < 25 ? 'ZAYIF' : 'DÜŞÜK'}
+        </span>
+      )}
     </span>
   );
 }

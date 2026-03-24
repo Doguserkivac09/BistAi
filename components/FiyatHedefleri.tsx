@@ -4,35 +4,21 @@ import type { PriceTargets } from '@/lib/price-targets';
 
 interface FiyatHedefleriProps {
   priceTargets: PriceTargets;
-  /** Sinyal yönü — görsel düzeni ayarlar */
   direction?: 'yukari' | 'asagi' | 'nötr';
 }
 
 export function FiyatHedefleri({ priceTargets, direction }: FiyatHedefleriProps) {
   const { currentPrice, stopLoss, target1, target2, riskReward } = priceTargets;
 
-  // Direction'ı veriden otomatik türet — stop loss mevcut fiyatın üstündeyse düşüş (asagi)
+  // Direction'ı veriden otomatik türet
   const autoDirection: 'yukari' | 'asagi' | 'nötr' =
     direction ??
     (stopLoss
       ? stopLoss.price > currentPrice ? 'asagi' : 'yukari'
       : 'nötr');
 
-  // Tüm fiyat noktalarını topla
-  const allPrices = [
-    stopLoss?.price,
-    currentPrice,
-    target1?.price,
-    target2?.price,
-  ].filter((p): p is number => p !== undefined);
-
-  const minPrice = Math.min(...allPrices);
-  const maxPrice = Math.max(...allPrices);
-  const range    = maxPrice - minPrice || 1;
-  const toPct    = (p: number) => Math.max(2, Math.min(98, ((p - minPrice) / range) * 100));
-
-  const isDown  = autoDirection === 'asagi';
-  const hasData = stopLoss || target1 || target2;
+  const isDown = autoDirection === 'asagi';
+  const hasData = stopLoss || target1;
 
   if (!hasData) {
     return (
@@ -42,165 +28,186 @@ export function FiyatHedefleri({ priceTargets, direction }: FiyatHedefleriProps)
     );
   }
 
-  // Sütun sırası: düşüş için [T2][T1][Mevcut][Stop], yükseliş için [Stop][Mevcut][T1][T2]
-  const cells = isDown
-    ? [
-        target2  && { ...target2,  variant: 'success-muted' as const, label: 'Hedef 2' },
-        target1  && { ...target1,  variant: 'success'       as const, label: 'Hedef 1' },
-                    { price: currentPrice, distancePct: 0, variant: 'neutral' as const, label: 'Mevcut' },
-        stopLoss && { ...stopLoss, variant: 'danger'        as const, label: 'Stop Loss' },
-      ]
-    : [
-        stopLoss && { ...stopLoss, variant: 'danger'        as const, label: 'Stop Loss' },
-                    { price: currentPrice, distancePct: 0, variant: 'neutral' as const, label: 'Mevcut' },
-        target1  && { ...target1,  variant: 'success'       as const, label: 'Hedef 1' },
-        target2  && { ...target2,  variant: 'success-muted' as const, label: 'Hedef 2' },
-      ];
+  // Ruler için tüm fiyatları topla
+  const allPrices = [
+    stopLoss?.price,
+    currentPrice,
+    target1?.price,
+    target2?.price,
+  ].filter((p): p is number => p !== undefined);
 
-  const visibleCells = cells.filter(Boolean) as Array<{
-    price: number; distancePct: number;
-    variant: 'danger' | 'neutral' | 'success' | 'success-muted';
-    label: string;
-  }>;
+  const minPrice = Math.min(...allPrices);
+  const maxPrice = Math.max(...allPrices);
+  const range = maxPrice - minPrice || 1;
+  const toPct = (p: number) => Math.max(1, Math.min(99, ((p - minPrice) / range) * 100));
+
+  const currentPct = toPct(currentPrice);
+  const stopPct    = stopLoss ? toPct(stopLoss.price) : null;
+  const t1Pct      = target1  ? toPct(target1.price)  : null;
+  const t2Pct      = target2  ? toPct(target2.price)  : null;
 
   return (
     <div className="space-y-4">
-      {/* ── Ruler görselleştirmesi ───────────────────────────────── */}
-      <div className="relative h-9 rounded-lg bg-white/5 overflow-visible border border-white/10">
-        {/* Stop bölgesi (kırmızı) */}
+
+      {/* ── Ruler ──────────────────────────────────────────────────── */}
+      <div className="relative pt-5 pb-3">
+        {/* Arka plan çizgisi */}
+        <div className="relative h-3 rounded-full bg-white/10 overflow-visible">
+
+          {/* Stop bölgesi (kırmızı) */}
+          {stopPct !== null && (
+            <div
+              className="absolute inset-y-0 rounded-full bg-red-500/30"
+              style={isDown
+                ? { left: `${currentPct}%`, right: `${100 - stopPct}%` }
+                : { left: `${stopPct}%`, right: `${100 - currentPct}%` }
+              }
+            />
+          )}
+
+          {/* Hedef bölgesi (yeşil) */}
+          {t1Pct !== null && (
+            <div
+              className="absolute inset-y-0 rounded-full bg-emerald-500/30"
+              style={isDown
+                ? { left: `${t1Pct}%`, right: `${100 - currentPct}%` }
+                : { left: `${currentPct}%`, right: `${100 - t1Pct}%` }
+              }
+            />
+          )}
+
+          {/* Stop Loss çizgisi */}
+          {stopPct !== null && (
+            <div className="absolute top-0 bottom-0 w-0.5 bg-red-400"
+              style={{ left: `${stopPct}%` }}>
+              <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-semibold uppercase tracking-wide text-red-400 whitespace-nowrap">
+                SL
+              </span>
+            </div>
+          )}
+
+          {/* Hedef 1 çizgisi */}
+          {t1Pct !== null && (
+            <div className="absolute top-0 bottom-0 w-0.5 bg-emerald-400"
+              style={{ left: `${t1Pct}%` }}>
+              <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-semibold uppercase tracking-wide text-emerald-400 whitespace-nowrap">
+                H1
+              </span>
+            </div>
+          )}
+
+          {/* Hedef 2 çizgisi */}
+          {t2Pct !== null && (
+            <div className="absolute top-0 bottom-0 w-0.5 bg-emerald-400/50"
+              style={{ left: `${t2Pct}%` }}>
+              <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-medium text-emerald-400/60 whitespace-nowrap">
+                H2
+              </span>
+            </div>
+          )}
+
+          {/* Mevcut fiyat iğnesi */}
+          <div
+            className="absolute top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${currentPct}%` }}
+          >
+            <div className="h-5 w-5 rounded-full border-2 border-white bg-background shadow-[0_0_0_3px_rgba(255,255,255,0.15)]" />
+          </div>
+        </div>
+
+        {/* Fiyat etiketleri (ruler altı) */}
+        <div className="relative mt-2 h-4">
+          {stopPct !== null && stopLoss && (
+            <span className="absolute -translate-x-1/2 text-[10px] text-red-400"
+              style={{ left: `${stopPct}%` }}>
+              {stopLoss.price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          )}
+          {t1Pct !== null && target1 && (
+            <span className="absolute -translate-x-1/2 text-[10px] text-emerald-400"
+              style={{ left: `${t1Pct}%` }}>
+              {target1.price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          )}
+          {t2Pct !== null && target2 && (
+            <span className="absolute -translate-x-1/2 text-[10px] text-emerald-400/60"
+              style={{ left: `${t2Pct}%` }}>
+              {target2.price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Fiyat kartları ────────────────────────────────────────── */}
+      <div className={`grid gap-2 ${
+        (stopLoss && target1 && target2) ? 'grid-cols-4' :
+        (stopLoss && target1) ? 'grid-cols-3' : 'grid-cols-2'
+      }`}>
+        {/* Stop Loss */}
         {stopLoss && (
-          <div
-            className="absolute inset-y-0 bg-red-500/25"
-            style={isDown
-              ? { left: `${toPct(currentPrice)}%`, right: `${100 - toPct(stopLoss.price)}%` }
-              : { left: `${toPct(stopLoss.price)}%`, right: `${100 - toPct(currentPrice)}%` }
-            }
-          />
-        )}
-        {/* Hedef bölgesi (yeşil) */}
-        {target1 && (
-          <div
-            className="absolute inset-y-0 bg-emerald-500/25"
-            style={isDown
-              ? { left: `${toPct(target1.price)}%`, right: `${100 - toPct(currentPrice)}%` }
-              : { left: `${toPct(currentPrice)}%`, right: `${100 - toPct(target1.price)}%` }
-            }
-          />
+          <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-2 text-center">
+            <p className="mb-0.5 text-[10px] text-text-muted">Stop Loss</p>
+            <p className="text-sm font-bold text-red-400">
+              {stopLoss.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}₺
+            </p>
+            <p className="text-[10px] text-red-400/80">
+              {isDown
+                ? `+${Math.abs(stopLoss.distancePct).toFixed(2)}% ↑`
+                : `-${Math.abs(stopLoss.distancePct).toFixed(2)}% ↓`}
+            </p>
+          </div>
         )}
 
-        {/* Stop Loss çizgisi + etiket */}
-        {stopLoss && (
-          <div className="absolute inset-y-0 flex flex-col items-center"
-            style={{ left: `${toPct(stopLoss.price)}%` }}>
-            <div className="w-0.5 h-full bg-red-400" />
-            <span className="absolute -top-4 -translate-x-1/2 text-[9px] text-red-400 whitespace-nowrap">SL</span>
-          </div>
-        )}
-        {/* Hedef 1 çizgisi + etiket */}
+        {/* Mevcut Fiyat */}
+        <div className="rounded-lg border border-border bg-surface p-2 text-center ring-1 ring-white/10">
+          <p className="mb-0.5 text-[10px] text-text-muted">Mevcut</p>
+          <p className="text-sm font-bold text-text-primary">
+            {currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}₺
+          </p>
+        </div>
+
+        {/* Hedef 1 */}
         {target1 && (
-          <div className="absolute inset-y-0 flex flex-col items-center"
-            style={{ left: `${toPct(target1.price)}%` }}>
-            <div className="w-0.5 h-full bg-emerald-400" />
-            <span className="absolute -top-4 -translate-x-1/2 text-[9px] text-emerald-400 whitespace-nowrap">H1</span>
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-center">
+            <p className="mb-0.5 text-[10px] text-text-muted">Hedef 1</p>
+            <p className="text-sm font-bold text-emerald-400">
+              {target1.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}₺
+            </p>
+            <p className="text-[10px] text-emerald-400/80">
+              {target1.distancePct > 0 ? '+' : ''}{target1.distancePct.toFixed(2)}%
+            </p>
           </div>
         )}
-        {/* Hedef 2 çizgisi + etiket */}
+
+        {/* Hedef 2 */}
         {target2 && (
-          <div className="absolute inset-y-0 flex flex-col items-center"
-            style={{ left: `${toPct(target2.price)}%` }}>
-            <div className="w-0.5 h-full bg-emerald-300/60" />
-            <span className="absolute -top-4 -translate-x-1/2 text-[9px] text-emerald-300/70 whitespace-nowrap">H2</span>
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 text-center">
+            <p className="mb-0.5 text-[10px] text-text-muted">Hedef 2</p>
+            <p className="text-sm font-bold text-emerald-400/70">
+              {target2.price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}₺
+            </p>
+            <p className="text-[10px] text-emerald-400/60">
+              {target2.distancePct > 0 ? '+' : ''}{target2.distancePct.toFixed(2)}%
+            </p>
           </div>
         )}
-        {/* Mevcut fiyat iğnesi */}
-        <div
-          className="absolute top-1/2 z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-background shadow-lg"
-          style={{ left: `${toPct(currentPrice)}%` }}
-          title={`Mevcut: ${currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}₺`}
-        />
-      </div>
-      {/* Etiket boşluğu */}
-      <div className="h-3" />
-
-      {/* ── Fiyat hücreleri ──────────────────────────────────────── */}
-      <div className={`grid gap-2 ${visibleCells.length === 4 ? 'grid-cols-4' : visibleCells.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-        {visibleCells.map((cell) => (
-          <PriceCell key={cell.label} {...cell} isDown={isDown} />
-        ))}
       </div>
 
-      {/* Hedef bulunamadı uyarısı */}
-      {!target1 && (
-        <p className="text-xs text-text-muted">
-          {isDown
-            ? 'Destek seviyesi bulunamadı — hedef hesaplanamıyor.'
-            : 'Direnç seviyesi bulunamadı — hedef hesaplanamıyor.'}
-        </p>
-      )}
-
-      {/* ── R/R Oranı ────────────────────────────────────────────── */}
+      {/* ── R/R Oranı ──────────────────────────────────────────────── */}
       {riskReward !== null && (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
           <span className="text-xs text-text-secondary">Risk/Ödül:</span>
-          <span className={`text-sm font-semibold ${
-            riskReward >= 2 ? 'text-emerald-400' : riskReward >= 1 ? 'text-yellow-400' : 'text-red-400'
+          <span className={`text-sm font-bold ${
+            riskReward >= 2 ? 'text-emerald-400' :
+            riskReward >= 1 ? 'text-yellow-400' :
+            'text-red-400'
           }`}>
-            1:{riskReward}
+            1:{riskReward.toFixed(2)}
           </span>
           <span className="text-xs text-text-muted">
             {riskReward >= 2 ? '— İyi oran' : riskReward >= 1 ? '— Kabul edilebilir' : '— Riskli'}
           </span>
         </div>
-      )}
-    </div>
-  );
-}
-
-// ── Alt bileşen ──────────────────────────────────────────────────────
-
-interface PriceCellProps {
-  label: string;
-  price: number;
-  distancePct: number;
-  variant: 'danger' | 'neutral' | 'success' | 'success-muted';
-  isDown: boolean;
-}
-
-function PriceCell({ label, price, distancePct, variant, isDown }: PriceCellProps) {
-  const colorMap = {
-    danger:       'text-red-400',
-    neutral:      'text-text-primary',
-    success:      'text-emerald-400',
-    'success-muted': 'text-emerald-400/70',
-  };
-  const bgMap = {
-    danger:       'border-red-500/30 bg-red-500/5',
-    neutral:      'border-border bg-surface',
-    success:      'border-emerald-500/30 bg-emerald-500/5',
-    'success-muted': 'border-emerald-500/20 bg-emerald-500/5',
-  };
-
-  // Stop loss için "risk" ifadesi
-  const isStop = label === 'Stop Loss';
-  const pctColor = isStop
-    ? 'text-red-400'
-    : distancePct > 0 ? 'text-emerald-400' : distancePct < 0 ? 'text-red-400' : '';
-
-  // Düşüş sinyalinde stop loss pozitif % = yukarı yön riski → "↑ risk" olarak göster
-  const pctLabel = isStop
-    ? (isDown ? `+${Math.abs(distancePct)}% ↑` : `-${Math.abs(distancePct)}% ↓`)
-    : distancePct !== 0
-      ? `${distancePct > 0 ? '+' : ''}${distancePct}%`
-      : null;
-
-  return (
-    <div className={`rounded-lg border p-2 text-center ${bgMap[variant]}`}>
-      <p className="text-[10px] text-text-muted mb-0.5">{label}</p>
-      <p className={`text-sm font-semibold ${colorMap[variant]}`}>
-        {price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}₺
-      </p>
-      {pctLabel && (
-        <p className={`text-[10px] ${pctColor}`}>{pctLabel}</p>
       )}
     </div>
   );

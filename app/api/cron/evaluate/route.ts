@@ -1,62 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { runEvaluateEngine } from '@/lib/evaluate-engine';
 
 /**
- * Cron endpoint: Sinyal performans değerlendirmesi tetikler.
- * Vercel Cron veya harici scheduler tarafından çağrılır.
- *
+ * Cron endpoint: Sinyal performans değerlendirmesi.
  * GET /api/cron/evaluate
- * Header: Authorization: Bearer <CRON_SECRET>
  *
- * İç olarak /api/evaluate-signals POST endpoint'ini çağırır.
+ * Yetkilendirme (ikisi de kabul edilir):
+ *   1. Vercel Cron otomatik header: x-vercel-cron: 1
+ *   2. Manuel çağrı: Authorization: Bearer <CRON_SECRET>
+ *
+ * CRON_SECRET env var tanımlı değilse sadece Vercel Cron header'ı çalışır.
  */
 
-const CRON_SECRET = process.env.CRON_SECRET;
-const INTERNAL_EVAL_TOKEN = process.env.INTERNAL_EVAL_TOKEN;
-
 export async function GET(request: NextRequest) {
-  // Cron secret doğrulama
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
+  const isVercelCron = request.headers.get('x-vercel-cron') === '1';
+  const CRON_SECRET = process.env.CRON_SECRET;
+  const authToken = request.headers.get('authorization')?.replace('Bearer ', '');
+  const isManualAuth = CRON_SECRET && authToken === CRON_SECRET;
 
-  if (!CRON_SECRET || !token || token !== CRON_SECRET) {
-    return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
-  }
-
-  if (!INTERNAL_EVAL_TOKEN) {
-    return NextResponse.json(
-      { error: 'INTERNAL_EVAL_TOKEN tanımlı değil.' },
-      { status: 500 }
-    );
-  }
-
-  try {
-    // evaluate-signals endpoint'ini internal olarak çağır
-    const baseUrl = request.nextUrl.origin;
-    const res = await fetch(`${baseUrl}/api/evaluate-signals`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-internal-token': INTERNAL_EVAL_TOKEN,
-      },
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: data.error ?? 'Değerlendirme başarısız.' },
-        { status: res.status }
-      );
+  if (!isVercelCron && !isManualAuth) {
+    // Dev modunda auth'suz çalışmaya izin ver
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
     }
-
-    return NextResponse.json({
-      ok: true,
-      updated: data.updated ?? 0,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
-    console.error('[cron/evaluate] Hata:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  const result = await runEvaluateEngine();
+
+  if (result.error) {
+    console.error('[cron/evaluate] Hata:', result.error);
+    return NextResponse.json({ error: result.error }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    updated: result.updated,
+    timestamp: new Date().toISOString(),
+  });
 }
