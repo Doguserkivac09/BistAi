@@ -200,12 +200,15 @@ function calculateTechnicalScore(signal: StockSignal, edgeConfidence?: number | 
  * Pozitif makro + aşağı sinyal = çelişki (makro skoru düşür)
  */
 function calculateDirectionalMacroScore(macroRawScore: number, direction: SignalDirection): number {
+  if (direction === 'asagi') {
+    // Aşağı sinyal: pozitif makro düşüş sinyalini zayıflatır (composite'i yukarı çeker),
+    // negatif makro düşüşü destekler (composite'i aşağı çeker). Yön zaten
+    // calculateTechnicalScore'da ters çevrildi; burada tekrar çevirmek double-inversion yaratır.
+    return macroRawScore;
+  }
   if (direction === 'yukari') {
     // Yukarı sinyal: pozitif makro destekler, negatif makro zayıflatır
     return macroRawScore;
-  } else if (direction === 'asagi') {
-    // Aşağı sinyal: negatif makro destekler (satış doğru), pozitif makro zayıflatır
-    return -macroRawScore;
   }
   // Nötr: makro etkisi yarıya düşer
   return Math.round(macroRawScore * 0.5);
@@ -270,23 +273,15 @@ function calculateConfidence(
 
 // ── Karar Fonksiyonları ─────────────────────────────────────────────
 
-function getDecision(compositeScore: number, direction: SignalDirection): CompositeDecision {
-  const absScore = Math.abs(compositeScore);
-
-  if (direction === 'yukari' || direction === 'nötr') {
-    if (compositeScore >= 50) return 'STRONG_BUY';
-    if (compositeScore >= 20) return 'BUY';
-    if (compositeScore <= -50) return 'STRONG_SELL';
-    if (compositeScore <= -20) return 'SELL';
-    return 'HOLD';
-  } else {
-    // Aşağı sinyal: skorlar tersine çalışır
-    if (compositeScore >= 50) return 'STRONG_SELL';
-    if (compositeScore >= 20) return 'SELL';
-    if (compositeScore <= -50) return 'STRONG_BUY';
-    if (compositeScore <= -20) return 'BUY';
-    return 'HOLD';
-  }
+function getDecision(compositeScore: number, _direction: SignalDirection): CompositeDecision {
+  // compositeScore zaten yön-duyarlı: teknik skor asagi için negatif,
+  // makro/sektör de aynı işaret sistemini kullanır.
+  // Pozitif composite → genel tablo yükseliş yönünde, negatif → düşüş yönünde.
+  if (compositeScore >= 50)  return 'STRONG_BUY';
+  if (compositeScore >= 20)  return 'BUY';
+  if (compositeScore <= -50) return 'STRONG_SELL';
+  if (compositeScore <= -20) return 'SELL';
+  return 'HOLD';
 }
 
 function getDecisionTr(decision: CompositeDecision): string {
