@@ -340,7 +340,7 @@ export function StockCard({
 
   // ── Grid görünümü (varsayılan) ──────────────────────────────────────────────
   return (
-    <Card ref={cardRef} className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+    <Card ref={cardRef} className="flex flex-col overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-2 space-y-1.5">
         {/* Satır 1: Sembol + fiyat + sinyal tipi */}
         <div className="flex items-center justify-between gap-2 min-w-0">
@@ -382,7 +382,7 @@ export function StockCard({
         />
       </CardHeader>
 
-      <CardContent className="space-y-3 pb-2">
+      <CardContent className="flex flex-1 flex-col space-y-3 pb-2">
         <MiniChart
           data={candleData}
           height={56}
@@ -402,7 +402,7 @@ export function StockCard({
           </div>
         )}
         <SRLevels analysis={calculateSRLevels(candleData)} compact />
-        <SignalExplanation text={explanation} isLoading={loading} error={error} />
+        <SignalExplanation text={explanation} isLoading={loading} error={error} clamp />
       </CardContent>
 
       <CardFooter className="flex gap-2 pt-0">
