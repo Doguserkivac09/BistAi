@@ -122,7 +122,10 @@ function HorizonTabs({ horizon, setHorizon }: { horizon: Horizon; setHorizon: (h
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             />
           )}
-          <span className="relative z-10">{HORIZON_LABELS[h]}</span>
+          <span className="relative z-10">
+            <span className="sm:hidden">{h.toUpperCase()}</span>
+            <span className="hidden sm:inline">{HORIZON_LABELS[h]}</span>
+          </span>
         </button>
       ))}
     </div>
@@ -874,7 +877,7 @@ export default function BacktestingPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-3">
           {/* Horizon Tabs */}
           <HorizonTabs horizon={horizon} setHorizon={setHorizon} />
           <button
