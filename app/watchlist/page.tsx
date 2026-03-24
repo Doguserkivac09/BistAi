@@ -574,7 +574,7 @@ export default function WatchlistPage() {
       <div className="mx-auto max-w-5xl">
 
         {/* Başlık */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">İzleme Listem</h1>
             <p className="mt-1 text-sm text-text-secondary">

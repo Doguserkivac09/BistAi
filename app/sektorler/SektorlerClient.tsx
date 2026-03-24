@@ -475,7 +475,7 @@ export function SektorlerClient() {
       <main className="container mx-auto px-4 py-6 max-w-7xl">
 
         {/* Başlık */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Sektör & Piyasa Analizi</h1>
             <p className="mt-1 text-sm text-text-secondary">

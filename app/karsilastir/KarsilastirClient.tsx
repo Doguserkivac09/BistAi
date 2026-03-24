@@ -931,7 +931,7 @@ export function KarsilastirClient() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
         {/* Header */}
-        <div className="mb-6 flex items-start justify-between gap-4 animate-fade-in-up-sm">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 animate-fade-in-up-sm">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Hisse Karşılaştırma</h1>
             <p className="mt-1 text-sm text-text-secondary">
