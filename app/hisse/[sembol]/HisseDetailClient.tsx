@@ -108,7 +108,7 @@ function AccordionSignalRow({
         <SignalBadge type={sig.type} direction={sig.direction} severity={sig.severity} />
         {!open && explanation && (
           <span className="min-w-0 flex-1 truncate text-xs text-text-muted hidden sm:block">
-            {explanation}
+            {explanation.replace(/\*\*/g, '')}
           </span>
         )}
         <span className="ml-auto shrink-0 text-text-muted text-xs">{open ? '▲' : '▼'}</span>
