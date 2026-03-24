@@ -555,7 +555,12 @@ function TaramaPageInner() {
         const batchResults = await Promise.allSettled(
           batch.map(async (sembol) => {
             const { candles, changePercent } = await fetchOHLCVClient(sembol, days);
-            const signals = detectAllSignals(sembol, candles, { types });
+            let signals: ReturnType<typeof detectAllSignals> = [];
+            try {
+              signals = detectAllSignals(sembol, candles, { types });
+            } catch {
+              // Sinyal tespiti başarısız — boş sinyal ile devam et
+            }
             return { sembol, signals, candles, changePercent };
           }),
         );
@@ -590,8 +595,14 @@ function TaramaPageInner() {
       } catch { /* ignore */ }
 
       const signalCount = all.reduce((sum, r) => sum + r.signals.length, 0);
-      if (failed.length > 0) toast.warning(`Tarama tamamlandı. ${failed.length} sembol başarısız oldu.`);
-      else toast.success(`Tarama tamamlandı! ${signalCount} sinyal bulundu.`);
+      if (failed.length > 60) {
+        // Çoğunluk başarısız → muhtemelen Yahoo rate limit
+        toast.error(`Tarama başarısız: ${failed.length} sembol alınamadı. Yahoo Finance geçici kota aşıldı — 1-2 dakika bekleyip tekrar dene.`);
+      } else if (failed.length > 0) {
+        toast.warning(`Tarama tamamlandı. ${failed.length} sembol başarısız oldu.`);
+      } else {
+        toast.success(`Tarama tamamlandı! ${signalCount} sinyal bulundu.`);
+      }
     } finally {
       setLoading(false);
     }
