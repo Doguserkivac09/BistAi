@@ -19,6 +19,7 @@ import { HisseAIYorum } from '@/components/HisseAIYorum';
 import { AdilDegerMetre } from '@/components/AdilDegerMetre';
 import { HisseSkorKarti } from '@/components/HisseSkorKarti';
 import { SinyalGecmisi } from '@/components/SinyalGecmisi';
+import { MtfSinyalTablosu } from '@/components/MtfSinyalTablosu';
 import { computeTechFairValue } from '@/lib/tech-fair-value';
 import { computeStockScore } from '@/lib/stock-score';
 import { createClient } from '@/lib/supabase';
@@ -519,6 +520,16 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   );
                 })()}
               </div>
+            </div>
+
+            {/* ── TAM GENİŞLİK: MTF Sinyal Tablosu ───────────────────────── */}
+            <div className="mt-6">
+              <SectionHeader>🕐 Çoklu Zaman Dilimi Analizi</SectionHeader>
+              <Card>
+                <CardContent className="pt-4">
+                  <MtfSinyalTablosu sembol={sembol} />
+                </CardContent>
+              </Card>
             </div>
 
             {/* ── TAM GENİŞLİK: Sinyal Geçmişi ───────────────────────────── */}
