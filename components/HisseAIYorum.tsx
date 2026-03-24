@@ -42,7 +42,11 @@ export function HisseAIYorum({ analiz, loading }: HisseAIYorumProps) {
 
           {/* AI Açıklaması */}
           <p className="text-sm leading-relaxed text-text-secondary">
-            {analiz.explanation}
+            {analiz.explanation.split('**').map((part, i) =>
+              i % 2 === 1
+                ? <strong key={i} className="font-semibold text-text-primary">{part}</strong>
+                : part
+            )}
           </p>
 
           {/* Skor çubukları */}

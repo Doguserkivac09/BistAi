@@ -36,6 +36,17 @@ export function SignalExplanation({
     );
   }
   return (
-    <p className={cn('text-sm text-text-secondary leading-relaxed', className)}>{text}</p>
+    <p className={cn('text-sm text-text-secondary leading-relaxed', className)}>
+      {renderBoldText(text)}
+    </p>
+  );
+}
+
+function renderBoldText(text: string) {
+  const parts = text.split('**');
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <strong key={i} className="font-semibold text-text-primary">{part}</strong>
+      : part
   );
 }

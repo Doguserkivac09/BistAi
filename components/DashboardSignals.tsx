@@ -52,6 +52,15 @@ function truncate(text: string, maxLen: number): string {
   return text.slice(0, maxLen).trimEnd() + '\u2026';
 }
 
+function renderBoldText(text: string) {
+  const parts = text.split('**');
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <strong key={i} className="font-semibold text-text-primary">{part}</strong>
+      : part
+  );
+}
+
 function SignalCard({
   sig,
   selected,
@@ -115,7 +124,7 @@ function SignalCard({
 
           {/* AI açıklaması */}
           <p className="text-sm text-text-secondary leading-relaxed">
-            {expanded || !isLong ? text : truncate(text, MAX_LEN)}
+            {renderBoldText(expanded || !isLong ? text : truncate(text, MAX_LEN))}
             {isLong && (
               <button
                 onClick={() => setExpanded(!expanded)}
