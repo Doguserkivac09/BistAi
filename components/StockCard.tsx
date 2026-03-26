@@ -340,7 +340,7 @@ export function StockCard({
 
   // ── Grid görünümü (varsayılan) ──────────────────────────────────────────────
   return (
-    <Card ref={cardRef} className="flex flex-col overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+    <Card ref={cardRef} className="flex h-full flex-col overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-2 space-y-1.5">
         {/* Satır 1: Sembol + fiyat + sinyal tipi */}
         <div className="flex items-center justify-between gap-2 min-w-0">

@@ -861,6 +861,7 @@ function TaramaPageInner() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
+                    className="h-full"
                   >
                     <StockCard
                       signal={primarySig}
