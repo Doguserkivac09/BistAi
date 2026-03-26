@@ -52,7 +52,18 @@ interface NavbarClientProps {
   user: { id: string; email: string | null } | null;
 }
 
-function UserAvatar({ email }: { email: string | null }) {
+function UserAvatar({ email, avatarUrl }: { email: string | null; avatarUrl: string | null }) {
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt=""
+        className="h-9 w-9 rounded-full object-cover border border-primary/30"
+      />
+    );
+  }
+
   const initial = email ? email[0].toUpperCase() : 'U';
   return (
     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
@@ -122,8 +133,20 @@ function NavDropdown({ item, pathname }: { item: NavItem & { dropdown: DropdownI
 export function NavbarClient({ user }: NavbarClientProps) {
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const pathname = usePathname();
   const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch profile avatar
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetch('/api/profile')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled && d?.avatar_url) setAvatarUrl(d.avatar_url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user, pathname]); // refetch on navigation (catches profile page changes)
 
   useEffect(() => {
     setMobileOpen(false);
@@ -179,7 +202,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface hover:text-text-primary"
                 >
-                  <UserAvatar email={user.email} />
+                  <UserAvatar email={user.email} avatarUrl={avatarUrl} />
                   <span className="max-w-[120px] truncate text-xs">
                     {user.email?.split('@')[0] ?? 'Hesap'}
                   </span>
@@ -291,7 +314,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
             {user ? (
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2 px-3 py-1.5">
-                  <UserAvatar email={user.email} />
+                  <UserAvatar email={user.email} avatarUrl={avatarUrl} />
                   <span className="text-xs text-text-secondary truncate">{user.email}</span>
                 </div>
                 <Link href="/profil" className={cn('rounded-lg px-3 py-2 text-sm font-medium transition-colors', pathname === '/profil' ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary')}>

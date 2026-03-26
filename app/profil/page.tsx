@@ -90,41 +90,63 @@ function AvatarEditModal({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Preview state: what the user selected but hasn't saved yet
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [selected, setSelected] = useState<string | null>(currentUrl);
 
-  async function handleFileUpload(file: File) {
-    setUploading(true);
+  function handleFileSelect(file: File) {
     setUploadError(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Yükleme başarısız.');
-      onSave(data.avatar_url);
-      onClose();
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Yükleme hatası');
-    } finally { setUploading(false); }
+    // Create a local preview URL
+    const localUrl = URL.createObjectURL(file);
+    setPreviewUrl(localUrl);
+    setPreviewFile(file);
+    setSelected(null); // deselect default avatars
   }
 
-  async function handleDefaultSelect(url: string) {
+  function handleDefaultSelect(url: string) {
+    setUploadError(null);
     setSelected(url);
+    setPreviewUrl(null);
+    setPreviewFile(null);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setUploadError(null);
     try {
-      const res = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ avatar_url: url }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Güncelleme başarısız.');
-      onSave(url);
+      if (previewFile) {
+        // Upload custom file
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', previewFile);
+        const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Yükleme başarısız.');
+        onSave(data.avatar_url);
+      } else if (selected && selected !== currentUrl) {
+        // Save default avatar selection
+        const res = await fetch('/api/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatar_url: selected }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Güncelleme başarısız.');
+        onSave(selected);
+      }
       onClose();
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Güncelleme hatası');
+      setUploadError(err instanceof Error ? err.message : 'Kaydetme hatası');
+    } finally {
+      setSaving(false);
+      setUploading(false);
     }
   }
+
+  const hasChanges = previewFile !== null || (selected !== null && selected !== currentUrl);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -136,6 +158,23 @@ function AvatarEditModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Preview */}
+        {(previewUrl || selected) && (
+          <div className="mb-4 flex justify-center">
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl ?? selected!}
+                alt="Önizleme"
+                className="h-24 w-24 rounded-2xl border-2 border-primary/30 object-cover shadow-lg"
+              />
+              <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-surface border border-border px-2 py-0.5 text-[10px] text-text-muted">
+                Önizleme
+              </span>
+            </div>
+          </div>
+        )}
 
         {uploadError && (
           <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
@@ -159,7 +198,7 @@ function AvatarEditModal({
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) handleFileUpload(file);
+            if (file) handleFileSelect(file);
             e.target.value = '';
           }}
         />
@@ -177,7 +216,7 @@ function AvatarEditModal({
                 key={url}
                 onClick={() => handleDefaultSelect(url)}
                 className={`relative overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${
-                  selected === url
+                  selected === url && !previewUrl
                     ? 'border-primary ring-2 ring-primary/30'
                     : 'border-border hover:border-primary/50'
                 }`}
@@ -192,6 +231,23 @@ function AvatarEditModal({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Kaydet butonu */}
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm text-text-secondary hover:bg-background/50 transition-colors"
+          >
+            İptal
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+            className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
         </div>
       </div>
     </div>
@@ -374,11 +430,10 @@ export default function ProfilPage() {
             {/* Avatar */}
             <div className="relative group">
               {profile.avatar_url ? (
-                <Image
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
                   src={profile.avatar_url}
                   alt="Profil"
-                  width={80}
-                  height={80}
                   className="h-20 w-20 rounded-2xl border-2 border-primary/30 object-cover shadow-lg shadow-primary/10"
                 />
               ) : (
