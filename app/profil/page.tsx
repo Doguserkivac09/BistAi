@@ -96,6 +96,7 @@ function AvatarEditModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [selected, setSelected] = useState<string | null>(currentUrl);
+  const [dragging, setDragging] = useState(false);
 
   function handleFileSelect(file: File) {
     setUploadError(null);
@@ -182,14 +183,34 @@ function AvatarEditModal({
           </div>
         )}
 
-        {/* Upload butonu */}
+        {/* Upload / Drop zone */}
         <button
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background/50 px-4 py-6 text-sm text-text-secondary hover:border-primary/50 hover:text-text-primary transition-all disabled:opacity-50"
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragEnter={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file && ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+              handleFileSelect(file);
+            } else if (file) {
+              setUploadError('Sadece JPEG, PNG veya WebP yüklenebilir.');
+            }
+          }}
+          className={`w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-sm transition-all disabled:opacity-50 ${
+            dragging
+              ? 'border-primary bg-primary/10 text-primary scale-[1.02]'
+              : 'border-border bg-background/50 text-text-secondary hover:border-primary/50 hover:text-text-primary'
+          }`}
         >
           <Upload className="h-5 w-5" />
-          {uploading ? 'Yükleniyor...' : 'Bilgisayardan Fotoğraf Yükle'}
+          {uploading ? 'Yükleniyor...' : dragging ? 'Bırakarak Yükle' : 'Bilgisayardan Fotoğraf Yükle'}
+          {!uploading && !dragging && (
+            <span className="text-[11px] text-text-muted">veya sürükleyip bırakın</span>
+          )}
         </button>
         <input
           ref={fileRef}
