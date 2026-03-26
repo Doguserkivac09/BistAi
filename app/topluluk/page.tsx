@@ -80,14 +80,23 @@ function PostCard({
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
               {/* Avatar */}
-              <div
-                className={cn(
-                  'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-sm',
-                  gradient
-                )}
-              >
-                {authorName[0]?.toUpperCase() ?? 'U'}
-              </div>
+              {post.author?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={post.author.avatar_url}
+                  alt=""
+                  className="h-11 w-11 flex-shrink-0 rounded-full object-cover shadow-sm"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-sm',
+                    gradient
+                  )}
+                >
+                  {authorName[0]?.toUpperCase() ?? 'U'}
+                </div>
+              )}
 
               <div className="flex-1 min-w-0">
                 {/* Header row */}
@@ -237,10 +246,10 @@ function TrendingSymbols({
 }
 
 function TopContributors({ posts }: { posts: Post[] }) {
-  const counts = posts.reduce<Record<string, { name: string; count: number }>>((acc, p) => {
+  const counts = posts.reduce<Record<string, { name: string; avatarUrl: string | null; count: number }>>((acc, p) => {
     if (p.author?.display_name) {
       const k = p.author.display_name;
-      acc[k] = { name: k, count: (acc[k]?.count ?? 0) + 1 };
+      acc[k] = { name: k, avatarUrl: p.author.avatar_url ?? acc[k]?.avatarUrl ?? null, count: (acc[k]?.count ?? 0) + 1 };
     }
     return acc;
   }, {});
@@ -253,17 +262,22 @@ function TopContributors({ posts }: { posts: Post[] }) {
         Aktif Üyeler
       </h3>
       <div className="space-y-1">
-        {top.map(({ name, count }) => (
+        {top.map(({ name, avatarUrl, count }) => (
           <div key={name} className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br',
-                  getAvatarGradient(name)
-                )}
-              >
-                {name[0]?.toUpperCase()}
-              </div>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
+              ) : (
+                <div
+                  className={cn(
+                    'flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br',
+                    getAvatarGradient(name)
+                  )}
+                >
+                  {name[0]?.toUpperCase()}
+                </div>
+              )}
               <span className="text-xs text-text-primary">{name}</span>
             </div>
             <span className="text-[10px] text-text-secondary">{count} gönderi</span>

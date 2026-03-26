@@ -46,15 +46,21 @@ export default async function DashboardPage() {
   const savedSignalsCount = savedSignals.length;
   const lastSignalAt = savedSignals.length > 0 ? formatDate(savedSignals[0]!.created_at) : '—';
 
-  // İsim: user_metadata.full_name → email prefix sıralaması
-  const meta = user.user_metadata as Record<string, string> | undefined;
-  const fullName = meta?.full_name?.trim() || meta?.name?.trim() || '';
-  const displayName = fullName || (user.email?.split('@')[0] ?? 'Kullanıcı');
+  // Profil bilgilerini çek
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('display_name, avatar_url')
+    .eq('id', user.id)
+    .single();
+
+  const displayName = profileRow?.display_name?.trim() || (user.email?.split('@')[0] ?? 'Kullanıcı');
+  const avatarUrl = profileRow?.avatar_url ?? null;
 
   return (
     <DashboardClient
       email={user.email ?? 'Kullanıcı'}
       displayName={displayName}
+      avatarUrl={avatarUrl}
       watchlist={watchlist}
       savedSignals={savedSignals}
       savedSignalsCount={savedSignalsCount}

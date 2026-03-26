@@ -99,16 +99,18 @@ function CommentItem({
     <div className={cn('mt-3', depth > 0 && 'ml-6 border-l border-border/50 pl-3')}>
       <div className="flex items-start gap-2">
         {/* Avatar */}
-        <div className={cn(
-          'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
-          comment.is_ai
-            ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
-            : 'bg-primary/10 text-primary'
-        )}>
-          {comment.is_ai
-            ? <Bot className="h-3.5 w-3.5" />
-            : (comment.author?.display_name?.[0]?.toUpperCase() ?? 'U')}
-        </div>
+        {comment.is_ai ? (
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/30 text-[10px] font-semibold">
+            <Bot className="h-3.5 w-3.5" />
+          </div>
+        ) : comment.author?.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={comment.author.avatar_url} alt="" className="h-7 w-7 flex-shrink-0 rounded-full object-cover" />
+        ) : (
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
+            {comment.author?.display_name?.[0]?.toUpperCase() ?? 'U'}
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -419,9 +421,14 @@ export default function PostDetailPage() {
           <CardContent className="p-5">
             {/* Author */}
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
-                {post.author?.display_name?.[0]?.toUpperCase() ?? 'U'}
-              </div>
+              {post.author?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={post.author.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
+                  {post.author?.display_name?.[0]?.toUpperCase() ?? 'U'}
+                </div>
+              )}
               <div>
                 <span className="text-sm font-medium text-text-primary">
                   {post.author?.display_name ?? 'Anonim'}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Star, BookMarked, Clock, Search, BarChart2, TrendingUp, Users,
@@ -146,6 +147,7 @@ function SignalDistribution({ signals }: { signals: SavedSignal[] }) {
 interface Props {
   email: string;
   displayName: string;
+  avatarUrl: string | null;
   watchlist: WatchlistItem[];
   savedSignals: SavedSignal[];
   savedSignalsCount: number;
@@ -156,12 +158,23 @@ interface Props {
 export function DashboardClient({
   email,
   displayName,
+  avatarUrl: initialAvatarUrl,
   watchlist,
   savedSignals,
   savedSignalsCount,
   lastSignalAt,
   portfolyoCount,
 }: Props) {
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
+
+  // Listen for avatar changes from profile page
+  useEffect(() => {
+    function onAvatarChange(e: Event) {
+      setAvatarUrl((e as CustomEvent<string>).detail);
+    }
+    window.addEventListener('avatar-changed', onAvatarChange);
+    return () => window.removeEventListener('avatar-changed', onAvatarChange);
+  }, []);
 
   const STAT_CARDS = [
     {
@@ -206,14 +219,23 @@ export function DashboardClient({
           <div className="pt-10 pb-10 text-center">
             <div className="animate-fade-in-up">
               {/* Avatar */}
-              <div
-                className={cn(
-                  'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br text-3xl font-black text-white shadow-lg ring-4 ring-white/10',
-                  avatarGradient(displayName)
-                )}
-              >
-                {displayName[0]?.toUpperCase() ?? 'U'}
-              </div>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="mx-auto mb-5 h-20 w-20 rounded-full object-cover shadow-lg ring-4 ring-white/10"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br text-3xl font-black text-white shadow-lg ring-4 ring-white/10',
+                    avatarGradient(displayName)
+                  )}
+                >
+                  {displayName[0]?.toUpperCase() ?? 'U'}
+                </div>
+              )}
 
               <p className="text-xs font-mono text-white/35 tracking-widest uppercase mb-2">
                 {getGreeting()}
