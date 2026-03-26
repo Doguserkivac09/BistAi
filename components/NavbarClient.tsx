@@ -133,7 +133,11 @@ function NavDropdown({ item, pathname }: { item: NavItem & { dropdown: DropdownI
 export function NavbarClient({ user }: NavbarClientProps) {
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  // Initialize from localStorage cache to avoid flash
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('bistai_avatar_url');
+  });
   const pathname = usePathname();
   const userDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -143,10 +147,27 @@ export function NavbarClient({ user }: NavbarClientProps) {
     let cancelled = false;
     fetch('/api/profile')
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (!cancelled && d?.avatar_url) setAvatarUrl(d.avatar_url); })
+      .then((d) => {
+        if (cancelled) return;
+        const url = d?.avatar_url ?? null;
+        setAvatarUrl(url);
+        if (url) localStorage.setItem('bistai_avatar_url', url);
+        else localStorage.removeItem('bistai_avatar_url');
+      })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [user, pathname]); // refetch on navigation (catches profile page changes)
+  }, [user, pathname]);
+
+  // Listen for avatar changes from profile page (same-page update)
+  useEffect(() => {
+    function onAvatarChange(e: Event) {
+      const url = (e as CustomEvent<string>).detail;
+      setAvatarUrl(url);
+      if (url) localStorage.setItem('bistai_avatar_url', url);
+    }
+    window.addEventListener('avatar-changed', onAvatarChange);
+    return () => window.removeEventListener('avatar-changed', onAvatarChange);
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);

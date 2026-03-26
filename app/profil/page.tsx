@@ -771,7 +771,10 @@ export default function ProfilPage() {
           <AvatarEditModal
             currentUrl={profile.avatar_url}
             onClose={() => setShowAvatarModal(false)}
-            onSave={(url) => setProfile({ ...profile, avatar_url: url })}
+            onSave={(url) => {
+              setProfile({ ...profile, avatar_url: url });
+              window.dispatchEvent(new CustomEvent('avatar-changed', { detail: url }));
+            }}
           />
         )}
 
