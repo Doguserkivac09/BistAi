@@ -1,15 +1,24 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   Save, AlertTriangle, CheckCircle, CreditCard, ExternalLink,
   Bell, BellOff, Lock, Mail, Calendar, Clock, Shield, Zap,
-  ChevronRight, Settings, TrendingUp, Star, BarChart2,
+  ChevronRight, Settings, TrendingUp, Star, BarChart2, Pencil, X,
+  Upload, ImageIcon,
 } from 'lucide-react';
+
+const DEFAULT_AVATARS = [
+  '/avatars/avatar-1.svg',
+  '/avatars/avatar-2.svg',
+  '/avatars/avatar-3.svg',
+  '/avatars/avatar-4.svg',
+];
 
 interface Profile {
   id: string;
@@ -70,6 +79,125 @@ function Section({
   );
 }
 
+// ─── Avatar Edit Modal ───────────────────────────────────────────────────────
+
+function AvatarEditModal({
+  currentUrl, onClose, onSave,
+}: {
+  currentUrl: string | null;
+  onClose: () => void;
+  onSave: (url: string) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(currentUrl);
+
+  async function handleFileUpload(file: File) {
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Yükleme başarısız.');
+      onSave(data.avatar_url);
+      onClose();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Yükleme hatası');
+    } finally { setUploading(false); }
+  }
+
+  async function handleDefaultSelect(url: string) {
+    setSelected(url);
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_url: url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Güncelleme başarısız.');
+      onSave(url);
+      onClose();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Güncelleme hatası');
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-2xl border border-border bg-surface p-6 shadow-2xl animate-fade-in-up-sm">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">Profil Fotoğrafı</h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-text-muted hover:text-text-primary">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {uploadError && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            {uploadError}
+          </div>
+        )}
+
+        {/* Upload butonu */}
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background/50 px-4 py-6 text-sm text-text-secondary hover:border-primary/50 hover:text-text-primary transition-all disabled:opacity-50"
+        >
+          <Upload className="h-5 w-5" />
+          {uploading ? 'Yükleniyor...' : 'Bilgisayardan Fotoğraf Yükle'}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFileUpload(file);
+            e.target.value = '';
+          }}
+        />
+        <p className="mt-2 text-center text-[11px] text-text-muted">JPEG, PNG veya WebP, maks. 2MB</p>
+
+        {/* Hazır avatarlar */}
+        <div className="mt-5">
+          <p className="mb-3 text-xs font-medium text-text-secondary flex items-center gap-1.5">
+            <ImageIcon className="h-3.5 w-3.5" />
+            Hazır Avatarlar
+          </p>
+          <div className="grid grid-cols-4 gap-3">
+            {DEFAULT_AVATARS.map((url) => (
+              <button
+                key={url}
+                onClick={() => handleDefaultSelect(url)}
+                className={`relative overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${
+                  selected === url
+                    ? 'border-primary ring-2 ring-primary/30'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <Image
+                  src={url}
+                  alt="Avatar"
+                  width={80}
+                  height={80}
+                  className="h-full w-full"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function ProfilPage() {
@@ -87,6 +215,7 @@ export default function ProfilPage() {
 
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -243,13 +372,27 @@ export default function ProfilPage() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
           <div className="relative flex flex-col sm:flex-row items-center gap-5">
             {/* Avatar */}
-            <div className="relative">
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/15 border-2 border-primary/30 text-2xl font-bold text-primary shadow-lg shadow-primary/10">
-                {initials}
-              </div>
-              <span className={`absolute -bottom-1 -right-1 rounded-full border-2 border-surface px-1.5 py-0.5 text-[10px] font-bold ${tier.color} bg-background`}>
-                {tier.icon}
-              </span>
+            <div className="relative group">
+              {profile.avatar_url ? (
+                <Image
+                  src={profile.avatar_url}
+                  alt="Profil"
+                  width={80}
+                  height={80}
+                  className="h-20 w-20 rounded-2xl border-2 border-primary/30 object-cover shadow-lg shadow-primary/10"
+                />
+              ) : (
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/15 border-2 border-primary/30 text-2xl font-bold text-primary shadow-lg shadow-primary/10">
+                  {initials}
+                </div>
+              )}
+              <button
+                onClick={() => setShowAvatarModal(true)}
+                className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-primary text-white shadow-md hover:bg-primary/90 transition-colors"
+                title="Fotoğrafı değiştir"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
             </div>
 
             {/* Info */}
@@ -546,6 +689,15 @@ export default function ProfilPage() {
             </Link>
           ))}
         </div>
+
+        {/* Avatar Edit Modal */}
+        {showAvatarModal && (
+          <AvatarEditModal
+            currentUrl={profile.avatar_url}
+            onClose={() => setShowAvatarModal(false)}
+            onSave={(url) => setProfile({ ...profile, avatar_url: url })}
+          />
+        )}
 
       </div>
     </div>
