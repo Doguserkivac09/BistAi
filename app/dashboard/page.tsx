@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase-server';
 import { DashboardClient } from '@/components/DashboardClient';
 import type { WatchlistItem, SavedSignal } from '@/types';
+import { getMacroScore } from '@/lib/macro-service';
+import type { MacroScoreResult } from '@/lib/macro-score';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('tr-TR', {
@@ -24,6 +26,7 @@ export default async function DashboardPage() {
     { data: watchlistRows },
     { data: savedSignalsRows },
     { count: portfolyoCount },
+    macroScore,
   ] = await Promise.all([
     supabase
       .from('watchlist')
@@ -39,6 +42,7 @@ export default async function DashboardPage() {
       .from('portfolyo_pozisyon')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id),
+    getMacroScore().catch(() => null),
   ]);
 
   const watchlist = (watchlistRows ?? []) as WatchlistItem[];
@@ -66,6 +70,7 @@ export default async function DashboardPage() {
       savedSignalsCount={savedSignalsCount}
       lastSignalAt={lastSignalAt}
       portfolyoCount={portfolyoCount ?? 0}
+      macroScore={macroScore as MacroScoreResult | null}
     />
   );
 }
