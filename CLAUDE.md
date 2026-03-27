@@ -586,7 +586,78 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 |------|-------|-------|
 | Gerçek zamanlı veri | Yahoo Finance 15dk gecikmeli | Uzun vadede Borsa İstanbul API |
 | Backtest verisi | `evaluated` kayıt birikmiyor | Cron job düzeltmesi + seed |
-| Bildirim sistemi | Yok | 14.2 |
-| Portföy | Yok | 14.1 |
-| Mobil | Responsive ama uygulama değil | 14.5 PWA |
+| Mobil | Responsive ama uygulama değil | PWA |
 | Stripe | Key'ler girilmedi | Girince aktif |
+
+---
+
+## 🗺️ YOL HARİTASI — Profesyonel Geliştirme Planı (2026-03-27)
+
+> Kapsamlı rakip analizi (Investing.com, Danelfin, TrendSpider, Kavout, Borsacoo, Fintables) sonrası oluşturuldu.
+> **Kural:** Her step profesyonel olmadan sonrakine geçilmez.
+
+| Step | Özellik | Etki | Maliyet | Süre | Durum |
+|------|---------|------|---------|------|-------|
+| 1 | Türkiye Makro Rüzgar Skoru (0-100 gauge) | ★★★★★ | $0 | 3-5 gün | ⬜ |
+| 2 | Finansal Hesap Makineleri (4 araç) | ★★★★ | $0 | 3-5 gün | ⬜ |
+| 3 | TCMB Ekonomi Takvimi | ★★★★ | $0 | 3-5 gün | ⬜ |
+| 4 | Explainable AI Skoru (sinyal şeffaflık) | ★★★★ | $0 | 1 hafta | ⬜ |
+| 5 | Hisse İçi AI Sohbet (Sidekick) | ★★★★★ | Düşük | 1-2 hafta | ⬜ |
+| 6 | Fiyat Alert Sistemi (watchlist tetikleyici) | ★★★★★ | Düşük | 1 hafta | ⬜ |
+| 7 | Portföy P&L Derinleştirme | ★★★★ | $0 | 1-2 hafta | ⬜ |
+| 8 | KAP Bildirimleri + Sinyal Bağlantısı | ★★★★ | Orta | 2 hafta | ⬜ |
+| 9 | Gelişmiş Screener (çok metrikli filtre) | ★★★ | $0 | 1 hafta | ⬜ |
+| 10 | Haftalık AI Bülten | ★★★★ | Düşük | 1 hafta | ⬜ |
+| 11 | Temel Analiz Veri Katmanı (10 metrik) | ★★★ | Düşük | 2 hafta | ⬜ |
+| 12 | Ters Portföy Tarama ("Neden Bu Hissede Değilim?") | ★★★★ | Düşük | 1 hafta | ⬜ |
+| 13 | Makro Senaryo Simülatörü | ★★★★★ | Orta | 2-3 hafta | ⬜ |
+
+**Detaylı plan:** `.claude/plans/vast-seeking-locket.md` dosyasında step-by-step açıklamalar, kritik dosyalar ve profesyonel kriterler mevcut.
+
+### Step 1 — Türkiye Makro Rüzgar Skoru
+- `lib/macro-wind-score.ts`: VIX+DXY+USDTRY+TCMB+CDS+enflasyon → 0-100 skor
+- `components/MacroWindGauge.tsx`: Hava durumu metaforlu gauge (Fırtına/Bulutlu/Güneşli)
+- Dashboard hero + Makro sayfası + Hisse kartlarında mini ikon
+- Geçmiş skor grafiği (30 gün)
+
+### Step 2 — Finansal Hesap Makineleri
+- `app/araclar/page.tsx`: Pozisyon büyüklüğü, Risk/Ödül, Hedef fiyat, Portföy risk dağılımı
+- Saf frontend, sıfır backend. SEO trafik çeker.
+
+### Step 3 — TCMB Ekonomi Takvimi
+- `lib/ekonomi-takvimi.ts`: PPK, TÜFE/ÜFE, büyüme, Hazine ihaleleri
+- Makro sayfası + dashboard countdown widget
+
+### Step 4 — Explainable AI Skoru
+- `lib/composite-signal.ts` genişletme: faktör katkı %'leri
+- `components/ScoreBreakdown.tsx`: Yatay bar chart
+
+### Step 5 — Hisse İçi AI Sohbet
+- `app/api/hisse-chat/route.ts` + `components/HisseChat.tsx`
+- Claude + hisse bağlamı (fiyat, sinyal, sektör, makro) → streaming chat
+- Tier-gated: Free 3/gün, Pro 30/gün, Premium sınırsız
+
+### Step 6 — Fiyat Alert Sistemi
+- `price_alerts` tablosu + cron (15dk kontrol) + e-posta/push
+- Watchlist + hisse detayda "Fiyat Alarmı Kur" butonu
+
+### Step 7 — Portföy P&L Derinleştirme
+- Lot bazlı maliyet, açık/kapalı pozisyon, zaman performans grafiği, CSV export
+
+### Step 8 — KAP + Sinyal Bağlantısı
+- KAP.gov.tr feed + Claude özetleme + sinyal etkisi yorumu
+
+### Step 9 — Gelişmiş Screener
+- Çoklu filtre: sinyal tipi + sektör + confluence + makro uyumu + güven %
+
+### Step 10 — Haftalık AI Bülten
+- Watchlist + portföy bağlamında kişiselleştirilmiş Claude özeti, Pazartesi 09:00
+
+### Step 11 — Temel Analiz Veri Katmanı
+- F/K, PD/DD, ROE, ROA, net marj, gelir büyümesi, borç/özsermaye, temettü, piyasa değeri, EV/FAVÖK
+
+### Step 12 — Ters Portföy Tarama
+- Portföy sektör dağılımı analizi → eksik sektörlerde güçlü sinyal önerisi
+
+### Step 13 — Makro Senaryo Simülatörü
+- "Faiz 250bp inerse?", "Dolar 42'ye çıkarsa?" → AI sektör/hisse etki analizi
