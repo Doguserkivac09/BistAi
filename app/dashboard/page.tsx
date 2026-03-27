@@ -27,17 +27,17 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase
       .from('watchlist')
-      .select('*')
+      .select('id, user_id, sembol, notlar, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
     supabase
       .from('saved_signals')
-      .select('*')
+      .select('id, user_id, sembol, signal_type, direction, signal_data, ai_explanation, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
     supabase
       .from('portfolyo_pozisyon')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id),
   ]);
 

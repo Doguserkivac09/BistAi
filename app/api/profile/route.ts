@@ -33,7 +33,7 @@ export async function GET() {
     // Profili çek
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, display_name, avatar_url, bio, tier, created_at, updated_at')
       .eq('id', user.id)
       .single();
 

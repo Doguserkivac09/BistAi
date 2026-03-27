@@ -37,7 +37,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('portfolyo_pozisyonlar')
-    .select('*')
+    .select('id, user_id, sembol, miktar, alis_fiyati, alis_tarihi, notlar, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 

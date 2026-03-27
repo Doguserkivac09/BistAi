@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
   images: {
     remotePatterns: [
       {
@@ -45,6 +46,18 @@ const nextConfig = {
       {
         source: '/api/risk',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=300, stale-while-revalidate=600' }],
+      },
+      {
+        source: '/api/signal-stats',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=300, stale-while-revalidate=600' }],
+      },
+      {
+        source: '/api/backtesting',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=300, stale-while-revalidate=600' }],
+      },
+      {
+        source: '/api/alerts',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=30, stale-while-revalidate=60' }],
       },
     ];
   },

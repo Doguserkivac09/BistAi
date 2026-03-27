@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('posts')
       .select(`
-        *,
+        id, title, body, category, sembol, author_id, like_count, comment_count, is_pinned, is_deleted, created_at, updated_at,
         author:profiles!posts_author_profile_fkey(id, display_name, avatar_url, tier)
       `, { count: 'exact' })
       .eq('is_deleted', false);

@@ -358,7 +358,20 @@ function ToplulukPageInner() {
 
       const res = await fetch(`/api/community/posts?${params}`);
       const json = await res.json();
-      if (res.ok) setData(json);
+      if (res.ok) {
+        // Client-side search fallback: if server-side ilike didn't filter,
+        // enforce filtering here to guarantee correct results
+        if (debouncedSearch && json.posts) {
+          const q = debouncedSearch.toLowerCase();
+          const filtered = json.posts.filter((p: { title?: string; body?: string }) =>
+            (p.title ?? '').toLowerCase().includes(q) ||
+            (p.body ?? '').toLowerCase().includes(q)
+          );
+          setData({ ...json, posts: filtered, total: filtered.length, total_pages: Math.ceil(filtered.length / 20) });
+        } else {
+          setData(json);
+        }
+      }
     } catch {
       // ignore
     } finally {
