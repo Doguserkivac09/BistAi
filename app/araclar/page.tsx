@@ -338,7 +338,7 @@ function PortfoyRisk() {
                     value={h.sembol}
                     onChange={(e) => updateRow(h.id, 'sembol', e.target.value.toUpperCase())}
                     placeholder="THYAO"
-                    className="w-20 rounded border border-border bg-white/3 px-2 py-1 text-xs text-text-primary placeholder-text-secondary/30 focus:border-primary focus:outline-none"
+                    className="w-20 rounded border border-border bg-white/[0.05] px-2 py-1 text-xs text-text-primary placeholder-zinc-500 focus:border-primary focus:outline-none"
                   />
                 </td>
                 <td className="py-1.5 pr-2">
@@ -347,7 +347,7 @@ function PortfoyRisk() {
                     value={h.deger}
                     onChange={(e) => updateRow(h.id, 'deger', e.target.value)}
                     placeholder="0"
-                    className="w-24 rounded border border-border bg-white/3 px-2 py-1 text-xs text-text-primary placeholder-text-secondary/30 focus:border-primary focus:outline-none text-right"
+                    className="w-24 rounded border border-border bg-white/[0.05] px-2 py-1 text-xs text-text-primary placeholder-zinc-500 focus:border-primary focus:outline-none text-right"
                   />
                 </td>
                 <td className="py-1.5 pr-2">
@@ -356,7 +356,7 @@ function PortfoyRisk() {
                     value={h.stopYuzde}
                     onChange={(e) => updateRow(h.id, 'stopYuzde', e.target.value)}
                     placeholder="5"
-                    className="w-16 rounded border border-border bg-white/3 px-2 py-1 text-xs text-text-primary placeholder-text-secondary/30 focus:border-primary focus:outline-none text-right"
+                    className="w-16 rounded border border-border bg-white/[0.05] px-2 py-1 text-xs text-text-primary placeholder-zinc-500 focus:border-primary focus:outline-none text-right"
                   />
                 </td>
                 <td className={cn('py-1.5 text-right font-mono', h.maxKayip > 0 ? 'text-red-400' : 'text-text-secondary/30')}>
