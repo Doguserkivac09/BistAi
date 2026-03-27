@@ -18,6 +18,8 @@ import type { SectorMomentum } from '@/lib/sectors';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SRLevels } from '@/components/SRLevels';
 import { calculateSRLevels } from '@/lib/support-resistance';
+import { CompositeBadge } from '@/components/ScoreBreakdown';
+import type { CompositeSignalResult } from '@/lib/composite-signal';
 
 interface StockCardProps {
   signal: StockSignal;
@@ -32,6 +34,7 @@ interface StockCardProps {
   viewMode?: 'grid' | 'list';
   /** Yahoo meta.regularMarketChangePercent — gün sonu %0.00 sorununu önler */
   marketChangePercent?: number;
+  compositeResult?: CompositeSignalResult | null;
 }
 
 // ─── Badge bileşenleri ────────────────────────────────────────────────────────
@@ -151,10 +154,12 @@ interface ContextBadgesProps {
   winRate?: { rate: number; sampleSize: number } | null;
   macroScore?: { score: number; wind: string } | null;
   sectorMomentum?: SectorMomentum | null;
+  compositeResult?: CompositeSignalResult | null;
 }
 
-function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum }: ContextBadgesProps) {
+function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum, compositeResult }: ContextBadgesProps) {
   const hasBadges =
+    compositeResult ||
     macroScore ||
     sectorMomentum ||
     confluence ||
@@ -166,8 +171,9 @@ function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
-      {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
+      {compositeResult && <CompositeBadge result={compositeResult} />}
+      {!compositeResult && sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
+      {!compositeResult && macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
       {confluence && <ConfluenceBadge result={confluence} />}
       {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
       {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
@@ -190,6 +196,7 @@ export function StockCard({
   onExplanationLoaded,
   viewMode = 'grid',
   marketChangePercent,
+  compositeResult,
 }: StockCardProps) {
   const confluence = allSignals && allSignals.length > 1 ? computeConfluence(allSignals) : null;
   const [explanation, setExplanation] = useState<string | null>(cachedExplanation ?? null);
@@ -321,6 +328,7 @@ export function StockCard({
             winRate={winRate}
             macroScore={macroScore}
             sectorMomentum={sectorMomentum}
+            compositeResult={compositeResult}
           />
         </div>
 
@@ -379,6 +387,7 @@ export function StockCard({
           winRate={winRate}
           macroScore={macroScore}
           sectorMomentum={sectorMomentum}
+          compositeResult={compositeResult}
         />
       </CardHeader>
 
