@@ -134,11 +134,13 @@ function NavDropdown({ item, pathname }: { item: NavItem & { dropdown: DropdownI
 export function NavbarClient({ user }: NavbarClientProps) {
   const [mobileOpen, setMobileOpen]   = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  // Initialize from localStorage cache to avoid flash
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('bistai_avatar_url');
-  });
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Read localStorage cache after mount to avoid SSR/client mismatch
+  useEffect(() => {
+    const cached = localStorage.getItem('bistai_avatar_url');
+    if (cached) setAvatarUrl(cached);
+  }, []);
   const pathname = usePathname();
   const userDropdownRef = useRef<HTMLDivElement>(null);
 
