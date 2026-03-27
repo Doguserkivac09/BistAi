@@ -598,7 +598,7 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 
 | Step | Özellik | Etki | Model | Süre | Durum |
 |------|---------|------|-------|------|-------|
-| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 3-5 gün | ⬜ |
+| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ⬜ |
 | 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ⬜ |
 | 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | ⬜ |
 | 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | ⬜ |
@@ -618,10 +618,10 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 
 **Detaylı plan + alt görev bazında model ataması:** `.claude/plans/vast-seeking-locket.md`
 
-### Step 1 — Makro Rüzgar Skoru 🔴🔵
-- 🔴 `lib/macro-wind-score.ts`: Ağırlıklı formül, 6 veri kaynağı normalizasyonu
+### Step 1 — Makro Rüzgar Skoru 🔵
+- `lib/macro-score.ts` zaten mevcut (-100/+100 skor + components[]), yeni algoritma gerekmiyor
 - 🔵 `components/MacroWindGauge.tsx`: Hava durumu metaforu gauge (Framer Motion)
-- 🔵 Dashboard/Makro entegrasyonu, API endpoint
+- 🔵 Dashboard/Makro entegrasyonu (mevcut `/api/macro` kullanılacak)
 
 ### Step 2 — Hesap Makineleri 🔵
 - 🔵 `app/araclar/page.tsx`: Pozisyon büyüklüğü, Risk/Ödül, Hedef fiyat, Portföy risk — tamamı saf frontend
