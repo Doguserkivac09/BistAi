@@ -591,16 +591,16 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 
 ---
 
-## 🗺️ YOL HARİTASI — Profesyonel Geliştirme Planı (2026-03-27)
+## 🗺️ YOL HARİTASI — Profesyonel Geliştirme Planı (2026-03-28 güncellendi)
 
 > Kapsamlı rakip analizi (Investing.com, Danelfin, TrendSpider, Kavout, Borsacoo, Fintables) sonrası oluşturuldu.
 > **Kural:** Her step profesyonel olmadan sonrakine geçilmez.
 
 | Step | Özellik | Etki | Model | Süre | Durum |
 |------|---------|------|-------|------|-------|
-| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ⬜ |
-| 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ⬜ |
-| 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | ⬜ |
+| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ✅ Sonnet tamam |
+| 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ✅ Sonnet tamam |
+| 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
 | 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | ⬜ |
 | 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ⬜ |
 | 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ⬜ |
@@ -618,17 +618,18 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 
 **Detaylı plan + alt görev bazında model ataması:** `.claude/plans/vast-seeking-locket.md`
 
-### Step 1 — Makro Rüzgar Skoru 🔵
+### Step 1 — Makro Rüzgar Skoru 🔵 ✅ TAMAMLANDI (2026-03-28)
 - `lib/macro-score.ts` zaten mevcut (-100/+100 skor + components[]), yeni algoritma gerekmiyor
-- 🔵 `components/MacroWindGauge.tsx`: Hava durumu metaforu gauge (Framer Motion)
-- 🔵 Dashboard/Makro entegrasyonu (mevcut `/api/macro` kullanılacak)
+- ✅ 🔵 `components/MacroWindGauge.tsx`: Hava durumu metaforu gauge (Framer Motion)
+- ✅ 🔵 Dashboard/Makro entegrasyonu (mevcut `/api/macro` kullanılacak)
 
-### Step 2 — Hesap Makineleri 🔵
-- 🔵 `app/araclar/page.tsx`: Pozisyon büyüklüğü, Risk/Ödül, Hedef fiyat, Portföy risk — tamamı saf frontend
+### Step 2 — Hesap Makineleri 🔵 ✅ TAMAMLANDI (2026-03-28)
+- ✅ 🔵 `app/araclar/page.tsx`: Pozisyon büyüklüğü, Risk/Ödül, Hedef fiyat, Portföy risk — tamamı saf frontend
+- ✅ 🔵 `components/NavbarClient.tsx`: Araçlar linki Piyasa dropdown'una eklendi
 
-### Step 3 — Ekonomi Takvimi 🔵🔴
-- 🔵 `lib/ekonomi-takvimi.ts` + takvim UI + countdown
-- 🔴 AI makro yorum entegrasyonu (Claude prompt)
+### Step 3 — Ekonomi Takvimi 🔵✅ 🔴⬜
+- ✅ 🔵 `lib/ekonomi-takvimi.ts` + takvim UI + countdown — **Sonnet tamam (2026-03-28)**
+- ⬜ 🔴 AI makro yorum entegrasyonu (Claude prompt) — **Opus bekliyor**
 
 ### Step 4 — Explainable AI Skor 🔴🔵
 - 🔴 `lib/composite-signal.ts` genişletme (faktör katkı algoritması)
