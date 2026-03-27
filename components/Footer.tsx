@@ -5,7 +5,7 @@ export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-border bg-surface/40">
+    <footer className="relative z-20 mt-auto border-t border-border bg-background">
       {/* Yasal uyarı bandı */}
       <div className="border-b border-border/60 bg-amber-500/5 px-4 py-3">
         <div className="container mx-auto flex items-start gap-2.5">
