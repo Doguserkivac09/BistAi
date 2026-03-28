@@ -29,6 +29,8 @@ import { toast } from 'sonner';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
+import { ScoreBreakdown } from '@/components/ScoreBreakdown';
+import type { CompositeSignalResult } from '@/lib/composite-signal';
 
 // Lazy-load chart component (lightweight-charts ~40KB gzipped)
 const StockChart = lazy(() =>
@@ -48,6 +50,32 @@ interface HisseDetailClientProps {
   sembol: string;
   isInWatchlist: boolean;
   savedSignalTypes: string[];
+}
+
+// ── HisseAnalizResponse → CompositeSignalResult adaptörü ──────────────
+function toCompositeResult(analiz: HisseAnalizResponse): CompositeSignalResult {
+  return {
+    decision: analiz.decision,
+    decisionTr: analiz.decisionTr,
+    confidence: analiz.confidence,
+    compositeScore: analiz.compositeScore,
+    technicalScore: analiz.technicalScore,
+    macroScore: analiz.macroScore,
+    sectorScore: analiz.sectorScore,
+    riskAdjustment: 0,
+    color: analiz.color,
+    emoji: analiz.emoji,
+    context: {
+      signalType: '—',
+      signalDirection: analiz.signalDirection ?? 'nötr',
+      macroWind: analiz.macroScore > 20 ? 'pozitif' : analiz.macroScore < -20 ? 'negatif' : 'nötr',
+      macroLabel: analiz.macroScore > 20 ? 'Pozitif' : analiz.macroScore < -20 ? 'Negatif' : 'Nötr',
+      sectorName: analiz.sectorName ?? '—',
+      sectorSignal: analiz.sectorScore > 20 ? 'yukari' : analiz.sectorScore < -20 ? 'asagi' : 'nötr',
+      riskLevel: 'medium',
+      keyFactors: [],
+    },
+  };
 }
 
 // ── Bölüm başlığı bileşeni (Bloomberg/Matriks stili) ─────────────────
@@ -473,8 +501,22 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 </Card>
               </div>
 
-              {/* ── SAĞ KOLON: AI Yorum + Adil Değer + Skor ────────────── */}
+              {/* ── SAĞ KOLON: Kompozit Skor + AI Yorum + Adil Değer + Skor ── */}
               <div className="mt-4 lg:mt-0 space-y-4">
+
+                {/* Kompozit AI Skor Paneli */}
+                {!analizLoading && analiz && !analiz.noSignal && (
+                  <Card>
+                    <CardHeader className="py-2 px-3 pb-0">
+                      <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                        🎯 Kompozit Karar
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-3">
+                      <ScoreBreakdown result={toCompositeResult(analiz)} />
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* AI Genel Yorumu */}
                 <Card>
