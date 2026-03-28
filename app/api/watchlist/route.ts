@@ -15,7 +15,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('watchlist')
-    .select('*')
+    .select('id, user_id, sembol, notlar, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 

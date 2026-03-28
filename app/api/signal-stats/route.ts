@@ -30,14 +30,10 @@ export async function GET(request: NextRequest) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
-    console.log('TABLE NAME: signal_performance');
     const { data, error } = await supabase
       .from('signal_performance')
-      .select('*')
+      .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, mfe, mae, evaluated, regime, created_at')
       .eq('evaluated', true);
-
-    const rows = data;
-    console.log('SUPABASE RAW ROW COUNT:', rows?.length);
 
     if (error) {
       return NextResponse.json(

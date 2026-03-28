@@ -37,7 +37,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('portfolyo_pozisyonlar')
-    .select('*')
+    .select('id, user_id, sembol, miktar, alis_fiyati, alis_tarihi, notlar, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -78,6 +78,42 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data as PortfolyoPozisyon, { status: 201 });
+}
+
+export async function PATCH(request: NextRequest) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Giriş gerekli.' }, { status: 401 });
+
+  const body = await request.json();
+  const { id, miktar, notlar } = body;
+
+  if (!id) return NextResponse.json({ error: 'id alanı zorunlu.' }, { status: 400 });
+
+  const updates: Record<string, unknown> = {};
+  if (miktar !== undefined) {
+    const miktarNum = Number(miktar);
+    if (isNaN(miktarNum) || miktarNum <= 0) {
+      return NextResponse.json({ error: 'Miktar pozitif sayı olmalı.' }, { status: 400 });
+    }
+    updates.miktar = miktarNum;
+  }
+  if (notlar !== undefined) updates.notlar = notlar;
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'Güncellenecek alan yok.' }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from('portfolyo_pozisyonlar')
+    .update(updates)
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data as PortfolyoPozisyon);
 }
 
 export async function DELETE(request: NextRequest) {

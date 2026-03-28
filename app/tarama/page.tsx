@@ -446,8 +446,10 @@ function TaramaPageInner() {
   const [onlyWeeklyAligned,  setOnlyWeeklyAligned]  = useState(false);
   const [onlyStrong,         setOnlyStrong]         = useState(false);
   const [onlyHighConfluence, setOnlyHighConfluence] = useState(false);
+  const [onlyStrongSectors,  setOnlyStrongSectors]  = useState(false);
   const [sortBy,             setSortBy]             = useState<SortBy>('confluence');
   const [viewMode,           setViewMode]           = useState<'grid' | 'list'>('grid');
+  const [searchQuery,        setSearchQuery]        = useState('');
 
   // Scan state
   const [results,       setResults]       = useState<ScanResult[]>([]);
@@ -625,7 +627,8 @@ function TaramaPageInner() {
 
   const clearFilters = useCallback(() => {
     setSignalType('Tümü'); setDirection('Tümü');
-    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false);
+    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyStrongSectors(false);
+    setSearchQuery('');
   }, []);
 
   const applyPreset = useCallback((types: string[]) => {
@@ -659,11 +662,23 @@ function TaramaPageInner() {
 
   const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
   const rawDisplayList = loading ? [] : filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
-  // Sektör URL param filtresi
-  const displayList = sektorParam
-    ? rawDisplayList.filter(r => getSectorId(r.sembol) === sektorParam)
+  // Sektör URL param filtresi + sembol arama
+  const searchUpper = searchQuery.trim().toUpperCase();
+  const filteredBySearch = searchUpper
+    ? rawDisplayList.filter(r => r.sembol.includes(searchUpper))
     : rawDisplayList;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence].filter(Boolean).length;
+  const filteredBySector = sektorParam
+    ? filteredBySearch.filter(r => getSectorId(r.sembol) === sektorParam)
+    : filteredBySearch;
+  const displayList = onlyStrongSectors
+    ? filteredBySector.filter(r => {
+        const hasBullish = r.signals.some(s => s.direction === 'yukari');
+        if (!hasBullish) return true; // bearish/nötr sinyalleri etkileme
+        const sector = sectorMap.get(getSector(r.sembol).id);
+        return !sector || sector.direction !== 'asagi';
+      })
+    : filteredBySector;
+  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!searchUpper].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -717,6 +732,28 @@ function TaramaPageInner() {
 
         {/* ── Row 2: Filter chips ── */}
         <div className="mb-5 flex flex-wrap items-center gap-2">
+          {/* Hisse arama */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Hisse ara..."
+              className="w-32 rounded-full border border-border bg-surface pl-8 pr-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="h-5 w-px bg-border" />
+
           <div className="flex flex-wrap gap-1.5">
             {SIGNAL_TYPE_OPTIONS.map(o => (
               <Chip key={o.value} active={signalType === o.value} onClick={() => setSignalType(o.value)}>
@@ -744,6 +781,7 @@ function TaramaPageInner() {
               <Chip active={onlyWeeklyAligned}  onClick={() => setOnlyWeeklyAligned(v => !v)}>W✓ Haftalık</Chip>
               <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
               <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)}>Yüksek Güven</Chip>
+              <Chip active={onlyStrongSectors}   onClick={() => setOnlyStrongSectors(v => !v)}>Güçlü Sektör</Chip>
             </>
           )}
         </div>
@@ -833,6 +871,7 @@ function TaramaPageInner() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
+                    className="h-full"
                   >
                     <StockCard
                       signal={primarySig}

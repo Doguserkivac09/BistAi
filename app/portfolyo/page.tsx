@@ -231,16 +231,16 @@ function PozisyonRow({
     >
       {/* Sembol + sparkline */}
       <td className="py-3.5 pl-4 pr-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary shrink-0">
+        <Link href={`/hisse/${poz.sembol}`} className="flex items-center gap-2 group">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary shrink-0 group-hover:bg-primary/20 transition-colors">
             {poz.sembol.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-text-primary text-sm">{poz.sembol}</div>
+            <div className="font-semibold text-text-primary text-sm group-hover:text-primary transition-colors">{poz.sembol}</div>
             <SinyalBadge sinyaller={sinyaller} />
           </div>
           <Sparkline closes={sparkline} />
-        </div>
+        </Link>
       </td>
 
       {/* Miktar */}
@@ -753,13 +753,13 @@ export default function PortfolyoPage() {
         body: JSON.stringify({ id, miktar, notlar }),
       });
       if (!res.ok) {
-        console.warn('PATCH endpoint gerekli: /api/portfolyo');
-        // Optimistic update
+        const err = await res.json();
+        throw new Error(err.error ?? 'Güncelleme başarısız.');
       }
       setEditingPoz(null);
       await loadPozisyonlar(true);
-    } catch {
-      console.warn('PATCH endpoint gerekli: /api/portfolyo');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Güncelleme hatası');
       setEditingPoz(null);
     } finally { setEditSaving(false); }
   }

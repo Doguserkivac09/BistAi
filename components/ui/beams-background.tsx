@@ -47,7 +47,7 @@ export function BeamsBackground({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const beamsRef = useRef<Beam[]>([]);
   const animationFrameRef = useRef<number>(0);
-  const MINIMUM_BEAMS = 20;
+  const MINIMUM_BEAMS = 10;
 
   const opacityMap = {
     subtle: 0.7,
@@ -113,10 +113,20 @@ export function BeamsBackground({
       ctx.restore();
     }
 
-    function animate() {
+    // 30fps throttle — slow blurred beams don't need 60fps
+    let lastTime = 0;
+    const FRAME_INTERVAL = 1000 / 30;
+
+    function animate(now: number) {
       if (!canvas || !ctx) return;
+      animationFrameRef.current = requestAnimationFrame(animate);
+
+      const delta = now - lastTime;
+      if (delta < FRAME_INTERVAL) return;
+      lastTime = now - (delta % FRAME_INTERVAL);
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.filter = "blur(35px)";
+      // ctx.filter removed — CSS filter: blur(15px) on canvas is sufficient
       const totalBeams = beamsRef.current.length;
       beamsRef.current.forEach((beam, index) => {
         beam.y -= beam.speed;
@@ -126,10 +136,9 @@ export function BeamsBackground({
         }
         drawBeam(ctx, beam);
       });
-      animationFrameRef.current = requestAnimationFrame(animate);
     }
 
-    animate();
+    animationFrameRef.current = requestAnimationFrame(animate);
 
     return () => {
       window.removeEventListener("resize", updateCanvasSize);
@@ -149,7 +158,6 @@ export function BeamsBackground({
         />
         <div
           className="fixed inset-0 z-0 bg-neutral-950/5 animate-pulse-slow"
-          style={{ backdropFilter: "blur(50px)" }}
         />
       </>
     );
@@ -169,7 +177,6 @@ export function BeamsBackground({
       />
       <div
         className="absolute inset-0 bg-neutral-950/5 animate-pulse-slow"
-        style={{ backdropFilter: "blur(50px)" }}
       />
       <div className="relative z-10">{children}</div>
     </div>

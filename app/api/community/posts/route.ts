@@ -29,14 +29,20 @@ export async function GET(request: NextRequest) {
     const sembol = searchParams.get('sembol');
     const authorId = searchParams.get('author');
     const sort = searchParams.get('sort') ?? 'newest'; // newest | popular
+    const searchQuery = searchParams.get('q')?.trim() ?? '';
 
     let query = supabase
       .from('posts')
       .select(`
-        *,
+        id, title, body, category, sembol, author_id, like_count, comment_count, is_pinned, is_deleted, created_at, updated_at,
         author:profiles!posts_author_profile_fkey(id, display_name, avatar_url, tier)
       `, { count: 'exact' })
       .eq('is_deleted', false);
+
+    // Search filter — title or body ilike
+    if (searchQuery) {
+      query = query.or(`title.ilike.%${searchQuery}%,body.ilike.%${searchQuery}%`);
+    }
 
     // Filters
     if (category && ['genel', 'analiz', 'haber', 'soru', 'strateji'].includes(category)) {

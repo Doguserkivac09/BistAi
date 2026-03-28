@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { MacroWindGauge } from '@/components/MacroWindGauge';
+import type { MacroScoreResult } from '@/lib/macro-score';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw, TrendingUp, TrendingDown, Minus,
@@ -979,6 +981,24 @@ export default function MakroPage() {
 
         {/* Hero Command Center */}
         <HeroSection macro={macro} risk={risk} />
+
+        {/* Makro Rüzgar Gauge */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MacroWindGauge result={macro.score as MacroScoreResult} />
+          <div className="rounded-xl border border-border bg-background/50 p-5 flex flex-col justify-center gap-3">
+            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Faktör Ağırlıkları</p>
+            {macro.score.components.map((c) => (
+              <div key={c.name} className="flex items-center gap-2 text-xs">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${c.signal === 'positive' ? 'bg-emerald-500' : c.signal === 'negative' ? 'bg-red-500' : 'bg-zinc-500'}`} />
+                <span className="text-text-secondary flex-1">{c.name}</span>
+                <span className="text-text-secondary/50">%{Math.round(c.weight * 100)}</span>
+                <span className={`font-mono font-semibold w-10 text-right ${c.signal === 'positive' ? 'text-emerald-400' : c.signal === 'negative' ? 'text-red-400' : 'text-zinc-400'}`}>
+                  {c.rawScore > 0 ? '+' : ''}{c.rawScore}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Piyasa Göstergeleri */}
         <section className="mb-6">

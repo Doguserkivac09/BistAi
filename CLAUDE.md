@@ -4,18 +4,18 @@
 
 ---
 
-## 🚀 SONRAKİ ADIMLAR — Öncelik Sırasına Göre (2026-03-22 güncellendi)
+## 🚀 SONRAKİ ADIMLAR — Öncelik Sırasına Göre (2026-03-28 güncellendi)
 
-### 🔴 SİNYAL KALİTESİ & DOĞRULUK (Aktif Sprint)
+### ~~🔴 SİNYAL KALİTESİ & DOĞRULUK~~ ✅ SPRINT TAMAMLANDI
 
 | # | Görev | Açıklama | Durum |
 |---|-------|----------|-------|
 | Q1 | ~~**Confluence Skoru**~~ | ✅ `computeConfluence()` — 4 kategori, severity+hizalama+çeşitlilik → 0-100. StockCard badge | ✅ |
 | Q2 | ~~**Sinyal Yaşı (Freshness)**~~ | ✅ `candlesAgo` field, "Xg önce" badge StockCard'da gösteriliyor | ✅ |
-| Q3 | **Backtest Başarı Oranı UI** | `signal_performance` tablosundaki veriyi sinyal kartlarında göster — "Bu sinyal %67 başarılı" | ⏳ Bekliyor |
-| Q4 | **Korelasyon Katsayısı** | Karşılaştırma sayfasına hisseler arası korelasyon ekle — portföy çeşitlendirmesi için | ⏳ Bekliyor |
-| Q5 | **Multi-timeframe Doğrulama** | Günlük + haftalık aynı sinyali veriyorsa güçlü; çakışmıyorsa zayıf işaretle | ⏳ Bekliyor |
-| Q6 | **Sektör Momentum Filtresi** | Sektör geneli düşerken bireysel bullish sinyali = daha az güvenilir | ⏳ Bekliyor |
+| Q3 | ~~**Backtest Başarı Oranı UI**~~ | ✅ `WinRateBadge` — "7g %XX" StockCard'da (sampleSize≥20) | ✅ |
+| Q4 | ~~**Korelasyon Katsayısı**~~ | ✅ `karsilastir/KarsilastirClient.tsx` — korelasyon matrisi eklendi | ✅ |
+| Q5 | ~~**Multi-timeframe Doğrulama**~~ | ✅ `computeWeeklyAlignment()` + `MTFBadge` (W✓/W✗) StockCard'da | ✅ |
+| Q6 | ~~**Sektör Momentum Filtresi**~~ | ✅ `SectorConflictBadge` (⚠ Sektör Zayıf) + taramada "Güçlü Sektör" toggle | ✅ |
 
 ### 🔴 1. Sinyal Güçlendirmeleri (Kısa Vadeli — Hemen Yapılabilir)
 
@@ -27,22 +27,17 @@
 | S4 | ~~**RSI Seviyesi sinyali güçlendir**~~ | ✅ Bölgeden çıkış tespiti, 32/68 BIST eşiği, rsiMomentum eklendi |
 
 ### ~~🟠 2. Anlık Uyarı Sistemi — Phase 14.2~~ ✅ TAMAMLANDI
-- ~~Cron tarama → sinyal bulunan hisseler → email / web push bildirimi~~
-- ~~`alert_preferences` tablosu: kullanıcı izleme listesi + sinyal tipi seçimi~~
-- ~~Resend API ile email (ücretsiz 3000/ay)~~
 - **Test edildi ve çalışıyor** — Her iş günü 10:30 TRT'de gönderilir
 
 ### 🟠 3. Portföy Performans Grafiği — Phase 14.1 ek
 - `/portfolyo` sayfası mevcut, eksik: zaman içinde değer değişimi grafiği
 - Portföydeki hisseler için otomatik sinyal uyarısı bağlantısı
 
-### 🟡 4. Backtest Veri Sorunu — Phase 14.3
-- `signal_performance` tablosunda `evaluated=true` kayıt birikmiyor
-- `/api/dev/seed-backtest` ile sentetik veri veya cron fix
+### ~~🟡 4. Backtest Veri Sorunu — Phase 14.3~~ ✅ TAMAMLANDI
+- `app/api/dev/seed-backtest/route.ts` — 120 sentetik kayıt üretir, `POST /api/dev/seed-backtest` ile çalıştır
 
-### 🟡 5. Mobil PWA — Phase 14.5
-- `manifest.json` + service worker → "Ana Ekrana Ekle"
-- `next-pwa` paketi ile minimal iş
+### ~~🟡 5. Mobil PWA — Phase 14.5~~ ✅ TAMAMLANDI
+- `public/manifest.json` + `public/sw.js` + `public/icons/` → layout.tsx'de `manifest: '/manifest.json'`
 
 ### 🟡 6. Code Quality — Teknik Borç
 - Kullanılmayan dosyalar temizliği (ör: `components/VixChart.tsx` hiçbir yerde import edilmiyor)
@@ -50,6 +45,18 @@
 - Type safety iyileştirmeleri
 
 ---
+
+## ✅ 2026-03-28 Oturumunda Tamamlananlar
+
+| Özellik | Dosyalar |
+|---------|---------|
+| **Q6 Sektör Momentum Filtresi** — sektör düşerken bullish sinyal ⚠️ badge + taramada "Güçlü Sektör" toggle | `components/StockCard.tsx`, `app/tarama/page.tsx` |
+| **Yol Haritası Step 1** — Makro Rüzgar Gauge (Berk) | `components/MacroWindGauge.tsx` |
+| **Yol Haritası Step 2** — Hesap Makineleri sayfası (Berk) | `app/araclar/page.tsx` |
+| **Yol Haritası Step 3** — Ekonomi Takvimi sayfası + lib (Berk) | `app/ekonomi-takvimi/page.tsx`, `lib/ekonomi-takvimi.ts` |
+| **ScoreBreakdown** — Kompozit skor görselleştirmesi (Berk) | `components/ScoreBreakdown.tsx` |
+| **Avatar sistemi** — profil avatar yükleme/seçme (Berk) | `app/api/profile/avatar/route.ts`, `public/avatars/` |
+| **CLAUDE.md** — Q3-Q6 ✅, Phase 14.3/14.5 ✅, roadmap eklendi | `CLAUDE.md` |
 
 ## ✅ 2026-03-22 Oturumunda Tamamlananlar
 
@@ -586,7 +593,81 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 |------|-------|-------|
 | Gerçek zamanlı veri | Yahoo Finance 15dk gecikmeli | Uzun vadede Borsa İstanbul API |
 | Backtest verisi | `evaluated` kayıt birikmiyor | Cron job düzeltmesi + seed |
-| Bildirim sistemi | Yok | 14.2 |
-| Portföy | Yok | 14.1 |
-| Mobil | Responsive ama uygulama değil | 14.5 PWA |
+| Mobil | Responsive ama uygulama değil | PWA |
 | Stripe | Key'ler girilmedi | Girince aktif |
+
+---
+
+## 🗺️ YOL HARİTASI — Profesyonel Geliştirme Planı (2026-03-28 güncellendi)
+
+> Kapsamlı rakip analizi (Investing.com, Danelfin, TrendSpider, Kavout, Borsacoo, Fintables) sonrası oluşturuldu.
+> **Kural:** Her step profesyonel olmadan sonrakine geçilmez.
+
+| Step | Özellik | Etki | Model | Süre | Durum |
+|------|---------|------|-------|------|-------|
+| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ✅ Sonnet tamam |
+| 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ✅ Sonnet tamam |
+| 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
+| 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | ⬜ |
+| 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ⬜ |
+| 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ⬜ |
+| 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ⬜ |
+| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | ⬜ |
+| 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ⬜ |
+| 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | ⬜ |
+| 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ⬜ |
+| 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | ⬜ |
+| 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ⬜ |
+
+> **Model Kuralı:** 🔴 Opus = algoritma tasarımı, AI prompt mühendisliği, karmaşık mantık, streaming API
+> 🔵 Sonnet = UI component, CRUD API, SQL migration, styling, basit veri dönüşümü
+> **Tahmini dağılım:** Sonnet ~%60, Opus ~%40 → **~%40-50 token tasarrufu**
+
+**Detaylı plan + alt görev bazında model ataması:** `.claude/plans/vast-seeking-locket.md`
+
+### Step 1 — Makro Rüzgar Skoru 🔵 ✅ TAMAMLANDI (2026-03-28)
+- `lib/macro-score.ts` zaten mevcut (-100/+100 skor + components[]), yeni algoritma gerekmiyor
+- ✅ 🔵 `components/MacroWindGauge.tsx`: Hava durumu metaforu gauge (Framer Motion)
+- ✅ 🔵 Dashboard/Makro entegrasyonu (mevcut `/api/macro` kullanılacak)
+
+### Step 2 — Hesap Makineleri 🔵 ✅ TAMAMLANDI (2026-03-28)
+- ✅ 🔵 `app/araclar/page.tsx`: Pozisyon büyüklüğü, Risk/Ödül, Hedef fiyat, Portföy risk — tamamı saf frontend
+- ✅ 🔵 `components/NavbarClient.tsx`: Araçlar linki Piyasa dropdown'una eklendi
+
+### Step 3 — Ekonomi Takvimi 🔵✅ 🔴⬜
+- ✅ 🔵 `lib/ekonomi-takvimi.ts` + takvim UI + countdown — **Sonnet tamam (2026-03-28)**
+- ⬜ 🔴 AI makro yorum entegrasyonu (Claude prompt) — **Opus bekliyor**
+
+### Step 4 — Explainable AI Skor 🔴🔵
+- 🔴 `lib/composite-signal.ts` genişletme (faktör katkı algoritması)
+- 🔵 `components/ScoreBreakdown.tsx` + entegrasyonlar
+
+### Step 5 — AI Sohbet 🔴
+- 🔴 Streaming API + context builder + prompt mühendisliği + chat UI (tamamı Opus)
+
+### Step 6 — Fiyat Alert 🔵
+- 🔵 DB + CRUD API + cron + UI butonları + email template (tamamı Sonnet)
+
+### Step 7 — Portföy P&L 🔵
+- 🔵 DB şema + lot hesaplama + tab UI + grafik + CSV export (tamamı Sonnet)
+
+### Step 8 — KAP + Sinyal 🔴🔵
+- 🔴 KAP feed parsing + AI özetleme/sinyal bağlantı prompt
+- 🔵 DB + cron + UI
+
+### Step 9 — Gelişmiş Screener 🔵
+- 🔵 Çoklu filtre + sıralama + URL params (tamamı Sonnet)
+
+### Step 10 — AI Bülten 🔴🔵
+- 🔴 Kişiselleştirilmiş bülten prompt
+- 🔵 Cron + email template + profil toggle
+
+### Step 11 — Temel Analiz Veri 🔵
+- 🔵 Yahoo veri çekme + DB cache + UI kartları (tamamı Sonnet)
+
+### Step 12 — Ters Portföy 🔴🔵
+- 🔴 Analiz motoru + AI öneri prompt
+- 🔵 "Kaçırdıklarınız" UI component
+
+### Step 13 — Makro Simülatör 🔴
+- 🔴 Senaryo prompt + tarihsel analiz + karmaşık UI state (tamamı Opus)

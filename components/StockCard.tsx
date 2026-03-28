@@ -18,6 +18,8 @@ import type { SectorMomentum } from '@/lib/sectors';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SRLevels } from '@/components/SRLevels';
 import { calculateSRLevels } from '@/lib/support-resistance';
+import { CompositeBadge } from '@/components/ScoreBreakdown';
+import type { CompositeSignalResult } from '@/lib/composite-signal';
 
 interface StockCardProps {
   signal: StockSignal;
@@ -32,6 +34,7 @@ interface StockCardProps {
   viewMode?: 'grid' | 'list';
   /** Yahoo meta.regularMarketChangePercent — gün sonu %0.00 sorununu önler */
   marketChangePercent?: number;
+  compositeResult?: CompositeSignalResult | null;
 }
 
 // ─── Badge bileşenleri ────────────────────────────────────────────────────────
@@ -103,6 +106,17 @@ function SectorBadge({ momentum }: { momentum: SectorMomentum }) {
   );
 }
 
+function SectorConflictBadge() {
+  return (
+    <span
+      title="Sektör geneli düşüş trendinde — bu bullish sinyal daha az güvenilir olabilir"
+      className="inline-flex items-center gap-0.5 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-400"
+    >
+      ⚠ Sektör Zayıf
+    </span>
+  );
+}
+
 function MTFBadge({ aligned }: { aligned: boolean }) {
   return aligned ? (
     <span
@@ -151,10 +165,12 @@ interface ContextBadgesProps {
   winRate?: { rate: number; sampleSize: number } | null;
   macroScore?: { score: number; wind: string } | null;
   sectorMomentum?: SectorMomentum | null;
+  compositeResult?: CompositeSignalResult | null;
 }
 
-function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum }: ContextBadgesProps) {
+function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum, compositeResult }: ContextBadgesProps) {
   const hasBadges =
+    compositeResult ||
     macroScore ||
     sectorMomentum ||
     confluence ||
@@ -166,8 +182,10 @@ function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
-      {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
+      {compositeResult && <CompositeBadge result={compositeResult} />}
+      {!compositeResult && sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
+      {!compositeResult && sectorMomentum && sectorMomentum.direction === 'asagi' && signal.direction === 'yukari' && <SectorConflictBadge />}
+      {!compositeResult && macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
       {confluence && <ConfluenceBadge result={confluence} />}
       {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
       {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
@@ -190,6 +208,7 @@ export function StockCard({
   onExplanationLoaded,
   viewMode = 'grid',
   marketChangePercent,
+  compositeResult,
 }: StockCardProps) {
   const confluence = allSignals && allSignals.length > 1 ? computeConfluence(allSignals) : null;
   const [explanation, setExplanation] = useState<string | null>(cachedExplanation ?? null);
@@ -321,6 +340,7 @@ export function StockCard({
             winRate={winRate}
             macroScore={macroScore}
             sectorMomentum={sectorMomentum}
+            compositeResult={compositeResult}
           />
         </div>
 
@@ -340,7 +360,7 @@ export function StockCard({
 
   // ── Grid görünümü (varsayılan) ──────────────────────────────────────────────
   return (
-    <Card ref={cardRef} className="flex flex-col overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+    <Card ref={cardRef} className="flex h-full flex-col overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-2 space-y-1.5">
         {/* Satır 1: Sembol + fiyat + sinyal tipi */}
         <div className="flex items-center justify-between gap-2 min-w-0">
@@ -379,6 +399,7 @@ export function StockCard({
           winRate={winRate}
           macroScore={macroScore}
           sectorMomentum={sectorMomentum}
+          compositeResult={compositeResult}
         />
       </CardHeader>
 

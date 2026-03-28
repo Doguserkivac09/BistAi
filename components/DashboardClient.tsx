@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Star, BookMarked, Clock, Search, BarChart2, TrendingUp, Users,
@@ -9,7 +10,9 @@ import { cn } from '@/lib/utils';
 import { BeamsBackground } from '@/components/ui/beams-background';
 import { DashboardWatchlist } from '@/components/DashboardWatchlist';
 import { DashboardSignals } from '@/components/DashboardSignals';
+import { MacroWindGauge } from '@/components/MacroWindGauge';
 import type { WatchlistItem, SavedSignal } from '@/types';
+import type { MacroScoreResult } from '@/lib/macro-score';
 
 // 6 meteor yeterli (12'den düşürüldü — jank azaltma)
 const METEORS = [
@@ -146,22 +149,36 @@ function SignalDistribution({ signals }: { signals: SavedSignal[] }) {
 interface Props {
   email: string;
   displayName: string;
+  avatarUrl: string | null;
   watchlist: WatchlistItem[];
   savedSignals: SavedSignal[];
   savedSignalsCount: number;
   lastSignalAt: string;
   portfolyoCount: number;
+  macroScore: MacroScoreResult | null;
 }
 
 export function DashboardClient({
   email,
   displayName,
+  avatarUrl: initialAvatarUrl,
   watchlist,
   savedSignals,
   savedSignalsCount,
   lastSignalAt,
   portfolyoCount,
+  macroScore,
 }: Props) {
+  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
+
+  // Listen for avatar changes from profile page
+  useEffect(() => {
+    function onAvatarChange(e: Event) {
+      setAvatarUrl((e as CustomEvent<string>).detail);
+    }
+    window.addEventListener('avatar-changed', onAvatarChange);
+    return () => window.removeEventListener('avatar-changed', onAvatarChange);
+  }, []);
 
   const STAT_CARDS = [
     {
@@ -206,14 +223,23 @@ export function DashboardClient({
           <div className="pt-10 pb-10 text-center">
             <div className="animate-fade-in-up">
               {/* Avatar */}
-              <div
-                className={cn(
-                  'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br text-3xl font-black text-white shadow-lg ring-4 ring-white/10',
-                  avatarGradient(displayName)
-                )}
-              >
-                {displayName[0]?.toUpperCase() ?? 'U'}
-              </div>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="mx-auto mb-5 h-20 w-20 rounded-full object-cover shadow-lg ring-4 ring-white/10"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    'mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br text-3xl font-black text-white shadow-lg ring-4 ring-white/10',
+                    avatarGradient(displayName)
+                  )}
+                >
+                  {displayName[0]?.toUpperCase() ?? 'U'}
+                </div>
+              )}
 
               <p className="text-xs font-mono text-white/35 tracking-widest uppercase mb-2">
                 {getGreeting()}
@@ -275,6 +301,24 @@ export function DashboardClient({
 
           {/* ── İçerik Bölümleri ── */}
           <div className="pb-16 space-y-5">
+
+            {/* Makro Rüzgar Skoru */}
+            {macroScore && (
+              <div className="animate-fade-in-up stagger-8">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider">
+                    Makro Rüzgar
+                  </h2>
+                  <Link
+                    href="/makro"
+                    className="text-xs text-primary/70 hover:text-primary transition-colors"
+                  >
+                    Detay →
+                  </Link>
+                </div>
+                <MacroWindGauge result={macroScore} compact />
+              </div>
+            )}
 
             {/* Sinyal Dağılımı */}
             {savedSignals.length > 0 && (

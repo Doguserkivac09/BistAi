@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('signal_performance')
-      .select('*')
+      .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, mfe, mae, evaluated, regime, created_at')
       .eq('evaluated', true)
       .gte('entry_time', cutoff.toISOString());
 

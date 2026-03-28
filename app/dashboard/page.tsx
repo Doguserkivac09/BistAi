@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase-server';
 import { DashboardClient } from '@/components/DashboardClient';
 import type { WatchlistItem, SavedSignal } from '@/types';
+import { getMacroScore } from '@/lib/macro-service';
+import type { MacroScoreResult } from '@/lib/macro-score';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('tr-TR', {
@@ -24,21 +26,23 @@ export default async function DashboardPage() {
     { data: watchlistRows },
     { data: savedSignalsRows },
     { count: portfolyoCount },
+    macroScore,
   ] = await Promise.all([
     supabase
       .from('watchlist')
-      .select('*')
+      .select('id, user_id, sembol, notlar, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
     supabase
       .from('saved_signals')
-      .select('*')
+      .select('id, user_id, sembol, signal_type, direction, signal_data, ai_explanation, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
     supabase
       .from('portfolyo_pozisyon')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id),
+    getMacroScore().catch(() => null),
   ]);
 
   const watchlist = (watchlistRows ?? []) as WatchlistItem[];
@@ -46,20 +50,27 @@ export default async function DashboardPage() {
   const savedSignalsCount = savedSignals.length;
   const lastSignalAt = savedSignals.length > 0 ? formatDate(savedSignals[0]!.created_at) : '—';
 
-  // İsim: user_metadata.full_name → email prefix sıralaması
-  const meta = user.user_metadata as Record<string, string> | undefined;
-  const fullName = meta?.full_name?.trim() || meta?.name?.trim() || '';
-  const displayName = fullName || (user.email?.split('@')[0] ?? 'Kullanıcı');
+  // Profil bilgilerini çek
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('display_name, avatar_url')
+    .eq('id', user.id)
+    .single();
+
+  const displayName = profileRow?.display_name?.trim() || (user.email?.split('@')[0] ?? 'Kullanıcı');
+  const avatarUrl = profileRow?.avatar_url ?? null;
 
   return (
     <DashboardClient
       email={user.email ?? 'Kullanıcı'}
       displayName={displayName}
+      avatarUrl={avatarUrl}
       watchlist={watchlist}
       savedSignals={savedSignals}
       savedSignalsCount={savedSignalsCount}
       lastSignalAt={lastSignalAt}
       portfolyoCount={portfolyoCount ?? 0}
+      macroScore={macroScore as MacroScoreResult | null}
     />
   );
 }

@@ -33,7 +33,7 @@ export async function GET() {
     // Profili çek
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, display_name, avatar_url, bio, tier, created_at, updated_at')
       .eq('id', user.id)
       .single();
 
@@ -98,8 +98,8 @@ export async function PATCH(request: NextRequest) {
     }
     if (typeof body.avatar_url === 'string') {
       const url = body.avatar_url.trim();
-      if (url && !url.startsWith('https://')) {
-        return NextResponse.json({ error: 'Avatar URL https ile başlamalı.' }, { status: 400 });
+      if (url && !url.startsWith('https://') && !url.startsWith('/avatars/')) {
+        return NextResponse.json({ error: 'Geçersiz avatar URL.' }, { status: 400 });
       }
       allowedFields.avatar_url = url || null;
     }
