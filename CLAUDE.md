@@ -59,7 +59,8 @@
 | **Step 8** — KAP Duyuruları sayfası + API + lib + Navbar + HisseDetail KAP bölümü | `lib/kap.ts`, `app/api/kap/route.ts`, `app/kap/page.tsx`, `components/NavbarClient.tsx`, `app/hisse/[sembol]/HisseDetailClient.tsx` |
 | **Step 10** — Haftalık Piyasa Bülteni cron + profil toggle + Supabase migration | `app/api/cron/bulten/route.ts`, `app/profil/page.tsx`, `app/api/profile/route.ts`, `vercel.json` |
 | **Step 12** — Ters Portföy (Portföy Dışı Fırsatlar) UI — sektör bazlı, momentum sıralı | `app/ters-portfolyo/page.tsx`, `components/NavbarClient.tsx` |
-| **VixChart.tsx silindu** — hiçbir yerde kullanılmıyordu | `components/VixChart.tsx` |
+| **VixChart.tsx silindi** — hiçbir yerde kullanılmıyordu | `components/VixChart.tsx` |
+| **Step 5 AI Sohbet** — streaming chat, claude-opus-4-6, portföy bağlamı, günlük limit, tier gating | `app/api/chat/route.ts`, `app/sohbet/page.tsx`, `supabase/migrations/20260328_ai_chat_usage.sql` |
 
 ## ✅ 2026-03-22 Oturumunda Tamamlananlar
 
@@ -612,7 +613,7 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 | 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ✅ Sonnet tamam |
 | 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
 | 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
-| 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ⬜ |
+| 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ✅ Tamamlandı |
 | 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
 | 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ✅ Tamamlandı (CSV export eklendi) |
 | 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |

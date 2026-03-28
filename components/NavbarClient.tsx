@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,7 @@ const navItems = [
       { href: '/araclar',          label: 'Araçlar',            icon: Calculator },
     ],
   },
+  { href: '/sohbet',     label: 'AI Asistan' },
   { href: '/backtesting', label: 'Backtest' },
   { href: '/topluluk',   label: 'Topluluk' },
   { href: '/dashboard',  label: 'Dashboard' },
