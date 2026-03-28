@@ -61,6 +61,7 @@
 | **Step 12** — Ters Portföy (Portföy Dışı Fırsatlar) UI — sektör bazlı, momentum sıralı | `app/ters-portfolyo/page.tsx`, `components/NavbarClient.tsx` |
 | **VixChart.tsx silindi** — hiçbir yerde kullanılmıyordu | `components/VixChart.tsx` |
 | **Step 5 AI Sohbet** — streaming chat, claude-opus-4-6, portföy bağlamı, günlük limit, tier gating | `app/api/chat/route.ts`, `app/sohbet/page.tsx`, `supabase/migrations/20260328_ai_chat_usage.sql` |
+| **Step 13 Makro Simülatör** — 12 senaryo (kur/faiz/global/emtia), sektör etki tablosu, tarihsel analiz, portföy yorumu | `app/api/simulasyon/route.ts`, `app/simulasyon/page.tsx` |
 
 ## ✅ 2026-03-22 Oturumunda Tamamlananlar
 
@@ -621,7 +622,7 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 | 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
 | 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ✅ Tamamlandı |
 | 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
-| 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ⬜ |
+| 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ✅ Tamamlandı |
 
 > **Model Kuralı:** 🔴 Opus = algoritma tasarımı, AI prompt mühendisliği, karmaşık mantık, streaming API
 > 🔵 Sonnet = UI component, CRUD API, SQL migration, styling, basit veri dönüşümü
