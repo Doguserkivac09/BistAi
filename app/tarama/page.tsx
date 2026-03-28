@@ -8,8 +8,8 @@ import { BIST_SYMBOLS } from '@/types';
 import type { SignalTypeFilter, DirectionFilter, StockSignal, OHLCVCandle, SignalSeverity } from '@/types';
 import { fetchOHLCVClient } from '@/lib/api-client';
 import { detectAllSignals, computeConfluence } from '@/lib/signals';
-import { computeSectorMomentum, getSector, getSectorId } from '@/lib/sectors';
-import type { SectorMomentum } from '@/lib/sectors';
+import { computeSectorMomentum, getSector, getSectorId, SECTORS } from '@/lib/sectors';
+import type { SectorMomentum, SectorId } from '@/lib/sectors';
 import { useSearchParams } from 'next/navigation';
 import {
   Search, RefreshCw, Zap, TrendingUp, TrendingDown, Activity,
@@ -447,6 +447,7 @@ function TaramaPageInner() {
   const [onlyStrong,         setOnlyStrong]         = useState(false);
   const [onlyHighConfluence, setOnlyHighConfluence] = useState(false);
   const [onlyStrongSectors,  setOnlyStrongSectors]  = useState(false);
+  const [selectedSector,     setSelectedSector]     = useState<SectorId | ''>('');
   const [sortBy,             setSortBy]             = useState<SortBy>('confluence');
   const [viewMode,           setViewMode]           = useState<'grid' | 'list'>('grid');
   const [searchQuery,        setSearchQuery]        = useState('');
@@ -627,7 +628,7 @@ function TaramaPageInner() {
 
   const clearFilters = useCallback(() => {
     setSignalType('Tümü'); setDirection('Tümü');
-    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyStrongSectors(false);
+    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyStrongSectors(false); setSelectedSector('');
     setSearchQuery('');
   }, []);
 
@@ -667,18 +668,21 @@ function TaramaPageInner() {
   const filteredBySearch = searchUpper
     ? rawDisplayList.filter(r => r.sembol.includes(searchUpper))
     : rawDisplayList;
-  const filteredBySector = sektorParam
+  const filteredBySectorParam = sektorParam
     ? filteredBySearch.filter(r => getSectorId(r.sembol) === sektorParam)
     : filteredBySearch;
+  const filteredBySectorDropdown = selectedSector
+    ? filteredBySectorParam.filter(r => getSectorId(r.sembol) === selectedSector)
+    : filteredBySectorParam;
   const displayList = onlyStrongSectors
-    ? filteredBySector.filter(r => {
+    ? filteredBySectorDropdown.filter(r => {
         const hasBullish = r.signals.some(s => s.direction === 'yukari');
         if (!hasBullish) return true; // bearish/nötr sinyalleri etkileme
         const sector = sectorMap.get(getSector(r.sembol).id);
         return !sector || sector.direction !== 'asagi';
       })
-    : filteredBySector;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!searchUpper].filter(Boolean).length;
+    : filteredBySectorDropdown;
+  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -777,6 +781,18 @@ function TaramaPageInner() {
 
           {hasScanResults && (
             <>
+              <div className="h-5 w-px bg-border" />
+              {/* Sektör dropdown */}
+              <select
+                value={selectedSector}
+                onChange={e => setSelectedSector(e.target.value as SectorId | '')}
+                className="h-7 rounded-lg border border-border bg-surface px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
+              >
+                <option value="">Tüm Sektörler</option>
+                {(Object.values(SECTORS) as { id: string; shortName: string }[]).map(s => (
+                  <option key={s.id} value={s.id}>{s.shortName}</option>
+                ))}
+              </select>
               <div className="h-5 w-px bg-border" />
               <Chip active={onlyWeeklyAligned}  onClick={() => setOnlyWeeklyAligned(v => !v)}>W✓ Haftalık</Chip>
               <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
