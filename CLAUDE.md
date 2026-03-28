@@ -64,6 +64,8 @@
 | **Step 13 Makro Simülatör** — 12 senaryo (kur/faiz/global/emtia), sektör etki tablosu, tarihsel analiz, portföy yorumu | `app/api/simulasyon/route.ts`, `app/simulasyon/page.tsx` |
 | **Step 4 Explainable AI** — `buildKeyFactors` yeniden yazıldı: sinyal tazeliği, haftalık hizalama, baskın makro bileşen, sektör perf20d, çelişki uyarıları | `lib/composite-signal.ts` |
 | **Step 8 KAP AI özetleme** — `/api/kap/summarize` (claude-opus-4-6, 4s cache), HisseDetail'e "AI ile Özetle" butonu | `app/api/kap/summarize/route.ts`, `app/hisse/[sembol]/HisseDetailClient.tsx` |
+| **Step 3 Ekonomi Takvimi AI** — `/api/ekonomi-takvimi` SSE streaming, takvim olayları → sektör etki + BIST yorumu | `app/api/ekonomi-takvimi/route.ts`, `app/ekonomi-takvimi/page.tsx` |
+| **Step 10 AI Bülten** — haftalık email'e claude-opus-4-6 ile kişisel piyasa yorumu eklendi (mor panel) | `app/api/cron/bulten/route.ts` |
 
 ## ✅ 2026-03-22 Oturumunda Tamamlananlar
 
@@ -614,14 +616,14 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 |------|---------|------|-------|------|-------|
 | 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ✅ Sonnet tamam |
 | 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ✅ Sonnet tamam |
-| 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
+| 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | ✅ Tamamlandı |
 | 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | ✅ Tamamlandı |
 | 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ✅ Tamamlandı |
 | 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
 | 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ✅ Tamamlandı (CSV export eklendi) |
 | 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | ✅ Tamamlandı |
 | 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
-| 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
+| 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | ✅ Tamamlandı |
 | 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ✅ Tamamlandı |
 | 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | ✅ Tamamlandı |
 | 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ✅ Tamamlandı |

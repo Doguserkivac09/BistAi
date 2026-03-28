@@ -74,7 +74,7 @@ interface PozStat {
 
 // ─── Email HTML ────────────────────────────────────────────────────────────────
 
-function buildHtml(portfolio: PortfolioSummary | null, topSignals: TopSignal[]) {
+function buildHtml(portfolio: PortfolioSummary | null, topSignals: TopSignal[], aiYorum?: string) {
   const profit = (portfolio?.karZarar ?? 0) >= 0;
   const kzColor = profit ? '#10b981' : '#ef4444';
   const weekStr = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -128,6 +128,13 @@ function buildHtml(portfolio: PortfolioSummary | null, topSignals: TopSignal[]) 
         </td></tr>
         <tr><td style="padding:24px; background:#18181b; border:1px solid #27272a; border-top:none; border-radius:0 0 12px 12px;">
 
+          ${aiYorum ? `
+          <div style="margin-bottom:20px; padding:16px; background:#1a1025; border:1px solid #4c1d95; border-radius:10px;">
+            <p style="margin:0 0 8px; font-size:11px; font-weight:700; color:#a78bfa; text-transform:uppercase; letter-spacing:.07em;">✨ AI Piyasa Yorumu</p>
+            <div style="font-size:13px; color:#d4d4d8; line-height:1.65; white-space:pre-line;">${aiYorum.replace(/#{1,3}\s/g, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</div>
+          </div>
+          <hr style="border:none; border-top:1px solid #27272a; margin:20px 0;" />
+          ` : ''}
           <h2 style="margin:0 0 12px; font-size:14px; font-weight:700; color:#f4f4f5; text-transform:uppercase; letter-spacing:.06em;">📁 Portföy Durumu</h2>
           ${portfolioHtml}
 
@@ -211,7 +218,36 @@ export async function GET(request: Request) {
     );
     const signals = topSignals.slice(0, 8);
 
-    // 3. Her abone için email gönder
+    // 3. AI Piyasa Yorumu üret (tüm abonelere ortak, bir kez çağır)
+    let aiYorum = '';
+    try {
+      const anthropicKey = process.env.ANTHROPIC_API_KEY;
+      if (anthropicKey) {
+        const Anthropic = (await import('@anthropic-ai/sdk')).default;
+        const client = new Anthropic({ apiKey: anthropicKey });
+        const weekStr = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
+        const signalSummary = signals.length > 0
+          ? signals.map(s => `${s.sembol}: ${s.type} (${s.direction === 'yukari' ? '↑' : '↓'} ${s.severity})`).join(', ')
+          : 'Bu hafta güçlü sinyal yok';
+        const prompt = `Sen BistAI haftalık bülten editörüsün. Bugün ${weekStr}.
+Bu haftanın BIST sinyal özeti: ${signalSummary}
+
+Aboneler için kişisel, samimi ve aksiyon odaklı 3-4 cümlelik Türkçe haftalık piyasa yorumu yaz.
+- Genel piyasa havasını değerlendir
+- Bu haftaki öne çıkan sinyal/sektör varsa belirt
+- Yatırımcıya pratik bir bakış açısı sun
+- "Bu analiz yatırım tavsiyesi değildir" ile bitir
+Sadece yorumu yaz, başlık veya açıklama ekleme.`;
+        const msg = await client.messages.create({
+          model: 'claude-opus-4-6',
+          max_tokens: 256,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        aiYorum = msg.content[0]?.type === 'text' ? msg.content[0].text : '';
+      }
+    } catch { /* AI yorum opsiyonel — hata durumunda devam */ }
+
+    // 4. Her abone için email gönder
     const resend = getResend();
     let sentCount = 0;
 
@@ -270,7 +306,7 @@ export async function GET(request: Request) {
           };
         }
 
-        const html = buildHtml(portfolio, signals);
+        const html = buildHtml(portfolio, signals, aiYorum);
         await resend.emails.send({
           from: FROM,
           to: userEmail,
