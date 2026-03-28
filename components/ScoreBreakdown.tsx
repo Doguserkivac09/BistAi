@@ -6,12 +6,12 @@ import type { CompositeSignalResult, CompositeDecision } from '@/lib/composite-s
 
 // ─── Renk yardımcıları ────────────────────────────────────────────────────────
 
-const DECISION_STYLES: Record<CompositeDecision, { bg: string; text: string; border: string; label: string }> = {
-  STRONG_BUY:  { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'Güçlü AL' },
+const DECISION_STYLES: Record<CompositeDecision, { bg: string; text: string; border: string; label: string; ring?: string }> = {
+  STRONG_BUY:  { bg: 'bg-emerald-500/20', text: 'text-emerald-300', border: 'border-emerald-500/50', ring: 'ring-2 ring-emerald-500/30', label: 'Güçlü AL' },
   BUY:         { bg: 'bg-green-500/10',   text: 'text-green-400',   border: 'border-green-500/30',   label: 'AL' },
   HOLD:        { bg: 'bg-zinc-500/10',    text: 'text-zinc-400',    border: 'border-zinc-500/30',    label: 'TUT' },
   SELL:        { bg: 'bg-red-500/10',     text: 'text-red-400',     border: 'border-red-500/30',     label: 'SAT' },
-  STRONG_SELL: { bg: 'bg-red-600/15',     text: 'text-red-500',     border: 'border-red-600/30',     label: 'Güçlü SAT' },
+  STRONG_SELL: { bg: 'bg-red-700/20',     text: 'text-red-300',     border: 'border-red-600/50',     ring: 'ring-2 ring-red-600/30',     label: 'Güçlü SAT' },
 };
 
 function scoreColor(score: number): string {
@@ -139,7 +139,31 @@ export function ScoreBreakdown({ result, compact = false }: ScoreBreakdownProps)
   const style = DECISION_STYLES[decision];
 
   return (
-    <div className="rounded-xl border border-border bg-background/50 p-4 space-y-4">
+    <div className={cn('rounded-xl border bg-background/50 p-4 space-y-4', style.ring ?? 'border-border')}>
+      {/* Güçlü SAT uyarı banner */}
+      {decision === 'STRONG_SELL' && (
+        <motion.div
+          className="flex items-center gap-2 rounded-lg border border-red-600/40 bg-red-700/15 px-3 py-2 text-xs text-red-300"
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <span className="text-base leading-none">⚠️</span>
+          <span>Güçlü satış sinyali — pozisyon ve risk yönetimine dikkat edin.</span>
+        </motion.div>
+      )}
+      {/* Güçlü AL bilgi banner */}
+      {decision === 'STRONG_BUY' && (
+        <motion.div
+          className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300"
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <span className="text-base leading-none">✅</span>
+          <span>Güçlü alış sinyali — tüm katmanlar aynı yönü gösteriyor.</span>
+        </motion.div>
+      )}
       {/* Başlık + karar */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
