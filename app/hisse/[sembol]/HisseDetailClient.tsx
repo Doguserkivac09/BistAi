@@ -27,6 +27,8 @@ import type { OHLCVCandle, StockSignal } from '@/types';
 import { saveSignalPerformance } from '@/lib/performance';
 import { toast } from 'sonner';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
+import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
+import { PriceAlertButton } from '@/components/PriceAlertButton';
 
 // Lazy-load chart component (lightweight-charts ~40KB gzipped)
 const StockChart = lazy(() =>
@@ -519,6 +521,17 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     </Card>
                   );
                 })()}
+
+                {/* Temel Analiz */}
+                <TemelAnalizKarti sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
+
+                {/* Fiyat Alarmı */}
+                <div className="flex items-center gap-2 pt-1">
+                  <PriceAlertButton
+                    sembol={sembol}
+                    currentPrice={candles[candles.length - 1]?.close}
+                  />
+                </div>
               </div>
             </div>
 
