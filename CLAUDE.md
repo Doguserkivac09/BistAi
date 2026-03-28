@@ -63,6 +63,7 @@
 | **Step 5 AI Sohbet** — streaming chat, claude-opus-4-6, portföy bağlamı, günlük limit, tier gating | `app/api/chat/route.ts`, `app/sohbet/page.tsx`, `supabase/migrations/20260328_ai_chat_usage.sql` |
 | **Step 13 Makro Simülatör** — 12 senaryo (kur/faiz/global/emtia), sektör etki tablosu, tarihsel analiz, portföy yorumu | `app/api/simulasyon/route.ts`, `app/simulasyon/page.tsx` |
 | **Step 4 Explainable AI** — `buildKeyFactors` yeniden yazıldı: sinyal tazeliği, haftalık hizalama, baskın makro bileşen, sektör perf20d, çelişki uyarıları | `lib/composite-signal.ts` |
+| **Step 8 KAP AI özetleme** — `/api/kap/summarize` (claude-opus-4-6, 4s cache), HisseDetail'e "AI ile Özetle" butonu | `app/api/kap/summarize/route.ts`, `app/hisse/[sembol]/HisseDetailClient.tsx` |
 
 ## ✅ 2026-03-22 Oturumunda Tamamlananlar
 
@@ -618,7 +619,7 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 | 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ✅ Tamamlandı |
 | 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
 | 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ✅ Tamamlandı (CSV export eklendi) |
-| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
+| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | ✅ Tamamlandı |
 | 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
 | 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
 | 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ✅ Tamamlandı |

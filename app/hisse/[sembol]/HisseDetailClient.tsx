@@ -173,6 +173,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [haberLoading, setHaberLoading] = useState(true);
   const [kapDuyurular, setKapDuyurular] = useState<KapDuyuru[]>([]);
   const [kapLoading, setKapLoading]     = useState(true);
+  const [kapSummary, setKapSummary]     = useState<string | null>(null);
+  const [kapSumLoading, setKapSumLoading] = useState(false);
 
   // Hisse analizi (AI + fiyat hedefleri + hero meta)
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
@@ -613,7 +615,47 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             {/* ── TAM GENİŞLİK: KAP Duyuruları ────────────────────────────── */}
             {(kapLoading || kapDuyurular.length > 0) && (
               <div className="mt-6">
-                <SectionHeader>📋 KAP Duyuruları</SectionHeader>
+                <div className="flex items-center justify-between mb-3">
+                  <SectionHeader>📋 KAP Duyuruları</SectionHeader>
+                  {!kapLoading && kapDuyurular.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (kapSummary || kapSumLoading) return;
+                        setKapSumLoading(true);
+                        try {
+                          const res = await fetch('/api/kap/summarize', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ duyurular: kapDuyurular, sembol }),
+                          });
+                          const data = await res.json();
+                          if (data.summary) setKapSummary(data.summary);
+                        } catch { /* sessizce geç */ } finally {
+                          setKapSumLoading(false);
+                        }
+                      }}
+                      disabled={kapSumLoading || !!kapSummary}
+                      className="flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1.5 text-[11px] font-medium text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {kapSumLoading ? (
+                        <><span className="h-3 w-3 animate-spin rounded-full border border-violet-400 border-t-transparent" /> Analiz ediliyor…</>
+                      ) : kapSummary ? (
+                        <>✓ AI Özet hazır</>
+                      ) : (
+                        <>✨ AI ile Özetle</>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* AI KAP özeti */}
+                {kapSummary && (
+                  <div className="mb-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+                    <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider mb-2">AI KAP Analizi</p>
+                    <div className="text-xs text-text-secondary leading-relaxed whitespace-pre-line">{kapSummary}</div>
+                  </div>
+                )}
+
                 {kapLoading ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     {[1, 2].map(i => <div key={i} className="h-16 animate-pulse rounded-xl bg-surface" />)}
