@@ -31,6 +31,7 @@ import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { ScoreBreakdown } from '@/components/ScoreBreakdown';
 import type { CompositeSignalResult } from '@/lib/composite-signal';
+import type { KapDuyuru } from '@/lib/kap';
 
 // Lazy-load chart component (lightweight-charts ~40KB gzipped)
 const StockChart = lazy(() =>
@@ -170,6 +171,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [timeframe, setTimeframe]       = useState<TimeframeKey>('1d');
   const [haberler, setHaberler]         = useState<HaberItem[]>([]);
   const [haberLoading, setHaberLoading] = useState(true);
+  const [kapDuyurular, setKapDuyurular] = useState<KapDuyuru[]>([]);
+  const [kapLoading, setKapLoading]     = useState(true);
 
   // Hisse analizi (AI + fiyat hedefleri + hero meta)
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
@@ -206,6 +209,18 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   }, [sembol]);
 
   useEffect(() => { loadHaberler(); }, [loadHaberler]);
+
+  // ── KAP Duyuruları ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setKapLoading(true);
+    fetch(`/api/kap?sembol=${encodeURIComponent(sembol)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) setKapDuyurular(data?.duyurular ?? []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setKapLoading(false); });
+    return () => { cancelled = true; };
+  }, [sembol]);
 
   // ── OHLCV + Sinyaller ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -594,6 +609,47 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 <SinyalGecmisi sembol={sembol} />
               </div>
             </div>
+
+            {/* ── TAM GENİŞLİK: KAP Duyuruları ────────────────────────────── */}
+            {(kapLoading || kapDuyurular.length > 0) && (
+              <div className="mt-6">
+                <SectionHeader>📋 KAP Duyuruları</SectionHeader>
+                {kapLoading ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[1, 2].map(i => <div key={i} className="h-16 animate-pulse rounded-xl bg-surface" />)}
+                  </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {kapDuyurular.slice(0, 6).map(d => (
+                      <a
+                        key={d.id}
+                        href={d.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-3 rounded-xl border border-border bg-surface p-3 hover:border-primary/40 hover:bg-surface-alt transition-colors group"
+                      >
+                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-xs">📋</div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-text-primary group-hover:text-primary transition-colors line-clamp-2 leading-snug">
+                            {d.baslik}
+                          </p>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
+                            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400">{d.kategoriAdi}</span>
+                            {d.tarih && <span>{new Date(d.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span>}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-text-muted group-hover:text-primary transition-colors text-xs">↗</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {!kapLoading && kapDuyurular.length > 6 && (
+                  <div className="mt-2 text-right">
+                    <Link href="/kap" className="text-xs text-primary hover:underline">Tüm KAP duyurularını gör →</Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── TAM GENİŞLİK: Haberler ──────────────────────────────────── */}
             <div className="mt-2">

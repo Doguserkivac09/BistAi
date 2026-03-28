@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,7 @@ const navItems = [
       { href: '/makro',            label: 'Makro Radar',       icon: BarChart2 },
       { href: '/ekonomi-takvimi', label: 'Ekonomi Takvimi',   icon: CalendarClock },
       { href: '/haberler',         label: 'Haberler',           icon: Newspaper },
+      { href: '/kap',              label: 'KAP Duyuruları',     icon: FileText },
       { href: '/araclar',          label: 'Araçlar',            icon: Calculator },
     ],
   },
