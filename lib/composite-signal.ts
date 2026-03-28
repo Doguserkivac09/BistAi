@@ -112,7 +112,7 @@ export function calculateCompositeSignal(
   const emoji = getDecisionEmoji(decision);
 
   // 8. Bağlam (AI açıklama için)
-  const keyFactors = buildKeyFactors(technicalScore, macroScoreValue, sectorScore, riskAdjustment, macroScore, sectorMomentum);
+  const keyFactors = buildKeyFactors(technicalScore, macroScoreValue, sectorScore, riskAdjustment, macroScore, sectorMomentum, signal);
 
   const context: CompositeContext = {
     signalType: signal.type,
@@ -322,43 +322,98 @@ function buildKeyFactors(
   sectorScore: number,
   riskAdj: number,
   macroResult: MacroScoreResult | null,
-  sectorMomentum: SectorMomentum | null
+  sectorMomentum: SectorMomentum | null,
+  signal?: StockSignal | null
 ): string[] {
   const factors: string[] = [];
 
-  // Teknik
-  if (Math.abs(technicalScore) >= 60) {
-    factors.push(`Güçlü teknik sinyal (skor: ${technicalScore})`);
-  } else if (Math.abs(technicalScore) >= 30) {
-    factors.push(`Orta teknik sinyal (skor: ${technicalScore})`);
+  // ── 1. Teknik sinyal kalitesi ────────────────────────────────────
+  const absTs = Math.abs(technicalScore);
+  if (absTs >= 70) {
+    const sevLabel = signal?.severity === 'güçlü' ? 'güçlü' : 'yüksek';
+    factors.push(`Teknik momentum ${sevLabel}: sinyal skoru ${technicalScore > 0 ? '+' : ''}${technicalScore}`);
+  } else if (absTs >= 40) {
+    factors.push(`Orta düzey teknik sinyal (${technicalScore > 0 ? '+' : ''}${technicalScore})`);
+  } else if (absTs > 0) {
+    factors.push(`Zayıf teknik sinyal — ek doğrulama önerilir`);
   }
 
-  // Makro
+  // Sinyal tazeliği
+  if (signal?.candlesAgo != null) {
+    if (signal.candlesAgo === 0) {
+      factors.push('Sinyal bugün tetiklendi — taze');
+    } else if (signal.candlesAgo <= 2) {
+      factors.push(`Sinyal ${signal.candlesAgo} gün önce tetiklendi — güncel`);
+    } else if (signal.candlesAgo >= 5) {
+      factors.push(`Sinyal ${signal.candlesAgo} gün önce tetiklendi — eskiyor`);
+    }
+  }
+
+  // Haftalık hizalama
+  if (signal?.weeklyAligned === true) {
+    factors.push('Günlük + haftalık trend uyumlu — güçlü onay');
+  } else if (signal?.weeklyAligned === false) {
+    factors.push('Haftalık trend çelişiyor — daha zayıf sinyal');
+  }
+
+  // ── 2. Makro rüzgar detayı ───────────────────────────────────────
   if (macroResult) {
-    if (macroScoreVal > 20) {
-      factors.push(`Makro rüzgar destekliyor: ${macroResult.label}`);
-    } else if (macroScoreVal < -20) {
-      factors.push(`Makro rüzgar karşı: ${macroResult.label}`);
+    const absMacro = Math.abs(macroScoreVal);
+    if (absMacro >= 40) {
+      const dir = macroScoreVal > 0 ? 'destekliyor' : 'baskılıyor';
+      factors.push(`Makro rüzgar ${dir} (${macroResult.label}, skor: ${macroScoreVal > 0 ? '+' : ''}${macroScoreVal})`);
+    } else if (absMacro >= 15) {
+      factors.push(`Makro ${macroScoreVal > 0 ? 'hafif olumlu' : 'hafif olumsuz'}: ${macroResult.label}`);
+    }
+
+    // En güçlü/zayıf makro bileşeni
+    if (macroResult.components.length > 0) {
+      const sorted = [...macroResult.components].sort((a, b) => Math.abs(b.rawScore) - Math.abs(a.rawScore));
+      const dominant = sorted[0];
+      if (dominant && Math.abs(dominant.rawScore) >= 50) {
+        const dir2 = dominant.rawScore > 0 ? '▲' : '▼';
+        factors.push(`Baskın faktör: ${dominant.name} ${dir2} — ${dominant.detail}`);
+      }
     }
   }
 
-  // Sektör
+  // Makro-sinyal çelişkisi
+  const signalIsUp = (signal?.direction ?? 'yukari') !== 'asagi';
+  const macroIsPos = macroScoreVal > 0;
+  if (Math.abs(macroScoreVal) > 25 && signalIsUp !== macroIsPos) {
+    factors.push('⚠️ Teknik sinyal ile makro rüzgar çelişiyor — dikkatli olun');
+  }
+
+  // ── 3. Sektör momentum detayı ────────────────────────────────────
   if (sectorMomentum) {
-    if (sectorScore > 20) {
-      factors.push(`${sectorMomentum.shortName} sektörü güçlü momentum`);
-    } else if (sectorScore < -20) {
-      factors.push(`${sectorMomentum.shortName} sektörü zayıf momentum`);
+    const absSector = Math.abs(sectorScore);
+    if (absSector >= 40) {
+      const perf = sectorMomentum.perf20d;
+      const perfStr = perf != null ? ` (20g: ${perf > 0 ? '+' : ''}${perf.toFixed(1)}%)` : '';
+      factors.push(
+        `${sectorMomentum.shortName} sektörü ${sectorScore > 0 ? 'güçlü ↑' : 'zayıf ↓'} momentum${perfStr}`
+      );
+    } else if (absSector >= 20) {
+      factors.push(`${sectorMomentum.shortName} sektörü ${sectorScore > 0 ? 'olumlu' : 'olumsuz'} seyirde`);
+    }
+
+    // Makro-sektör uyum bilgisi
+    if (Math.abs(sectorMomentum.macroAlignment) >= 30) {
+      const align = sectorMomentum.macroAlignment > 0 ? 'destekliyor' : 'baskılıyor';
+      factors.push(`Makro ortam bu sektörü ${align}`);
     }
   }
 
-  // Risk
-  if (riskAdj < -10) {
-    factors.push('Yüksek piyasa riski güveni düşürüyor');
-  } else if (riskAdj > 0) {
-    factors.push('Düşük risk ortamı güveni artırıyor');
+  // ── 4. Risk ortamı ───────────────────────────────────────────────
+  if (riskAdj <= -25) {
+    factors.push('🚨 Kritik risk seviyesi — tüm sinyallerin güvenilirliği düşük');
+  } else if (riskAdj <= -10) {
+    factors.push('Yüksek piyasa riski güven skorunu düşürüyor');
+  } else if (riskAdj >= 5) {
+    factors.push('Düşük volatilite ortamı güveni artırıyor');
   }
 
-  return factors;
+  return factors.slice(0, 6); // maksimum 6 faktör
 }
 
 // ── Yardımcı ────────────────────────────────────────────────────────
