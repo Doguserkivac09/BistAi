@@ -10,9 +10,9 @@
  * Opus kısmı (AI öneri prompt + kişiselleştirilmiş analiz) sonraya bırakıldı.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, Compass, RefreshCw, Eye, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Compass, RefreshCw, Eye, Info, Sparkles, Bot } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { SECTORS, getSectorId, getAllSectors } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
@@ -147,6 +147,10 @@ export default function TersPortfolyoPage() {
   const [sectorLoading, setSectorLoading] = useState(true);
   const [loggedIn,      setLoggedIn]      = useState<boolean | null>(null);
   const [sadeceCPh,     setSadeceCPh]     = useState(false); // sadece çıkmış potansiyel
+  const [aiAnaliz,      setAiAnaliz]      = useState('');
+  const [aiLoading,     setAiLoading]     = useState(false);
+  const [aiError,       setAiError]       = useState<string | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
 
   // 1. Auth + Portföy + Watchlist
   useEffect(() => {
@@ -269,6 +273,86 @@ export default function TersPortfolyoPage() {
             )}
           </p>
         </div>
+
+        {/* AI Analiz Butonu + Panel */}
+        {!loading && loggedIn && (
+          <div className="mb-5">
+            {!aiAnaliz && (
+              <button
+                onClick={async () => {
+                  if (aiLoading) return;
+                  setAiError(null);
+                  setAiLoading(true);
+                  setAiAnaliz('');
+                  aiAbortRef.current = new AbortController();
+                  try {
+                    const res = await fetch('/api/ters-portfolyo', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({}),
+                      signal: aiAbortRef.current.signal,
+                    });
+                    if (!res.ok) {
+                      const d = await res.json().catch(() => ({}));
+                      setAiError(d.error ?? 'Bir hata oluştu.');
+                      return;
+                    }
+                    const reader = res.body?.getReader();
+                    if (!reader) return;
+                    const dec = new TextDecoder();
+                    let acc = '';
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+                      for (const line of dec.decode(value, { stream: true }).split('\n')) {
+                        if (!line.startsWith('data: ')) continue;
+                        try {
+                          const p = JSON.parse(line.slice(6));
+                          if (p.text) { acc += p.text; setAiAnaliz(acc); }
+                          if (p.error) setAiError(p.error);
+                        } catch { /* ignore */ }
+                      }
+                    }
+                  } catch (e) {
+                    if ((e as Error).name !== 'AbortError') setAiError('Bağlantı hatası.');
+                  } finally {
+                    setAiLoading(false);
+                  }
+                }}
+                disabled={aiLoading}
+                className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm font-medium text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+              >
+                {aiLoading
+                  ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> AI analiz ediliyor…</>
+                  : <><Sparkles className="h-3.5 w-3.5" /> AI ile Fırsat Analizi Yap</>
+                }
+              </button>
+            )}
+
+            {aiError && (
+              <p className="mt-2 text-xs text-red-400">{aiError}</p>
+            )}
+
+            {aiAnaliz && (
+              <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Bot className="h-4 w-4 text-violet-400" />
+                  <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Portföy Analizi</span>
+                  <button
+                    onClick={() => { setAiAnaliz(''); setAiError(null); }}
+                    className="ml-auto text-[11px] text-text-muted hover:text-text-secondary transition-colors"
+                  >
+                    Kapat
+                  </button>
+                </div>
+                <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">
+                  {aiAnaliz}
+                  {aiLoading && <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filtreler */}
         <div className="mb-5 flex items-center gap-3 flex-wrap">
