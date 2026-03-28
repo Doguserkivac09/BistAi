@@ -446,6 +446,7 @@ function TaramaPageInner() {
   const [onlyWeeklyAligned,  setOnlyWeeklyAligned]  = useState(false);
   const [onlyStrong,         setOnlyStrong]         = useState(false);
   const [onlyHighConfluence, setOnlyHighConfluence] = useState(false);
+  const [onlyStrongSectors,  setOnlyStrongSectors]  = useState(false);
   const [sortBy,             setSortBy]             = useState<SortBy>('confluence');
   const [viewMode,           setViewMode]           = useState<'grid' | 'list'>('grid');
   const [searchQuery,        setSearchQuery]        = useState('');
@@ -626,7 +627,7 @@ function TaramaPageInner() {
 
   const clearFilters = useCallback(() => {
     setSignalType('Tümü'); setDirection('Tümü');
-    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false);
+    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyStrongSectors(false);
     setSearchQuery('');
   }, []);
 
@@ -666,10 +667,18 @@ function TaramaPageInner() {
   const filteredBySearch = searchUpper
     ? rawDisplayList.filter(r => r.sembol.includes(searchUpper))
     : rawDisplayList;
-  const displayList = sektorParam
+  const filteredBySector = sektorParam
     ? filteredBySearch.filter(r => getSectorId(r.sembol) === sektorParam)
     : filteredBySearch;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, !!searchUpper].filter(Boolean).length;
+  const displayList = onlyStrongSectors
+    ? filteredBySector.filter(r => {
+        const hasBullish = r.signals.some(s => s.direction === 'yukari');
+        if (!hasBullish) return true; // bearish/nötr sinyalleri etkileme
+        const sector = sectorMap.get(getSector(r.sembol).id);
+        return !sector || sector.direction !== 'asagi';
+      })
+    : filteredBySector;
+  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!searchUpper].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -772,6 +781,7 @@ function TaramaPageInner() {
               <Chip active={onlyWeeklyAligned}  onClick={() => setOnlyWeeklyAligned(v => !v)}>W✓ Haftalık</Chip>
               <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
               <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)}>Yüksek Güven</Chip>
+              <Chip active={onlyStrongSectors}   onClick={() => setOnlyStrongSectors(v => !v)}>Güçlü Sektör</Chip>
             </>
           )}
         </div>

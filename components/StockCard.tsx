@@ -106,6 +106,17 @@ function SectorBadge({ momentum }: { momentum: SectorMomentum }) {
   );
 }
 
+function SectorConflictBadge() {
+  return (
+    <span
+      title="Sektör geneli düşüş trendinde — bu bullish sinyal daha az güvenilir olabilir"
+      className="inline-flex items-center gap-0.5 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-400"
+    >
+      ⚠ Sektör Zayıf
+    </span>
+  );
+}
+
 function MTFBadge({ aligned }: { aligned: boolean }) {
   return aligned ? (
     <span
@@ -173,6 +184,7 @@ function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum
     <div className="flex flex-wrap items-center gap-1">
       {compositeResult && <CompositeBadge result={compositeResult} />}
       {!compositeResult && sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
+      {!compositeResult && sectorMomentum && sectorMomentum.direction === 'asagi' && signal.direction === 'yukari' && <SectorConflictBadge />}
       {!compositeResult && macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
       {confluence && <ConfluenceBadge result={confluence} />}
       {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
