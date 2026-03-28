@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,9 +19,10 @@ const navItems = [
     label: 'Portföy',
     dropdown: [
       { href: '/portfolyo',       label: 'Portföyüm',      icon: Briefcase },
-      { href: '/watchlist',       label: 'Watchlist',       icon: Star },
-      { href: '/fiyat-alertler',  label: 'Fiyat Alarmları', icon: Bell },
-      { href: '/karsilastir',     label: 'Karşılaştır',     icon: GitCompare },
+      { href: '/watchlist',        label: 'Watchlist',        icon: Star },
+      { href: '/fiyat-alertler',  label: 'Fiyat Alarmları',  icon: Bell },
+      { href: '/ters-portfolyo',  label: 'Fırsatlar',        icon: Compass },
+      { href: '/karsilastir',     label: 'Karşılaştır',      icon: GitCompare },
     ],
   },
   {

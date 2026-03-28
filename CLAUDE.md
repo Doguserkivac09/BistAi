@@ -57,6 +57,11 @@
 | **ScoreBreakdown** — Kompozit skor görselleştirmesi (Berk) | `components/ScoreBreakdown.tsx` |
 | **Avatar sistemi** — profil avatar yükleme/seçme (Berk) | `app/api/profile/avatar/route.ts`, `public/avatars/` |
 | **CLAUDE.md** — Q3-Q6 ✅, Phase 14.3/14.5 ✅, roadmap eklendi | `CLAUDE.md` |
+| **Step 4** — Portfolyo CSV export + GÜÇLÜ SAT badge (ScoreBreakdown ring+banner) | `app/portfolyo/page.tsx`, `components/ScoreBreakdown.tsx` |
+| **Step 8** — KAP Duyuruları sayfası + API + lib + Navbar + HisseDetail KAP bölümü | `lib/kap.ts`, `app/api/kap/route.ts`, `app/kap/page.tsx`, `components/NavbarClient.tsx`, `app/hisse/[sembol]/HisseDetailClient.tsx` |
+| **Step 10** — Haftalık Piyasa Bülteni cron + profil toggle + Supabase migration | `app/api/cron/bulten/route.ts`, `app/profil/page.tsx`, `app/api/profile/route.ts`, `vercel.json` |
+| **Step 12** — Ters Portföy (Portföy Dışı Fırsatlar) UI — sektör bazlı, momentum sıralı | `app/ters-portfolyo/page.tsx`, `components/NavbarClient.tsx` |
+| **VixChart.tsx silindu** — hiçbir yerde kullanılmıyordu | `components/VixChart.tsx` |
 
 ## ✅ 2026-03-22 Oturumunda Tamamlananlar
 
@@ -616,7 +621,7 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 | 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
 | 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
 | 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ✅ Tamamlandı |
-| 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | ⬜ |
+| 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
 | 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ⬜ |
 
 > **Model Kuralı:** 🔴 Opus = algoritma tasarımı, AI prompt mühendisliği, karmaşık mantık, streaming API
