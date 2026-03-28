@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import Link from 'next/link';
+import { PriceAlertButton } from '@/components/PriceAlertButton';
 
 // ─── Tipler ───────────────────────────────────────────────────────────────────
 
@@ -260,6 +261,7 @@ function WatchRow({
           >
             <Briefcase className="h-4 w-4" />
           </button>
+          <PriceAlertButton sembol={item.sembol} currentPrice={fiyat?.fiyat} />
           <button
             onClick={() => onDelete(item.id)}
             className="rounded-lg p-1.5 text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
