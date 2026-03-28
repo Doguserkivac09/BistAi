@@ -29,9 +29,8 @@
 ### ~~🟠 2. Anlık Uyarı Sistemi — Phase 14.2~~ ✅ TAMAMLANDI
 - **Test edildi ve çalışıyor** — Her iş günü 10:30 TRT'de gönderilir
 
-### 🟠 3. Portföy Performans Grafiği — Phase 14.1 ek
-- `/portfolyo` sayfası mevcut, eksik: zaman içinde değer değişimi grafiği
-- Portföydeki hisseler için otomatik sinyal uyarısı bağlantısı
+### ~~🟠 3. Portföy Performans Grafiği — Phase 14.1 ek~~ ✅ TAMAMLANDI
+- `components/PortfolioPerformanceChart.tsx` mevcut ve `app/portfolyo/page.tsx`'e entegre edildi
 
 ### ~~🟡 4. Backtest Veri Sorunu — Phase 14.3~~ ✅ TAMAMLANDI
 - `app/api/dev/seed-backtest/route.ts` — 120 sentetik kayıt üretir, `POST /api/dev/seed-backtest` ile çalıştır
@@ -39,10 +38,9 @@
 ### ~~🟡 5. Mobil PWA — Phase 14.5~~ ✅ TAMAMLANDI
 - `public/manifest.json` + `public/sw.js` + `public/icons/` → layout.tsx'de `manifest: '/manifest.json'`
 
-### 🟡 6. Code Quality — Teknik Borç
-- Kullanılmayan dosyalar temizliği (ör: `components/VixChart.tsx` hiçbir yerde import edilmiyor)
-- Unused import temizliği
-- Type safety iyileştirmeleri
+### ~~🟡 6. Code Quality — Teknik Borç~~ ✅ TAMAMLANDI
+- `components/VixChart.tsx` silindi (kullanılmıyordu)
+- TypeScript `npx tsc --noEmit` — sıfır hata
 
 ---
 
@@ -617,7 +615,7 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 | 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ⬜ |
 | 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
 | 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ✅ Tamamlandı (CSV export eklendi) |
-| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | ⬜ |
+| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
 | 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
 | 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
 | 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ✅ Tamamlandı |
