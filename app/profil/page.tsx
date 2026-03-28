@@ -284,10 +284,12 @@ export default function ProfilPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
-  const [emailEnabled, setEmailEnabled]   = useState(true);
-  const [minSeverity, setMinSeverity]     = useState<'güçlü' | 'orta' | 'zayıf'>('orta');
-  const [signalTypes, setSignalTypes]     = useState<string[]>([]);
-  const [prefSaving, setPrefSaving]       = useState(false);
+  const [emailEnabled, setEmailEnabled]       = useState(true);
+  const [minSeverity, setMinSeverity]         = useState<'güçlü' | 'orta' | 'zayıf'>('orta');
+  const [signalTypes, setSignalTypes]         = useState<string[]>([]);
+  const [prefSaving, setPrefSaving]           = useState(false);
+  const [newsletterEnabled, setNewsletterEnabled] = useState(false);
+  const [newsletterSaving, setNewsletterSaving]   = useState(false);
   const searchParams = useSearchParams();
 
   const [displayName, setDisplayName] = useState('');
@@ -304,6 +306,7 @@ export default function ProfilPage() {
       setProfile(data);
       setDisplayName(data.display_name ?? '');
       setBio(data.bio ?? '');
+      setNewsletterEnabled(data.newsletter_enabled ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Profil yüklenemedi');
     } finally {
@@ -341,6 +344,17 @@ export default function ProfilPage() {
         body: JSON.stringify({ email_enabled: enabled, min_severity: severity, signal_types: types }),
       });
     } catch {} finally { setPrefSaving(false); }
+  }
+
+  async function saveNewsletterPref(enabled: boolean) {
+    setNewsletterSaving(true);
+    try {
+      await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newsletter_enabled: enabled }),
+      });
+    } catch {} finally { setNewsletterSaving(false); }
   }
 
   useEffect(() => {
@@ -694,6 +708,32 @@ export default function ProfilPage() {
                   </div>
                 </div>
               )}
+
+              {/* Haftalık Bülten Toggle */}
+              <div className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-4 py-3">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-primary/70" />
+                    <span className="text-sm font-medium text-text-primary">Haftalık Piyasa Bülteni</span>
+                  </div>
+                  <span className="text-xs text-text-muted ml-6">Her Pazartesi sabahı portföy özeti + en güçlü sinyaller</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = !newsletterEnabled;
+                    setNewsletterEnabled(next);
+                    saveNewsletterPref(next);
+                  }}
+                  disabled={newsletterSaving}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 ${
+                    newsletterEnabled ? 'bg-primary' : 'bg-border'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    newsletterEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
 
               {emailEnabled && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">

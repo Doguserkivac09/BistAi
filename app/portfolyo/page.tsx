@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   TrendingUp, TrendingDown, Plus, Trash2, RefreshCw,
   Briefcase, AlertCircle, X, ChevronUp, ChevronDown, Bell, BellOff, BarChart2,
-  Pencil, ChevronsUpDown,
+  Pencil, ChevronsUpDown, Download,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import type { PortfolyoPozisyonWithStats } from '@/types';
@@ -608,6 +608,30 @@ export default function PortfolyoPage() {
   const [bist100Return, setBist100Return] = useState<number | null>(null);
   const [initialSembol, setInitialSembol] = useState('');
 
+  function downloadCSV() {
+    const headers = ['Sembol', 'Miktar', 'Alış Fiyatı', 'Alış Tarihi', 'Güncel Fiyat', 'Maliyet (₺)', 'Güncel Değer (₺)', 'K/Z (₺)', 'K/Z (%)', 'Notlar'];
+    const rows = pozisyonlar.map(p => [
+      p.sembol,
+      p.miktar,
+      p.alis_fiyati.toFixed(2),
+      p.alis_tarihi,
+      p.guncel_fiyat?.toFixed(2) ?? '',
+      p.maliyet.toFixed(2),
+      p.guncel_deger?.toFixed(2) ?? '',
+      p.kar_zarar?.toFixed(2) ?? '',
+      p.kar_zarar_yuzde?.toFixed(2) ?? '',
+      p.notlar ?? '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bistai-portfolyo-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // URL ?add=SEMBOL parametresini oku
   useEffect(() => {
     const addSembol = searchParams.get('add');
@@ -860,6 +884,16 @@ export default function PortfolyoPage() {
               )}
             </div>
 
+            {pozisyonlar.length > 0 && (
+              <button
+                onClick={downloadCSV}
+                title="Portföyü CSV olarak indir"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:border-text-muted transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                CSV
+              </button>
+            )}
             <button
               onClick={() => loadPozisyonlar(true)}
               disabled={refreshing}

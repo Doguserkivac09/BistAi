@@ -17,6 +17,7 @@ export interface ProfileResponse {
   bio: string | null;
   tier: 'free' | 'pro' | 'premium';
   email: string | null;
+  newsletter_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -33,7 +34,7 @@ export async function GET() {
     // Profili çek
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, bio, tier, created_at, updated_at')
+      .select('id, display_name, avatar_url, bio, tier, newsletter_enabled, created_at, updated_at')
       .eq('id', user.id)
       .single();
 
@@ -102,6 +103,9 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Geçersiz avatar URL.' }, { status: 400 });
       }
       allowedFields.avatar_url = url || null;
+    }
+    if (typeof body.newsletter_enabled === 'boolean') {
+      allowedFields.newsletter_enabled = body.newsletter_enabled;
     }
 
     if (Object.keys(allowedFields).length === 0) {
