@@ -9,7 +9,7 @@
  * - Özel durum/finansal rapor → hangi sinyali güçlendirir/zayıflatır?
  * - Yatırımcının dikkat etmesi gerekenler
  *
- * Model: claude-opus-4-6
+ * Model: claude-haiku-4-5-20251001 (özetleme görevi için yeterli)
  * Cache: 4 saat (aynı sembol için tekrar çağrılmaz)
  * Rate limit: 20 req/dakika per IP
  * Auth: zorunlu
@@ -24,7 +24,7 @@ import type { KapDuyuru } from '@/lib/kap';
 
 const RATE_LIMIT = 20;
 const WINDOW_MS  = 60_000;
-const CACHE_TTL  = 4 * 60 * 60 * 1000; // 4 saat
+const CACHE_TTL  = 12 * 60 * 60 * 1000; // 12 saat (KAP duyuruları günde 1-2 kez gelir)
 
 // ── In-memory cache ──────────────────────────────────────────────────
 
@@ -170,8 +170,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const msg = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 1024,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 700,
       messages: [{ role: 'user', content: prompt }],
     });
 

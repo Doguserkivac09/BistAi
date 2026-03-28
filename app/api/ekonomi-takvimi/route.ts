@@ -9,10 +9,11 @@
  * - BIST için olası etki senaryoları
  * - Hangi sektörler/hisseler daha fazla etkilenebilir?
  *
- * Model: claude-opus-4-6
- * Cache: 8 saat (aynı event seti için)
+ * Model: claude-haiku-4-5-20251001 (hızlı + ucuz, format görevi)
+ * Cache: 24 saat (günlük takvim verisi çok değişmez)
  * Rate limit: 15 req/dakika per IP
  * Auth: zorunlu
+ * Tier: Pro/Premium
  */
 
 import { NextRequest } from 'next/server';
@@ -24,7 +25,7 @@ import type { EkonomiEvent } from '@/lib/ekonomi-takvimi';
 
 const RATE_LIMIT = 15;
 const WINDOW_MS  = 60_000;
-const CACHE_TTL  = 8 * 60 * 60 * 1000; // 8 saat
+const CACHE_TTL  = 24 * 60 * 60 * 1000; // 24 saat (günlük takvim verisi)
 
 const yorumCache = new Map<string, { yorum: string; ts: number }>();
 
@@ -142,6 +143,20 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Tier gate — sadece Pro/Premium
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('tier')
+    .eq('id', user.id)
+    .single();
+  const tier = (profile?.tier as string) ?? 'free';
+  if (tier === 'free') {
+    return new Response(JSON.stringify({
+      error: 'AI Takvim Yorumu Pro ve Premium planlarda kullanılabilir.',
+      upgrade: true,
+    }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+
   let events: EkonomiEvent[] = [];
   try {
     const body = await request.json();
@@ -189,8 +204,8 @@ export async function POST(request: NextRequest) {
       try {
         let acc = '';
         const s = client.messages.stream({
-          model: 'claude-opus-4-6',
-          max_tokens: 1024,
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 800,
           messages: [{ role: 'user', content: prompt }],
         });
         for await (const chunk of s) {

@@ -9,7 +9,7 @@
  * - Momentum güçlü sektörlerden hangi hisseler öne çıkıyor?
  * - Çeşitlendirme fırsatları nerede?
  *
- * Model: claude-opus-4-6
+ * Model: claude-sonnet-4-6 (portföy analizi için dengeli seçim)
  * Cache: 6 saat (portföy değişmediği sürece geçerli)
  * Rate limit: 10 req/dakika per IP
  * Auth: zorunlu
@@ -162,6 +162,20 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Tier gate — sadece Pro/Premium
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('tier')
+    .eq('id', user.id)
+    .single();
+  const tier = (profile?.tier as string) ?? 'free';
+  if (tier === 'free') {
+    return new Response(JSON.stringify({
+      error: 'AI Portföy Analizi Pro ve Premium planlarda kullanılabilir.',
+      upgrade: true,
+    }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'AI servisi yapılandırılmamış.' }), {
@@ -190,8 +204,8 @@ export async function POST(request: NextRequest) {
       try {
         let accumulated = '';
         const s = client.messages.stream({
-          model: 'claude-opus-4-6',
-          max_tokens: 1536,
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1000,
           messages: [{ role: 'user', content: prompt }],
         });
 

@@ -10,9 +10,11 @@
  * - Portföy etki tahmini (varsa)
  * - Aksiyon önerileri
  *
- * Model: claude-opus-4-6
+ * Model: claude-sonnet-4-6 (maliyet/kalite dengesi)
  * Rate limit: 10 req/dakika per IP
  * Auth: zorunlu
+ * Tier: Pro/Premium (free kullanıcılar erişemez)
+ * Cache: 6 saat (aynı senaryo + büyüklük için)
  */
 
 import { NextRequest } from 'next/server';
@@ -20,9 +22,50 @@ import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
+import { checkAndRecordAiBudget } from '@/lib/ai-budget';
 
 const RATE_LIMIT = 10;
 const WINDOW_MS  = 60_000;
+const CACHE_TTL  = 6 * 60 * 60 * 1000; // 6 saat
+
+const simCache = new Map<string, { result: string; ts: number }>();
+
+function simCacheKey(scenario: { type: string; magnitude: string }): string {
+  const date = new Date().toISOString().slice(0, 10);
+  return `sim:${date}:${scenario.type}:${scenario.magnitude}`;
+}
+
+async function getDbCache(key: string): Promise<string | null> {
+  try {
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data } = await admin
+      .from('ai_cache')
+      .select('explanation')
+      .eq('cache_key', key)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+    return data?.explanation ?? null;
+  } catch { return null; }
+}
+
+async function setDbCache(key: string, result: string): Promise<void> {
+  try {
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    await admin.from('ai_cache').upsert({
+      cache_key: key,
+      explanation: result,
+      version: 5,
+      hit_count: 0,
+      expires_at: new Date(Date.now() + CACHE_TTL).toISOString(),
+    }, { onConflict: 'cache_key' });
+  } catch { /* sessizce geç */ }
+}
 
 // ── Senaryo tipleri ─────────────────────────────────────────────────
 
@@ -153,6 +196,28 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Tier gate — sadece Pro/Premium
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('tier')
+    .eq('id', user.id)
+    .single();
+  const tier = (profile?.tier as string) ?? 'free';
+  if (tier === 'free') {
+    return new Response(JSON.stringify({
+      error: 'Makro Simülatör Pro ve Premium planlarda kullanılabilir.',
+      upgrade: true,
+    }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Global günlük bütçe kontrolü
+  const budget = await checkAndRecordAiBudget();
+  if (!budget.allowed) {
+    return new Response(JSON.stringify({
+      error: 'AI servisi bugün günlük limitine ulaştı. Yarın tekrar deneyin.',
+    }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+  }
+
   let scenario: SimulationScenario;
   try {
     const body = await request.json();
@@ -172,6 +237,21 @@ export async function POST(request: NextRequest) {
   }
 
   const portfolioStr = await getPortfolioSummary(user.id);
+
+  // Cache kontrolü (customNote yoksa cache'lenebilir)
+  const cKey = !scenario.customNote ? simCacheKey(scenario) : null;
+  if (cKey) {
+    const mem = simCache.get(cKey);
+    if (mem && Date.now() - mem.ts < CACHE_TTL) {
+      return Response.json({ result: mem.result, cached: true });
+    }
+    const db = await getDbCache(cKey);
+    if (db) {
+      simCache.set(cKey, { result: db, ts: Date.now() });
+      return Response.json({ result: db, cached: true });
+    }
+  }
+
   const prompt = buildPrompt(scenario, portfolioStr);
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();
@@ -179,9 +259,10 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
+        let acc = '';
         const s = client.messages.stream({
-          model: 'claude-opus-4-6',
-          max_tokens: 2048,
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1200,
           messages: [{ role: 'user', content: prompt }],
         });
 
@@ -190,10 +271,15 @@ export async function POST(request: NextRequest) {
             chunk.type === 'content_block_delta' &&
             chunk.delta.type === 'text_delta'
           ) {
+            acc += chunk.delta.text;
             controller.enqueue(encoder.encode(
               `data: ${JSON.stringify({ text: chunk.delta.text })}\n\n`
             ));
           }
+        }
+        if (cKey && acc) {
+          simCache.set(cKey, { result: acc, ts: Date.now() });
+          await setDbCache(cKey, acc);
         }
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
       } catch (err) {

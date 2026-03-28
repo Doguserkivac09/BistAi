@@ -7,10 +7,10 @@
  * Kullanıcı portföyü + güncel sinyaller + makro durumu ile
  * kişiselleştirilmiş BIST yatırım asistanı.
  *
- * Model: claude-opus-4-6 (karmaşık finansal muhakeme için)
+ * Model: claude-sonnet-4-6 (maliyet/kalite dengesi)
  * Rate limit: 20 mesaj/dakika per IP
  * Auth: zorunlu (giriş yapmış kullanıcı)
- * Tier gating: free → 5 mesaj/gün, pro → 50/gün, premium → sınırsız
+ * Tier gating: free → 3 mesaj/gün, pro → 30/gün, premium → 100/gün
  */
 
 import { NextRequest } from 'next/server';
@@ -18,15 +18,16 @@ import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
+import { checkAndRecordAiBudget } from '@/lib/ai-budget';
 
 const RATE_LIMIT = 20;
 const WINDOW_MS = 60_000;
 
 // Günlük mesaj limitleri (tier başına)
 const DAILY_LIMITS: Record<string, number> = {
-  free: 5,
-  pro: 50,
-  premium: 99999,
+  free: 3,
+  pro: 30,
+  premium: 100,
 };
 
 export interface ChatMessage {
@@ -177,10 +178,19 @@ export async function POST(request: NextRequest) {
 
   if (dailyCount >= dailyLimit) {
     return new Response(JSON.stringify({
-      error: `Günlük ${dailyLimit} mesaj limitine ulaştınız. ${tier === 'free' ? 'Pro plana geçerek 50 mesaja çıkabilirsiniz.' : 'Yarın tekrar deneyin.'}`,
+      error: `Günlük ${dailyLimit} mesaj limitine ulaştınız. ${tier === 'free' ? 'Pro plana geçerek 30 mesaja çıkabilirsiniz.' : 'Yarın tekrar deneyin.'}`,
       limitReached: true,
       tier,
     }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Global günlük bütçe kontrolü
+  const budget = await checkAndRecordAiBudget();
+  if (!budget.allowed) {
+    return new Response(JSON.stringify({
+      error: 'AI servisi bugün günlük limitine ulaştı. Yarın tekrar deneyin.',
+      limitReached: true,
+    }), { status: 503, headers: { 'Content-Type': 'application/json' } });
   }
 
   // Body parse
@@ -235,8 +245,8 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       try {
         const anthropicStream = client.messages.stream({
-          model: 'claude-opus-4-6',
-          max_tokens: 1024,
+          model: 'claude-sonnet-4-6',
+          max_tokens: 800,
           system: systemPrompt,
           messages: messages.map(m => ({ role: m.role, content: m.content })),
         });

@@ -239,8 +239,8 @@ Aboneler için kişisel, samimi ve aksiyon odaklı 3-4 cümlelik Türkçe haftal
 - "Bu analiz yatırım tavsiyesi değildir" ile bitir
 Sadece yorumu yaz, başlık veya açıklama ekleme.`;
         const msg = await client.messages.create({
-          model: 'claude-opus-4-6',
-          max_tokens: 256,
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 200,
           messages: [{ role: 'user', content: prompt }],
         });
         aiYorum = msg.content[0]?.type === 'text' ? msg.content[0].text : '';
