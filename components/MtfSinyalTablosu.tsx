@@ -142,27 +142,30 @@ function ConfluenceBadge({ data }: { data: MtfResponse }) {
   }[confluenceDir];
 
   return (
-    <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${bgColor}`}>
-      <div className="flex items-center gap-2">
-        <span className={`text-sm font-bold ${textColor}`}>{confluenceLabel}</span>
-        <span className="text-xs text-text-muted">
-          ({bullishTfCount} AL · {bearishTfCount} SAT · {total - bullishTfCount - bearishTfCount} TUT)
-        </span>
+    <div className="space-y-1.5">
+      <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${bgColor}`}>
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-bold ${textColor}`}>{confluenceLabel}</span>
+          <span className="text-xs text-text-muted">
+            ({bullishTfCount} AL · {bearishTfCount} SAT · {total - bullishTfCount - bearishTfCount} TUT)
+          </span>
+        </div>
+        {/* Mini progress */}
+        <div className="flex items-center gap-1">
+          {rows.map(r => (
+            <div
+              key={r.tf}
+              title={`${r.shortLabel}: ${r.decision}`}
+              className={`h-2 w-2 rounded-full ${
+                r.decision === 'AL'  ? 'bg-emerald-400' :
+                r.decision === 'SAT' ? 'bg-red-400' :
+                'bg-yellow-400/50'
+              }`}
+            />
+          ))}
+        </div>
       </div>
-      {/* Mini progress */}
-      <div className="flex items-center gap-1">
-        {rows.map(r => (
-          <div
-            key={r.tf}
-            title={`${r.shortLabel}: ${r.decision}`}
-            className={`h-2 w-2 rounded-full ${
-              r.decision === 'AL'  ? 'bg-emerald-400' :
-              r.decision === 'SAT' ? 'bg-red-400' :
-              'bg-yellow-400/50'
-            }`}
-          />
-        ))}
-      </div>
+
     </div>
   );
 }

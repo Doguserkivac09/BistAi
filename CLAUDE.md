@@ -29,9 +29,8 @@
 ### ~~🟠 2. Anlık Uyarı Sistemi — Phase 14.2~~ ✅ TAMAMLANDI
 - **Test edildi ve çalışıyor** — Her iş günü 10:30 TRT'de gönderilir
 
-### 🟠 3. Portföy Performans Grafiği — Phase 14.1 ek
-- `/portfolyo` sayfası mevcut, eksik: zaman içinde değer değişimi grafiği
-- Portföydeki hisseler için otomatik sinyal uyarısı bağlantısı
+### ~~🟠 3. Portföy Performans Grafiği — Phase 14.1 ek~~ ✅ TAMAMLANDI
+- `components/PortfolioPerformanceChart.tsx` mevcut ve `app/portfolyo/page.tsx`'e entegre edildi
 
 ### ~~🟡 4. Backtest Veri Sorunu — Phase 14.3~~ ✅ TAMAMLANDI
 - `app/api/dev/seed-backtest/route.ts` — 120 sentetik kayıt üretir, `POST /api/dev/seed-backtest` ile çalıştır
@@ -39,10 +38,9 @@
 ### ~~🟡 5. Mobil PWA — Phase 14.5~~ ✅ TAMAMLANDI
 - `public/manifest.json` + `public/sw.js` + `public/icons/` → layout.tsx'de `manifest: '/manifest.json'`
 
-### 🟡 6. Code Quality — Teknik Borç
-- Kullanılmayan dosyalar temizliği (ör: `components/VixChart.tsx` hiçbir yerde import edilmiyor)
-- Unused import temizliği
-- Type safety iyileştirmeleri
+### ~~🟡 6. Code Quality — Teknik Borç~~ ✅ TAMAMLANDI
+- `components/VixChart.tsx` silindi (kullanılmıyordu)
+- TypeScript `npx tsc --noEmit` — sıfır hata
 
 ---
 
@@ -57,6 +55,17 @@
 | **ScoreBreakdown** — Kompozit skor görselleştirmesi (Berk) | `components/ScoreBreakdown.tsx` |
 | **Avatar sistemi** — profil avatar yükleme/seçme (Berk) | `app/api/profile/avatar/route.ts`, `public/avatars/` |
 | **CLAUDE.md** — Q3-Q6 ✅, Phase 14.3/14.5 ✅, roadmap eklendi | `CLAUDE.md` |
+| **Step 4** — Portfolyo CSV export + GÜÇLÜ SAT badge (ScoreBreakdown ring+banner) | `app/portfolyo/page.tsx`, `components/ScoreBreakdown.tsx` |
+| **Step 8** — KAP Duyuruları sayfası + API + lib + Navbar + HisseDetail KAP bölümü | `lib/kap.ts`, `app/api/kap/route.ts`, `app/kap/page.tsx`, `components/NavbarClient.tsx`, `app/hisse/[sembol]/HisseDetailClient.tsx` |
+| **Step 10** — Haftalık Piyasa Bülteni cron + profil toggle + Supabase migration | `app/api/cron/bulten/route.ts`, `app/profil/page.tsx`, `app/api/profile/route.ts`, `vercel.json` |
+| **Step 12** — Ters Portföy (Portföy Dışı Fırsatlar) UI — sektör bazlı, momentum sıralı | `app/ters-portfolyo/page.tsx`, `components/NavbarClient.tsx` |
+| **VixChart.tsx silindi** — hiçbir yerde kullanılmıyordu | `components/VixChart.tsx` |
+| **Step 5 AI Sohbet** — streaming chat, claude-opus-4-6, portföy bağlamı, günlük limit, tier gating | `app/api/chat/route.ts`, `app/sohbet/page.tsx`, `supabase/migrations/20260328_ai_chat_usage.sql` |
+| **Step 13 Makro Simülatör** — 12 senaryo (kur/faiz/global/emtia), sektör etki tablosu, tarihsel analiz, portföy yorumu | `app/api/simulasyon/route.ts`, `app/simulasyon/page.tsx` |
+| **Step 4 Explainable AI** — `buildKeyFactors` yeniden yazıldı: sinyal tazeliği, haftalık hizalama, baskın makro bileşen, sektör perf20d, çelişki uyarıları | `lib/composite-signal.ts` |
+| **Step 8 KAP AI özetleme** — `/api/kap/summarize` (claude-opus-4-6, 4s cache), HisseDetail'e "AI ile Özetle" butonu | `app/api/kap/summarize/route.ts`, `app/hisse/[sembol]/HisseDetailClient.tsx` |
+| **Step 3 Ekonomi Takvimi AI** — `/api/ekonomi-takvimi` SSE streaming, takvim olayları → sektör etki + BIST yorumu | `app/api/ekonomi-takvimi/route.ts`, `app/ekonomi-takvimi/page.tsx` |
+| **Step 10 AI Bülten** — haftalık email'e claude-opus-4-6 ile kişisel piyasa yorumu eklendi (mor panel) | `app/api/cron/bulten/route.ts` |
 
 ## ✅ 2026-03-22 Oturumunda Tamamlananlar
 
@@ -605,19 +614,19 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 
 | Step | Özellik | Etki | Model | Süre | Durum |
 |------|---------|------|-------|------|-------|
-| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ✅ Tamam |
-| 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ✅ Tamam |
-| 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
-| 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
-| 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | 🔴⬜ Opus bekliyor |
-| 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamam |
-| 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ⬜ Bekliyor |
-| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | ⬜ Bekliyor |
-| 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamam |
-| 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | ⬜ Bekliyor |
-| 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ✅ Tamam |
-| 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | ⬜ Bekliyor |
-| 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ⬜ Bekliyor |
+| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ✅ Tamamlandı |
+| 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ✅ Tamamlandı |
+| 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | ✅ Tamamlandı |
+| 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | ✅ Tamamlandı |
+| 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ✅ Tamamlandı |
+| 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
+| 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ✅ Tamamlandı (CSV export eklendi) |
+| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | ✅ Tamamlandı |
+| 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamamlandı |
+| 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | ✅ Tamamlandı |
+| 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ✅ Tamamlandı |
+| 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | ✅ Tamamlandı |
+| 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ✅ Tamamlandı |
 
 > **Model Kuralı:** 🔴 Opus = algoritma tasarımı, AI prompt mühendisliği, karmaşık mantık, streaming API
 > 🔵 Sonnet = UI component, CRUD API, SQL migration, styling, basit veri dönüşümü

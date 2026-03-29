@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Calendar, Clock, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Calendar, Clock, TrendingUp, TrendingDown, Minus, Sparkles, Bot, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   EKONOMI_EVENTS,
@@ -187,6 +187,10 @@ export default function EkonomiTakvimiPage() {
   const [ulkeFilter, setUlkeFilter] = useState<FilterUlke>('all');
   const [onemFilter, setOnemFilter] = useState<FilterOnem>('all');
   const [showPast, setShowPast] = useState(false);
+  const [aiYorum, setAiYorum]       = useState('');
+  const [aiLoading, setAiLoading]   = useState(false);
+  const [aiError, setAiError]       = useState<string | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
 
   const filtered = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -216,6 +220,80 @@ export default function EkonomiTakvimiPage() {
 
       {/* Countdown */}
       <NextEventCard />
+
+      {/* AI Makro Yorum */}
+      <div className="mb-5">
+        {!aiYorum && (
+          <button
+            onClick={async () => {
+              if (aiLoading) return;
+              setAiError(null);
+              setAiLoading(true);
+              setAiYorum('');
+              aiAbortRef.current = new AbortController();
+              try {
+                const res = await fetch('/api/ekonomi-takvimi', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ events: filtered.slice(0, 15) }),
+                  signal: aiAbortRef.current.signal,
+                });
+                if (!res.ok) {
+                  const d = await res.json().catch(() => ({}));
+                  setAiError(d.error ?? 'Bir hata oluştu.');
+                  return;
+                }
+                const reader = res.body?.getReader();
+                if (!reader) return;
+                const dec = new TextDecoder();
+                let acc = '';
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  for (const line of dec.decode(value, { stream: true }).split('\n')) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                      const p = JSON.parse(line.slice(6));
+                      if (p.text) { acc += p.text; setAiYorum(acc); }
+                      if (p.error) setAiError(p.error);
+                    } catch { /* ignore */ }
+                  }
+                }
+              } catch (e) {
+                if ((e as Error).name !== 'AbortError') setAiError('Bağlantı hatası.');
+              } finally {
+                setAiLoading(false);
+              }
+            }}
+            disabled={aiLoading}
+            className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm font-medium text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+          >
+            {aiLoading
+              ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> AI analiz ediliyor…</>
+              : <><Sparkles className="h-3.5 w-3.5" /> Bu Haftaki Verileri AI ile Yorumla</>
+            }
+          </button>
+        )}
+
+        {aiError && <p className="mt-2 text-xs text-red-400">{aiError}</p>}
+
+        {aiYorum && (
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Bot className="h-4 w-4 text-violet-400" />
+              <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Makro Analizi</span>
+              <button
+                onClick={() => { setAiYorum(''); setAiError(null); }}
+                className="ml-auto text-[11px] text-text-muted hover:text-text-secondary"
+              >Kapat</button>
+            </div>
+            <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">
+              {aiYorum}
+              {aiLoading && <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Filtreler */}
       <div className="flex flex-wrap gap-2 mb-5">

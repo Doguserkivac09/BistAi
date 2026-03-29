@@ -31,6 +31,7 @@ import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { ScoreBreakdown } from '@/components/ScoreBreakdown';
 import type { CompositeSignalResult } from '@/lib/composite-signal';
+import type { KapDuyuru } from '@/lib/kap';
 
 // Lazy-load chart component (lightweight-charts ~40KB gzipped)
 const StockChart = lazy(() =>
@@ -170,17 +171,21 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [timeframe, setTimeframe]       = useState<TimeframeKey>('1d');
   const [haberler, setHaberler]         = useState<HaberItem[]>([]);
   const [haberLoading, setHaberLoading] = useState(true);
+  const [kapDuyurular, setKapDuyurular] = useState<KapDuyuru[]>([]);
+  const [kapLoading, setKapLoading]     = useState(true);
+  const [kapSummary, setKapSummary]     = useState<string | null>(null);
+  const [kapSumLoading, setKapSumLoading] = useState(false);
 
   // Hisse analizi (AI + fiyat hedefleri + hero meta)
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
   const [analizLoading, setAnalizLoading] = useState(true);
 
-  // ── Hisse Analizi (AI, Fiyat Hedefleri, Hero Meta) ───────────────────────
+  // ── Hisse Analizi (AI, Fiyat Hedefleri, Hero Meta) — timeframe bağımlı ──
   useEffect(() => {
     let cancelled = false;
     setAnalizLoading(true);
     setAnaliz(null);
-    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}`)
+    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}&timeframe=${timeframe}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data: HisseAnalizResponse | null) => {
         if (!cancelled) setAnaliz(data);
@@ -188,7 +193,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
       .catch(() => {})
       .finally(() => { if (!cancelled) setAnalizLoading(false); });
     return () => { cancelled = true; };
-  }, [sembol]);
+  }, [sembol, timeframe]);
 
   // ── Haberler ────────────────────────────────────────────────────────────────
   const loadHaberler = useCallback(async () => {
@@ -206,6 +211,18 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   }, [sembol]);
 
   useEffect(() => { loadHaberler(); }, [loadHaberler]);
+
+  // ── KAP Duyuruları ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setKapLoading(true);
+    fetch(`/api/kap?sembol=${encodeURIComponent(sembol)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) setKapDuyurular(data?.duyurular ?? []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setKapLoading(false); });
+    return () => { cancelled = true; };
+  }, [sembol]);
 
   // ── OHLCV + Sinyaller ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -594,6 +611,87 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 <SinyalGecmisi sembol={sembol} />
               </div>
             </div>
+
+            {/* ── TAM GENİŞLİK: KAP Duyuruları ────────────────────────────── */}
+            {(kapLoading || kapDuyurular.length > 0) && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <SectionHeader>📋 KAP Duyuruları</SectionHeader>
+                  {!kapLoading && kapDuyurular.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (kapSummary || kapSumLoading) return;
+                        setKapSumLoading(true);
+                        try {
+                          const res = await fetch('/api/kap/summarize', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ duyurular: kapDuyurular, sembol }),
+                          });
+                          const data = await res.json();
+                          if (data.summary) setKapSummary(data.summary);
+                        } catch { /* sessizce geç */ } finally {
+                          setKapSumLoading(false);
+                        }
+                      }}
+                      disabled={kapSumLoading || !!kapSummary}
+                      className="flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1.5 text-[11px] font-medium text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {kapSumLoading ? (
+                        <><span className="h-3 w-3 animate-spin rounded-full border border-violet-400 border-t-transparent" /> Analiz ediliyor…</>
+                      ) : kapSummary ? (
+                        <>✓ AI Özet hazır</>
+                      ) : (
+                        <>✨ AI ile Özetle</>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* AI KAP özeti */}
+                {kapSummary && (
+                  <div className="mb-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+                    <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider mb-2">AI KAP Analizi</p>
+                    <div className="text-xs text-text-secondary leading-relaxed whitespace-pre-line">{kapSummary}</div>
+                  </div>
+                )}
+
+                {kapLoading ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[1, 2].map(i => <div key={i} className="h-16 animate-pulse rounded-xl bg-surface" />)}
+                  </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {kapDuyurular.slice(0, 6).map(d => (
+                      <a
+                        key={d.id}
+                        href={d.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-3 rounded-xl border border-border bg-surface p-3 hover:border-primary/40 hover:bg-surface-alt transition-colors group"
+                      >
+                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-xs">📋</div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-text-primary group-hover:text-primary transition-colors line-clamp-2 leading-snug">
+                            {d.baslik}
+                          </p>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
+                            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400">{d.kategoriAdi}</span>
+                            {d.tarih && <span>{new Date(d.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span>}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-text-muted group-hover:text-primary transition-colors text-xs">↗</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {!kapLoading && kapDuyurular.length > 6 && (
+                  <div className="mt-2 text-right">
+                    <Link href="/kap" className="text-xs text-primary hover:underline">Tüm KAP duyurularını gör →</Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── TAM GENİŞLİK: Haberler ──────────────────────────────────── */}
             <div className="mt-2">

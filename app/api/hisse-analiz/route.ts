@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchOHLCV } from '@/lib/yahoo';
+import { fetchOHLCV, fetchOHLCVByTimeframe, type YahooTimeframe } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
 import { calculateSRLevels } from '@/lib/support-resistance';
 import { computePriceTargets } from '@/lib/price-targets';
@@ -81,20 +81,45 @@ export interface HisseAnalizResponse {
 
 // ── Handler ─────────────────────────────────────────────────────────
 
+// Makro/sektör bağlamı gereksiz olan zaman dilimleri (intraday)
+const INTRADAY_TFS = new Set<YahooTimeframe>(['15m', '30m', '1h']);
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const symbol = request.nextUrl.searchParams.get('symbol')?.trim().toUpperCase();
   if (!symbol) {
     return NextResponse.json({ error: 'symbol parametresi gerekli.' }, { status: 400 });
   }
 
-  // Cache hit
-  const cacheKey = `hisse-analiz:${symbol}`;
+  const rawTf = request.nextUrl.searchParams.get('timeframe') ?? '1d';
+  const timeframe: YahooTimeframe = (['15m', '30m', '1h', '1d', '1wk', '1mo'].includes(rawTf)
+    ? rawTf : '1d') as YahooTimeframe;
+  const isIntraday = INTRADAY_TFS.has(timeframe);
+
+  // Cache key — timeframe dahil
+  const cacheKey = `hisse-analiz:${symbol}:${timeframe}`;
   const cached = getCached(cacheKey);
   if (cached) return NextResponse.json(cached);
 
   try {
-    // 1. OHLCV (252 günlük günlük — MTF 1G ile aynı veri aralığı)
-    const { candles, changePercent: yahooChangePercent, currentPrice: yahooCurrentPrice, shortName } = await fetchOHLCV(symbol, 252);
+    // 1. OHLCV — zaman dilimine göre veri çek
+    let candles: import('@/types').OHLCVCandle[];
+    let yahooChangePercent: number | undefined;
+    let yahooCurrentPrice: number | undefined;
+    let shortName: string | undefined;
+
+    if (timeframe === '1d') {
+      // Günlük: fetchOHLCV ile hero meta (shortName, changePercent) de gelir
+      const result = await fetchOHLCV(symbol, 252);
+      candles = result.candles;
+      yahooChangePercent = result.changePercent;
+      yahooCurrentPrice  = result.currentPrice;
+      shortName          = result.shortName;
+    } else {
+      // Intraday (15m/30m/1h), haftalık (1wk), aylık (1mo) →
+      // fetchOHLCVByTimeframe doğru interval ile çeker
+      candles = await fetchOHLCVByTimeframe(symbol, timeframe);
+    }
+
     if (!candles.length) {
       return NextResponse.json({ error: `${symbol} için veri bulunamadı.` }, { status: 404 });
     }
@@ -102,7 +127,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const lastCandle = candles[candles.length - 1]!;
     const currentPrice = yahooCurrentPrice ?? lastCandle.close;
 
-    // Hero meta hesapla
+    // Hero meta — sadece günlük timeframe'de anlamlı
     const last20 = candles.slice(-20);
     const avgVolume20d = Math.round(last20.reduce((s, c) => s + c.volume, 0) / last20.length);
     const high90d = Math.max(...candles.map((c) => c.high));
@@ -150,27 +175,34 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const srAnalysis = calculateSRLevels(candles);
     const priceTargets = computePriceTargets(currentPrice, srAnalysis, dominantSignal.direction);
 
-    // 4. Makro + Risk + Sektör (paralel)
-    const sectorId = getSectorId(symbol);
-    const sectorSymbols = getSymbolsBySector(sectorId);
+    // 4. Makro + Risk + Sektör — intraday için atla (kısa vadede anlamsız)
+    let macroScore: Awaited<ReturnType<typeof getMacroScore>> | null = null;
+    let riskScore:  Awaited<ReturnType<typeof getRiskScore>>  | null = null;
+    let sectorMomentum: ReturnType<typeof analyzeSector> | null = null;
 
-    const [macroScore, riskScore, sectorData] = await Promise.all([
-      getMacroScore().catch(() => null),
-      getRiskScore().catch(() => null),
-      // Sektör verisi: sembol ve birkaç sektör arkadaşı (max 5, hız için)
-      Promise.all(
-        sectorSymbols.slice(0, 5).map(async (sym) => {
-          const { candles: c } = await fetchOHLCV(sym, 60).catch(() => ({ candles: [] }));
-          return { sym, c };
-        })
-      ).then((results) => {
-        const map: Record<string, import('@/types').OHLCVCandle[]> = {};
-        for (const { sym, c } of results) map[sym] = c;
-        return map;
-      }),
-    ]);
+    if (!isIntraday) {
+      const sectorId = getSectorId(symbol);
+      const sectorSymbols = getSymbolsBySector(sectorId);
 
-    const sectorMomentum = analyzeSector(sectorId, sectorData, macroScore);
+      const [macro, risk, sectorData] = await Promise.all([
+        getMacroScore().catch(() => null),
+        getRiskScore().catch(() => null),
+        Promise.all(
+          sectorSymbols.slice(0, 5).map(async (sym) => {
+            const { candles: c } = await fetchOHLCV(sym, 60).catch(() => ({ candles: [] }));
+            return { sym, c };
+          })
+        ).then((results) => {
+          const map: Record<string, import('@/types').OHLCVCandle[]> = {};
+          for (const { sym, c } of results) map[sym] = c;
+          return map;
+        }),
+      ]);
+
+      macroScore    = macro;
+      riskScore     = risk;
+      sectorMomentum = analyzeSector(sectorId, sectorData, macroScore);
+    }
 
     // 5. Kompozit karar
     const composite = calculateCompositeSignal(
@@ -202,7 +234,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       technicalScore: composite.technicalScore,
       macroScore: composite.macroScore,
       sectorScore: composite.sectorScore,
-      sectorName: sectorMomentum.sectorName,
+      sectorName: sectorMomentum?.sectorName ?? '—',
       signalDirection: dominantSignal.direction as 'yukari' | 'asagi' | 'nötr',
       shortName,
       changePercent: yahooChangePercent,

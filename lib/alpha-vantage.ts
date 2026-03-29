@@ -42,7 +42,8 @@ function setCached<T>(key: string, data: T, ttlMs: number = CACHE_TTL_MS): void 
 // ── Yardımcı ─────────────────────────────────────────────────────────
 
 function getApiKey(): string | null {
-  return process.env.ALPHAVANTAGE_API_KEY ?? null;
+  // İki farklı isimde olabilir — ikisini de dene
+  return process.env.ALPHAVANTAGE_API_KEY ?? process.env.ALPHA_VANTAGE_API_KEY ?? null;
 }
 
 /** BIST sembolünü AlphaVantage formatına çevirir: SISE → SISE.IS */
@@ -235,6 +236,63 @@ export async function fetchFundamentals(symbol: string): Promise<AVFundamentals>
   };
 
   setCached(cacheKey, result); // 24 saat (fundamentals yavaş değişir)
+  return result;
+}
+
+// ── Bilanço (Balance Sheet) ───────────────────────────────────────────
+
+export interface AVBalanceSheet {
+  totalCurrentAssets: number | null;      // Dönen Varlıklar
+  totalCurrentLiabilities: number | null; // Kısa Vadeli Borçlar (KVB)
+  totalAssets: number | null;             // Toplam Varlıklar
+  totalShareholderEquity: number | null;  // Öz Kaynaklar
+  shortTermDebt: number | null;           // Kısa Vadeli Borç
+  longTermDebt: number | null;            // Uzun Vadeli Borç
+  reportedDate: string;                   // "2024-09-30"
+  source: 'alphavantage';
+}
+
+/**
+ * En son çeyreğe ait bilanço verilerini çeker.
+ * AlphaVantage BALANCE_SHEET endpoint'i kullanır.
+ */
+export async function fetchBalanceSheet(symbol: string): Promise<AVBalanceSheet> {
+  const avSymbol = toBistSymbol(symbol);
+  const cacheKey = `av:balance:${avSymbol}`;
+
+  const cached = getCached<AVBalanceSheet>(cacheKey);
+  if (cached) return cached;
+
+  const data = await avFetch({
+    function: 'BALANCE_SHEET',
+    symbol: avSymbol,
+  }) as Record<string, unknown>;
+
+  const quarters = data['quarterlyReports'] as Array<Record<string, string>> | undefined;
+  if (!quarters || quarters.length === 0) {
+    throw new Error(`AlphaVantage: ${avSymbol} için bilanço verisi bulunamadı.`);
+  }
+
+  const q = quarters[0]; // En son çeyrek
+
+  const parseNum = (val: string | undefined): number | null => {
+    if (!val || val === 'None' || val === '-') return null;
+    const n = parseFloat(val);
+    return isNaN(n) ? null : n;
+  };
+
+  const result: AVBalanceSheet = {
+    totalCurrentAssets:      parseNum(q['totalCurrentAssets']),
+    totalCurrentLiabilities: parseNum(q['totalCurrentLiabilities']),
+    totalAssets:             parseNum(q['totalAssets']),
+    totalShareholderEquity:  parseNum(q['totalShareholderEquity']),
+    shortTermDebt:           parseNum(q['shortTermDebt']),
+    longTermDebt:            parseNum(q['longTermDebt']),
+    reportedDate:            q['fiscalDateEnding'] ?? '',
+    source: 'alphavantage',
+  };
+
+  setCached(cacheKey, result); // 24 saat (çeyreklik veri yavaş değişir)
   return result;
 }
 

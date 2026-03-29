@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,9 +19,10 @@ const navItems = [
     label: 'Portföy',
     dropdown: [
       { href: '/portfolyo',       label: 'Portföyüm',      icon: Briefcase },
-      { href: '/watchlist',       label: 'Watchlist',       icon: Star },
-      { href: '/fiyat-alertler',  label: 'Fiyat Alarmları', icon: Bell },
-      { href: '/karsilastir',     label: 'Karşılaştır',     icon: GitCompare },
+      { href: '/watchlist',        label: 'Watchlist',        icon: Star },
+      { href: '/fiyat-alertler',  label: 'Fiyat Alarmları',  icon: Bell },
+      { href: '/ters-portfolyo',  label: 'Fırsatlar',        icon: Compass },
+      { href: '/karsilastir',     label: 'Karşılaştır',      icon: GitCompare },
     ],
   },
   {
@@ -29,11 +30,14 @@ const navItems = [
     dropdown: [
       { href: '/sektorler',        label: 'Sektör Analizi',   icon: TrendingUp },
       { href: '/makro',            label: 'Makro Radar',       icon: BarChart2 },
+      { href: '/simulasyon',       label: 'Makro Simülatör',   icon: FlaskConical },
       { href: '/ekonomi-takvimi', label: 'Ekonomi Takvimi',   icon: CalendarClock },
       { href: '/haberler',         label: 'Haberler',           icon: Newspaper },
+      { href: '/kap',              label: 'KAP Duyuruları',     icon: FileText },
       { href: '/araclar',          label: 'Araçlar',            icon: Calculator },
     ],
   },
+  { href: '/sohbet',     label: 'AI Asistan' },
   { href: '/backtesting', label: 'Backtest' },
   { href: '/topluluk',   label: 'Topluluk' },
   { href: '/dashboard',  label: 'Dashboard' },
