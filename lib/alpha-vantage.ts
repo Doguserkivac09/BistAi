@@ -42,7 +42,8 @@ function setCached<T>(key: string, data: T, ttlMs: number = CACHE_TTL_MS): void 
 // ── Yardımcı ─────────────────────────────────────────────────────────
 
 function getApiKey(): string | null {
-  return process.env.ALPHAVANTAGE_API_KEY ?? null;
+  // İki farklı isimde olabilir — ikisini de dene
+  return process.env.ALPHAVANTAGE_API_KEY ?? process.env.ALPHA_VANTAGE_API_KEY ?? null;
 }
 
 /** BIST sembolünü AlphaVantage formatına çevirir: SISE → SISE.IS */
