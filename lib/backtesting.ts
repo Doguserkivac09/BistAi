@@ -332,6 +332,14 @@ function calculateAvg(
   return roundTo((sum / valid.length) * 100, 2);
 }
 
+/**
+ * R-multiple beklentisi (Van Tharp formülü):
+ *   E = WinRate × (AvgWin / AvgLoss) − LossRate
+ *
+ * Ort. Getiri'den farklı, risk-ağırlıklı bir metrik:
+ * "+0.34" → her birim ortalama kayıp başına 0.34 birim beklenen kazanç.
+ * 0 üstü = sistem edge'i var, 0 altı = kaybettiren sistem.
+ */
 function calculateExpectancy(records: SignalPerformanceRecord[]): number | null {
   const valid = records.filter((r) => r.return_7d != null);
   if (valid.length === 0) return null;
@@ -342,18 +350,20 @@ function calculateExpectancy(records: SignalPerformanceRecord[]): number | null 
   for (const r of valid) {
     const ret = r.return_7d!;
     // evaluate-engine profit-direction convention: ret > 0 = kâr (AL ve SAT için aynı)
-    const isWin = ret > 0;
-    if (isWin) wins.push(Math.abs(ret));
-    else losses.push(Math.abs(ret));
+    if (ret > 0) wins.push(ret);
+    else if (ret < 0) losses.push(Math.abs(ret));
   }
 
-  if (wins.length === 0 && losses.length === 0) return null;
+  if (wins.length === 0 || losses.length === 0) return null;
 
   const winRate = wins.length / valid.length;
-  const avgWin = wins.length > 0 ? wins.reduce((s, w) => s + w, 0) / wins.length : 0;
-  const avgLoss = losses.length > 0 ? losses.reduce((s, l) => s + l, 0) / losses.length : 0;
+  const avgWin  = wins.reduce((s, w) => s + w, 0) / wins.length;
+  const avgLoss = losses.reduce((s, l) => s + l, 0) / losses.length;
 
-  return roundTo((winRate * avgWin - (1 - winRate) * avgLoss) * 100, 2);
+  if (avgLoss === 0) return null;
+
+  // R = avgWin / avgLoss (ödül / risk oranı)
+  return roundTo(winRate * (avgWin / avgLoss) - (1 - winRate), 3);
 }
 
 function calculateProfitFactor(records: SignalPerformanceRecord[]): number | null {

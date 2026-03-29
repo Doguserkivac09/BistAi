@@ -83,6 +83,13 @@ function fmtPct(val: number | null | undefined, showSign = false): string {
   return `${sign}${val.toFixed(1)}%`;
 }
 
+/** R-multiple beklentisi — "0 = yok, +0.35 = her birim kayıp başına 0.35 kazanç" */
+function fmtR(val: number | null | undefined): string {
+  if (val === null || val === undefined) return '—';
+  const sign = val > 0 ? '+' : '';
+  return `${sign}${val.toFixed(2)}R`;
+}
+
 function exportCSV(matrix: PerformanceMatrixRow[], regimeKeys: string[], horizon: Horizon) {
   const headers = ['Sinyal Tipi', ...regimeKeys.map(r => `${regimeLabel(r)} WR%`), 'Genel WR%', 'Genel Getiri%', 'n'];
   const rows = matrix.map(row => [
@@ -223,7 +230,7 @@ function RiskRewardBar({
             <span className="text-text-muted">
               Expectancy:{' '}
               <span className={`font-bold ${expectancy >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {expectancy >= 0 ? '+' : ''}{expectancy.toFixed(2)}%
+                {fmtR(expectancy)}
               </span>
             </span>
           )}
@@ -492,8 +499,8 @@ function SummaryCards({
       bg: ret !== null && ret > 0 ? 'bg-green-500/8 border-green-500/20' : 'bg-red-500/8 border-red-500/20',
     },
     {
-      label: 'Expectancy',
-      value: fmtPct(summary.expectancy, true),
+      label: 'Expectancy (R)',
+      value: fmtR(summary.expectancy),
       icon: Scale,
       color: summary.expectancy !== null && summary.expectancy > 0 ? 'text-green-400' : 'text-red-400',
       bg: summary.expectancy !== null && summary.expectancy > 0 ? 'bg-green-500/8 border-green-500/20' : 'bg-red-500/8 border-red-500/20',
@@ -611,7 +618,7 @@ function ExpandedRowPanel({ row }: { row: PerformanceMatrixRow }) {
           <span>R/R: <span className={`font-bold ${rrColor}`}>{rr.toFixed(2)}</span></span>
         )}
         {overall.expectancy !== null && (
-          <span>Expectancy: <span className={`font-semibold ${overall.expectancy >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmtPct(overall.expectancy, true)}</span></span>
+          <span>Expectancy: <span className={`font-semibold ${overall.expectancy >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmtR(overall.expectancy)}</span></span>
         )}
         <span className="text-text-muted">n={overall.totalSignals}</span>
       </div>

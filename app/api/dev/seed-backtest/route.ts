@@ -83,8 +83,13 @@ function generateRecord(daysAgo: number) {
   const ret7d  = clamp(won ? randn(baseRet * 0.8, 1.5) : randn(-baseRet * 0.5, 1.2), -10, 15);
   const ret14d = clamp(won ? randn(baseRet,       2.0) : randn(-baseRet * 0.7, 1.8), -12, 18);
 
-  const mfe = won ? clamp(randn(baseRet * 1.2, 2), 0.5, 20)  : clamp(randn(1.5, 1), 0.1, 5);
-  const mae = won ? clamp(randn(1.0, 0.8), 0.1, 5)            : clamp(randn(baseRet * 0.8, 1.5), 0.5, 15);
+  // MFE/MAE: evaluate-engine ile aynı format — decimal kesir (0.05 = %5)
+  // won: MFE daha büyük (1.2×), MAE küçük; lost: MFE küçük, MAE daha büyük
+  const mfeRaw = won ? clamp(randn(baseRet * 1.2, 2), 0.5, 20)  : clamp(randn(1.5, 1), 0.1, 5);
+  const maeRaw = won ? clamp(randn(1.0, 0.8), 0.1, 5)            : clamp(randn(baseRet * 0.8, 1.5), 0.5, 15);
+
+  // Yüzde → decimal (evaluate-engine convention: 0.05 = %5 hareket)
+  const toDecimal = (v: number) => parseFloat((v / 100).toFixed(5));
 
   const entryTime = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
 
@@ -95,11 +100,11 @@ function generateRecord(daysAgo: number) {
     direction,
     entry_price: Math.round(entryPrice * 100) / 100,
     entry_time: entryTime,
-    return_3d:  Math.round(ret3d  * 100) / 100,
-    return_7d:  Math.round(ret7d  * 100) / 100,
-    return_14d: Math.round(ret14d * 100) / 100,
-    mfe: Math.round(mfe * 100) / 100,
-    mae: Math.round(mae * 100) / 100,
+    return_3d:  toDecimal(ret3d),
+    return_7d:  toDecimal(ret7d),
+    return_14d: toDecimal(ret14d),
+    mfe:  toDecimal(mfeRaw),          // pozitif decimal (favorable move)
+    mae: -toDecimal(maeRaw),          // negatif decimal (adverse move)
     evaluated: true,
     regime,
   };
