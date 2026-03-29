@@ -63,6 +63,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Supabase env eksik.' }, { status: 500 });
   }
 
+  // Batch parametresi — her batch 3 sembol işler (Vercel 10s timeout için)
+  let body: Record<string, unknown> = {};
+  try { body = await request.json(); } catch { /* yok */ }
+  const batchIndex = typeof body.batchIndex === 'number'
+    ? Math.max(0, Math.min(9, Math.floor(body.batchIndex)))
+    : 0;
+  const BATCH_SIZE = 3;
+  const symbolsToProcess = TOP30_SYMBOLS.slice(
+    batchIndex * BATCH_SIZE,
+    (batchIndex + 1) * BATCH_SIZE
+  );
+
   const supabase = createClient(supabaseUrl, serviceKey);
   let totalInserted = 0;
   let totalProcessed = 0;
@@ -75,7 +87,7 @@ export async function POST(request: NextRequest) {
     xu100Candles = res.candles;
   } catch { /* devam */ }
 
-  for (const sembol of TOP30_SYMBOLS) {
+  for (const sembol of symbolsToProcess) {
     try {
       const { candles } = await fetchOHLCV(sembol, 252);
       if (candles.length < 60) continue;
@@ -167,10 +179,12 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    batchIndex,
+    symbols: symbolsToProcess,
     processed: totalProcessed,
     inserted: totalInserted,
     skipped: totalProcessed - totalInserted,
     errors: errors.slice(0, 10),
-    message: `${totalInserted} gerçek backtest kaydı eklendi.`,
+    message: `Batch ${batchIndex}: ${symbolsToProcess.join(',')} — ${totalInserted} kayıt eklendi.`,
   });
 }
