@@ -9,7 +9,8 @@
  */
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const yahooFinance = require('yahoo-finance2').default;
+const YahooFinanceClass = require('yahoo-finance2').default;
+const yahooFinance = new YahooFinanceClass({ suppressNotices: ['yahooSurvey'] });
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 

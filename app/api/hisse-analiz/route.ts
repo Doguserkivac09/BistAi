@@ -81,7 +81,7 @@ export interface HisseAnalizResponse {
 
 // ── Handler ─────────────────────────────────────────────────────────
 
-// Intraday zaman dilimleri — makro/sektör bağlamı gereksiz
+// Makro/sektör bağlamı gereksiz olan zaman dilimleri (intraday)
 const INTRADAY_TFS = new Set<YahooTimeframe>(['15m', '30m', '1h']);
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -107,16 +107,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let yahooCurrentPrice: number | undefined;
     let shortName: string | undefined;
 
-    if (isIntraday) {
-      // 15m / 1h → fetchOHLCVByTimeframe (OHLCVCandle[] döndürür)
-      candles = await fetchOHLCVByTimeframe(symbol, timeframe);
-    } else {
-      // 1d / 1wk → günlük veri (252 mum = tam kompozit analiz)
-      const result = await fetchOHLCV(symbol, timeframe === '1wk' ? 520 : 252);
+    if (timeframe === '1d') {
+      // Günlük: fetchOHLCV ile hero meta (shortName, changePercent) de gelir
+      const result = await fetchOHLCV(symbol, 252);
       candles = result.candles;
       yahooChangePercent = result.changePercent;
       yahooCurrentPrice  = result.currentPrice;
       shortName          = result.shortName;
+    } else {
+      // Intraday (15m/30m/1h), haftalık (1wk), aylık (1mo) →
+      // fetchOHLCVByTimeframe doğru interval ile çeker
+      candles = await fetchOHLCVByTimeframe(symbol, timeframe);
     }
 
     if (!candles.length) {
