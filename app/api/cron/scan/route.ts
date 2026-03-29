@@ -39,10 +39,15 @@ function createAdminClient() {
 }
 
 export async function GET(request: NextRequest) {
-  // Yetkilendirme
+  // Yetkilendirme: Vercel Cron otomatik header VEYA manuel Bearer token
+  const isVercelCron = request.headers.get('x-vercel-cron') === '1';
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  if (!CRON_SECRET || token !== CRON_SECRET) {
-    return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
+  const isManualAuth = CRON_SECRET && token === CRON_SECRET;
+
+  if (!isVercelCron && !isManualAuth) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
+    }
   }
 
   const supabase = createAdminClient();
