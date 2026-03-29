@@ -218,8 +218,8 @@ export async function POST(request: NextRequest) {
         await setDbCache(key, acc);
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'AI yanıt üretemedi.';
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
+        console.error('[api/ekonomi-takvimi] AI stream hatası:', err);
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Teknik bir hata oluştu, lütfen tekrar deneyin.' })}\n\n`));
       } finally {
         controller.close();
       }

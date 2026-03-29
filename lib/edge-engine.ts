@@ -112,13 +112,9 @@ function computeHorizonStats(
   const grossProfit = wins.reduce((s, r) => s + Math.max(0, r.value), 0);
   const grossLoss = Math.abs(losses.reduce((s, r) => s + Math.min(0, r.value), 0));
   const profitFactor =
-    grossLoss > 0 && Number.isFinite(grossProfit)
+    grossLoss > 0 && grossProfit > 0 && Number.isFinite(grossProfit) && Number.isFinite(grossLoss)
       ? round4(grossProfit / grossLoss)
-      : grossLoss === 0 && grossProfit > 0
-        ? Infinity
-        : grossLoss === 0 && grossProfit === 0
-          ? null
-          : null;
+      : null; // Infinity yerine null — DB'de anlamlı
 
   const expFinite = expectancy != null && Number.isFinite(expectancy);
   let riskAdjusted: number | null = null;

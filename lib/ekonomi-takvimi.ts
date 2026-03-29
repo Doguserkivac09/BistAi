@@ -378,22 +378,27 @@ export const EKONOMI_EVENTS: EkonomiEvent[] = [
 
 // ─── Yardımcı fonksiyonlar ────────────────────────────────────────────────────
 
+/** Türkiye saatine (UTC+3) göre bugünün tarihini döndürür */
+function getTodayTRT(): string {
+  return new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 /** Bugünden itibaren yaklaşan olayları döndür */
 export function getUpcomingEvents(events: EkonomiEvent[], limit?: number): EkonomiEvent[] {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayTRT();
   const upcoming = events
-    .filter((e) => e.tarih >= today)
-    .sort((a, b) => a.tarih.localeCompare(b.tarih) || a.saat.localeCompare(b.saat));
+    .filter((e) => (e.tarih ?? '') >= today)
+    .sort((a, b) => (a.tarih ?? '').localeCompare(b.tarih ?? '') || (a.saat ?? '').localeCompare(b.saat ?? ''));
   return limit ? upcoming.slice(0, limit) : upcoming;
 }
 
 /** Bir sonraki yüksek önemli olay */
 export function getNextHighEvent(events: EkonomiEvent[]): EkonomiEvent | null {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayTRT();
   return (
     events
-      .filter((e) => e.tarih >= today && e.onem === 'yuksek')
-      .sort((a, b) => a.tarih.localeCompare(b.tarih))[0] ?? null
+      .filter((e) => (e.tarih ?? '') >= today && e.onem === 'yuksek')
+      .sort((a, b) => (a.tarih ?? '').localeCompare(b.tarih ?? ''))[0] ?? null
   );
 }
 

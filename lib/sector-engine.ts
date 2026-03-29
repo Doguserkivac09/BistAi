@@ -63,7 +63,7 @@ export interface SectorMomentumSnapshot {
 function calculatePerformance(candles: OHLCVCandle[], days: number): number | null {
   if (candles.length < days + 1) return null;
 
-  const current = candles[candles.length - 1].close;
+  const current = candles[candles.length - 1]?.close;
   const past = candles[candles.length - 1 - days]?.close;
 
   if (!past || past === 0) return null;

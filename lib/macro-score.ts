@@ -74,7 +74,7 @@ export function calculateMacroScore(
   if (macroSnapshot?.usdtry) {
     const { price, previousClose, changePercent } = macroSnapshot.usdtry;
     // USD/TRY yükseliyorsa → BIST için NEGATİF (ters korelasyon)
-    const rawScore = clampScore(-changePercent * 20); // %5 artış → -100
+    const rawScore = clampScore(-(changePercent ?? 0) * 20); // %5 artış → -100
     components.push({
       name: 'USD/TRY',
       weight: WEIGHTS.USDTRY,

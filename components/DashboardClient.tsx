@@ -277,7 +277,7 @@ export function DashboardClient({
             </div>
 
             {/* Hızlı Eylemler */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 animate-fade-in-up stagger-7">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 animate-fade-in-up stagger-7">
               {QUICK_ACTIONS.map((action) => {
                 const Icon = action.icon;
                 return (

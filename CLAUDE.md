@@ -691,3 +691,33 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 
 ### Step 13 — Makro Simülatör 🔴 ⬜ BEKLIYOR
 - ⬜ Senaryo prompt + tarihsel analiz + karmaşık UI state — **Tamamı Opus bekliyor**
+
+---
+
+## ✅ Görev Tamamlama Kuralı (ZORUNLU)
+
+Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazılmalıdır:
+- ✅ TAMAMLANDI (tarih) — tam bitişte
+- 🔵 KISMI (ne yapıldı) — kısmen bitişte
+- ❌ İPTAL (neden) — iptal edildiyse
+
+**Bu kural her iki takım üyesi ve Claude için geçerlidir. Görev kaydı güncellenmeden PR merge edilmez.**
+
+---
+
+## 🐛 Bug Fix Sprint (2026-03-29)
+
+> Senior seviye denetim sonrası tespit edilen bulgular. 🔴 Opus = karmaşık algoritma/güvenlik tasarımı, 🔵 Sonnet = pattern uygulama/CSS/null guard.
+
+| ID | Sorun | Etkilenen Dosyalar | Model | Şiddet | Durum |
+|----|-------|--------------------|-------|--------|-------|
+| B1 | Cron auth standardizasyonu | `cron/bulten`, `cron/alerts`, `cron/macro`, `cron/price-alerts` | 🔵 Sonnet | 🔴 Kritik | ✅ TAMAMLANDI (2026-03-29) |
+| B2 | AI Budget race condition (atomik counter) | `lib/ai-budget.ts` | 🔴 Opus | 🔴 Kritik | ⬜ Opus bekliyor |
+| B3 | Error mesaj sanitizasyonu (info disclosure) | `api/simulasyon`, `api/kap/summarize`, `api/ekonomi-takvimi` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
+| B4 | Prompt injection koruması | `api/chat`, `api/simulasyon` | 🔴 Opus | 🟠 Yüksek | ⬜ Opus bekliyor |
+| B5 | IP spoofing rate limit bypass | `lib/rate-limit.ts` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
+| B6 | Math safety — boş array Infinity/NaN | `lib/signals.ts` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
+| B7 | Null safety (optional chaining, non-null assertion) | `sector-engine`, `macro-score`, `edge-engine`, `tarama` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
+| B8 | Timezone fix — UTC vs TRT gece kayması | `lib/ekonomi-takvimi.ts` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
+| B9 | Frontend UX (mobile modal, chat overflow, grid, delete feedback) | `PriceAlertButton`, `sohbet`, `DashboardClient`, `fiyat-alertler` | 🔵 Sonnet | 🟡 Orta | ✅ TAMAMLANDI (2026-03-29) |
+| B10 | Accessibility (aria-label, role, alt) | `PriceAlertButton`, `NavbarClient` | 🔵 Sonnet | 🟡 Orta | ✅ TAMAMLANDI (2026-03-29) |

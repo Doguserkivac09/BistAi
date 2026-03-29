@@ -184,8 +184,8 @@ export async function POST(request: NextRequest) {
 
     return Response.json({ summary, cached: false });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'AI yanıt üretemedi.';
-    return new Response(JSON.stringify({ error: message }), {
+    console.error('[api/kap/summarize] AI hatası:', err);
+    return new Response(JSON.stringify({ error: 'Teknik bir hata oluştu, lütfen tekrar deneyin.' }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     });
   }

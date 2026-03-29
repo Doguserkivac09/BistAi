@@ -42,13 +42,11 @@ async function sleep(ms: number) {
 
 export async function GET(req: NextRequest) {
   // ── Yetkilendirme ──────────────────────────────────────────────────────────
-  if (!CRON_SECRET) {
-    console.error('[cron/alerts] CRON_SECRET env değişkeni tanımlı değil!');
-    return NextResponse.json({ error: 'Sunucu yapılandırma hatası' }, { status: 500 });
-  }
-  const auth = req.headers.get('authorization') ?? '';
-  if (auth !== `Bearer ${CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
+  const token = req.headers.get('authorization')?.replace('Bearer ', '')?.trim();
+  const isManualAuth = CRON_SECRET && token && token === CRON_SECRET;
+  if (!isVercelCron && !isManualAuth) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 
   const admin = createAdmin();

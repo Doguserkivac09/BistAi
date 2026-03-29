@@ -253,8 +253,8 @@ export function detectSupportResistanceBreak(sembol: string, candles: OHLCVCandl
   const lookback = Math.min(50, candles.length - 1);
   const reference = candles.slice(-lookback - 1, -1);
   const last = candles[candles.length - 1]!;
-  const highN = Math.max(...reference.map((c) => c.high));
-  const lowN  = Math.min(...reference.map((c) => c.low));
+  const highN = reference.length > 0 ? Math.max(...reference.map((c) => c.high)) : last.high;
+  const lowN  = reference.length > 0 ? Math.min(...reference.map((c) => c.low))  : last.low;
   const avgVol = averageVolume(candles, 20);
   const volRatio = avgVol > 0 ? last.volume / avgVol : 0;
 
@@ -482,7 +482,7 @@ export function detectBollingerSqueeze(sembol: string, candles: OHLCVCandle[]): 
 
   const currentWidth = bandWidths[bandWidths.length - 1]!;
   const recentWidths = bandWidths.slice(-LOOKBACK);
-  const minWidth = Math.min(...recentWidths);
+  const minWidth = recentWidths.length > 0 ? Math.min(...recentWidths) : Infinity;
 
   // Sıkışma: mevcut genişlik, son LOOKBACK mumun minimumuyla neredeyse aynı (en dar %10 dilimde)
   const isSqueezing = currentWidth <= minWidth * 1.1 && currentWidth < 15;
@@ -606,11 +606,12 @@ export function aggregateToWeekly(candles: OHLCVCandle[]): OHLCVCandle[] {
   Array.from(weeks.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
     .forEach(([weekKey, cs]) => {
+      if (!cs || cs.length === 0) return;
       const open   = cs[0]!.open;
       const high   = Math.max(...cs.map((c) => c.high));
       const low    = Math.min(...cs.map((c) => c.low));
       const close  = cs[cs.length - 1]!.close;
-      const volume = cs.reduce((s, c) => s + c.volume, 0);
+      const volume = cs.reduce((s, c) => s + (c.volume ?? 0), 0);
       result.push({ date: weekKey, open, high, low, close, volume });
     });
   return result;

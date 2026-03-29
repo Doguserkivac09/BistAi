@@ -60,7 +60,7 @@ export function PriceAlertButton({ sembol, currentPrice }: Props) {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-sm max-w-[calc(100vw-32px)] rounded-xl border border-border bg-surface p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-semibold text-text-primary">Fiyat Alarmı — {sembol}</h3>
@@ -95,6 +95,7 @@ export function PriceAlertButton({ sembol, currentPrice }: Props) {
                     <button
                       key={d}
                       type="button"
+                      aria-label={d === 'above' ? 'Fiyat üzerine çıkınca tetikle' : 'Fiyat altına düşünce tetikle'}
                       onClick={() => setDirection(d)}
                       className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                         direction === d

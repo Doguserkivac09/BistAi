@@ -104,6 +104,7 @@ function getSortScore(
   sortBy: SortBy,
   winRateMap: Map<string, { rate: number; sampleSize: number }>,
 ): number {
+  if (!r.signals.length) return 0;
   const primary = r.signals[0]!;
   switch (sortBy) {
     case 'confluence':

@@ -36,9 +36,18 @@ export default function FiyatAlertlerPage() {
 
   async function deleteAlert(id: string) {
     setDeleting(id);
-    const res = await fetch(`/api/price-alerts?id=${id}`, { method: 'DELETE' });
-    if (res.ok) setAlerts(prev => prev.filter(a => a.id !== id));
-    setDeleting(null);
+    try {
+      const res = await fetch(`/api/price-alerts?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAlerts(prev => prev.filter(a => a.id !== id));
+      } else {
+        console.error('[fiyat-alertler] Silme başarısız:', await res.text());
+      }
+    } catch (err) {
+      console.error('[fiyat-alertler] Ağ hatası:', err);
+    } finally {
+      setDeleting(null);
+    }
   }
 
   const activeAlerts    = alerts.filter(a => !a.triggered);

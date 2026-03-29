@@ -66,6 +66,7 @@ function UserAvatar({ email, avatarUrl }: { email: string | null; avatarUrl: str
       <img
         src={avatarUrl}
         alt=""
+        role="presentation"
         className="h-9 w-9 rounded-full object-cover border border-primary/30"
       />
     );

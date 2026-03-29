@@ -18,11 +18,11 @@ import { calculateMacroScore } from '@/lib/macro-score';
 const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function GET(request: NextRequest) {
-  // Auth
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.replace('Bearer ', '');
-
-  if (!CRON_SECRET || !token || token !== CRON_SECRET) {
+  // Auth — dual: Vercel Cron header veya Bearer token
+  const isVercelCron = request.headers.get('x-vercel-cron') === '1';
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')?.trim();
+  const isManualAuth = CRON_SECRET && token && token === CRON_SECRET;
+  if (!isVercelCron && !isManualAuth) {
     return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
   }
 

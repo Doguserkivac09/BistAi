@@ -12,8 +12,11 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchQuote } from '@/lib/yahoo';
 
 function isAuthorized(req: NextRequest) {
-  const auth = req.headers.get('authorization') ?? '';
-  return auth === `Bearer ${process.env.CRON_SECRET}` || req.headers.get('x-vercel-cron') === '1';
+  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
+  const CRON_SECRET = process.env.CRON_SECRET;
+  const token = req.headers.get('authorization')?.replace('Bearer ', '')?.trim();
+  const isManualAuth = CRON_SECRET && token && token === CRON_SECRET;
+  return isVercelCron || isManualAuth;
 }
 
 type PriceAlert = {

@@ -74,11 +74,22 @@ export function checkRateLimit(
 
 /**
  * Next.js API route'ları için IP çıkarma.
+ * Güvenilir header öncelik sırası: cf-connecting-ip → x-real-ip → x-forwarded-for (ilk IP)
+ * x-forwarded-for proxy arkasında spooflanabilir, bu yüzden son tercih.
  */
+function isValidIPv4(ip: string): boolean {
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(ip);
+}
+
 export function getClientIP(headers: Headers): string {
-  return (
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    headers.get('x-real-ip') ??
-    '127.0.0.1'
-  );
+  const cf = headers.get('cf-connecting-ip')?.trim();
+  if (cf && isValidIPv4(cf)) return cf;
+
+  const real = headers.get('x-real-ip')?.trim();
+  if (real && isValidIPv4(real)) return real;
+
+  const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  if (forwarded && isValidIPv4(forwarded)) return forwarded;
+
+  return '127.0.0.1';
 }
