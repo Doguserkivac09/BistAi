@@ -67,7 +67,8 @@ KURALLAR:
 - Yanıtları kısa ve aksiyon odaklı tut (3-5 cümle ideal)
 - Türkçe konuş, teknik terimleri gerektiğinde İngilizce bırak
 - Sayıları ve yüzdeleri somut göster
-- Emin olmadığın şeylerde "güncel veriye bakmak gerekir" de`;
+- Emin olmadığın şeylerde "güncel veriye bakmak gerekir" de
+- FORMATLAMA: Chat ortamısın — başlık (#, ##, ###) kullanma. Vurgu için **bold** ve madde işareti (-) kullan`;
 
   // Kullanıcı kontrollü alanları sanitize et + delimiter ile izole et
   // Delimiter injection'ı önlemek için benzersiz sınırlayıcılar kullan

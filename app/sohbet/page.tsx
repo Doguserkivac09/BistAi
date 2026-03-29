@@ -12,6 +12,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Bot, Send, User, Sparkles, RefreshCw, AlertCircle,
   TrendingUp, ChevronRight, Lock,
@@ -52,7 +54,34 @@ function MessageBubble({ msg, isStreaming }: { msg: ChatMessage; isStreaming?: b
           ? 'bg-primary text-white rounded-tr-sm'
           : 'bg-surface border border-border text-text-primary rounded-tl-sm'
       }`}>
-        {msg.content}
+        {isUser ? (
+          <>
+            {msg.content}
+          </>
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p:      ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              em:     ({ children }) => <em className="italic">{children}</em>,
+              h1:     ({ children }) => <p className="font-bold mt-2 mb-1">{children}</p>,
+              h2:     ({ children }) => <p className="font-semibold mt-2 mb-1">{children}</p>,
+              h3:     ({ children }) => <p className="font-semibold mt-1 mb-0.5">{children}</p>,
+              ul:     ({ children }) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+              ol:     ({ children }) => <ol className="list-decimal pl-4 my-1 space-y-0.5">{children}</ol>,
+              li:     ({ children }) => <li>{children}</li>,
+              code:   ({ children }) => <code className="bg-black/15 rounded px-1 py-0.5 text-xs font-mono">{children}</code>,
+              pre:    ({ children }) => <pre className="bg-black/15 rounded p-2 my-1 text-xs font-mono overflow-x-auto">{children}</pre>,
+              table:  ({ children }) => <div className="overflow-x-auto my-1"><table className="text-xs border-collapse w-full">{children}</table></div>,
+              th:     ({ children }) => <th className="border border-border/50 px-2 py-1 text-left font-semibold bg-black/10">{children}</th>,
+              td:     ({ children }) => <td className="border border-border/50 px-2 py-1">{children}</td>,
+              blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 my-1 opacity-80">{children}</blockquote>,
+            }}
+          >
+            {msg.content}
+          </ReactMarkdown>
+        )}
         {isStreaming && (
           <span className="ml-1 inline-block h-3.5 w-0.5 animate-pulse bg-current opacity-70 align-middle" />
         )}
@@ -77,7 +106,7 @@ export default function SohbetPage() {
   const [limitReached, setLimitReached] = useState(false);
   const [loggedIn, setLoggedIn]   = useState<boolean | null>(null);
 
-  const bottomRef  = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
   const abortRef   = useRef<AbortController | null>(null);
 
@@ -90,9 +119,10 @@ export default function SohbetPage() {
     });
   }, []);
 
-  // Scroll to bottom
+  // Scroll to bottom — container'ı kaydır, window'u değil
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, streamText]);
 
   // Sembol bağlamı varsa karşılama mesajı
@@ -233,7 +263,7 @@ export default function SohbetPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
         <div className="container mx-auto max-w-3xl px-4 py-3 flex items-center justify-between">
@@ -273,7 +303,7 @@ export default function SohbetPage() {
       </div>
 
       {/* Mesajlar */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
         <div className="container mx-auto max-w-3xl px-4 py-6 space-y-4">
 
           {/* Öneri soruları — sadece ilk karşılama mesajında */}
@@ -353,7 +383,6 @@ export default function SohbetPage() {
             </div>
           )}
 
-          <div ref={bottomRef} />
         </div>
       </div>
 

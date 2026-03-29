@@ -295,8 +295,10 @@ export function NavbarClient({ user }: NavbarClientProps) {
         aria-label="Mobil menü"
         aria-hidden={!mobileOpen}
         className={cn(
-          'overflow-hidden border-t border-border transition-all duration-200 ease-in-out md:hidden',
-          mobileOpen ? 'max-h-[600px]' : 'max-h-0 border-t-0'
+          'border-t border-border transition-all duration-200 ease-in-out md:hidden',
+          mobileOpen
+            ? 'max-h-[calc(100dvh-4rem)] overflow-y-auto'
+            : 'max-h-0 overflow-hidden border-t-0'
         )}
       >
         <nav className="container mx-auto flex flex-col gap-1 px-4 py-3">
