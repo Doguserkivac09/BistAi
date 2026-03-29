@@ -20,6 +20,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
+import { sanitizeKapField, sanitizeTicker } from '@/lib/sanitize';
 import type { KapDuyuru } from '@/lib/kap';
 
 const RATE_LIMIT = 20;
@@ -73,9 +74,14 @@ async function setDbCache(cacheKey: string, summary: string): Promise<void> {
 
 function buildPrompt(duyurular: KapDuyuru[], sembol?: string): string {
   const now = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const duyuruText = duyurular.slice(0, 8).map((d, i) =>
-    `${i + 1}. [${d.kategoriAdi}] ${d.sirket}${d.sembol ? ` (${d.sembol})` : ''}\n   Başlık: ${d.baslik}\n   Tarih: ${d.tarih}`
-  ).join('\n\n');
+  const duyuruText = duyurular.slice(0, 8).map((d, i) => {
+    const kat = sanitizeKapField(d.kategoriAdi ?? '', 50);
+    const sir = sanitizeKapField(d.sirket ?? '', 100);
+    const bas = sanitizeKapField(d.baslik ?? '', 200);
+    const sym = d.sembol ? sanitizeTicker(d.sembol) : '';
+    const tar = sanitizeKapField(d.tarih ?? '', 30);
+    return `${i + 1}. [${kat}] ${sir}${sym ? ` (${sym})` : ''}\n   Başlık: ${bas}\n   Tarih: ${tar}`;
+  }).join('\n\n');
 
   return `Sen Türkiye Borsa İstanbul (BIST) analisti ve KAP uzmanısın.
 Bugün: ${now}
@@ -130,7 +136,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     duyurular = Array.isArray(body.duyurular) ? body.duyurular : [];
-    sembol    = typeof body.sembol === 'string' ? body.sembol.trim().toUpperCase() : undefined;
+    const rawSembol = typeof body.sembol === 'string' ? sanitizeTicker(body.sembol) : '';
+    sembol = rawSembol || undefined;
   } catch {
     return new Response(JSON.stringify({ error: 'Geçersiz istek.' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
