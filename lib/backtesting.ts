@@ -300,7 +300,11 @@ function calculateWinRate(
 
   const wins = valid.filter((r) => {
     const ret = r[field]!;
-    return r.direction === 'yukari' ? ret > 0 : r.direction === 'asagi' ? ret < 0 : ret > 0;
+    // evaluate-engine hem AL hem SAT için kâr yönlü return saklar:
+    // AL: (close-entry)/entry  — pozitif = kâr
+    // SAT: (entry-close)/entry — pozitif = kâr
+    // → yön bağımsız, ret > 0 = kazanan
+    return ret > 0;
   });
 
   return roundTo((wins.length / valid.length) * 100, 1);
