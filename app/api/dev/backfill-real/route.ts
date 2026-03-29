@@ -158,10 +158,10 @@ export async function POST(request: NextRequest) {
       if (rows.length === 0) continue;
       totalProcessed += rows.length;
 
-      // Upsert — duplikat girişleri atla
+      // Insert — backfill için düz ekleme
       const { data, error } = await supabase
         .from('signal_performance')
-        .upsert(rows, { onConflict: 'sembol,signal_type,entry_time', ignoreDuplicates: true })
+        .insert(rows)
         .select('id');
 
       if (error) {
