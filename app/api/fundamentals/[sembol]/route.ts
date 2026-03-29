@@ -3,14 +3,14 @@
  *
  * GET /api/fundamentals/[sembol]
  *
- * AlphaVantage'dan değerleme (OVERVIEW) + bilanço (BALANCE_SHEET) verisi çeker.
- * Her ikisi de 24 saat önbelleklenir (free tier: 25 istek/gün koruması).
+ * Yahoo Finance (yahoo-finance2) üzerinden değerleme + bilanço verisi çeker.
+ * AlphaVantage BIST'i desteklemediğinden yahoo-finance2 birincil kaynak olarak kullanılır.
  *
  * Auth: gerekmez (public)
  * Cache: 24 saat CDN + in-memory
  */
 
-import { fetchFundamentals, fetchBalanceSheet } from '@/lib/alpha-vantage';
+import { fetchYahooFundamentals } from '@/lib/yahoo-fundamentals';
 
 export async function GET(
   _: Request,
@@ -21,27 +21,16 @@ export async function GET(
     return Response.json({ error: 'Geçersiz sembol.' }, { status: 400 });
   }
 
-  const [overviewResult, balanceResult] = await Promise.allSettled([
-    fetchFundamentals(sembol),
-    fetchBalanceSheet(sembol),
-  ]);
-
-  if (overviewResult.status === 'rejected') {
-    const msg = overviewResult.reason instanceof Error
-      ? overviewResult.reason.message
-      : 'Veri alınamadı';
-    return Response.json({ error: msg }, { status: 404 });
-  }
-
-  return Response.json(
-    {
-      overview: overviewResult.value,
-      balance:  balanceResult.status === 'fulfilled' ? balanceResult.value : null,
-    },
-    {
+  try {
+    const data = await fetchYahooFundamentals(sembol);
+    return Response.json(data, {
       headers: {
         'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=3600',
       },
-    }
-  );
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Veri alınamadı';
+    console.error(`[fundamentals] ${sembol}:`, msg);
+    return Response.json({ error: msg }, { status: 404 });
+  }
 }

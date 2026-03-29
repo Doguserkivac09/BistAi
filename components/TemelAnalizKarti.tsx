@@ -2,29 +2,24 @@
 
 /**
  * Hisse detay sayfasında temel analiz verilerini gösterir.
- * Veri kaynağı: AlphaVantage (ALPHA_VANTAGE_API_KEY gerektirir).
- * API key yoksa veya veri gelmezse sessizce gizlenir.
+ * Veri kaynağı: Yahoo Finance (yahoo-finance2 — API key gerektirmez).
+ * Veri gelmezse sessizce gizlenir.
  */
 
 import { useEffect, useState } from 'react';
 import { BarChart2 } from 'lucide-react';
-import type { AVFundamentals, AVBalanceSheet } from '@/lib/alpha-vantage';
-
-interface FundamentalsResponse {
-  overview: AVFundamentals;
-  balance: AVBalanceSheet | null;
-}
+import type { YahooFundamentals } from '@/lib/yahoo-fundamentals';
 
 interface Props {
   sembol: string;
   currentPrice?: number;
 }
 
-function formatMarketCap(cap: number): string {
-  if (cap >= 1e12) return `₺${(cap / 1e12).toFixed(2)}T`;
-  if (cap >= 1e9)  return `₺${(cap / 1e9).toFixed(1)}B`;
-  if (cap >= 1e6)  return `₺${(cap / 1e6).toFixed(0)}M`;
-  return `₺${cap.toLocaleString('tr-TR')}`;
+function formatVal(val: number): string {
+  if (val >= 1e12) return `₺${(val / 1e12).toFixed(2)}T`;
+  if (val >= 1e9)  return `₺${(val / 1e9).toFixed(1)}B`;
+  if (val >= 1e6)  return `₺${(val / 1e6).toFixed(0)}M`;
+  return `₺${val.toLocaleString('tr-TR')}`;
 }
 
 function DataRow({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -37,7 +32,7 @@ function DataRow({ label, value, color }: { label: string; value: string; color?
 }
 
 export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
-  const [data, setData] = useState<FundamentalsResponse | null>(null);
+  const [data, setData] = useState<YahooFundamentals | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,7 +40,7 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
     setLoading(true);
     setData(null);
     fetch(`/api/fundamentals/${encodeURIComponent(sembol)}`)
-      .then(r => r.ok ? r.json() as Promise<FundamentalsResponse> : null)
+      .then(r => r.ok ? r.json() as Promise<YahooFundamentals> : null)
       .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -62,32 +57,35 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
     );
   }
 
-  if (!data) return null; // API key yoksa veya veri gelmezse hiç render etme
+  if (!data) return null;
 
-  const ov = data.overview;
-  const bl = data.balance;
+  const week52High = data.week52High;
+  const week52Low  = data.week52Low;
 
-  // 52 hafta % konumu
-  const week52Pct = currentPrice && ov.week52High > ov.week52Low
-    ? ((currentPrice - ov.week52Low) / (ov.week52High - ov.week52Low)) * 100
+  const week52Pct = (currentPrice && week52High && week52Low && week52High > week52Low)
+    ? ((currentPrice - week52Low) / (week52High - week52Low)) * 100
     : null;
 
-  const peColor = ov.peRatio
-    ? ov.peRatio < 10 ? 'text-emerald-400'
-      : ov.peRatio < 25 ? 'text-text-primary'
+  const peColor = data.peRatio
+    ? data.peRatio < 10 ? 'text-emerald-400'
+      : data.peRatio < 25 ? 'text-text-primary'
       : 'text-orange-400'
     : 'text-text-secondary';
 
-  const marginColor = ov.profitMargin
-    ? ov.profitMargin >= 0.15 ? 'text-emerald-400'
-      : ov.profitMargin >= 0 ? 'text-text-primary'
+  const marginColor = data.profitMargin
+    ? data.profitMargin >= 0.15 ? 'text-emerald-400'
+      : data.profitMargin >= 0 ? 'text-text-primary'
       : 'text-red-400'
     : 'text-text-secondary';
 
-  // Cari oran
-  const cariOran = (bl?.totalCurrentAssets && bl?.totalCurrentLiabilities)
-    ? bl.totalCurrentAssets / bl.totalCurrentLiabilities
+  const cariOran = (data.totalCurrentAssets && data.totalCurrentLiabilities)
+    ? data.totalCurrentAssets / data.totalCurrentLiabilities
     : null;
+
+  const hasBalance = data.totalCurrentAssets !== null
+    || data.totalCurrentLiabilities !== null
+    || data.totalStockholdersEquity !== null
+    || data.longTermDebt !== null;
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
@@ -96,19 +94,19 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
         <BarChart2 className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold text-text-primary">Temel Analiz</h3>
         <span className="ml-auto text-[10px] text-text-secondary/50 bg-surface border border-border rounded px-1.5 py-0.5">
-          AlphaVantage
+          Yahoo Finance
         </span>
       </div>
 
       {/* Sektör bilgisi */}
-      {ov.sector && ov.sector !== 'Bilinmiyor' && (
+      {data.sector && (
         <div className="mb-3 flex flex-wrap gap-1">
           <span className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-text-secondary">
-            {ov.sector}
+            {data.sector}
           </span>
-          {ov.industry && ov.industry !== ov.sector && (
+          {data.industry && data.industry !== data.sector && (
             <span className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-text-secondary/60">
-              {ov.industry}
+              {data.industry}
             </span>
           )}
         </div>
@@ -116,37 +114,40 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
 
       {/* Değerleme metrikleri */}
       <div>
-        {ov.marketCap > 0 && (
-          <DataRow label="Piyasa Değeri" value={formatMarketCap(ov.marketCap)} />
+        {data.marketCap !== null && data.marketCap > 0 && (
+          <DataRow label="Piyasa Değeri" value={formatVal(data.marketCap)} />
         )}
-        {ov.peRatio !== null && (
-          <DataRow label="F/K Oranı" value={`${ov.peRatio.toFixed(1)}x`} color={peColor} />
+        {data.peRatio !== null && (
+          <DataRow label="F/K Oranı" value={`${data.peRatio.toFixed(1)}x`} color={peColor} />
         )}
-        {ov.eps !== null && (
+        {data.priceToBook !== null && (
+          <DataRow label="F/DD Oranı" value={`${data.priceToBook.toFixed(2)}x`} />
+        )}
+        {data.eps !== null && (
           <DataRow
             label="Hisse Başı Kâr (EPS)"
-            value={`₺${ov.eps.toFixed(2)}`}
-            color={ov.eps >= 0 ? 'text-text-primary' : 'text-red-400'}
+            value={`₺${data.eps.toFixed(2)}`}
+            color={data.eps >= 0 ? 'text-text-primary' : 'text-red-400'}
           />
         )}
-        {ov.profitMargin !== null && (
+        {data.profitMargin !== null && (
           <DataRow
             label="Net Kâr Marjı"
-            value={`%${(ov.profitMargin * 100).toFixed(1)}`}
+            value={`%${(data.profitMargin * 100).toFixed(1)}`}
             color={marginColor}
           />
         )}
-        {ov.dividendYield !== null && ov.dividendYield > 0 && (
+        {data.dividendYield !== null && data.dividendYield > 0 && (
           <DataRow
             label="Temettü Verimi"
-            value={`%${(ov.dividendYield * 100).toFixed(2)}`}
+            value={`%${(data.dividendYield * 100).toFixed(2)}`}
             color="text-emerald-400"
           />
         )}
       </div>
 
       {/* 52 Hafta Aralığı */}
-      {ov.week52High > 0 && ov.week52Low > 0 && (
+      {week52High !== null && week52Low !== null && week52High > 0 && (
         <div className="mt-3 pt-3 border-t border-border/40">
           <div className="flex items-center justify-between text-xs mb-1.5">
             <span className="text-text-secondary">52 Hafta Aralığı</span>
@@ -155,7 +156,7 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
             )}
           </div>
           <div className="flex items-center gap-2 text-[11px] text-text-secondary mb-1">
-            <span>₺{ov.week52Low.toFixed(2)}</span>
+            <span>₺{week52Low.toFixed(2)}</span>
             <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
               {week52Pct !== null && (
                 <div
@@ -164,25 +165,25 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
                 />
               )}
             </div>
-            <span>₺{ov.week52High.toFixed(2)}</span>
+            <span>₺{week52High.toFixed(2)}</span>
           </div>
         </div>
       )}
 
-      {/* Bilanço — sadece veri varsa */}
-      {bl && (
+      {/* Bilanço */}
+      {hasBalance && (
         <div className="mt-3 pt-3 border-t border-border/40">
           <p className="text-[10px] font-medium text-text-secondary/60 uppercase tracking-wider mb-2">
             Bilanço
-            {bl.reportedDate && (
-              <span className="ml-1 normal-case text-text-secondary/40">({bl.reportedDate})</span>
+            {data.reportedDate && (
+              <span className="ml-1 normal-case text-text-secondary/40">({data.reportedDate})</span>
             )}
           </p>
-          {bl.totalCurrentAssets !== null && (
-            <DataRow label="Dönen Varlıklar" value={formatMarketCap(bl.totalCurrentAssets)} />
+          {data.totalCurrentAssets !== null && (
+            <DataRow label="Dönen Varlıklar" value={formatVal(data.totalCurrentAssets)} />
           )}
-          {bl.totalCurrentLiabilities !== null && (
-            <DataRow label="Kısa Vadeli Borç (KVB)" value={formatMarketCap(bl.totalCurrentLiabilities)} />
+          {data.totalCurrentLiabilities !== null && (
+            <DataRow label="Kısa Vadeli Borç (KVB)" value={formatVal(data.totalCurrentLiabilities)} />
           )}
           {cariOran !== null && (
             <DataRow
@@ -195,11 +196,11 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
               }
             />
           )}
-          {bl.totalShareholderEquity !== null && (
-            <DataRow label="Öz Kaynaklar" value={formatMarketCap(bl.totalShareholderEquity)} />
+          {data.totalStockholdersEquity !== null && (
+            <DataRow label="Öz Kaynaklar" value={formatVal(data.totalStockholdersEquity)} />
           )}
-          {bl.longTermDebt !== null && bl.longTermDebt > 0 && (
-            <DataRow label="Uzun Vadeli Borç" value={formatMarketCap(bl.longTermDebt)} />
+          {data.longTermDebt !== null && data.longTermDebt > 0 && (
+            <DataRow label="Uzun Vadeli Borç" value={formatVal(data.longTermDebt)} />
           )}
         </div>
       )}
