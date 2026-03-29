@@ -129,6 +129,12 @@ function ConfluenceBadge({ data }: { data: MtfResponse }) {
   const { confluenceLabel, confluenceDir, bullishTfCount, bearishTfCount, rows } = data;
   const total = rows.length;
 
+  // Günlük (1d) veya haftalık (1wk) zaman dilimi genel konsensüsle çelişiyor mu?
+  const dailyRow   = rows.find(r => r.tf === '1d');
+  const weeklyRow  = rows.find(r => r.tf === '1wk');
+  const dailyConflicts  = dailyRow  && dailyRow.decision  !== 'TUT' && dailyRow.decision  !== confluenceDir;
+  const weeklyConflicts = weeklyRow && weeklyRow.decision !== 'TUT' && weeklyRow.decision !== confluenceDir;
+
   const bgColor = {
     AL:  'border-emerald-500/30 bg-emerald-500/8',
     SAT: 'border-red-500/30 bg-red-500/8',
@@ -142,27 +148,44 @@ function ConfluenceBadge({ data }: { data: MtfResponse }) {
   }[confluenceDir];
 
   return (
-    <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${bgColor}`}>
-      <div className="flex items-center gap-2">
-        <span className={`text-sm font-bold ${textColor}`}>{confluenceLabel}</span>
-        <span className="text-xs text-text-muted">
-          ({bullishTfCount} AL · {bearishTfCount} SAT · {total - bullishTfCount - bearishTfCount} TUT)
-        </span>
+    <div className="space-y-1.5">
+      <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${bgColor}`}>
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-bold ${textColor}`}>{confluenceLabel}</span>
+          <span className="text-xs text-text-muted">
+            ({bullishTfCount} AL · {bearishTfCount} SAT · {total - bullishTfCount - bearishTfCount} TUT)
+          </span>
+        </div>
+        {/* Mini progress */}
+        <div className="flex items-center gap-1">
+          {rows.map(r => (
+            <div
+              key={r.tf}
+              title={`${r.shortLabel}: ${r.decision}`}
+              className={`h-2 w-2 rounded-full ${
+                r.decision === 'AL'  ? 'bg-emerald-400' :
+                r.decision === 'SAT' ? 'bg-red-400' :
+                'bg-yellow-400/50'
+              }`}
+            />
+          ))}
+        </div>
       </div>
-      {/* Mini progress */}
-      <div className="flex items-center gap-1">
-        {rows.map(r => (
-          <div
-            key={r.tf}
-            title={`${r.shortLabel}: ${r.decision}`}
-            className={`h-2 w-2 rounded-full ${
-              r.decision === 'AL'  ? 'bg-emerald-400' :
-              r.decision === 'SAT' ? 'bg-red-400' :
-              'bg-yellow-400/50'
-            }`}
-          />
-        ))}
-      </div>
+
+      {/* Çelişki uyarısı */}
+      {(dailyConflicts || weeklyConflicts) && (
+        <div className="flex items-start gap-1.5 rounded-lg border border-orange-500/20 bg-orange-500/5 px-3 py-2">
+          <span className="mt-0.5 text-xs">⚠️</span>
+          <p className="text-[11px] text-orange-300/80 leading-snug">
+            {dailyConflicts && weeklyConflicts
+              ? `Günlük ve haftalık zaman dilimleri ${dailyRow!.decision} sinyali veriyor — genel uyumla çelişiyor. Kısa vadeli hareketlere dikkat edin.`
+              : dailyConflicts
+              ? `Günlük (1G) zaman dilimi ${dailyRow!.decision} sinyali veriyor — diğer zaman dilimleriyle çelişiyor. AI Yorumu günlük sinyali baz alır.`
+              : `Haftalık (1H) zaman dilimi ${weeklyRow!.decision} sinyali veriyor — uzun vadeli trend farklı yönde.`
+            }
+          </p>
+        </div>
+      )}
     </div>
   );
 }
