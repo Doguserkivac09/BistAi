@@ -341,7 +341,8 @@ function calculateExpectancy(records: SignalPerformanceRecord[]): number | null 
 
   for (const r of valid) {
     const ret = r.return_7d!;
-    const isWin = r.direction === 'yukari' ? ret > 0 : r.direction === 'asagi' ? ret < 0 : ret > 0;
+    // evaluate-engine profit-direction convention: ret > 0 = kâr (AL ve SAT için aynı)
+    const isWin = ret > 0;
     if (isWin) wins.push(Math.abs(ret));
     else losses.push(Math.abs(ret));
   }
@@ -364,7 +365,8 @@ function calculateProfitFactor(records: SignalPerformanceRecord[]): number | nul
 
   for (const r of valid) {
     const ret = r.return_7d!;
-    const isWin = r.direction === 'yukari' ? ret > 0 : r.direction === 'asagi' ? ret < 0 : ret > 0;
+    // evaluate-engine profit-direction convention: ret > 0 = kâr (AL ve SAT için aynı)
+    const isWin = ret > 0;
     if (isWin) grossProfit += Math.abs(ret);
     else grossLoss += Math.abs(ret);
   }
