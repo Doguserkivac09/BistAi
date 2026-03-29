@@ -7,22 +7,12 @@
  */
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, BarChart2, DollarSign, Percent } from 'lucide-react';
+import { BarChart2 } from 'lucide-react';
+import type { AVFundamentals, AVBalanceSheet } from '@/lib/alpha-vantage';
 
-interface Fundamentals {
-  name: string;
-  sector: string;
-  industry: string;
-  marketCap: number;
-  peRatio: number | null;
-  eps: number | null;
-  revenuePerShareTTM: number | null;
-  profitMargin: number | null;
-  dividendYield: number | null;
-  week52High: number;
-  week52Low: number;
-  movingAverage50: number | null;
-  movingAverage200: number | null;
+interface FundamentalsResponse {
+  overview: AVFundamentals;
+  balance: AVBalanceSheet | null;
 }
 
 interface Props {
@@ -47,16 +37,18 @@ function DataRow({ label, value, color }: { label: string; value: string; color?
 }
 
 export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
-  const [data, setData] = useState<Fundamentals | null>(null);
+  const [data, setData] = useState<FundamentalsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    fetch(`/api/fundamentals?symbol=${encodeURIComponent(sembol)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setData(d?.error ? null : d))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+    setData(null);
+    fetch(`/api/fundamentals/${encodeURIComponent(sembol)}`)
+      .then(r => r.ok ? r.json() as Promise<FundamentalsResponse> : null)
+      .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [sembol]);
 
   if (loading) {
@@ -72,22 +64,30 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
 
   if (!data) return null; // API key yoksa veya veri gelmezse hiç render etme
 
+  const ov = data.overview;
+  const bl = data.balance;
+
   // 52 hafta % konumu
-  const week52Pct = currentPrice && data.week52High > data.week52Low
-    ? ((currentPrice - data.week52Low) / (data.week52High - data.week52Low)) * 100
+  const week52Pct = currentPrice && ov.week52High > ov.week52Low
+    ? ((currentPrice - ov.week52Low) / (ov.week52High - ov.week52Low)) * 100
     : null;
 
-  const peColor = data.peRatio
-    ? data.peRatio < 10 ? 'text-emerald-400'
-      : data.peRatio < 25 ? 'text-text-primary'
+  const peColor = ov.peRatio
+    ? ov.peRatio < 10 ? 'text-emerald-400'
+      : ov.peRatio < 25 ? 'text-text-primary'
       : 'text-orange-400'
     : 'text-text-secondary';
 
-  const marginColor = data.profitMargin
-    ? data.profitMargin >= 0.15 ? 'text-emerald-400'
-      : data.profitMargin >= 0 ? 'text-text-primary'
+  const marginColor = ov.profitMargin
+    ? ov.profitMargin >= 0.15 ? 'text-emerald-400'
+      : ov.profitMargin >= 0 ? 'text-text-primary'
       : 'text-red-400'
     : 'text-text-secondary';
+
+  // Cari oran
+  const cariOran = (bl?.totalCurrentAssets && bl?.totalCurrentLiabilities)
+    ? bl.totalCurrentAssets / bl.totalCurrentLiabilities
+    : null;
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
@@ -101,52 +101,52 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
       </div>
 
       {/* Sektör bilgisi */}
-      {data.sector && data.sector !== 'Bilinmiyor' && (
+      {ov.sector && ov.sector !== 'Bilinmiyor' && (
         <div className="mb-3 flex flex-wrap gap-1">
           <span className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-text-secondary">
-            {data.sector}
+            {ov.sector}
           </span>
-          {data.industry && data.industry !== data.sector && (
+          {ov.industry && ov.industry !== ov.sector && (
             <span className="inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-text-secondary/60">
-              {data.industry}
+              {ov.industry}
             </span>
           )}
         </div>
       )}
 
-      {/* Veri satırları */}
+      {/* Değerleme metrikleri */}
       <div>
-        {data.marketCap > 0 && (
-          <DataRow label="Piyasa Değeri" value={formatMarketCap(data.marketCap)} />
+        {ov.marketCap > 0 && (
+          <DataRow label="Piyasa Değeri" value={formatMarketCap(ov.marketCap)} />
         )}
-        {data.peRatio !== null && (
-          <DataRow label="F/K Oranı" value={data.peRatio.toFixed(1)} color={peColor} />
+        {ov.peRatio !== null && (
+          <DataRow label="F/K Oranı" value={`${ov.peRatio.toFixed(1)}x`} color={peColor} />
         )}
-        {data.eps !== null && (
+        {ov.eps !== null && (
           <DataRow
             label="Hisse Başı Kâr (EPS)"
-            value={`₺${data.eps.toFixed(2)}`}
-            color={data.eps >= 0 ? 'text-text-primary' : 'text-red-400'}
+            value={`₺${ov.eps.toFixed(2)}`}
+            color={ov.eps >= 0 ? 'text-text-primary' : 'text-red-400'}
           />
         )}
-        {data.profitMargin !== null && (
+        {ov.profitMargin !== null && (
           <DataRow
             label="Net Kâr Marjı"
-            value={`%${(data.profitMargin * 100).toFixed(1)}`}
+            value={`%${(ov.profitMargin * 100).toFixed(1)}`}
             color={marginColor}
           />
         )}
-        {data.dividendYield !== null && data.dividendYield > 0 && (
+        {ov.dividendYield !== null && ov.dividendYield > 0 && (
           <DataRow
             label="Temettü Verimi"
-            value={`%${(data.dividendYield * 100).toFixed(2)}`}
+            value={`%${(ov.dividendYield * 100).toFixed(2)}`}
             color="text-emerald-400"
           />
         )}
       </div>
 
       {/* 52 Hafta Aralığı */}
-      {data.week52High > 0 && data.week52Low > 0 && (
+      {ov.week52High > 0 && ov.week52Low > 0 && (
         <div className="mt-3 pt-3 border-t border-border/40">
           <div className="flex items-center justify-between text-xs mb-1.5">
             <span className="text-text-secondary">52 Hafta Aralığı</span>
@@ -155,7 +155,7 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
             )}
           </div>
           <div className="flex items-center gap-2 text-[11px] text-text-secondary mb-1">
-            <span>₺{data.week52Low.toFixed(2)}</span>
+            <span>₺{ov.week52Low.toFixed(2)}</span>
             <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
               {week52Pct !== null && (
                 <div
@@ -164,8 +164,43 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
                 />
               )}
             </div>
-            <span>₺{data.week52High.toFixed(2)}</span>
+            <span>₺{ov.week52High.toFixed(2)}</span>
           </div>
+        </div>
+      )}
+
+      {/* Bilanço — sadece veri varsa */}
+      {bl && (
+        <div className="mt-3 pt-3 border-t border-border/40">
+          <p className="text-[10px] font-medium text-text-secondary/60 uppercase tracking-wider mb-2">
+            Bilanço
+            {bl.reportedDate && (
+              <span className="ml-1 normal-case text-text-secondary/40">({bl.reportedDate})</span>
+            )}
+          </p>
+          {bl.totalCurrentAssets !== null && (
+            <DataRow label="Dönen Varlıklar" value={formatMarketCap(bl.totalCurrentAssets)} />
+          )}
+          {bl.totalCurrentLiabilities !== null && (
+            <DataRow label="Kısa Vadeli Borç (KVB)" value={formatMarketCap(bl.totalCurrentLiabilities)} />
+          )}
+          {cariOran !== null && (
+            <DataRow
+              label="Cari Oran"
+              value={`${cariOran.toFixed(2)}x`}
+              color={
+                cariOran >= 2 ? 'text-emerald-400'
+                : cariOran >= 1 ? 'text-text-primary'
+                : 'text-orange-400'
+              }
+            />
+          )}
+          {bl.totalShareholderEquity !== null && (
+            <DataRow label="Öz Kaynaklar" value={formatMarketCap(bl.totalShareholderEquity)} />
+          )}
+          {bl.longTermDebt !== null && bl.longTermDebt > 0 && (
+            <DataRow label="Uzun Vadeli Borç" value={formatMarketCap(bl.longTermDebt)} />
+          )}
         </div>
       )}
     </div>
