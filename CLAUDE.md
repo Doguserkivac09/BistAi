@@ -598,26 +598,26 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 
 ---
 
-## 🗺️ YOL HARİTASI — Profesyonel Geliştirme Planı (2026-03-28 güncellendi)
+## 🗺️ YOL HARİTASI — Profesyonel Geliştirme Planı (2026-03-29 güncellendi)
 
 > Kapsamlı rakip analizi (Investing.com, Danelfin, TrendSpider, Kavout, Borsacoo, Fintables) sonrası oluşturuldu.
 > **Kural:** Her step profesyonel olmadan sonrakine geçilmez.
 
 | Step | Özellik | Etki | Model | Süre | Durum |
 |------|---------|------|-------|------|-------|
-| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ✅ Sonnet tamam |
-| 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ✅ Sonnet tamam |
+| 1 | Makro Rüzgar Skoru | ★★★★★ | 🔵 Sonnet (tamamı — algoritma mevcut) | 3-5 gün | ✅ Tamam |
+| 2 | Hesap Makineleri | ★★★★ | 🔵 Sonnet (tamamı) | 3-5 gün | ✅ Tamam |
 | 3 | Ekonomi Takvimi | ★★★★ | 🔵 Sonnet (veri+UI) + 🔴 Opus (AI yorum) | 3-5 gün | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
-| 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | ⬜ |
-| 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | ⬜ |
-| 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ⬜ |
-| 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ⬜ |
-| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | ⬜ |
-| 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ⬜ |
-| 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | ⬜ |
-| 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ⬜ |
-| 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | ⬜ |
-| 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ⬜ |
+| 4 | Explainable AI Skor | ★★★★ | 🔴 Opus (algoritma) + 🔵 Sonnet (UI) | 1 hafta | 🔵✅ Sonnet tamam — 🔴⬜ Opus bekliyor |
+| 5 | AI Sohbet (Sidekick) | ★★★★★ | 🔴 Opus (tamamı) | 1-2 hafta | 🔴⬜ Opus bekliyor |
+| 6 | Fiyat Alert | ★★★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamam |
+| 7 | Portföy P&L | ★★★★ | 🔵 Sonnet (tamamı) | 1-2 hafta | ⬜ Bekliyor |
+| 8 | KAP + Sinyal | ★★★★ | 🔴 Opus (feed+AI) + 🔵 Sonnet (UI) | 2 hafta | ⬜ Bekliyor |
+| 9 | Gelişmiş Screener | ★★★ | 🔵 Sonnet (tamamı) | 1 hafta | ✅ Tamam |
+| 10 | AI Bülten | ★★★★ | 🔴 Opus (prompt) + 🔵 Sonnet (cron+UI) | 1 hafta | ⬜ Bekliyor |
+| 11 | Temel Analiz Veri | ★★★ | 🔵 Sonnet (tamamı) | 2 hafta | ✅ Tamam |
+| 12 | Ters Portföy | ★★★★ | 🔴 Opus (motor+AI) + 🔵 Sonnet (UI) | 1 hafta | ⬜ Bekliyor |
+| 13 | Makro Simülatör | ★★★★★ | 🔴 Opus (tamamı) | 2-3 hafta | ⬜ Bekliyor |
 
 > **Model Kuralı:** 🔴 Opus = algoritma tasarımı, AI prompt mühendisliği, karmaşık mantık, streaming API
 > 🔵 Sonnet = UI component, CRUD API, SQL migration, styling, basit veri dönüşümü
@@ -626,48 +626,59 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 **Detaylı plan + alt görev bazında model ataması:** `.claude/plans/vast-seeking-locket.md`
 
 ### Step 1 — Makro Rüzgar Skoru 🔵 ✅ TAMAMLANDI (2026-03-28)
-- `lib/macro-score.ts` zaten mevcut (-100/+100 skor + components[]), yeni algoritma gerekmiyor
-- ✅ 🔵 `components/MacroWindGauge.tsx`: Hava durumu metaforu gauge (Framer Motion)
-- ✅ 🔵 Dashboard/Makro entegrasyonu (mevcut `/api/macro` kullanılacak)
+- ✅ `components/MacroWindGauge.tsx`: SVG semicircle gauge, Framer Motion iğnesi, hava metaforu
+- ✅ Dashboard compact widget + `/makro` sayfası full entegrasyon
+- ✅ `app/dashboard/page.tsx` + `components/DashboardClient.tsx` güncellendi
 
 ### Step 2 — Hesap Makineleri 🔵 ✅ TAMAMLANDI (2026-03-28)
-- ✅ 🔵 `app/araclar/page.tsx`: Pozisyon büyüklüğü, Risk/Ödül, Hedef fiyat, Portföy risk — tamamı saf frontend
-- ✅ 🔵 `components/NavbarClient.tsx`: Araçlar linki Piyasa dropdown'una eklendi
+- ✅ `app/araclar/page.tsx`: 4 sekme — Pozisyon Büyüklüğü, Risk/Ödül, Hedef Fiyat, Portföy Risk
+- ✅ Navbar'a `Araçlar` linki eklendi (Piyasa dropdown)
 
 ### Step 3 — Ekonomi Takvimi 🔵✅ 🔴⬜
-- ✅ 🔵 `lib/ekonomi-takvimi.ts` + takvim UI + countdown — **Sonnet tamam (2026-03-28)**
+- ✅ `lib/ekonomi-takvimi.ts`: TR/US/EU olayları, tipler, yardımcı fonksiyonlar
+- ✅ `app/ekonomi-takvimi/page.tsx`: countdown, filtre, tarih gruplama, okunabilir UI
 - ⬜ 🔴 AI makro yorum entegrasyonu (Claude prompt) — **Opus bekliyor**
 
-### Step 4 — Explainable AI Skor 🔴🔵
-- 🔴 `lib/composite-signal.ts` genişletme (faktör katkı algoritması)
-- 🔵 `components/ScoreBreakdown.tsx` + entegrasyonlar
+### Step 4 — Explainable AI Skor 🔵✅ 🔴⬜
+- ✅ `components/ScoreBreakdown.tsx`: STRONG_BUY/SELL ring + banner, kompozit karar paneli
+- ✅ `app/hisse/[sembol]/HisseDetailClient.tsx`: toCompositeResult() adaptörü + sağ kolona entegre
+- ⬜ 🔴 `lib/composite-signal.ts` faktör katkı algoritması genişletmesi — **Opus bekliyor**
 
-### Step 5 — AI Sohbet 🔴
-- 🔴 Streaming API + context builder + prompt mühendisliği + chat UI (tamamı Opus)
+### Step 5 — AI Sohbet 🔴⬜
+- ⬜ Streaming API + context builder + prompt mühendisliği + chat UI — **Tamamı Opus bekliyor**
 
-### Step 6 — Fiyat Alert 🔵
-- 🔵 DB + CRUD API + cron + UI butonları + email template (tamamı Sonnet)
+### Step 6 — Fiyat Alert 🔵 ✅ TAMAMLANDI (2026-03-28)
+- ✅ `supabase/migrations/20260328_price_alerts.sql`: price_alerts tablosu + RLS
+- ✅ `app/api/price-alerts/route.ts`: CRUD (GET/POST/DELETE), max 5 alert/hisse
+- ✅ `app/api/cron/price-alerts/route.ts`: günlük fiyat kontrol + Resend email
+- ✅ `components/PriceAlertButton.tsx`: modal ile alarm kurma
+- ✅ `app/fiyat-alertler/page.tsx`: alarm yönetim sayfası
+- ✅ `vercel.json`: 10:00 TRT cron eklendi
+- ✅ Entegrasyon: watchlist, hisse detay, navbar Portföy dropdown
 
-### Step 7 — Portföy P&L 🔵
-- 🔵 DB şema + lot hesaplama + tab UI + grafik + CSV export (tamamı Sonnet)
+### Step 7 — Portföy P&L 🔵 ⬜ BEKLIYOR
+- ⬜ DB şema + lot hesaplama + tab UI + grafik + CSV export — **Sonnet görevi**
 
-### Step 8 — KAP + Sinyal 🔴🔵
-- 🔴 KAP feed parsing + AI özetleme/sinyal bağlantı prompt
-- 🔵 DB + cron + UI
+### Step 8 — KAP + Sinyal 🔴🔵 ⬜ BEKLIYOR
+- ⬜ 🔴 KAP feed parsing + AI özetleme/sinyal bağlantı prompt
+- ⬜ 🔵 DB + cron + bildirim UI
 
-### Step 9 — Gelişmiş Screener 🔵
-- 🔵 Çoklu filtre + sıralama + URL params (tamamı Sonnet)
+### Step 9 — Gelişmiş Screener 🔵 ✅ TAMAMLANDI (2026-03-28)
+- ✅ `app/tarama/page.tsx`: 15 sektör dropdown filtresi (selectedSector state + URL param)
+- ✅ Q6 sektör momentum filtresi de eklendi (sektör düşerken bullish = zayıf)
 
-### Step 10 — AI Bülten 🔴🔵
-- 🔴 Kişiselleştirilmiş bülten prompt
-- 🔵 Cron + email template + profil toggle
+### Step 10 — AI Bülten 🔴🔵 ⬜ BEKLIYOR
+- ⬜ 🔴 Kişiselleştirilmiş bülten prompt
+- ⬜ 🔵 Cron + email template + profil toggle
 
-### Step 11 — Temel Analiz Veri 🔵
-- 🔵 Yahoo veri çekme + DB cache + UI kartları (tamamı Sonnet)
+### Step 11 — Temel Analiz Veri 🔵 ✅ TAMAMLANDI (2026-03-28)
+- ✅ `app/api/fundamentals/route.ts`: AlphaVantage F/K, EPS, piyasa değeri endpoint
+- ✅ `components/TemelAnalizKarti.tsx`: F/K, EPS, piyasa değeri, 52 hafta bant UI
+- ✅ `app/hisse/[sembol]/HisseDetailClient.tsx`: hisse detay sayfasına entegre
 
-### Step 12 — Ters Portföy 🔴🔵
-- 🔴 Analiz motoru + AI öneri prompt
-- 🔵 "Kaçırdıklarınız" UI component
+### Step 12 — Ters Portföy 🔴🔵 ⬜ BEKLIYOR
+- ⬜ 🔴 Analiz motoru + AI öneri prompt
+- ⬜ 🔵 "Kaçırdıklarınız" UI component
 
-### Step 13 — Makro Simülatör 🔴
-- 🔴 Senaryo prompt + tarihsel analiz + karmaşık UI state (tamamı Opus)
+### Step 13 — Makro Simülatör 🔴 ⬜ BEKLIYOR
+- ⬜ Senaryo prompt + tarihsel analiz + karmaşık UI state — **Tamamı Opus bekliyor**
