@@ -78,14 +78,9 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
       : 'text-red-400'
     : 'text-text-secondary';
 
-  const cariOran = (data.totalCurrentAssets && data.totalCurrentLiabilities)
-    ? data.totalCurrentAssets / data.totalCurrentLiabilities
-    : null;
-
-  const hasBalance = data.totalCurrentAssets !== null
-    || data.totalCurrentLiabilities !== null
-    || data.totalStockholdersEquity !== null
-    || data.longTermDebt !== null;
+  const hasFinancial = data.currentRatio !== null
+    || data.totalDebt !== null
+    || data.totalCash !== null;
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
@@ -170,37 +165,28 @@ export function TemelAnalizKarti({ sembol, currentPrice }: Props) {
         </div>
       )}
 
-      {/* Bilanço */}
-      {hasBalance && (
+      {/* Finansal Veriler */}
+      {hasFinancial && (
         <div className="mt-3 pt-3 border-t border-border/40">
           <p className="text-[10px] font-medium text-text-secondary/60 uppercase tracking-wider mb-2">
-            Bilanço
-            {data.reportedDate && (
-              <span className="ml-1 normal-case text-text-secondary/40">({data.reportedDate})</span>
-            )}
+            Finansal Durum
           </p>
-          {data.totalCurrentAssets !== null && (
-            <DataRow label="Dönen Varlıklar" value={formatVal(data.totalCurrentAssets)} />
-          )}
-          {data.totalCurrentLiabilities !== null && (
-            <DataRow label="Kısa Vadeli Borç (KVB)" value={formatVal(data.totalCurrentLiabilities)} />
-          )}
-          {cariOran !== null && (
+          {data.currentRatio !== null && (
             <DataRow
               label="Cari Oran"
-              value={`${cariOran.toFixed(2)}x`}
+              value={`${data.currentRatio.toFixed(2)}x`}
               color={
-                cariOran >= 2 ? 'text-emerald-400'
-                : cariOran >= 1 ? 'text-text-primary'
+                data.currentRatio >= 2 ? 'text-emerald-400'
+                : data.currentRatio >= 1 ? 'text-text-primary'
                 : 'text-orange-400'
               }
             />
           )}
-          {data.totalStockholdersEquity !== null && (
-            <DataRow label="Öz Kaynaklar" value={formatVal(data.totalStockholdersEquity)} />
+          {data.totalCash !== null && data.totalCash > 0 && (
+            <DataRow label="Nakit & Eşdeğerleri" value={formatVal(data.totalCash)} />
           )}
-          {data.longTermDebt !== null && data.longTermDebt > 0 && (
-            <DataRow label="Uzun Vadeli Borç" value={formatVal(data.longTermDebt)} />
+          {data.totalDebt !== null && data.totalDebt > 0 && (
+            <DataRow label="Toplam Borç" value={formatVal(data.totalDebt)} />
           )}
         </div>
       )}
