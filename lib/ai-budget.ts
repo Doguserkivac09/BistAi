@@ -9,17 +9,15 @@
  * → Haiku   150 istek × ~$0.005/istek = ~$0.75/gün
  *
  * Override: AI_DAILY_LIMIT env değişkeni ile değiştirilebilir.
+ *
+ * Race condition fix (B2): In-memory sayaç yerine PostgreSQL'in atomik
+ * INCREMENT fonksiyonu kullanılır. Her istek DB'ye gider; eş zamanlı
+ * isteklerde PostgreSQL row lock sayesinde sadece bir istek limiti aşabilir.
  */
 
 import { createClient } from '@supabase/supabase-js';
 
 const DEFAULT_DAILY_LIMIT = 150;
-
-// In-memory sayaç (cold start'ta sıfırlanır ama Supabase'den sync edilir)
-let dailyCount = 0;
-let lastSyncDate = '';
-let lastSyncTs   = 0;
-const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 dakikada bir Supabase'den sync et
 
 function getAdminClient() {
   return createClient(
@@ -42,35 +40,13 @@ function getDailyLimit(): number {
 }
 
 /**
- * Günlük sayacı Supabase'den çek (cache ile).
- * ai_cache tablosunu kullanır — ayrı tablo gerektirmez.
- */
-async function syncFromDb(): Promise<void> {
-  const today = getTodayStr();
-  if (today !== lastSyncDate || Date.now() - lastSyncTs > SYNC_INTERVAL_MS) {
-    try {
-      const admin = getAdminClient();
-      const key = `ai_budget:${today}`;
-      const { data } = await admin
-        .from('ai_cache')
-        .select('hit_count')
-        .eq('cache_key', key)
-        .single();
-
-      if (today !== lastSyncDate) {
-        // Yeni gün — sayacı sıfırla
-        dailyCount = data?.hit_count ?? 0;
-      } else {
-        dailyCount = data?.hit_count ?? dailyCount;
-      }
-      lastSyncDate = today;
-      lastSyncTs   = Date.now();
-    } catch { /* sessizce geç — in-memory sayacı kullan */ }
-  }
-}
-
-/**
- * Yeni AI isteğini kaydet ve günlük limiti kontrol et.
+ * Yeni AI isteğini atomik olarak kaydet ve günlük limiti kontrol et.
+ *
+ * increment_ai_budget() Postgres fonksiyonu:
+ * - hit_count < limit ise atomik olarak +1 yapar ve (new_count, true) döner
+ * - hit_count >= limit ise satırı değiştirmez, (current_count, false) döner
+ * - Eş zamanlı isteklerde PG row lock garantisi sağlar
+ *
  * @returns { allowed: boolean; used: number; limit: number }
  */
 export async function checkAndRecordAiBudget(): Promise<{
@@ -78,28 +54,37 @@ export async function checkAndRecordAiBudget(): Promise<{
   used: number;
   limit: number;
 }> {
-  await syncFromDb();
-
   const limit = getDailyLimit();
   const today = getTodayStr();
-
-  if (dailyCount >= limit) {
-    return { allowed: false, used: dailyCount, limit };
-  }
-
-  // Sayacı artır
-  dailyCount++;
-
-  // Supabase'e asenkron yaz (fire & forget — gecikme ekleme)
   const key = `ai_budget:${today}`;
-  const admin = getAdminClient();
-  void admin.from('ai_cache').upsert({
-    cache_key: key,
-    explanation: 'budget_counter',
-    version: 0,
-    hit_count: dailyCount,
-    expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), // 2 gün
-  }, { onConflict: 'cache_key' });
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(); // 2 gün
 
-  return { allowed: true, used: dailyCount, limit };
+  try {
+    const admin = getAdminClient();
+    const { data, error } = await admin.rpc('increment_ai_budget', {
+      p_key: key,
+      p_limit: limit,
+      p_expires_at: expiresAt,
+    });
+
+    if (error) {
+      // DB hatası → kullanıcıyı bloklamaktan kaçın, ama logla
+      console.error('[ai-budget] RPC hatası:', error.message);
+      return { allowed: true, used: 0, limit };
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result) {
+      return { allowed: true, used: 0, limit };
+    }
+
+    return {
+      allowed: Boolean(result.allowed),
+      used: Number(result.new_count),
+      limit,
+    };
+  } catch (err) {
+    console.error('[ai-budget] Beklenmeyen hata:', err);
+    return { allowed: true, used: 0, limit };
+  }
 }

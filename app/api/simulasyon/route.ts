@@ -23,6 +23,7 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
 import { checkAndRecordAiBudget } from '@/lib/ai-budget';
+import { sanitizeUserInput } from '@/lib/sanitize';
 
 const RATE_LIMIT = 10;
 const WINDOW_MS  = 60_000;
@@ -221,8 +222,26 @@ export async function POST(request: NextRequest) {
   let scenario: SimulationScenario;
   try {
     const body = await request.json();
-    scenario = body.scenario;
-    if (!scenario?.type || !scenario?.magnitude) throw new Error('invalid');
+    const raw = body.scenario;
+    if (!raw?.type || !raw?.magnitude) throw new Error('invalid');
+
+    // Whitelist validation — enum değerleri dışında hiçbir şey geçemez
+    if (!(raw.type in SCENARIO_LABELS)) {
+      throw new Error('invalid scenario type');
+    }
+    const validMagnitudes: SimulationScenario['magnitude'][] = ['hafif', 'orta', 'sert'];
+    if (!validMagnitudes.includes(raw.magnitude)) {
+      throw new Error('invalid magnitude');
+    }
+
+    scenario = {
+      type: raw.type as ScenarioType,
+      magnitude: raw.magnitude as SimulationScenario['magnitude'],
+      // customNote: kullanıcı kontrollü — sanitize et (max 200 karakter)
+      customNote: raw.customNote
+        ? sanitizeUserInput(String(raw.customNote), 200)
+        : undefined,
+    };
   } catch {
     return new Response(JSON.stringify({ error: 'Geçersiz senaryo.' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },

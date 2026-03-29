@@ -19,6 +19,7 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
 import { checkAndRecordAiBudget } from '@/lib/ai-budget';
+import { sanitizeUserInput, sanitizeTicker } from '@/lib/sanitize';
 
 const RATE_LIMIT = 20;
 const WINDOW_MS = 60_000;
@@ -68,20 +69,25 @@ KURALLAR:
 - Sayıları ve yüzdeleri somut göster
 - Emin olmadığın şeylerde "güncel veriye bakmak gerekir" de`;
 
-  if (ctx.sembol) {
-    system += `\n\nMEVCUT BAĞLAM — ${ctx.sembol} hissesi tartışılıyor.`;
+  // Kullanıcı kontrollü alanları sanitize et (prompt injection koruması)
+  const sembol = sanitizeTicker(ctx.sembol);
+  if (sembol) {
+    system += `\n\nMEVCUT BAĞLAM — ${sembol} hissesi tartışılıyor.`;
   }
 
   if (ctx.portfolyoOzet) {
-    system += `\n\nKULLANICININ PORTFÖYÜ:\n${ctx.portfolyoOzet}`;
+    const clean = sanitizeUserInput(ctx.portfolyoOzet, 500);
+    if (clean) system += `\n\nKULLANICININ PORTFÖYÜ:\n${clean}`;
   }
 
   if (ctx.sinyalOzet) {
-    system += `\n\nGÜNCEL SİNYALLER:\n${ctx.sinyalOzet}`;
+    const clean = sanitizeUserInput(ctx.sinyalOzet, 500);
+    if (clean) system += `\n\nGÜNCEL SİNYALLER:\n${clean}`;
   }
 
   if (ctx.makroOzet) {
-    system += `\n\nMAKRO DURUM:\n${ctx.makroOzet}`;
+    const clean = sanitizeUserInput(ctx.makroOzet, 500);
+    if (clean) system += `\n\nMAKRO DURUM:\n${clean}`;
   }
 
   return system;
@@ -216,6 +222,13 @@ export async function POST(request: NextRequest) {
   const lastMsg = messages[messages.length - 1];
   if (lastMsg?.role !== 'user' || !lastMsg.content.trim()) {
     return new Response(JSON.stringify({ error: 'Son mesaj kullanıcıdan gelmelidir.' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Mesaj uzunluk kısıtı (son mesaj max 2000 karakter)
+  if (lastMsg.content.length > 2000) {
+    return new Response(JSON.stringify({ error: 'Mesaj çok uzun (max 2000 karakter).' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
     });
   }

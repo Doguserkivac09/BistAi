@@ -712,9 +712,9 @@ Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazıl
 | ID | Sorun | Etkilenen Dosyalar | Model | Şiddet | Durum |
 |----|-------|--------------------|-------|--------|-------|
 | B1 | Cron auth standardizasyonu | `cron/bulten`, `cron/alerts`, `cron/macro`, `cron/price-alerts` | 🔵 Sonnet | 🔴 Kritik | ✅ TAMAMLANDI (2026-03-29) |
-| B2 | AI Budget race condition (atomik counter) | `lib/ai-budget.ts` | 🔴 Opus | 🔴 Kritik | ⬜ Opus bekliyor |
+| B2 | AI Budget race condition (atomik counter) | `lib/ai-budget.ts` | 🔴 Opus | 🔴 Kritik | ✅ TAMAMLANDI (2026-03-29) |
 | B3 | Error mesaj sanitizasyonu (info disclosure) | `api/simulasyon`, `api/kap/summarize`, `api/ekonomi-takvimi` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
-| B4 | Prompt injection koruması | `api/chat`, `api/simulasyon` | 🔴 Opus | 🟠 Yüksek | ⬜ Opus bekliyor |
+| B4 | Prompt injection koruması | `api/chat`, `api/simulasyon` | 🔴 Opus | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
 | B5 | IP spoofing rate limit bypass | `lib/rate-limit.ts` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
 | B6 | Math safety — boş array Infinity/NaN | `lib/signals.ts` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
 | B7 | Null safety (optional chaining, non-null assertion) | `sector-engine`, `macro-score`, `edge-engine`, `tarama` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
