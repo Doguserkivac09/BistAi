@@ -16,6 +16,7 @@ const nextConfig = {
       bodySizeLimit: '1mb',
     },
     optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
+    serverComponentsExternalPackages: ['yahoo-finance2'],
   },
   async headers() {
     return [
