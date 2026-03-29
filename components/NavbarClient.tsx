@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,10 +37,15 @@ const navItems = [
       { href: '/araclar',          label: 'Araçlar',            icon: Calculator },
     ],
   },
-  { href: '/sohbet',     label: 'AI Asistan' },
-  { href: '/backtesting', label: 'Backtest' },
-  { href: '/topluluk',   label: 'Topluluk' },
-  { href: '/dashboard',  label: 'Dashboard' },
+  {
+    label: 'Keşfet',
+    dropdown: [
+      { href: '/sohbet',      label: 'AI Asistan', icon: Bot },
+      { href: '/backtesting', label: 'Backtest',   icon: Activity },
+      { href: '/topluluk',    label: 'Topluluk',   icon: Users },
+      { href: '/dashboard',   label: 'Dashboard',  icon: LayoutDashboard },
+    ],
+  },
 ];
 
 type DropdownItem = { href: string; label: string; icon: React.ElementType };
