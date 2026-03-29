@@ -180,12 +180,12 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
   const [analizLoading, setAnalizLoading] = useState(true);
 
-  // ── Hisse Analizi (AI, Fiyat Hedefleri, Hero Meta) ───────────────────────
+  // ── Hisse Analizi (AI, Fiyat Hedefleri, Hero Meta) — timeframe bağımlı ──
   useEffect(() => {
     let cancelled = false;
     setAnalizLoading(true);
     setAnaliz(null);
-    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}`)
+    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}&timeframe=${timeframe}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data: HisseAnalizResponse | null) => {
         if (!cancelled) setAnaliz(data);
@@ -193,7 +193,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
       .catch(() => {})
       .finally(() => { if (!cancelled) setAnalizLoading(false); });
     return () => { cancelled = true; };
-  }, [sembol]);
+  }, [sembol, timeframe]);
 
   // ── Haberler ────────────────────────────────────────────────────────────────
   const loadHaberler = useCallback(async () => {
