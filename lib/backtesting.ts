@@ -23,6 +23,14 @@ const COMMISSION_ROUNDTRIP = 0.004;
 
 // ── Türler ──────────────────────────────────────────────────────────
 
+/** Equity curve veri noktası */
+export interface EquityPoint {
+  /** YYYY-MM-DD */
+  date: string;
+  /** Normalize edilmiş equity (100 = başlangıç) */
+  equity: number;
+}
+
 export interface BacktestResult {
   /** Test edilen filtre açıklaması */
   filterDescription: string;
@@ -346,6 +354,44 @@ function calculateAvg(
 
   const sum = valid.reduce((s, r) => s + (r[field] ?? 0), 0);
   return roundTo((sum / valid.length) * 100, 2);
+}
+
+/**
+ * Kümülatif equity curve — 7 günlük net getirileri tarih sırasına göre
+ * birleştirir. Başlangıç değeri 100, her nokta bir işlem günü.
+ *
+ * Metodoloji: Sinyalleri entry_time'a göre sıralar; günlük gruplama yaparak
+ * aynı günde birden fazla sinyal varsa ortalama alır. Sonuç lightweight-charts
+ * Line serisi formatında {date, value} dizi olarak döner.
+ */
+export function calculateEquityCurve(records: SignalPerformanceRecord[]): EquityPoint[] {
+  const valid = records
+    .filter((r) => r.return_7d != null)
+    .sort((a, b) => new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime());
+
+  if (valid.length < 2) return [];
+
+  // Günlük ortalama getiri
+  const byDate = new Map<string, number[]>();
+  for (const r of valid) {
+    const date = r.entry_time.slice(0, 10);
+    const net  = r.return_7d! - COMMISSION_ROUNDTRIP;
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date)!.push(net);
+  }
+
+  const sortedDates = Array.from(byDate.keys()).sort();
+  const points: EquityPoint[] = [];
+  let equity = 100;
+
+  for (const date of sortedDates) {
+    const rets = byDate.get(date)!;
+    const avgRet = rets.reduce((s, r) => s + r, 0) / rets.length;
+    equity *= (1 + avgRet);
+    points.push({ date, equity: roundTo(equity, 2) });
+  }
+
+  return points;
 }
 
 /**

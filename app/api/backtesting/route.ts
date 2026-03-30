@@ -6,9 +6,11 @@ import {
   runBacktest,
   generatePerformanceMatrix,
   generateStandardComparisons,
+  calculateEquityCurve,
   type BacktestResult,
   type BacktestComparison,
   type PerformanceMatrixRow,
+  type EquityPoint,
 } from '@/lib/backtesting';
 
 // ── Supabase Admin ──────────────────────────────────────────────────
@@ -45,6 +47,7 @@ export interface BacktestingResponse {
   matrix: PerformanceMatrixRow[];
   comparisons: BacktestComparison[];
   totalRecords: number;
+  equityCurve: EquityPoint[];
 }
 
 export async function GET(request: NextRequest) {
@@ -110,6 +113,7 @@ export async function GET(request: NextRequest) {
         matrix: [],
         comparisons: [],
         totalRecords: 0,
+        equityCurve: [],
       });
     }
 
@@ -122,11 +126,15 @@ export async function GET(request: NextRequest) {
     // Standart karşılaştırmalar
     const comparisons = generateStandardComparisons(records);
 
+    // Equity curve
+    const equityCurve = calculateEquityCurve(records);
+
     return NextResponse.json<BacktestingResponse>({
       summary,
       matrix,
       comparisons,
       totalRecords: records.length,
+      equityCurve,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';

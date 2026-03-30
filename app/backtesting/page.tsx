@@ -13,6 +13,7 @@ import type {
   BacktestResult,
   BacktestComparison,
   PerformanceMatrixRow,
+  EquityPoint,
 } from '@/lib/backtesting';
 
 // ── Türler ──────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ interface BacktestingData {
   matrix: PerformanceMatrixRow[];
   comparisons: BacktestComparison[];
   totalRecords: number;
+  equityCurve: EquityPoint[];
 }
 
 // ── Sabitler ────────────────────────────────────────────────────────
@@ -196,6 +198,72 @@ function WinLossBar({ total, winRate }: { total: number; winRate: number | null 
       <div className="flex justify-between mt-1.5 text-[11px] text-text-muted">
         <span className="text-green-400">{winN} kazanan sinyal</span>
         <span className="text-red-400">{lossN} kaybeden sinyal</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Equity Curve ────────────────────────────────────────────────────
+
+function EquityChart({ points }: { points: EquityPoint[] }) {
+  if (points.length < 2) return null;
+
+  const min   = Math.min(...points.map(p => p.equity));
+  const max   = Math.max(...points.map(p => p.equity));
+  const range = max - min || 1;
+  const W = 100; // viewBox width (%)
+  const H = 100; // viewBox height (%)
+
+  const toX = (i: number) => (i / (points.length - 1)) * W;
+  const toY = (v: number) => H - ((v - min) / range) * H;
+
+  const polyline = points.map((p, i) => `${toX(i)},${toY(p.equity)}`).join(' ');
+  const area     = `0,${H} ` + points.map((p, i) => `${toX(i)},${toY(p.equity)}`).join(' ') + ` ${W},${H}`;
+
+  const finalEquity = points[points.length - 1]!.equity;
+  const isPositive  = finalEquity >= 100;
+  const color       = isPositive ? '#22c55e' : '#ef4444';
+  const fillColor   = isPositive ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
+  const change      = ((finalEquity - 100) / 100 * 100).toFixed(1);
+
+  return (
+    <div className="mb-8 rounded-xl border border-border bg-surface p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary">
+          <Activity className="h-5 w-5 text-primary" />
+          Equity Curve
+          <span className="ml-1 text-sm font-normal text-text-muted">· 7 günlük getiri, komisyon dahil</span>
+        </h2>
+        <span className={`text-sm font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+          {isPositive ? '+' : ''}{change}% toplam
+        </span>
+      </div>
+      <div className="relative h-48 w-full">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          className="h-full w-full"
+        >
+          {/* Başlangıç çizgisi (100) */}
+          <line
+            x1={0} y1={toY(100)} x2={W} y2={toY(100)}
+            stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" strokeDasharray="2,2"
+          />
+          {/* Alan dolgusu */}
+          <polygon points={area} fill={fillColor} />
+          {/* Çizgi */}
+          <polyline points={polyline} fill="none" stroke={color} strokeWidth="1.2" />
+        </svg>
+        {/* Y eksen etiketleri */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between py-1 text-right pr-1">
+          <span className="text-[10px] text-text-muted">{max.toFixed(0)}</span>
+          <span className="text-[10px] text-text-muted">100</span>
+          <span className="text-[10px] text-text-muted">{min.toFixed(0)}</span>
+        </div>
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-text-muted">
+        <span>{points[0]!.date}</span>
+        <span>{points[points.length - 1]!.date}</span>
       </div>
     </div>
   );
@@ -968,6 +1036,9 @@ export default function BacktestingPage() {
             mae={data.summary.avgMae}
             expectancy={data.summary.expectancy}
           />
+
+          {/* Equity Curve */}
+          <EquityChart points={data.equityCurve} />
 
           {/* Performans matrisi */}
           <PerformanceMatrix
