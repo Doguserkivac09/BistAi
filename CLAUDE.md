@@ -721,3 +721,62 @@ Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazıl
 | B8 | Timezone fix — UTC vs TRT gece kayması | `lib/ekonomi-takvimi.ts` | 🔵 Sonnet | 🟠 Yüksek | ✅ TAMAMLANDI (2026-03-29) |
 | B9 | Frontend UX (mobile modal, chat overflow, grid, delete feedback) | `PriceAlertButton`, `sohbet`, `DashboardClient`, `fiyat-alertler` | 🔵 Sonnet | 🟡 Orta | ✅ TAMAMLANDI (2026-03-29) |
 | B10 | Accessibility (aria-label, role, alt) | `PriceAlertButton`, `NavbarClient` | 🔵 Sonnet | 🟡 Orta | ✅ TAMAMLANDI (2026-03-29) |
+
+---
+
+## 🔬 Backtesting Denetimi (2026-03-30) — Bulgular & Yol Haritası
+
+### Mevcut Durum (Gerçek Veri ile Ölçüldü)
+- **12.671 kayıt**, 164 BIST sembolü, 1 yıl geçmiş, sıfır mock veri ✅
+- Win Rate: **~50.2-50.6%** → istatistiksel olarak jeton atışından farksız
+- Avg Return (7g): **+0.10%** → BIST komisyonu (~%0.4 roundtrip) kesilince zarara döner
+- Expectancy: **+0.01R** → anlamlı edge kanıtlanamıyor
+- Profit Factor: **1.04** → 1.0 = başabaş, gürültü içinde
+
+### Tespit Edilen Metodoloji Hataları
+
+| # | Hata | Etki | Aciliyet |
+|---|------|------|---------|
+| BT1 | **Rejim verisi bozuk** — 5.235 RSI kaydın tamamı "sideways", bull/bear = 0. Cron scan `regime` kaydetmiyor | Signal×Regime matrisi anlamsız | 🔴 Acil |
+| BT2 | **Giriş fiyatı bias** — `lastCandle.close` kullanılıyor; sinyal kapanışta tespit edilince o fiyattan alım yapılamaz, ertesi açılış olmalı | Gerçekçi olmayan sonuçlar | 🔴 Acil |
+| BT3 | **Komisyon simülasyonu yok** — BIST roundtrip maliyeti ~%0.3-0.5; +0.10% getiri gerçekte zarar | Tüm metrikler yanlış | 🔴 Acil |
+| BT4 | **5 günde bir örnekleme** — `backfill-real` her 5 mumda bir sinyal arıyor; aradaki sinyaller atlanıyor, bağımsız olmayan örneklem | Seçim bias'ı | 🟠 Orta |
+| BT5 | **Survivorship bias** — delistinge giden şirketler dahil değil | Sonuçlar iyimser | 🟠 Orta |
+| BT6 | **Drawdown metriği yok** — max drawdown olmadan risk ölçülemiyor | Eksik risk profili | 🟠 Orta |
+| BT7 | **Equity curve yok** — strateji zaman içinde nasıl büyüdü görülemiyor | Kullanıcı güveni | 🟡 Sonra |
+| BT8 | **Sharpe/Sortino yok** — risk-ağırlıklı temel metrik eksik | Profesyonellik | 🟡 Sonra |
+| BT9 | **BIST100 benchmark yok** — "endeksten iyi mi?" sorusu cevaplanamıyor | Anlamlılık | 🟡 Sonra |
+| BT10 | **İstatistiksel anlamlılık testi yok** — %50.6 win rate p-value olmadan anlamsız | Bilimsel doğruluk | 🟡 Sonra |
+| BT11 | **Veri geçmişi 1 yıl** — sektör standardı 5+ yıl; Yahoo 10 yıla kadar destekliyor | Güvenilirlik | 🟡 Sonra |
+
+### Rakip Karşılaştırması (Eksikler)
+
+| Özellik | BistAI | TradingView | Matriks |
+|---------|--------|-------------|---------|
+| Komisyon modeli | ❌ | ✅ | ✅ |
+| Equity curve | ❌ | ✅ | ✅ |
+| Max Drawdown | ❌ | ✅ | ✅ |
+| Sharpe Ratio | ❌ | ✅ | ✅ |
+| Benchmark (BIST100) | ❌ | ❌ | ✅ |
+| Giriş zamanlaması doğru | ❌ | ✅ | ✅ |
+| Signal×Regime matrisi | ✅ | ❌ | ❌ |
+| Makro bağlam | ✅ | ❌ | ❌ |
+| Türkçe/BIST odaklı | ✅ | ❌ | ✅ |
+
+### Düzeltme Planı
+
+**Acil (BT1-BT3):**
+- BT1: `app/api/cron/scan/route.ts` → `regime` alanını kaydettiğinden emin ol; `backfill-real`'de de XU100 snapshots ile regime hesaplanıyor, mevcut DB kayıtları güncellenebilir
+- BT2: `backfill-real/route.ts` → `entryPrice = candles[i+1]?.open ?? lastCandle.close` (ertesi açılış)
+- BT3: `lib/backtesting.ts` → `COMMISSION_ROUNDTRIP = 0.004` sabitini returns'ten düş
+
+**Orta vadeli (BT4-BT6):**
+- BT4: `backfill-real` → her mum başı sinyal tespiti (her 5 yerine)
+- BT6: `calculateMaxDrawdown()` fonksiyonu + UI kartı
+
+**Sonra (BT7-BT11):**
+- BT7: Equity curve (kümülatif getiri grafiği)
+- BT8: Sharpe Ratio (`(avgReturn - riskFreeRate) / stdDev`)
+- BT9: BIST100 benchmark karşılaştırma
+- BT10: p-value / güven aralığı göstergesi
+- BT11: Yahoo'dan 5 yıl veri çekme
