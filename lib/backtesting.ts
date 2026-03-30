@@ -69,6 +69,13 @@ export interface BacktestResult {
    * >1 iyi, >2 çok iyi, <0 kötü.
    */
   sharpeRatio: number | null;
+  /**
+   * İstatistiksel anlamlılık — tek örneklem t-testi (H₀: ort. getiri = 0).
+   * pValue < 0.05 → istatistiksel olarak anlamlı edge var.
+   * tStat: t istatistiği; pValue: yaklaşık p-değeri (iki kuyruklu).
+   */
+  tStat: number | null;
+  pValue: number | null;
 }
 
 export interface BacktestComparison {
@@ -124,6 +131,8 @@ export function runBacktest(
       profitFactor: null,
       maxDrawdown: null,
       sharpeRatio: null,
+      tStat: null,
+      pValue: null,
     };
   }
 
@@ -142,6 +151,8 @@ export function runBacktest(
       profitFactor: null,
       maxDrawdown: null,
       sharpeRatio: null,
+      tStat: null,
+      pValue: null,
     };
   }
 
@@ -165,6 +176,7 @@ export function runBacktest(
     profitFactor: calculateProfitFactor(evaluated),
     maxDrawdown: calculateMaxDrawdown(evaluated),
     sharpeRatio: calculateSharpeRatio(evaluated),
+    ...calculateTTest(evaluated),
   };
 }
 
@@ -363,6 +375,46 @@ function calculateAvg(
 
   const sum = valid.reduce((s, r) => s + (r[field] ?? 0), 0);
   return roundTo((sum / valid.length) * 100, 2);
+}
+
+/**
+ * Tek örneklem t-testi: H₀ — ortalama net getiri = 0.
+ * t = (mean / (std / sqrt(n)))
+ * p-value: normal dağılım yaklaşımı (n > 30 için güvenilir).
+ * İki kuyruklu test.
+ */
+function calculateTTest(records: SignalPerformanceRecord[]): { tStat: number | null; pValue: number | null } {
+  const valid = records.filter((r) => r.return_7d != null);
+  if (valid.length < 30) return { tStat: null, pValue: null };
+
+  const nets = valid.map((r) => r.return_7d! - COMMISSION_ROUNDTRIP);
+  const n    = nets.length;
+  const mean = nets.reduce((s, r) => s + r, 0) / n;
+  const variance = nets.reduce((s, r) => s + (r - mean) ** 2, 0) / (n - 1);
+  const se = Math.sqrt(variance / n);
+
+  if (se === 0) return { tStat: null, pValue: null };
+  const t = mean / se;
+
+  // İki kuyruklu p-value — standart normal CDF yaklaşımı (Abramowitz & Stegun)
+  const pValue = 2 * (1 - normalCDF(Math.abs(t)));
+
+  return { tStat: roundTo(t, 3), pValue: roundTo(pValue, 4) };
+}
+
+/** Standart normal kümülatif dağılım fonksiyonu (yaklaşım) */
+function normalCDF(z: number): number {
+  const a1 =  0.254829592;
+  const a2 = -0.284496736;
+  const a3 =  1.421413741;
+  const a4 = -1.453152027;
+  const a5 =  1.061405429;
+  const p  =  0.3275911;
+  const sign = z < 0 ? -1 : 1;
+  const x = Math.abs(z) / Math.sqrt(2);
+  const t2 = 1 / (1 + p * x);
+  const y = 1 - ((((a5 * t2 + a4) * t2 + a3) * t2 + a2) * t2 + a1) * t2 * Math.exp(-x * x);
+  return 0.5 * (1 + sign * y);
 }
 
 /**

@@ -1093,6 +1093,22 @@ export default function BacktestingPage() {
           {/* Özet kartlar */}
           <SummaryCards summary={data.summary} total={data.totalRecords} horizon={horizon} />
 
+          {/* İstatistiksel Anlamlılık */}
+          {data.summary.pValue !== null && (
+            <div className="mb-4 flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm">
+              <HelpCircle className="h-4 w-4 shrink-0 text-text-muted" />
+              <span className="text-text-muted">İstatistiksel Anlamlılık:</span>
+              <span className={`font-semibold ${data.summary.pValue < 0.05 ? 'text-green-400' : data.summary.pValue < 0.1 ? 'text-yellow-400' : 'text-red-400'}`}>
+                p = {data.summary.pValue.toFixed(4)}
+              </span>
+              <span className="text-text-muted">·</span>
+              <span className={`text-xs ${data.summary.pValue < 0.05 ? 'text-green-400' : 'text-text-muted'}`}>
+                {data.summary.pValue < 0.01 ? '✓ Güçlü istatistiksel kanıt (p<0.01)' : data.summary.pValue < 0.05 ? '✓ Anlamlı edge var (p<0.05)' : data.summary.pValue < 0.1 ? '~ Zayıf kanıt (p<0.10)' : '✗ İstatistiksel anlamlılık yok'}
+              </span>
+              <span className="ml-auto text-xs text-text-muted">t = {data.summary.tStat?.toFixed(3)}</span>
+            </div>
+          )}
+
           {/* Win/Loss dağılım barı */}
           <WinLossBar total={data.totalRecords} winRate={data.summary.winRates[horizon]} />
 

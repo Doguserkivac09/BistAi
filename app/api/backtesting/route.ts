@@ -121,6 +121,8 @@ export async function GET(request: NextRequest) {
           profitFactor: null,
           maxDrawdown: null,
           sharpeRatio: null,
+          tStat: null,
+          pValue: null,
         },
         matrix: [],
         comparisons: [],
