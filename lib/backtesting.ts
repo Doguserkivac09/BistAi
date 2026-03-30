@@ -12,6 +12,15 @@
 
 import type { SignalPerformanceRecord } from './performance-types';
 
+// ── Sabitler ────────────────────────────────────────────────────────
+
+/**
+ * BIST gidiş-dönüş komisyon maliyeti (decimal kesir).
+ * Alış ~%0.2 + Satış ~%0.2 = ~%0.4 toplam.
+ * Getiri hesaplamalarında her işlemden düşülür.
+ */
+const COMMISSION_ROUNDTRIP = 0.004;
+
 // ── Türler ──────────────────────────────────────────────────────────
 
 export interface BacktestResult {
@@ -300,11 +309,9 @@ function calculateWinRate(
 
   const wins = valid.filter((r) => {
     const ret = r[field]!;
-    // evaluate-engine hem AL hem SAT için kâr yönlü return saklar:
-    // AL: (close-entry)/entry  — pozitif = kâr
-    // SAT: (entry-close)/entry — pozitif = kâr
-    // → yön bağımsız, ret > 0 = kazanan
-    return ret > 0;
+    // Komisyon düşüldükten sonra pozitif kalan = gerçek kazanan
+    // evaluate-engine convention: ret decimal kesir (0.05 = %5)
+    return (ret - COMMISSION_ROUNDTRIP) > 0;
   });
 
   return roundTo((wins.length / valid.length) * 100, 1);
@@ -318,7 +325,8 @@ function calculateAvgReturn(
   if (valid.length === 0) return null;
 
   const sum = valid.reduce((s, r) => s + (r[field] ?? 0), 0);
-  return roundTo((sum / valid.length) * 100, 2);
+  // Komisyonu ortalamadan düş — her işlem başına ~%0.4 maliyet
+  return roundTo((sum / valid.length - COMMISSION_ROUNDTRIP) * 100, 2);
 }
 
 function calculateAvg(
@@ -348,8 +356,8 @@ function calculateExpectancy(records: SignalPerformanceRecord[]): number | null 
   const losses: number[] = [];
 
   for (const r of valid) {
-    const ret = r.return_7d!;
-    // evaluate-engine profit-direction convention: ret > 0 = kâr (AL ve SAT için aynı)
+    // Komisyon düşülmüş net getiri
+    const ret = r.return_7d! - COMMISSION_ROUNDTRIP;
     if (ret > 0) wins.push(ret);
     else if (ret < 0) losses.push(Math.abs(ret));
   }
@@ -374,10 +382,9 @@ function calculateProfitFactor(records: SignalPerformanceRecord[]): number | nul
   let grossLoss = 0;
 
   for (const r of valid) {
-    const ret = r.return_7d!;
-    // evaluate-engine profit-direction convention: ret > 0 = kâr (AL ve SAT için aynı)
-    const isWin = ret > 0;
-    if (isWin) grossProfit += Math.abs(ret);
+    // Komisyon düşülmüş net getiri
+    const ret = r.return_7d! - COMMISSION_ROUNDTRIP;
+    if (ret > 0) grossProfit += ret;
     else grossLoss += Math.abs(ret);
   }
 
