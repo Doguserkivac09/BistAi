@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   // Piyasa rejimini bir kez çek (tüm hisseler için aynı)
   let regime = 'sideways';
   try {
-    const { candles: xu100 } = await fetchOHLCV('^XU100', 365);
+    const { candles: xu100 } = await fetchOHLCV('XU100', 365); // XU100.IS — doğru Yahoo ticker
     regime = getMarketRegime(xu100);
   } catch {
     // Başarısız olursa sideways devam et
