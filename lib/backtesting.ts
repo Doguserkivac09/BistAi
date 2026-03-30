@@ -50,6 +50,11 @@ export interface BacktestResult {
   expectancy: number | null;
   /** Profit factor */
   profitFactor: number | null;
+  /**
+   * Maksimum Drawdown (%) — 7 günlük net getirilerin kümülatif seyrindeki
+   * tepe-den-dip en büyük düşüş. Negatif değer (örn: -12.5 = %12.5 drawdown).
+   */
+  maxDrawdown: number | null;
 }
 
 export interface BacktestComparison {
@@ -103,6 +108,7 @@ export function runBacktest(
       avgMae: null,
       expectancy: null,
       profitFactor: null,
+      maxDrawdown: null,
     };
   }
 
@@ -119,6 +125,7 @@ export function runBacktest(
       avgMae: null,
       expectancy: null,
       profitFactor: null,
+      maxDrawdown: null,
     };
   }
 
@@ -140,6 +147,7 @@ export function runBacktest(
     avgMae: calculateAvg(evaluated, 'mae'),
     expectancy: calculateExpectancy(evaluated),
     profitFactor: calculateProfitFactor(evaluated),
+    maxDrawdown: calculateMaxDrawdown(evaluated),
   };
 }
 
@@ -390,6 +398,37 @@ function calculateProfitFactor(records: SignalPerformanceRecord[]): number | nul
 
   if (grossLoss === 0) return grossProfit > 0 ? 999 : null;
   return roundTo(grossProfit / grossLoss, 2);
+}
+
+/**
+ * Maksimum Drawdown — 7 günlük net getirilerin kümülatif seyrindeki
+ * en büyük tepe-den-dip düşüş (%).
+ *
+ * Metodoloji: her sinyali bağımsız bir "trade" olarak alır,
+ * entry sırasına göre sıralar, kümülatif getiriyi hesaplar,
+ * ardından en büyük ardışık düşüşü bulur.
+ */
+function calculateMaxDrawdown(records: SignalPerformanceRecord[]): number | null {
+  const valid = records
+    .filter((r) => r.return_7d != null)
+    .sort((a, b) => new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime());
+
+  if (valid.length < 2) return null;
+
+  let peak = 1.0;
+  let equity = 1.0;
+  let maxDD = 0;
+
+  for (const r of valid) {
+    const netRet = r.return_7d! - COMMISSION_ROUNDTRIP;
+    equity *= (1 + netRet);
+    if (equity > peak) peak = equity;
+    const dd = (equity - peak) / peak;
+    if (dd < maxDD) maxDD = dd;
+  }
+
+  // Yüzde olarak döndür (negatif, örn: -12.5)
+  return roundTo(maxDD * 100, 2);
 }
 
 function roundTo(num: number, decimals: number): number {

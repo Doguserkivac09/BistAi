@@ -526,6 +526,13 @@ function SummaryCards({
       color: 'text-red-400',
       bg: 'bg-red-500/8 border-red-500/20',
     },
+    {
+      label: 'Max Drawdown',
+      value: summary.maxDrawdown !== null ? `${summary.maxDrawdown.toFixed(1)}%` : '—',
+      icon: TrendingDown,
+      color: 'text-orange-400',
+      bg: 'bg-orange-500/8 border-orange-500/20',
+    },
   ];
 
   return (
@@ -534,7 +541,7 @@ function SummaryCards({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7"
+      className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8"
     >
       {cards.map((card) => (
         <div

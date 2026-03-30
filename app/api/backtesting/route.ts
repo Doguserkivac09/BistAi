@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
           avgMae: null,
           expectancy: null,
           profitFactor: null,
+          maxDrawdown: null,
         },
         matrix: [],
         comparisons: [],
