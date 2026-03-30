@@ -769,11 +769,11 @@ Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazıl
 - BT1: ✅ `backfill-real` → `fetchOHLCV('^XU100', 700)` — tarihin başındaki snapshot'ta da 200+ mum var
 - BT2: ✅ `backfill-real` → `entryPrice = candles[i+1]?.open ?? lastCandle.close`; `entryDate = nextCandle?.date ?? lastCandle.date`
 - BT3: ✅ `lib/backtesting.ts` → `COMMISSION_ROUNDTRIP = 0.004`; winRate/avgReturn/expectancy/profitFactor hepsi komisyon düşülmüş hesaplıyor
-- **⚠️ YENİDEN BACKFILL GEREKLİ:** Mevcut DB kayıtları eski close-entry + yanlış regime içeriyor. Supabase'de `DELETE FROM signal_performance WHERE user_id IS NULL AND evaluated = true` çalıştır, ardından `POST /api/dev/backfill-real` batch 0-54 yeniden çalıştır.
+- **✅ Backfill tamamlandı (2026-03-30):** 164 sembol × ~400 sinyal ≈ ~63.000 kayıt. Ticker XU100.IS, ertesi açılış entry, komisyon dahil.
 
-**Orta vadeli (BT4-BT6):**
-- BT4: `backfill-real` → her mum başı sinyal tespiti (her 5 yerine)
-- BT6: `calculateMaxDrawdown()` fonksiyonu + UI kartı
+**Orta vadeli (BT4-BT6): ✅ TAMAMLANDI (2026-03-30)**
+- BT4: ✅ `backfill-real` → `i += 1` (her mum), `BATCH_SIZE 3→1`, `maxBatch 54→163`. Örneklem ~5x büyüdü (~63.000 kayıt). Backfill yeniden çalıştırıldı.
+- BT6: ✅ `calculateMaxDrawdown()` — kümülatif getiri serisi üzerinden tepe-dip analizi (komisyon dahil). `BacktestResult.maxDrawdown` alanı + turuncu UI kartı.
 
 **Sonra (BT7-BT11):**
 - BT7: Equity curve (kümülatif getiri grafiği)
