@@ -30,7 +30,7 @@ function parseDaysParam(request: NextRequest): number {
   if (!param) return 90;
   const parsed = Number.parseInt(param, 10);
   if (Number.isNaN(parsed) || parsed <= 0) return 90;
-  return Math.min(parsed, 365);
+  return Math.min(parsed, 730);
 }
 
 function parseDirectionParam(

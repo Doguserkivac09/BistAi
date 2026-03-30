@@ -481,6 +481,7 @@ function FilterBar({
     { value: 90,  label: '90G'  },
     { value: 180, label: '180G' },
     { value: 365, label: '1Y'   },
+    { value: 730, label: '2Y'   },
   ];
   const dirOptions = [
     { value: '',       label: 'Tümü'    },

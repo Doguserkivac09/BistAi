@@ -90,14 +90,15 @@ export async function POST(request: NextRequest) {
 
   for (const sembol of symbolsToProcess) {
     try {
-      const { candles } = await fetchOHLCV(sembol, 252);
+      // BT11: 365 gün veri — 252'den artırıldı (~1 yıl gerçek tarih).
+      // i+=1 ile 365 iterasyon ~7-8s, Vercel 10s limitine yakın ama geçilebilir.
+      const { candles } = await fetchOHLCV(sembol, 365);
       if (candles.length < 60) continue;
 
       const rows: Record<string, unknown>[] = [];
 
-      // BT4: Her mumda sinyal tespiti yap — 5 yerine 1 adım,
-      // seçim bias'ını ortadan kaldırır, örneklem 5x büyür.
-      const startIdx = Math.max(50, candles.length - 252);
+      // BT4: Her mumda sinyal tespiti yap — seçim bias'ı yok.
+      const startIdx = Math.max(50, candles.length - 365);
       for (let i = startIdx; i < candles.length - 15; i += 1) {
         const snapshot = candles.slice(0, i + 1);
         const signals = detectAllSignals(sembol, snapshot);

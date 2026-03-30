@@ -97,7 +97,13 @@ export async function fetchOHLCV(
   days: number = 90
 ): Promise<OHLCVFetchResult> {
   const yahooSymbol = toYahooSymbol(sembol);
-  const range = days <= 5 ? '5d' : days <= 30 ? '1mo' : days <= 90 ? '3mo' : days <= 180 ? '6mo' : '1y';
+  const range = days <= 5 ? '5d'
+    : days <= 30  ? '1mo'
+    : days <= 90  ? '3mo'
+    : days <= 180 ? '6mo'
+    : days <= 365 ? '1y'
+    : days <= 730 ? '2y'
+    : '5y';
 
   const cacheKey = `ohlcv:${yahooSymbol}:${range}`;
   const cached = getCached(cacheKey);
