@@ -737,9 +737,9 @@ Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazıl
 
 | # | Hata | Etki | Aciliyet |
 |---|------|------|---------|
-| BT1 | **Rejim verisi bozuk** — 5.235 RSI kaydın tamamı "sideways", bull/bear = 0. Cron scan `regime` kaydetmiyor | Signal×Regime matrisi anlamsız | 🔴 Acil |
-| BT2 | **Giriş fiyatı bias** — `lastCandle.close` kullanılıyor; sinyal kapanışta tespit edilince o fiyattan alım yapılamaz, ertesi açılış olmalı | Gerçekçi olmayan sonuçlar | 🔴 Acil |
-| BT3 | **Komisyon simülasyonu yok** — BIST roundtrip maliyeti ~%0.3-0.5; +0.10% getiri gerçekte zarar | Tüm metrikler yanlış | 🔴 Acil |
+| BT1 | **Rejim verisi bozuk** — `backfill-real` 252g XU100 çekiyordu; tarihin başı için snapshot <200 mum → `getMarketRegime` hep 'sideways'. **Fix:** 700g XU100 fetch → tarihsel snapshot 448+ mum. DB temizlendi + yeniden backfill gerekli. | Signal×Regime matrisi anlamsız | ✅ TAMAMLANDI (2026-03-30) |
+| BT2 | **Giriş fiyatı bias** — `lastCandle.close` kullanılıyordu; sinyal kapanışta tespit edilince o fiyattan alım yapılamaz. **Fix:** `candles[i+1]?.open ?? lastCandle.close` (ertesi açılış). DB temizlendi + yeniden backfill gerekli. | Gerçekçi olmayan sonuçlar | ✅ TAMAMLANDI (2026-03-30) |
+| BT3 | **Komisyon simülasyonu yok** — BIST roundtrip maliyeti ~%0.4. **Fix:** `COMMISSION_ROUNDTRIP = 0.004` sabiti `lib/backtesting.ts`'e eklendi; winRate, avgReturn, expectancy, profitFactor komisyon düşülmüş net getiri üzerinden hesaplanıyor. | Tüm metrikler yanlış | ✅ TAMAMLANDI (2026-03-30) |
 | BT4 | **5 günde bir örnekleme** — `backfill-real` her 5 mumda bir sinyal arıyor; aradaki sinyaller atlanıyor, bağımsız olmayan örneklem | Seçim bias'ı | 🟠 Orta |
 | BT5 | **Survivorship bias** — delistinge giden şirketler dahil değil | Sonuçlar iyimser | 🟠 Orta |
 | BT6 | **Drawdown metriği yok** — max drawdown olmadan risk ölçülemiyor | Eksik risk profili | 🟠 Orta |
@@ -765,10 +765,11 @@ Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazıl
 
 ### Düzeltme Planı
 
-**Acil (BT1-BT3):**
-- BT1: `app/api/cron/scan/route.ts` → `regime` alanını kaydettiğinden emin ol; `backfill-real`'de de XU100 snapshots ile regime hesaplanıyor, mevcut DB kayıtları güncellenebilir
-- BT2: `backfill-real/route.ts` → `entryPrice = candles[i+1]?.open ?? lastCandle.close` (ertesi açılış)
-- BT3: `lib/backtesting.ts` → `COMMISSION_ROUNDTRIP = 0.004` sabitini returns'ten düş
+**Acil (BT1-BT3): ✅ TAMAMLANDI (2026-03-30)**
+- BT1: ✅ `backfill-real` → `fetchOHLCV('^XU100', 700)` — tarihin başındaki snapshot'ta da 200+ mum var
+- BT2: ✅ `backfill-real` → `entryPrice = candles[i+1]?.open ?? lastCandle.close`; `entryDate = nextCandle?.date ?? lastCandle.date`
+- BT3: ✅ `lib/backtesting.ts` → `COMMISSION_ROUNDTRIP = 0.004`; winRate/avgReturn/expectancy/profitFactor hepsi komisyon düşülmüş hesaplıyor
+- **⚠️ YENİDEN BACKFILL GEREKLİ:** Mevcut DB kayıtları eski close-entry + yanlış regime içeriyor. Supabase'de `DELETE FROM signal_performance WHERE user_id IS NULL AND evaluated = true` çalıştır, ardından `POST /api/dev/backfill-real` batch 0-54 yeniden çalıştır.
 
 **Orta vadeli (BT4-BT6):**
 - BT4: `backfill-real` → her mum başı sinyal tespiti (her 5 yerine)
