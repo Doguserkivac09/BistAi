@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase-server';
+import { fetchOHLCV } from '@/lib/yahoo';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 import {
   runBacktest,
@@ -42,12 +43,22 @@ function parseDirectionParam(
 
 // ── GET /api/backtesting ────────────────────────────────────────────
 
+export interface BenchmarkData {
+  /** Seçilen dönemde BIST100 buy-and-hold getirisi (%) */
+  xu100Return: number | null;
+  /** Seçilen dönemin ilk XU100 kapanışı */
+  xu100Start: number | null;
+  /** Seçilen dönemin son XU100 kapanışı */
+  xu100End: number | null;
+}
+
 export interface BacktestingResponse {
   summary: BacktestResult;
   matrix: PerformanceMatrixRow[];
   comparisons: BacktestComparison[];
   totalRecords: number;
   equityCurve: EquityPoint[];
+  benchmark: BenchmarkData;
 }
 
 export async function GET(request: NextRequest) {
@@ -115,6 +126,7 @@ export async function GET(request: NextRequest) {
         comparisons: [],
         totalRecords: 0,
         equityCurve: [],
+        benchmark: { xu100Return: null, xu100Start: null, xu100End: null },
       });
     }
 
@@ -130,12 +142,32 @@ export async function GET(request: NextRequest) {
     // Equity curve
     const equityCurve = calculateEquityCurve(records);
 
+    // BIST100 benchmark — seçili dönem için buy-and-hold getirisi
+    let benchmark: BenchmarkData = { xu100Return: null, xu100Start: null, xu100End: null };
+    try {
+      const { candles: xu100 } = await fetchOHLCV('XU100', days + 10);
+      if (xu100.length >= 2) {
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        const periodCandles = xu100.filter((c) => (c.date as string) >= cutoffStr);
+        if (periodCandles.length >= 2) {
+          const first = periodCandles[0]!.close;
+          const last  = periodCandles[periodCandles.length - 1]!.close;
+          benchmark = {
+            xu100Start:  Math.round(first),
+            xu100End:    Math.round(last),
+            xu100Return: Math.round(((last - first) / first) * 10000) / 100,
+          };
+        }
+      }
+    } catch { /* benchmark opsiyonel */ }
+
     return NextResponse.json<BacktestingResponse>({
       summary,
       matrix,
       comparisons,
       totalRecords: records.length,
       equityCurve,
+      benchmark,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';

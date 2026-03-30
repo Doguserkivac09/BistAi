@@ -20,12 +20,19 @@ import type {
 
 type Horizon = '3d' | '7d' | '14d';
 
+interface BenchmarkData {
+  xu100Return: number | null;
+  xu100Start: number | null;
+  xu100End: number | null;
+}
+
 interface BacktestingData {
   summary: BacktestResult;
   matrix: PerformanceMatrixRow[];
   comparisons: BacktestComparison[];
   totalRecords: number;
   equityCurve: EquityPoint[];
+  benchmark: BenchmarkData;
 }
 
 // ── Sabitler ────────────────────────────────────────────────────────
@@ -264,6 +271,50 @@ function EquityChart({ points }: { points: EquityPoint[] }) {
       <div className="mt-1 flex justify-between text-[10px] text-text-muted">
         <span>{points[0]!.date}</span>
         <span>{points[points.length - 1]!.date}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── BIST100 Benchmark ───────────────────────────────────────────────
+
+function BenchmarkBar({
+  strategyReturn, benchmark,
+}: {
+  strategyReturn: number | null;
+  benchmark: BenchmarkData;
+}) {
+  const xu100 = benchmark.xu100Return!;
+  const strat = strategyReturn ?? 0;
+  const diff  = strat - xu100;
+  const beats = diff > 0;
+
+  return (
+    <div className="mb-8 rounded-xl border border-border bg-surface p-4">
+      <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-text-primary">
+        <BarChart3 className="h-5 w-5 text-primary" />
+        BIST100 Benchmark Karşılaştırması
+        <span className="ml-1 text-sm font-normal text-text-muted">· Dönem buy-and-hold vs strateji</span>
+      </h2>
+      <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="rounded-lg border border-border bg-white/3 p-3">
+          <p className="mb-1 text-xs text-text-muted">Stratejimiz (7g ort.)</p>
+          <p className={`text-xl font-bold ${strat >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {strat >= 0 ? '+' : ''}{strat.toFixed(2)}%
+          </p>
+        </div>
+        <div className="flex flex-col items-center justify-center">
+          <p className={`text-2xl font-bold ${beats ? 'text-green-400' : 'text-red-400'}`}>
+            {beats ? '▲' : '▼'} {Math.abs(diff).toFixed(2)}%
+          </p>
+          <p className="text-xs text-text-muted">{beats ? 'Endeksi geçiyor' : 'Endeksin gerisinde'}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-white/3 p-3">
+          <p className="mb-1 text-xs text-text-muted">BIST100 (buy-and-hold)</p>
+          <p className={`text-xl font-bold ${xu100 >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {xu100 >= 0 ? '+' : ''}{xu100.toFixed(2)}%
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -1054,6 +1105,14 @@ export default function BacktestingPage() {
 
           {/* Equity Curve */}
           <EquityChart points={data.equityCurve} />
+
+          {/* BIST100 Benchmark */}
+          {data.benchmark.xu100Return !== null && (
+            <BenchmarkBar
+              strategyReturn={data.summary.avgReturns['7d']}
+              benchmark={data.benchmark}
+            />
+          )}
 
           {/* Performans matrisi */}
           <PerformanceMatrix
