@@ -188,6 +188,8 @@ export async function POST(request: NextRequest) {
     inserted: totalInserted,
     skipped: totalProcessed - totalInserted,
     errors: errors.slice(0, 10),
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    xu100CandleCount: xu100Candles.length,
     message: `Batch ${batchIndex}: ${symbolsToProcess.join(',')} — ${totalInserted} kayıt eklendi.`,
   });
 }
