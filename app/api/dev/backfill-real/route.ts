@@ -78,10 +78,12 @@ export async function POST(request: NextRequest) {
   const errors: string[] = [];
 
   // XU100 rejimine bak — 700 gün çekiyoruz ki 252 gün önceki snapshot'ta
-  // da en az 448 mum kalsın (getMarketRegime için 200 mum gerekli)
+  // da en az 448 mum kalsın (getMarketRegime için 200 mum gerekli).
+  // Yahoo Finance'de doğru ticker 'XU100' → toYahooSymbol → 'XU100.IS'
+  // '^XU100' production'da çalışmıyor.
   let xu100Candles: OHLCVCandle[] = [];
   try {
-    const res = await fetchOHLCV('^XU100', 700);
+    const res = await fetchOHLCV('XU100', 700);
     xu100Candles = res.candles;
   } catch { /* devam */ }
 
