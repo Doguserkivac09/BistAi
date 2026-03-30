@@ -63,20 +63,30 @@ export async function GET(request: NextRequest) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
 
-    const { data, error } = await supabase
-      .from('signal_performance')
-      .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, mfe, mae, evaluated, regime, created_at')
-      .eq('evaluated', true)
-      .gte('entry_time', cutoff.toISOString());
+    // Supabase PostgREST 1000 satır limiti — pagination ile tüm veriyi çek
+    const PAGE_SIZE = 1000;
+    let allData: SignalPerformanceRecord[] = [];
+    let page = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('signal_performance')
+        .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, mfe, mae, evaluated, regime, created_at')
+        .eq('evaluated', true)
+        .gte('entry_time', cutoff.toISOString())
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-    if (error) {
-      return NextResponse.json(
-        { error: `signal_performance okunamadı: ${error.message}` },
-        { status: 500 }
-      );
+      if (error) {
+        return NextResponse.json(
+          { error: `signal_performance okunamadı: ${error.message}` },
+          { status: 500 }
+        );
+      }
+      allData = allData.concat((data as SignalPerformanceRecord[]) ?? []);
+      if (!data || data.length < PAGE_SIZE) break;
+      page++;
     }
 
-    let records = (data as SignalPerformanceRecord[]) ?? [];
+    let records = allData;
 
     // Yön filtresi
     if (direction) {

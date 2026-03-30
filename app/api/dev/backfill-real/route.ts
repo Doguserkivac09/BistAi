@@ -16,6 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
 import { getMarketRegime } from '@/lib/regime-engine';
+import { BIST_SYMBOLS } from '@/types';
 import type { OHLCVCandle } from '@/types';
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -26,14 +27,8 @@ function isAllowed(req: NextRequest) {
   return CRON_SECRET && auth === `Bearer ${CRON_SECRET}`;
 }
 
-const TOP30_SYMBOLS = [
-  'THYAO', 'GARAN', 'ASELS', 'KCHOL', 'EREGL',
-  'BIMAS', 'AKBNK', 'SISE',  'TUPRS', 'FROTO',
-  'TOASO', 'SAHOL', 'YKBNK', 'HALKB', 'VAKBN',
-  'TCELL', 'ARCLK', 'EKGYO', 'PGSUS', 'TTKOM',
-  'PETKM', 'DOHOL', 'KOZAL', 'MGROS', 'SASA',
-  'ISCTR', 'ENKAI', 'BRISA', 'AGHOL', 'OYAKC',
-];
+// Tüm BIST sembolleri — types/index.ts'ten
+const ALL_SYMBOLS = [...BIST_SYMBOLS];
 
 /** N gün sonraki kapanış fiyatını bul */
 function getPriceAfterDays(candles: OHLCVCandle[], fromIdx: number, days: number): number | null {
@@ -43,13 +38,13 @@ function getPriceAfterDays(candles: OHLCVCandle[], fromIdx: number, days: number
   return found?.close ?? null;
 }
 
-/** Return hesapla */
+/** Return hesapla — evaluate-engine convention: decimal kesir (0.05 = %5) */
 function calcReturn(entry: number, exit: number | null, direction: string): number | null {
   if (exit === null || entry <= 0) return null;
   const raw = direction === 'yukari'
-    ? (exit - entry) / entry * 100
-    : (entry - exit) / entry * 100;
-  return Math.round(raw * 100) / 100;
+    ? (exit - entry) / entry
+    : (entry - exit) / entry;
+  return Math.round(raw * 10000) / 10000;
 }
 
 export async function POST(request: NextRequest) {
@@ -64,13 +59,15 @@ export async function POST(request: NextRequest) {
   }
 
   // Batch parametresi — her batch 3 sembol işler (Vercel 10s timeout için)
+  // 164 sembol ÷ 3 = 55 batch (index 0-54)
   let body: Record<string, unknown> = {};
   try { body = await request.json(); } catch { /* yok */ }
+  const maxBatch = Math.ceil(ALL_SYMBOLS.length / 3) - 1;
   const batchIndex = typeof body.batchIndex === 'number'
-    ? Math.max(0, Math.min(9, Math.floor(body.batchIndex)))
+    ? Math.max(0, Math.min(maxBatch, Math.floor(body.batchIndex)))
     : 0;
   const BATCH_SIZE = 3;
-  const symbolsToProcess = TOP30_SYMBOLS.slice(
+  const symbolsToProcess = ALL_SYMBOLS.slice(
     batchIndex * BATCH_SIZE,
     (batchIndex + 1) * BATCH_SIZE
   );
@@ -123,11 +120,12 @@ export async function POST(request: NextRequest) {
           if (ret14d === null) continue;
 
           // MFE / MAE — 14 gün içindeki en iyi/kötü nokta
+          // MFE/MAE — decimal kesir (0.05 = %5), evaluate-engine convention
           const futureCandles = candles.slice(i + 1, i + 15);
           let mfe = 0, mae = 0;
           for (const fc of futureCandles) {
-            const up   = (fc.high - entryPrice) / entryPrice * 100;
-            const down = (fc.low  - entryPrice) / entryPrice * 100;
+            const up   = (fc.high - entryPrice) / entryPrice;
+            const down = (fc.low  - entryPrice) / entryPrice;
             if (sig.direction === 'yukari') {
               mfe = Math.max(mfe, up);
               mae = Math.min(mae, down);
@@ -158,10 +156,10 @@ export async function POST(request: NextRequest) {
       if (rows.length === 0) continue;
       totalProcessed += rows.length;
 
-      // Insert — backfill için düz ekleme
+      // Upsert — çakışan kayıtları atla, yeni olanları ekle
       const { data, error } = await supabase
         .from('signal_performance')
-        .insert(rows)
+        .upsert(rows, { onConflict: 'sembol,signal_type,entry_time', ignoreDuplicates: true })
         .select('id');
 
       if (error) {
