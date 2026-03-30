@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart3, RefreshCw, TrendingUp, TrendingDown, Target, Activity,
@@ -706,9 +706,8 @@ function PerformanceMatrix({
               const isExpanded    = expandedRow === row.signalType;
               const isHighlighted = signalTypeFilter === row.signalType;
               return (
-                <>
+                <React.Fragment key={row.signalType}>
                   <tr
-                    key={row.signalType}
                     onClick={() => setExpandedRow(isExpanded ? null : row.signalType)}
                     className={`border-b border-border cursor-pointer transition-colors hover:bg-white/3 ${
                       isHighlighted ? 'ring-1 ring-inset ring-primary/40 bg-primary/5' : ''
@@ -738,7 +737,7 @@ function PerformanceMatrix({
                       </div>
                     </td>
                   </tr>
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>
