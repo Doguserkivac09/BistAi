@@ -188,6 +188,7 @@ export async function POST(request: NextRequest) {
     inserted: totalInserted,
     skipped: totalProcessed - totalInserted,
     errors: errors.slice(0, 10),
+    xu100CandleCount: xu100Candles.length,   // debug: kaç XU100 mumu geldi?
     message: `Batch ${batchIndex}: ${symbolsToProcess.join(',')} — ${totalInserted} kayıt eklendi.`,
   });
 }
