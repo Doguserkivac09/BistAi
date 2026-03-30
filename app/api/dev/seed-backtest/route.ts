@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
 
   // Kayıtları üret — son 90 gün boyunca dağıt
   const records = Array.from({ length: count }, (_, i) => {
-    const daysAgo = Math.floor((i / count) * 89) + 1; // 1..89 gün önce
+    const daysAgo = Math.floor((i / count) * 359) + 1; // 1..359 gün önce
     return generateRecord(daysAgo);
   });
 
