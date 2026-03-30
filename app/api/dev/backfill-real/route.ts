@@ -77,10 +77,11 @@ export async function POST(request: NextRequest) {
   let totalProcessed = 0;
   const errors: string[] = [];
 
-  // XU100 rejimine bak
+  // XU100 rejimine bak — 700 gün çekiyoruz ki 252 gün önceki snapshot'ta
+  // da en az 448 mum kalsın (getMarketRegime için 200 mum gerekli)
   let xu100Candles: OHLCVCandle[] = [];
   try {
-    const res = await fetchOHLCV('^XU100', 252);
+    const res = await fetchOHLCV('^XU100', 700);
     xu100Candles = res.candles;
   } catch { /* devam */ }
 
@@ -99,8 +100,12 @@ export async function POST(request: NextRequest) {
         if (signals.length === 0) continue;
 
         const lastCandle = snapshot[snapshot.length - 1]!;
-        const entryPrice = lastCandle.close;
-        const entryDate  = lastCandle.date;
+        // BT2: Gerçekçi giriş — sinyali o günün kapanışında görürüz,
+        // işleme ertesi güne açılışta gireriz. lastCandle.close yerine
+        // bir sonraki mumun open fiyatını kullan.
+        const nextCandle = candles[i + 1];
+        const entryPrice = nextCandle?.open ?? lastCandle.close;
+        const entryDate  = nextCandle?.date ?? lastCandle.date;
 
         // Rejim hesapla
         const xu100Snap = xu100Candles.length > 0
