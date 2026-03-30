@@ -775,9 +775,10 @@ Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazıl
 - BT4: ✅ `backfill-real` → `i += 1` (her mum), `BATCH_SIZE 3→1`, `maxBatch 54→163`. Örneklem ~5x büyüdü (~63.000 kayıt). Backfill yeniden çalıştırıldı.
 - BT6: ✅ `calculateMaxDrawdown()` — kümülatif getiri serisi üzerinden tepe-dip analizi (komisyon dahil). `BacktestResult.maxDrawdown` alanı + turuncu UI kartı.
 
-**Sonra (BT7-BT11):**
-- BT7: Equity curve (kümülatif getiri grafiği)
-- BT8: Sharpe Ratio (`(avgReturn - riskFreeRate) / stdDev`)
-- BT9: BIST100 benchmark karşılaştırma
-- BT10: p-value / güven aralığı göstergesi
-- BT11: Yahoo'dan 5 yıl veri çekme
+**Sonra (BT7-BT11): ✅ TAMAMLANDI (2026-03-30)**
+- BT7: ✅ Equity Curve — SVG tabanlı, günlük ort. net getiri kümülatifi, yeşil/kırmızı, toplam % değişim.
+- BT8: ✅ Sharpe Ratio — TCMB %45/yıl risksiz faiz, 7g bazlı. Renk kodu >1 yeşil / >0 sarı / <0 kırmızı.
+- BT9: ✅ BIST100 Benchmark — XU100.IS buy-and-hold vs strateji karşılaştırma kartı (▲/▼).
+- BT10: ✅ p-value — tek örneklem t-testi, normalCDF yaklaşımı. p<0.01/0.05/0.10 renk kodlu bilgi satırı.
+- BT11: ✅ Veri derinliği — stock 252→365g, yahoo.ts 2y/5y range, API max 730g, UI'a 2Y butonu.
+- ⚠️ Tam 2Y veri için yeniden backfill (DELETE + 164 batch × 365g) gerekli.
