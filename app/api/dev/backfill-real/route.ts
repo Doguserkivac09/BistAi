@@ -58,15 +58,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Supabase env eksik.' }, { status: 500 });
   }
 
-  // Batch parametresi — her batch 3 sembol işler (Vercel 10s timeout için)
-  // 164 sembol ÷ 3 = 55 batch (index 0-54)
+  // BT4: Her mumda sinyal tespiti yapıldığından (i+=1) her sembol ~237 iterasyon.
+  // Vercel 10s timeout'u aşmamak için batch başına 1 sembol işliyoruz.
+  // 164 sembol = 164 batch (index 0-163)
   let body: Record<string, unknown> = {};
   try { body = await request.json(); } catch { /* yok */ }
-  const maxBatch = Math.ceil(ALL_SYMBOLS.length / 3) - 1;
+  const BATCH_SIZE = 1;
+  const maxBatch = ALL_SYMBOLS.length - 1;
   const batchIndex = typeof body.batchIndex === 'number'
     ? Math.max(0, Math.min(maxBatch, Math.floor(body.batchIndex)))
     : 0;
-  const BATCH_SIZE = 3;
   const symbolsToProcess = ALL_SYMBOLS.slice(
     batchIndex * BATCH_SIZE,
     (batchIndex + 1) * BATCH_SIZE
@@ -94,9 +95,10 @@ export async function POST(request: NextRequest) {
 
       const rows: Record<string, unknown>[] = [];
 
-      // Her 5 günde bir sinyal tespiti yap (geriye doğru 90 gün)
+      // BT4: Her mumda sinyal tespiti yap — 5 yerine 1 adım,
+      // seçim bias'ını ortadan kaldırır, örneklem 5x büyür.
       const startIdx = Math.max(50, candles.length - 252);
-      for (let i = startIdx; i < candles.length - 15; i += 5) {
+      for (let i = startIdx; i < candles.length - 15; i += 1) {
         const snapshot = candles.slice(0, i + 1);
         const signals = detectAllSignals(sembol, snapshot);
         if (signals.length === 0) continue;
@@ -190,7 +192,6 @@ export async function POST(request: NextRequest) {
     inserted: totalInserted,
     skipped: totalProcessed - totalInserted,
     errors: errors.slice(0, 10),
-    xu100CandleCount: xu100Candles.length,   // debug: kaç XU100 mumu geldi?
     message: `Batch ${batchIndex}: ${symbolsToProcess.join(',')} — ${totalInserted} kayıt eklendi.`,
   });
 }
