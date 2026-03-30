@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       const rows: Record<string, unknown>[] = [];
 
       // Her 5 günde bir sinyal tespiti yap (geriye doğru 90 gün)
-      const startIdx = Math.max(50, candles.length - 90);
+      const startIdx = Math.max(50, candles.length - 252);
       for (let i = startIdx; i < candles.length - 15; i += 5) {
         const snapshot = candles.slice(0, i + 1);
         const signals = detectAllSignals(sembol, snapshot);
