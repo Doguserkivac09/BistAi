@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
           expectancy: null,
           profitFactor: null,
           maxDrawdown: null,
+          sharpeRatio: null,
         },
         matrix: [],
         comparisons: [],

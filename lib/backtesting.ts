@@ -63,6 +63,12 @@ export interface BacktestResult {
    * tepe-den-dip en büyük düşüş. Negatif değer (örn: -12.5 = %12.5 drawdown).
    */
   maxDrawdown: number | null;
+  /**
+   * Sharpe Ratio — risk-ağırlıklı getiri ölçütü.
+   * (Ort. net getiri - risksiz faiz) / Std. sapma
+   * >1 iyi, >2 çok iyi, <0 kötü.
+   */
+  sharpeRatio: number | null;
 }
 
 export interface BacktestComparison {
@@ -117,6 +123,7 @@ export function runBacktest(
       expectancy: null,
       profitFactor: null,
       maxDrawdown: null,
+      sharpeRatio: null,
     };
   }
 
@@ -134,6 +141,7 @@ export function runBacktest(
       expectancy: null,
       profitFactor: null,
       maxDrawdown: null,
+      sharpeRatio: null,
     };
   }
 
@@ -156,6 +164,7 @@ export function runBacktest(
     expectancy: calculateExpectancy(evaluated),
     profitFactor: calculateProfitFactor(evaluated),
     maxDrawdown: calculateMaxDrawdown(evaluated),
+    sharpeRatio: calculateSharpeRatio(evaluated),
   };
 }
 
@@ -354,6 +363,29 @@ function calculateAvg(
 
   const sum = valid.reduce((s, r) => s + (r[field] ?? 0), 0);
   return roundTo((sum / valid.length) * 100, 2);
+}
+
+/**
+ * Sharpe Ratio — (Ort. net getiri - Risksiz faiz) / Std. sapma
+ *
+ * Risksiz faiz: Türkiye mevduat faizi ~%45/yıl → 7 günde: 45%/52 ≈ %0.865.
+ * Decimal kesir olarak: 0.00865. Sinyal başına 7 günlük getiri kullanılır.
+ * >1 iyi, >2 çok iyi, <0 kayıplar risksiz faizi bile karşılamıyor.
+ */
+function calculateSharpeRatio(records: SignalPerformanceRecord[]): number | null {
+  const valid = records.filter((r) => r.return_7d != null);
+  if (valid.length < 10) return null;
+
+  // TCMB politika faizi ~%45/yıl → 7 günlük risksiz getiri
+  const RISK_FREE_7D = 0.45 / 52;
+
+  const nets = valid.map((r) => r.return_7d! - COMMISSION_ROUNDTRIP);
+  const mean = nets.reduce((s, r) => s + r, 0) / nets.length;
+  const variance = nets.reduce((s, r) => s + (r - mean) ** 2, 0) / (nets.length - 1);
+  const stdDev = Math.sqrt(variance);
+
+  if (stdDev === 0) return null;
+  return roundTo((mean - RISK_FREE_7D) / stdDev, 3);
 }
 
 /**

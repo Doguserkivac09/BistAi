@@ -601,6 +601,21 @@ function SummaryCards({
       color: 'text-orange-400',
       bg: 'bg-orange-500/8 border-orange-500/20',
     },
+    {
+      label: 'Sharpe Ratio',
+      value: summary.sharpeRatio !== null ? summary.sharpeRatio.toFixed(2) : '—',
+      icon: Scale,
+      color: summary.sharpeRatio !== null && summary.sharpeRatio > 1
+        ? 'text-green-400'
+        : summary.sharpeRatio !== null && summary.sharpeRatio > 0
+          ? 'text-yellow-400'
+          : 'text-red-400',
+      bg: summary.sharpeRatio !== null && summary.sharpeRatio > 1
+        ? 'bg-green-500/8 border-green-500/20'
+        : summary.sharpeRatio !== null && summary.sharpeRatio > 0
+          ? 'bg-yellow-500/8 border-yellow-500/20'
+          : 'bg-red-500/8 border-red-500/20',
+    },
   ];
 
   return (
@@ -609,7 +624,7 @@ function SummaryCards({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8"
+      className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-9"
     >
       {cards.map((card) => (
         <div
