@@ -241,3 +241,22 @@ html {
 .meteor-line {
   animation: meteor-fall 6s ease-in infinite backwards;
 }
+
+/* ── PWA / Mobil Safe Area ──────────────────────────────────────────── */
+/* iPhone çentik ve home bar için güvenli boşluklar */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Footer home bar padding */
+footer {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Standalone (PWA) modunda status bar boşluğu */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+}
