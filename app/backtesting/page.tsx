@@ -676,7 +676,7 @@ function SummaryCards({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-9"
+      className="mb-6 grid grid-cols-3 gap-3 sm:grid-cols-3 lg:grid-cols-9"
     >
       {cards.map((card) => (
         <div

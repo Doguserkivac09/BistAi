@@ -203,8 +203,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
       if (!res.ok) return;
       const data = await res.json();
       setHaberler(data.haberler ?? []);
-    } catch {
-      // sessizce geç
+    } catch (err) {
+      console.error('[Haberler] Yüklenemedi:', err);
     } finally {
       setHaberLoading(false);
     }

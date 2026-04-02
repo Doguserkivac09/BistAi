@@ -238,6 +238,10 @@ function PozisyonRow({
           <div className="min-w-0">
             <div className="font-semibold text-text-primary text-sm group-hover:text-primary transition-colors">{poz.sembol}</div>
             <SinyalBadge sinyaller={sinyaller} />
+            {/* Mobil: lot + alış fiyatı (sm+ kolonlarda gösteriliyor) */}
+            <div className="mt-0.5 text-[10px] text-text-muted sm:hidden">
+              {fmt(poz.miktar, 0)} lot · {fmtTL(poz.alis_fiyati)}
+            </div>
           </div>
           <Sparkline closes={sparkline} />
         </Link>

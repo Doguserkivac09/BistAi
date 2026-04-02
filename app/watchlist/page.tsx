@@ -145,21 +145,23 @@ function WatchRow({
     >
       {/* Checkbox */}
       <td className="py-3 pl-3 pr-1">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={() => onToggleSelect(item.id)}
-          className="h-3.5 w-3.5 cursor-pointer accent-primary"
-        />
+        <label className="flex h-8 w-8 cursor-pointer items-center justify-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(item.id)}
+            className="h-4 w-4 cursor-pointer accent-primary"
+          />
+        </label>
       </td>
 
       {/* Sembol */}
       <td className="py-3 pl-2 pr-3">
         <div className="flex items-center gap-2">
-          <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary ${hitTarget ? 'animate-pulse' : ''}`}>
+          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary ${hitTarget ? 'animate-pulse' : ''}`}>
             {item.sembol.slice(0, 2)}
           </div>
-          <div>
+          <div className="min-w-0">
             <div className={`font-semibold ${hitTarget ? 'text-amber-400' : 'text-text-primary'}`}>
               {item.sembol}
               {hitTarget && <span className="ml-1 animate-bounce inline-block">🔔</span>}
@@ -167,6 +169,21 @@ function WatchRow({
             {item.notlar && (
               <div className="text-xs text-text-muted truncate max-w-[120px]">{item.notlar}</div>
             )}
+            {/* Mobil: sinyal ve hedef fiyat (sm+ kolonlarda gösteriliyor) */}
+            <div className="mt-0.5 flex flex-wrap items-center gap-1 sm:hidden">
+              {sinyaller.slice(0, 1).map((sig, i) => (
+                <span key={i} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${
+                  sig.direction === 'yukari' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'
+                }`}>
+                  {sig.direction === 'yukari' ? '↑' : '↓'} {sig.type}
+                </span>
+              ))}
+              {target && (
+                <span className={`text-[10px] ${hitTarget ? 'text-amber-400 font-semibold' : 'text-text-muted'}`}>
+                  🎯 ₺{parseFloat(target).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </td>
