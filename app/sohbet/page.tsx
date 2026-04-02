@@ -263,7 +263,7 @@ export default function SohbetPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-dvh bg-background">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
         <div className="container mx-auto max-w-3xl px-4 py-3 flex items-center justify-between">
@@ -387,7 +387,7 @@ export default function SohbetPage() {
       </div>
 
       {/* Input alanı */}
-      <div className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur">
+      <div className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="container mx-auto max-w-3xl px-4 py-3">
           <form onSubmit={handleSubmit} className="flex items-end gap-2">
             <div className="flex-1 relative">

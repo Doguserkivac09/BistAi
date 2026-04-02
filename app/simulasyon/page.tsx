@@ -184,9 +184,10 @@ export default function SimulasyonPage() {
     });
   }, []);
 
+  // Mobil: simülasyon başlayınca sonuç paneline kaydır
   useEffect(() => {
-    if (streamText) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [streamText]);
+    if (loading) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading]);
 
   const runSimulation = async () => {
     if (!selected || loading) return;
@@ -382,7 +383,7 @@ export default function SimulasyonPage() {
           </div>
 
           {/* Sağ panel — Sonuç */}
-          <div>
+          <div ref={resultRef}>
             {!result && !streamText && !loading && !error && (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface/30 py-20 text-center">
                 <FlaskConical className="h-10 w-10 text-text-muted mb-3" />
