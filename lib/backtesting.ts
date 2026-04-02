@@ -399,7 +399,7 @@ function calculateTTest(records: SignalPerformanceRecord[]): { tStat: number | n
   // İki kuyruklu p-value — standart normal CDF yaklaşımı (Abramowitz & Stegun)
   const pValue = 2 * (1 - normalCDF(Math.abs(t)));
 
-  return { tStat: roundTo(t, 3), pValue: roundTo(pValue, 4) };
+  return { tStat: roundTo(t, 3), pValue: roundTo(pValue, 6) };
 }
 
 /** Standart normal kümülatif dağılım fonksiyonu (yaklaşım) */
@@ -531,27 +531,38 @@ function calculateProfitFactor(records: SignalPerformanceRecord[]): number | nul
 }
 
 /**
- * Maksimum Drawdown — 7 günlük net getirilerin kümülatif seyrindeki
+ * Maksimum Drawdown — günlük ortalama net getiriler üzerinden kümülatif
  * en büyük tepe-den-dip düşüş (%).
  *
- * Metodoloji: her sinyali bağımsız bir "trade" olarak alır,
- * entry sırasına göre sıralar, kümülatif getiriyi hesaplar,
- * ardından en büyük ardışık düşüşü bulur.
+ * Metodoloji: Sinyalleri entry tarihine göre günlük gruplar, her gün için
+ * ortalama net getiri alır (calculateEquityCurve ile aynı), ardından
+ * kümülatif equity serisindeki en büyük ardışık düşüşü bulur.
+ * Bireysel sinyal yığılmasını önler.
  */
 function calculateMaxDrawdown(records: SignalPerformanceRecord[]): number | null {
-  const valid = records
-    .filter((r) => r.return_7d != null)
-    .sort((a, b) => new Date(a.entry_time).getTime() - new Date(b.entry_time).getTime());
-
+  const valid = records.filter((r) => r.return_7d != null);
   if (valid.length < 2) return null;
+
+  // Günlük ortalama net getiri (calculateEquityCurve ile aynı metodoloji)
+  const byDate = new Map<string, number[]>();
+  for (const r of valid) {
+    const date = r.entry_time.slice(0, 10);
+    const net  = r.return_7d! - COMMISSION_ROUNDTRIP;
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date)!.push(net);
+  }
+
+  const sortedDates = Array.from(byDate.keys()).sort();
+  if (sortedDates.length < 2) return null;
 
   let peak = 1.0;
   let equity = 1.0;
   let maxDD = 0;
 
-  for (const r of valid) {
-    const netRet = r.return_7d! - COMMISSION_ROUNDTRIP;
-    equity *= (1 + netRet);
+  for (const date of sortedDates) {
+    const rets = byDate.get(date)!;
+    const avgRet = rets.reduce((s, r) => s + r, 0) / rets.length;
+    equity *= (1 + avgRet);
     if (equity > peak) peak = equity;
     const dd = (equity - peak) / peak;
     if (dd < maxDD) maxDD = dd;
