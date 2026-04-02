@@ -782,3 +782,4 @@ Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazıl
 - BT10: ✅ p-value — tek örneklem t-testi, normalCDF yaklaşımı. p<0.01/0.05/0.10 renk kodlu bilgi satırı.
 - BT11: ✅ Veri derinliği — stock 252→365g, yahoo.ts 2y/5y range, API max 730g, UI'a 2Y butonu.
 - ⚠️ Tam 2Y veri için yeniden backfill (DELETE + 164 batch × 365g) gerekli.
+- BT-FIX (2026-04-02): ✅ maxDrawdown bug — daily grouping ile -100%→-18.1% düzeltildi. pValue precision 4→6 ondalık, UI'da "< 0.0001" gösterimi.
