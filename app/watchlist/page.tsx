@@ -167,7 +167,7 @@ function WatchRow({
               {hitTarget && <span className="ml-1 animate-bounce inline-block">🔔</span>}
             </div>
             {item.notlar && (
-              <div className="text-xs text-text-muted truncate max-w-[120px]">{item.notlar}</div>
+              <div className="text-xs text-text-muted truncate max-w-[180px]" title={item.notlar}>{item.notlar}</div>
             )}
             {/* Mobil: sinyal ve hedef fiyat (sm+ kolonlarda gösteriliyor) */}
             <div className="mt-0.5 flex flex-wrap items-center gap-1 sm:hidden">

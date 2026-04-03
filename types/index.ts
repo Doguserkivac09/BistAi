@@ -167,6 +167,7 @@ export interface PortfolyoPozisyon {
   alis_fiyati: number;
   alis_tarihi: string;
   notlar?: string | null;
+  hedef_fiyat?: number | null;
   created_at: string;
 }
 

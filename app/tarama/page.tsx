@@ -469,6 +469,8 @@ function TaramaPageInner() {
   const [macroScore,           setMacroScore]           = useState<{ score: number; wind: string } | null>(null);
   const [winRateMap,           setWinRateMap]           = useState<Map<string, { rate: number; sampleSize: number }>>(new Map());
   const [macroBannerDismissed, setMacroBannerDismissed] = useState(false);
+  const [onlyKapToday,         setOnlyKapToday]         = useState(false);
+  const [kapTodaySet,          setKapTodaySet]          = useState<Set<string>>(new Set());
   const explanationCache = useRef<Map<string, string>>(new Map());
 
   // Load prefs
@@ -517,6 +519,23 @@ function TaramaPageInner() {
       .then(data => { if (!cancelled && data.score) setMacroScore({ score: data.score.score, wind: data.score.wind }); })
       .catch(() => {});
     return () => { cancelled = true; controller.abort(); };
+  }, []);
+
+  // Fetch KAP — bugün duyurusu olan semboller
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    fetch('/api/kap')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.duyurular) return;
+        const set = new Set<string>(
+          (data.duyurular as { sembol: string; tarih: string }[])
+            .filter(d => d.tarih?.startsWith(today) && d.sembol)
+            .map(d => d.sembol.toUpperCase())
+        );
+        setKapTodaySet(set);
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch win rates
@@ -632,7 +651,7 @@ function TaramaPageInner() {
 
   const clearFilters = useCallback(() => {
     setSignalType('Tümü'); setDirection('Tümü');
-    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyStrongSectors(false); setSelectedSector('');
+    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyStrongSectors(false); setOnlyKapToday(false); setSelectedSector('');
     setSearchQuery('');
   }, []);
 
@@ -689,7 +708,10 @@ function TaramaPageInner() {
         return !sector || sector.direction !== 'asagi';
       })
     : filteredByExclude;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper, excludeSet.size > 0].filter(Boolean).length;
+  const filteredByKap = onlyKapToday && kapTodaySet.size > 0
+    ? displayList.filter(r => kapTodaySet.has(r.sembol))
+    : displayList;
+  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper, excludeSet.size > 0, onlyKapToday].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -805,6 +827,12 @@ function TaramaPageInner() {
               <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
               <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)}>Yüksek Güven</Chip>
               <Chip active={onlyStrongSectors}   onClick={() => setOnlyStrongSectors(v => !v)}>Güçlü Sektör</Chip>
+              <Chip
+                active={onlyKapToday}
+                onClick={() => setOnlyKapToday(v => !v)}
+              >
+                KAP{kapTodaySet.size > 0 && ` (${kapTodaySet.size})`}
+              </Chip>
             </>
           )}
         </div>
@@ -864,9 +892,9 @@ function TaramaPageInner() {
         )}
 
         {/* Active filter counter */}
-        {!loading && hasScanResults && activeFilterCount > 0 && displayList.length > 0 && (
+        {!loading && hasScanResults && activeFilterCount > 0 && filteredByKap.length > 0 && (
           <div className="mb-3 flex items-center justify-between text-xs text-text-secondary">
-            <span>{displayList.length} sonuç gösteriliyor · {activeFilterCount} filtre aktif</span>
+            <span>{filteredByKap.length} sonuç gösteriliyor · {activeFilterCount} filtre aktif</span>
             <button onClick={clearFilters} className="flex items-center gap-1 text-primary transition-opacity hover:opacity-70">
               <X className="h-3 w-3" /> Filtreleri Temizle
             </button>
@@ -877,7 +905,7 @@ function TaramaPageInner() {
           <EmptyState onScan={runScan} selectedTypes={selectedTypes} onToggleType={toggleType} onPreset={applyPreset} />
         )}
 
-        {!loading && hasScanResults && displayList.length === 0 && (
+        {!loading && hasScanResults && filteredByKap.length === 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="rounded-xl border border-border bg-surface/50 p-8 text-center text-text-secondary"
           >
@@ -888,14 +916,14 @@ function TaramaPageInner() {
           </motion.div>
         )}
 
-        {!loading && displayList.length > 0 && (
+        {!loading && filteredByKap.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className={viewMode === 'grid' ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'flex flex-col gap-2'}
           >
             <AnimatePresence>
-              {displayList.map((r) => {
+              {filteredByKap.map((r) => {
                 const primarySig = r.signals[0]!;
                 return (
                   <motion.div

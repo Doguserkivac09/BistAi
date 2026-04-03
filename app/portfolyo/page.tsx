@@ -29,6 +29,7 @@ interface RawPozisyon {
   alis_fiyati: number;
   alis_tarihi: string;
   notlar?: string | null;
+  hedef_fiyat?: number | null;
   created_at: string;
 }
 
@@ -38,6 +39,7 @@ interface FormData {
   alis_fiyati: string;
   alis_tarihi: string;
   notlar: string;
+  hedef_fiyat: string;
 }
 
 type SortField = 'sembol' | 'kar_zarar' | 'kar_zarar_yuzde';
@@ -291,6 +293,26 @@ function PozisyonRow({
         )}
       </td>
 
+      {/* Hedef fiyat */}
+      <td className="hidden lg:table-cell py-3.5 px-3 text-right text-xs">
+        {poz.hedef_fiyat && poz.guncel_fiyat ? (() => {
+          const kalan = ((poz.hedef_fiyat - poz.guncel_fiyat) / poz.guncel_fiyat) * 100;
+          const reached = poz.guncel_fiyat >= poz.hedef_fiyat;
+          return (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-text-secondary">{fmtTL(poz.hedef_fiyat)}</span>
+              <span className={`font-semibold ${reached ? 'text-emerald-400' : kalan > 0 ? 'text-sky-400' : 'text-red-400'}`}>
+                {reached ? '✓ Ulaşıldı' : `${kalan >= 0 ? '+' : ''}${fmt(kalan)}%`}
+              </span>
+            </div>
+          );
+        })() : poz.hedef_fiyat ? (
+          <span className="text-text-secondary">{fmtTL(poz.hedef_fiyat)}</span>
+        ) : (
+          <span className="text-text-muted">—</span>
+        )}
+      </td>
+
       {/* İşlemler */}
       <td className="py-3.5 pl-3 pr-4 text-right">
         <div className="flex items-center justify-end gap-1">
@@ -356,6 +378,7 @@ function AddModal({
     alis_fiyati: '',
     alis_tarihi: new Date().toISOString().slice(0, 10),
     notlar: '',
+    hedef_fiyat: '',
   });
   const [query, setQuery] = useState(initialSembol);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -449,6 +472,16 @@ function AddModal({
               className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
             />
           </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Hedef Fiyat ₺ (opsiyonel)</label>
+            <input
+              type="number" min="0.01" step="0.01" value={form.hedef_fiyat}
+              onChange={(e) => set('hedef_fiyat', e.target.value)}
+              placeholder="Örn: 58.00"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
+            />
+          </div>
         </div>
 
         {form.miktar && form.alis_fiyati && (
@@ -487,11 +520,12 @@ function EditModal({
 }: {
   poz: PortfolyoPozisyonWithStats;
   onClose: () => void;
-  onSave: (id: string, miktar: number, notlar: string | null) => Promise<void>;
+  onSave: (id: string, miktar: number, notlar: string | null, hedef_fiyat: number | null) => Promise<void>;
   saving: boolean;
 }) {
   const [miktar, setMiktar] = useState(String(poz.miktar));
   const [notlar, setNotlar] = useState(poz.notlar ?? '');
+  const [hedefFiyat, setHedefFiyat] = useState(poz.hedef_fiyat ? String(poz.hedef_fiyat) : '');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -537,6 +571,15 @@ function EditModal({
               className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
             />
           </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Hedef Fiyat ₺</label>
+            <input
+              type="number" min="0.01" step="0.01" value={hedefFiyat}
+              onChange={(e) => setHedefFiyat(e.target.value)}
+              placeholder="Örn: 58.00"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
+            />
+          </div>
         </div>
 
         <div className="mt-6 flex gap-3">
@@ -547,7 +590,7 @@ function EditModal({
             İptal
           </button>
           <button
-            onClick={() => onSave(poz.id, Number(miktar), notlar || null)}
+            onClick={() => onSave(poz.id, Number(miktar), notlar || null, hedefFiyat ? Number(hedefFiyat) : null)}
             disabled={saving || !miktar}
             className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -708,7 +751,7 @@ export default function PortfolyoPage() {
         const kar_zarar_yuzde =
           kar_zarar !== null && maliyet > 0 ? (kar_zarar / maliyet) * 100 : null;
         return {
-          ...p, user_id: '', notlar: p.notlar ?? null,
+          ...p, user_id: '', notlar: p.notlar ?? null, hedef_fiyat: p.hedef_fiyat ?? null,
           guncel_fiyat: guncel, maliyet, guncel_deger, kar_zarar, kar_zarar_yuzde,
         };
       });
@@ -759,6 +802,7 @@ export default function PortfolyoPage() {
           sembol: form.sembol, miktar: Number(form.miktar),
           alis_fiyati: Number(form.alis_fiyati), alis_tarihi: form.alis_tarihi,
           notlar: form.notlar || null,
+          hedef_fiyat: form.hedef_fiyat ? Number(form.hedef_fiyat) : null,
         }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? 'Kayıt başarısız.'); }
@@ -772,13 +816,13 @@ export default function PortfolyoPage() {
 
   // ── Pozisyon düzenle ──────────────────────────────────────────────────────
 
-  async function handleEdit(id: string, miktar: number, notlar: string | null) {
+  async function handleEdit(id: string, miktar: number, notlar: string | null, hedef_fiyat: number | null) {
     setEditSaving(true);
     try {
       const res = await fetch('/api/portfolyo', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, miktar, notlar }),
+        body: JSON.stringify({ id, miktar, notlar, hedef_fiyat }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -1073,6 +1117,7 @@ export default function PortfolyoPage() {
                         <th className="py-3 px-3 text-right font-medium">Değer</th>
                         <SortTh label="K/Z ₺" field="kar_zarar" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
                         <SortTh label="K/Z %" field="kar_zarar_yuzde" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                        <th className="hidden lg:table-cell py-3 px-3 text-right font-medium">Hedef</th>
                         <th className="py-3 pl-3 pr-4 text-right font-medium"></th>
                       </tr>
                     </thead>

@@ -37,7 +37,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('portfolyo_pozisyonlar')
-    .select('id, user_id, sembol, miktar, alis_fiyati, alis_tarihi, notlar, created_at')
+    .select('id, user_id, sembol, miktar, alis_fiyati, alis_tarihi, notlar, hedef_fiyat, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Giriş gerekli.' }, { status: 401 });
 
   const body = await request.json();
-  const { sembol, miktar, alis_fiyati, alis_tarihi, notlar } = body;
+  const { sembol, miktar, alis_fiyati, alis_tarihi, notlar, hedef_fiyat } = body;
 
   if (!sembol || !miktar || !alis_fiyati || !alis_tarihi) {
     return NextResponse.json({ error: 'Eksik alan: sembol, miktar, alis_fiyati, alis_tarihi zorunlu.' }, { status: 400 });
@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
       alis_fiyati: fiyatNum,
       alis_tarihi,
       notlar:      notlar ?? null,
+      hedef_fiyat: hedef_fiyat ? Number(hedef_fiyat) : null,
     })
     .select()
     .single();
@@ -86,7 +87,7 @@ export async function PATCH(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Giriş gerekli.' }, { status: 401 });
 
   const body = await request.json();
-  const { id, miktar, notlar } = body;
+  const { id, miktar, notlar, hedef_fiyat } = body;
 
   if (!id) return NextResponse.json({ error: 'id alanı zorunlu.' }, { status: 400 });
 
@@ -99,6 +100,7 @@ export async function PATCH(request: NextRequest) {
     updates.miktar = miktarNum;
   }
   if (notlar !== undefined) updates.notlar = notlar;
+  if (hedef_fiyat !== undefined) updates.hedef_fiyat = hedef_fiyat ? Number(hedef_fiyat) : null;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Güncellenecek alan yok.' }, { status: 400 });
