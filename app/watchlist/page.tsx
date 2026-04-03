@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
   Star, Plus, Trash2, RefreshCw, TrendingUp, TrendingDown,
-  AlertCircle, X, Search, Eye, Briefcase, ChevronDown,
+  AlertCircle, X, Search, Eye, Briefcase, ChevronDown, Compass,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import Link from 'next/link';
@@ -609,6 +609,13 @@ export default function WatchlistPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               Güncelle
             </button>
+            <Link
+              href="/ters-portfolyo"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Compass className="h-4 w-4" />
+              Fırsatları Keşfet
+            </Link>
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
