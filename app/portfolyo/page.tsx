@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import {
   TrendingUp, TrendingDown, Plus, Trash2, RefreshCw,
   Briefcase, AlertCircle, X, ChevronUp, ChevronDown, Bell, BellOff, BarChart2,
-  Pencil, ChevronsUpDown, Download,
+  Pencil, ChevronsUpDown, Download, Compass, Zap, ShieldAlert,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import type { PortfolyoPozisyonWithStats } from '@/types';
@@ -906,6 +906,15 @@ export default function PortfolyoPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               Güncelle
             </button>
+            {pozisyonlar.length > 0 && (
+              <Link
+                href={`/tarama?exclude=${pozisyonlar.map((p) => p.sembol).join(',')}`}
+                className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+              >
+                <Compass className="h-4 w-4" />
+                Portföy Dışı Fırsatlar
+              </Link>
+            )}
             <button
               onClick={() => { setInitialSembol(''); setShowModal(true); }}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
@@ -961,6 +970,74 @@ export default function PortfolyoPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* En güçlü sinyal banner */}
+                {(() => {
+                  const entries = Object.entries(sinyalMap);
+                  if (entries.length === 0) return null;
+                  const order = ['güçlü', 'orta', 'zayıf'];
+                  let bestSembol = '';
+                  let bestSig: SinvalInfo | null = null;
+                  for (const [sembol, sinyaller] of entries) {
+                    if (sinyaller.length === 0) continue;
+                    const top = [...sinyaller].sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity))[0]!;
+                    if (!bestSig || order.indexOf(top.severity) < order.indexOf(bestSig.severity)) {
+                      bestSig = top;
+                      bestSembol = sembol;
+                    }
+                  }
+                  if (!bestSig || bestSig.severity === 'zayıf') return null;
+                  const isUp = bestSig.direction === 'yukari';
+                  return (
+                    <Link
+                      href={`/hisse/${bestSembol}`}
+                      className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                        isUp
+                          ? 'border-emerald-500/30 bg-emerald-500/8 hover:bg-emerald-500/12'
+                          : 'border-red-500/30 bg-red-500/8 hover:bg-red-500/12'
+                      }`}
+                    >
+                      <Zap className={`h-4 w-4 shrink-0 ${isUp ? 'text-emerald-400' : 'text-red-400'}`} />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm font-semibold text-text-primary">{bestSembol}</span>
+                        <span className="ml-2 text-sm text-text-secondary">
+                          portföyünde en güçlü sinyal: <span className={`font-medium ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>{isUp ? '↑' : '↓'} {bestSig.type}</span>
+                          {bestSig.severity === 'güçlü' && <span className="ml-1.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">Güçlü</span>}
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-xs text-text-muted">Detay →</span>
+                    </Link>
+                  );
+                })()}
+
+                {/* Risk konsantrasyon uyarısı */}
+                {totalDeger > 0 && (() => {
+                  const risky = pozisyonlar.filter(
+                    (p) => p.guncel_deger !== null && p.guncel_deger / totalDeger > 0.4
+                  );
+                  if (risky.length === 0) return null;
+                  return (
+                    <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                      <div className="text-sm">
+                        <span className="font-semibold text-amber-400">Yüksek Konsantrasyon Riski</span>
+                        <span className="ml-2 text-text-secondary">
+                          {risky.map((p) => (
+                            <span key={p.sembol}>
+                              <span className="font-medium text-text-primary">{p.sembol}</span>
+                              {' '}portföyünün{' '}
+                              <span className="font-semibold text-amber-400">
+                                %{((p.guncel_deger! / totalDeger) * 100).toFixed(0)}
+                              </span>
+                              {' '}ünü oluşturuyor
+                            </span>
+                          )).reduce<React.ReactNode[]>((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`sep-${i}`} className="mx-1 text-text-muted">·</span>, el], [])}
+                          {' '}— çeşitlendirmeyi değerlendirin.
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Performans grafiği + Pasta grafiği */}
                 <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">

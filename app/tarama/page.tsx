@@ -439,7 +439,9 @@ function EmptyState({
 
 function TaramaPageInner() {
   const searchParams = useSearchParams();
-  const sektorParam  = searchParams.get('sektor');
+  const sektorParam   = searchParams.get('sektor');
+  const excludeParam  = searchParams.get('exclude');
+  const excludeSet    = new Set(excludeParam ? excludeParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : []);
 
   // Filter state
   const [signalType,         setSignalType]         = useState<SignalTypeFilter>('Tümü');
@@ -675,15 +677,18 @@ function TaramaPageInner() {
   const filteredBySectorDropdown = selectedSector
     ? filteredBySectorParam.filter(r => getSectorId(r.sembol) === selectedSector)
     : filteredBySectorParam;
+  const filteredByExclude = excludeSet.size > 0
+    ? filteredBySectorDropdown.filter((r) => !excludeSet.has(r.sembol))
+    : filteredBySectorDropdown;
   const displayList = onlyStrongSectors
-    ? filteredBySectorDropdown.filter(r => {
+    ? filteredByExclude.filter(r => {
         const hasBullish = r.signals.some(s => s.direction === 'yukari');
-        if (!hasBullish) return true; // bearish/nötr sinyalleri etkileme
+        if (!hasBullish) return true;
         const sector = sectorMap.get(getSector(r.sembol).id);
         return !sector || sector.direction !== 'asagi';
       })
-    : filteredBySectorDropdown;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper].filter(Boolean).length;
+    : filteredByExclude;
+  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper, excludeSet.size > 0].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -810,6 +815,16 @@ function TaramaPageInner() {
               <BarChart2 className="inline h-3.5 w-3.5 mr-1.5 align-text-bottom" />
               Sektör filtresi aktif: <span className="font-semibold uppercase">{sektorParam}</span>
               {' '}· Sadece bu sektördeki hisseler gösteriliyor
+            </span>
+            <a href="/tarama" className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity">Tüm hisseler →</a>
+          </div>
+        )}
+
+        {/* Portföy dışı fırsatlar bandı */}
+        {excludeSet.size > 0 && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-2.5 text-sm text-violet-400">
+            <span>
+              Portföyündeki <span className="font-semibold">{excludeSet.size} hisse</span> filtrelendi · Yalnızca portföy dışı fırsatlar gösteriliyor
             </span>
             <a href="/tarama" className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity">Tüm hisseler →</a>
           </div>
