@@ -298,11 +298,23 @@ function PozisyonRow({
         {poz.hedef_fiyat && poz.guncel_fiyat ? (() => {
           const kalan = ((poz.hedef_fiyat - poz.guncel_fiyat) / poz.guncel_fiyat) * 100;
           const reached = poz.guncel_fiyat >= poz.hedef_fiyat;
+          // Progress: alış → hedef arasında güncel fiyatın konumu
+          const progress = Math.min(
+            Math.max(((poz.guncel_fiyat - poz.alis_fiyati) / (poz.hedef_fiyat - poz.alis_fiyati)) * 100, 0),
+            100
+          );
           return (
-            <div className="flex flex-col items-end gap-0.5">
+            <div className="flex flex-col items-end gap-1">
               <span className="text-text-secondary">{fmtTL(poz.hedef_fiyat)}</span>
+              {/* Progress bar */}
+              <div className="w-16 h-1 rounded-full bg-surface-alt overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${reached ? 'bg-emerald-500' : 'bg-sky-500'}`}
+                  style={{ width: `${reached ? 100 : progress}%` }}
+                />
+              </div>
               <span className={`font-semibold ${reached ? 'text-emerald-400' : kalan > 0 ? 'text-sky-400' : 'text-red-400'}`}>
-                {reached ? '✓ Ulaşıldı' : `${kalan >= 0 ? '+' : ''}${fmt(kalan)}%`}
+                {reached ? '✓ Hedefe ulaştı' : `Hedefe ${fmt(Math.abs(kalan))}% kaldı`}
               </span>
             </div>
           );
