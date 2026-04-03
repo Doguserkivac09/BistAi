@@ -12,7 +12,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, Compass, RefreshCw, Eye, Info, Sparkles, Bot } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Compass, RefreshCw, Eye, Info, Sparkles, Bot, BarChart2, Layers, Star } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { SECTORS, getSectorId, getAllSectors } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
@@ -109,11 +109,6 @@ function SektorBolum({
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-text-primary">{sektor.name}</h3>
           {directionBadge(dir)}
-          {momentum && (
-            <span className={`text-xs font-mono ${momentum.compositeScore >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {momentum.compositeScore > 0 ? '+' : ''}{momentum.compositeScore}
-            </span>
-          )}
         </div>
         {portfoydeVar.length > 0 && (
           <span className="text-[11px] text-text-muted">
@@ -121,6 +116,28 @@ function SektorBolum({
           </span>
         )}
       </div>
+
+      {/* Sektör skor şeridi */}
+      {momentum && (() => {
+        const score = momentum.compositeScore;
+        const absScore = Math.abs(score);
+        const barWidth = Math.min(absScore, 100);
+        const isPos = score >= 0;
+        return (
+          <div className="mb-3 flex items-center gap-2">
+            <div className="relative flex-1 h-1.5 rounded-full bg-surface-alt overflow-hidden">
+              <div
+                className={`absolute h-full rounded-full transition-all ${isPos ? 'bg-emerald-500' : 'bg-red-500'}`}
+                style={{ width: `${barWidth}%`, left: isPos ? '50%' : undefined, right: !isPos ? '50%' : undefined }}
+              />
+              <div className="absolute left-1/2 top-0 h-full w-px bg-border/60" />
+            </div>
+            <span className={`shrink-0 text-xs font-mono font-semibold w-10 text-right ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
+              {score > 0 ? '+' : ''}{score}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Hisseler */}
       <div className="grid gap-1.5 sm:grid-cols-2">
@@ -273,6 +290,98 @@ export default function TersPortfolyoPage() {
             )}
           </p>
         </div>
+
+        {/* ── Özet İstatistik Kartları ── */}
+        {!loading && !sectorLoading && (
+          <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              {
+                icon: Layers,
+                label: 'Portföy Dışı Hisse',
+                value: String(toplamDisinda),
+                sub: `${BIST_SYMBOLS.length} BIST hissesinden`,
+                color: 'text-text-primary',
+              },
+              {
+                icon: TrendingUp,
+                label: 'Yükseliş Sektörü',
+                value: String(sektorMomentum.filter(s => s.direction === 'yukari').length),
+                sub: `${sektorMomentum.length} sektörden`,
+                color: 'text-emerald-400',
+              },
+              {
+                icon: BarChart2,
+                label: 'En Güçlü Sektör',
+                value: sektorMomentum.length > 0
+                  ? [...sektorMomentum].sort((a, b) => b.compositeScore - a.compositeScore)[0]!.name.split(' ')[0]!
+                  : '—',
+                sub: sektorMomentum.length > 0
+                  ? `Skor: ${[...sektorMomentum].sort((a, b) => b.compositeScore - a.compositeScore)[0]!.compositeScore > 0 ? '+' : ''}${[...sektorMomentum].sort((a, b) => b.compositeScore - a.compositeScore)[0]!.compositeScore}`
+                  : '',
+                color: 'text-primary',
+              },
+              {
+                icon: Star,
+                label: 'Portföy Kapsamı',
+                value: `%${Math.round((portfolyoSet.size / BIST_SYMBOLS.length) * 100)}`,
+                sub: `${portfolyoSet.size} hisse takipte`,
+                color: 'text-amber-400',
+              },
+            ].map(({ icon: Icon, label, value, sub, color }) => (
+              <div key={label} className="rounded-xl border border-border bg-surface p-4">
+                <div className="mb-1 flex items-center gap-1.5 text-xs text-text-muted">
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </div>
+                <div className={`text-lg font-bold ${color}`}>{value}</div>
+                {sub && <div className="mt-0.5 text-[11px] text-text-muted">{sub}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Bu Haftanın Öne Çıkanı ── */}
+        {!loading && !sectorLoading && sektorMomentum.length > 0 && (() => {
+          const topSektor = [...sektorMomentum]
+            .filter(s => s.direction === 'yukari')
+            .sort((a, b) => b.compositeScore - a.compositeScore)[0];
+          if (!topSektor) return null;
+          const topSektorSemboller = (sektorSembolMap.get(topSektor.id) ?? [])
+            .filter(s => !portfolyoSet.has(s))
+            .slice(0, 3);
+          if (topSektorSemboller.length === 0) return null;
+          return (
+            <div className="mb-6 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-4 w-4 text-emerald-400" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Bu Haftanın Öne Çıkanı</span>
+              </div>
+              <p className="text-sm text-text-secondary mb-3">
+                <span className="font-semibold text-text-primary">{topSektor.name}</span> sektörü en güçlü momentum&apos;ya sahip
+                {' '}<span className="text-emerald-400 font-semibold">(+{topSektor.compositeScore})</span>.
+                Bu sektörde portföyünde olmayan öne çıkan hisseler:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {topSektorSemboller.map(s => (
+                  <Link
+                    key={s}
+                    href={`/hisse/${s}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                  >
+                    {s}
+                    <Eye className="h-3 w-3 opacity-70" />
+                  </Link>
+                ))}
+                <Link
+                  href={`/sektorler`}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-text-muted hover:border-primary/30 hover:text-text-primary transition-colors"
+                >
+                  Sektörü Gör →
+                </Link>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* AI Analiz Butonu + Panel */}
         {!loading && loggedIn && (
