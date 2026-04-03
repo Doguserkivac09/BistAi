@@ -507,6 +507,7 @@ function TaramaPageInner() {
     } catch { /* ignore */ }
   }, []);
 
+
   // Fetch macro
   useEffect(() => {
     let cancelled = false;

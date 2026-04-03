@@ -906,15 +906,13 @@ export default function PortfolyoPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               Güncelle
             </button>
-            {pozisyonlar.length > 0 && (
-              <Link
-                href={`/tarama?exclude=${pozisyonlar.map((p) => p.sembol).join(',')}`}
-                className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
-              >
-                <Compass className="h-4 w-4" />
-                Portföy Dışı Fırsatlar
-              </Link>
-            )}
+            <Link
+              href="/ters-portfolyo"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Compass className="h-4 w-4" />
+              Portföy Dışı Fırsatlar
+            </Link>
             <button
               onClick={() => { setInitialSembol(''); setShowModal(true); }}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
