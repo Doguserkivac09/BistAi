@@ -10,7 +10,7 @@ import {
   Save, AlertTriangle, CheckCircle, CreditCard, ExternalLink,
   Bell, BellOff, Lock, Mail, Calendar, Clock, Shield, Zap,
   ChevronRight, Settings, TrendingUp, Star, BarChart2, Pencil, X,
-  Upload, ImageIcon,
+  Upload, ImageIcon, Trash2, TrendingDown,
 } from 'lucide-react';
 
 const DEFAULT_AVATARS = [
@@ -290,6 +290,12 @@ export default function ProfilPage() {
   const [prefSaving, setPrefSaving]           = useState(false);
   const [newsletterEnabled, setNewsletterEnabled] = useState(false);
   const [newsletterSaving, setNewsletterSaving]   = useState(false);
+
+  // Fiyat Alarmları
+  type PriceAlert = { id: string; sembol: string; target_price: number; direction: 'above' | 'below'; note: string | null; triggered: boolean; triggered_at: string | null; };
+  const [priceAlerts, setPriceAlerts]     = useState<PriceAlert[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [deletingAlert, setDeletingAlert] = useState<string | null>(null);
   const searchParams = useSearchParams();
 
   const [displayName, setDisplayName] = useState('');
@@ -355,6 +361,22 @@ export default function ProfilPage() {
         body: JSON.stringify({ newsletter_enabled: enabled }),
       });
     } catch {} finally { setNewsletterSaving(false); }
+  }
+
+  useEffect(() => {
+    fetch('/api/price-alerts')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.alerts) setPriceAlerts(d.alerts); })
+      .catch(() => {})
+      .finally(() => setAlertsLoading(false));
+  }, []);
+
+  async function deleteAlert(id: string) {
+    setDeletingAlert(id);
+    try {
+      const res = await fetch(`/api/price-alerts?id=${id}`, { method: 'DELETE' });
+      if (res.ok) setPriceAlerts(prev => prev.filter(a => a.id !== id));
+    } finally { setDeletingAlert(null); }
   }
 
   useEffect(() => {
@@ -783,6 +805,70 @@ export default function ProfilPage() {
                 </div>
               )}
             </div>
+          </Section>
+        </div>
+
+        {/* ── Fiyat Alarmlarım ── */}
+        <div className="mt-6">
+          <Section icon={Bell} title={`Fiyat Alarmlarım${priceAlerts.filter(a => !a.triggered).length > 0 ? ` (${priceAlerts.filter(a => !a.triggered).length} aktif)` : ''}`}>
+            {alertsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-text-muted py-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                Yükleniyor…
+              </div>
+            ) : priceAlerts.length === 0 ? (
+              <div className="py-4 text-center text-sm text-text-muted">
+                Henüz fiyat alarmı kurulmamış.
+                <p className="mt-1 text-xs">Hisse detay sayfasındaki zil ikonuyla alarm kurabilirsin.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/40">
+                {priceAlerts.map(alert => {
+                  const isAbove = alert.direction === 'above';
+                  return (
+                    <div key={alert.id} className={`flex items-center gap-3 py-3 ${alert.triggered ? 'opacity-50' : ''}`}>
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                        alert.triggered ? 'bg-surface-alt text-text-muted' :
+                        isAbove ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                      }`}>
+                        {isAbove ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Link href={`/hisse/${alert.sembol}`} className="font-semibold text-sm text-text-primary hover:text-primary transition-colors">
+                            {alert.sembol}
+                          </Link>
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${
+                            alert.triggered ? 'bg-surface-alt text-text-muted' :
+                            isAbove ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                          }`}>
+                            {alert.triggered ? 'Tetiklendi' : isAbove ? '↑ Üzerine çıkınca' : '↓ Altına düşünce'}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-2 text-xs text-text-secondary">
+                          <span className="font-mono font-semibold">₺{alert.target_price.toFixed(2)}</span>
+                          {alert.note && <span className="text-text-muted truncate max-w-[160px]">· {alert.note}</span>}
+                          {alert.triggered_at && (
+                            <span className="text-text-muted">· {new Date(alert.triggered_at).toLocaleDateString('tr-TR')}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deleteAlert(alert.id)}
+                        disabled={deletingAlert === alert.id}
+                        className="shrink-0 rounded-lg p-1.5 text-text-muted hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-40"
+                        title="Alarmı sil"
+                      >
+                        {deletingAlert === alert.id
+                          ? <div className="h-3.5 w-3.5 animate-spin rounded-full border border-text-muted border-t-transparent" />
+                          : <Trash2 className="h-3.5 w-3.5" />
+                        }
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Section>
         </div>
 

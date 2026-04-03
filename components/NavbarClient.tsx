@@ -20,7 +20,6 @@ const navItems = [
     dropdown: [
       { href: '/portfolyo',       label: 'Portföyüm',      icon: Briefcase },
       { href: '/watchlist',        label: 'Watchlist',        icon: Star },
-      { href: '/fiyat-alertler',  label: 'Fiyat Alarmları',  icon: Bell },
       { href: '/ters-portfolyo',  label: 'Fırsatlar',        icon: Compass },
       { href: '/karsilastir',     label: 'Karşılaştır',      icon: GitCompare },
     ],
