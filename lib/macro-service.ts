@@ -156,6 +156,8 @@ export function formatMacroResponse(full: MacroFullResult) {
       eem: yahoo.eem,
       brent: yahoo.brent,
       gold: yahoo.gold,
+      silver: yahoo.silver,
+      copper: yahoo.copper,
       bist100: yahoo.bist100,
     },
     turkey: {

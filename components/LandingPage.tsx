@@ -14,7 +14,7 @@ import {
 import {
   BarChart3, Sparkles, TrendingUp, TrendingDown,
   Shield, Zap, Brain, ArrowRight, ChevronDown,
-  Activity, Globe2, Users,
+  Activity, Globe2, Users, Wallet, MessageSquare, Bell,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -40,12 +40,12 @@ const TICKER_ITEMS_STATIC = [
 // ── Mock live signals ─────────────────────────────────────────────
 
 const MOCK_SIGNALS = [
-  { sembol: 'THYAO', type: 'RSI Uyumsuzluğu',  dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 78, sector: 'Havacılık', weeklyAligned: true  },
-  { sembol: 'EREGL', type: 'MACD Kesişimi',     dir: 'AL',  sev: 'Güçlü', macro: '+38', confidence: 74, sector: 'Metal',     weeklyAligned: true  },
-  { sembol: 'PGSUS', type: 'Trend Başlangıcı',  dir: 'AL',  sev: 'Orta',  macro: '+31', confidence: 71, sector: 'Havacılık', weeklyAligned: null  },
-  { sembol: 'ASELS', type: 'Altın Çapraz',       dir: 'AL',  sev: 'Güçlü', macro: '+55', confidence: 82, sector: 'Savunma',  weeklyAligned: true  },
-  { sembol: 'KCHOL', type: 'S/R Kırılımı',      dir: 'SAT', sev: 'Zayıf', macro: '+18', confidence: 49, sector: 'Holding',  weeklyAligned: false },
-  { sembol: 'ARCLK', type: 'RSI Seviyesi',       dir: 'SAT', sev: 'Orta',  macro: '+12', confidence: 58, sector: 'Teknoloji',weeklyAligned: false },
+  { sembol: 'THYAO', type: 'RSI Uyumsuzluğu',  dir: 'AL',  sev: 'Güçlü', macro: '+42', confidence: 78, sector: 'Havacılık', weeklyAligned: true,  winRate: 71, btSample: 14 },
+  { sembol: 'EREGL', type: 'MACD Kesişimi',     dir: 'AL',  sev: 'Güçlü', macro: '+38', confidence: 74, sector: 'Metal',     weeklyAligned: true,  winRate: 67, btSample: 18 },
+  { sembol: 'PGSUS', type: 'Trend Başlangıcı',  dir: 'AL',  sev: 'Orta',  macro: '+31', confidence: 71, sector: 'Havacılık', weeklyAligned: null,  winRate: 58, btSample: 12 },
+  { sembol: 'ASELS', type: 'Altın Çapraz',       dir: 'AL',  sev: 'Güçlü', macro: '+55', confidence: 82, sector: 'Savunma',  weeklyAligned: true,  winRate: 75, btSample: 20 },
+  { sembol: 'KCHOL', type: 'S/R Kırılımı',      dir: 'SAT', sev: 'Zayıf', macro: '+18', confidence: 49, sector: 'Holding',  weeklyAligned: false, winRate: 44, btSample: 11 },
+  { sembol: 'ARCLK', type: 'RSI Seviyesi',       dir: 'SAT', sev: 'Orta',  macro: '+12', confidence: 58, sector: 'Teknoloji',weeklyAligned: false, winRate: 52, btSample: 15 },
 ];
 
 // ── Stats ─────────────────────────────────────────────────────────
@@ -60,12 +60,15 @@ const STATS = [
 // ── Features ──────────────────────────────────────────────────────
 
 const FEATURES = [
-  { icon: BarChart3,  title: 'Sinyal Tarama',       desc: '10 farklı teknik sinyal — RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi — 160+ BIST hissesinde tek taramada.',  gradient: 'from-indigo-500/20 to-violet-500/5'  },
-  { icon: Brain,      title: 'AI Açıklamalar',      desc: 'Her sinyal için Claude AI ile üretilen sade Türkçe analiz. Ne olduğunu değil, ne anlama geldiğini öğren.',                       gradient: 'from-violet-500/20 to-fuchsia-500/5' },
-  { icon: TrendingUp, title: 'Sektör & Makro Radar',desc: 'Sektör momentum skoru + VIX, DXY, USD/TRY, TCMB faizi — tüm bağlam tek panelde. Sinyalin sektör trendi ile uyumlu mu?',         gradient: 'from-cyan-500/20 to-blue-500/5'      },
-  { icon: Shield,     title: 'Çok Katmanlı Skor',   desc: 'Confluence skoru, haftalık trend uyumu, win-rate geçmişi — her sinyal için 4+ kalite göstergesi. Güçlü sinyalleri ilk bul.',     gradient: 'from-emerald-500/20 to-teal-500/5'  },
-  { icon: Zap,        title: 'Backtesting',          desc: 'Geçmiş sinyal performanslarını gör. Hangi sinyal tipi hangi piyasa koşulunda daha başarılı oldu?',                               gradient: 'from-orange-500/20 to-amber-500/5'  },
-  { icon: Sparkles,   title: 'AI Topluluk Botu',    desc: 'Analistlerle fikir paylaş. AI Analist her paylaşımı otomatik yorumlar, bağlam ve teknik değerlendirme sunar.',                  gradient: 'from-pink-500/20 to-rose-500/5'     },
+  { icon: BarChart3,      title: 'Sinyal Tarama',       desc: '10 farklı teknik sinyal — RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi — 164 BIST hissesinde tek taramada.',  gradient: 'from-indigo-500/20 to-violet-500/5'  },
+  { icon: Brain,          title: 'AI Açıklamalar',      desc: 'Her sinyal için Claude AI ile üretilen sade Türkçe analiz. Ne olduğunu değil, ne anlama geldiğini öğren.',                       gradient: 'from-violet-500/20 to-fuchsia-500/5' },
+  { icon: TrendingUp,     title: 'Sektör & Makro Radar',desc: 'Sektör momentum skoru + VIX, DXY, USD/TRY, TCMB faizi — tüm bağlam tek panelde. Sinyalin sektör trendi ile uyumlu mu?',         gradient: 'from-cyan-500/20 to-blue-500/5'      },
+  { icon: Shield,         title: 'Çok Katmanlı Skor',   desc: 'Confluence skoru, haftalık trend uyumu, win-rate geçmişi — her sinyal için 4+ kalite göstergesi. Güçlü sinyalleri ilk bul.',     gradient: 'from-emerald-500/20 to-teal-500/5'  },
+  { icon: Zap,            title: 'Backtesting',          desc: 'Geçmiş sinyal performanslarını gör. Hangi sinyal tipi hangi piyasa koşulunda daha başarılı oldu? Gerçek veriye dayalı istatistik.', gradient: 'from-orange-500/20 to-amber-500/5' },
+  { icon: Sparkles,       title: 'AI Topluluk Botu',    desc: 'Analistlerle fikir paylaş. AI Analist her paylaşımı otomatik yorumlar, bağlam ve teknik değerlendirme sunar.',                  gradient: 'from-pink-500/20 to-rose-500/5'     },
+  { icon: Wallet,         title: 'Portföy Takibi',       desc: 'Hisselerini + lot miktarını gir, toplam değer ve günlük değişimi anlık gör. Sektör dağılımı ve yoğunlaşma uyarısı dahil.',       gradient: 'from-blue-500/20 to-indigo-500/5'   },
+  { icon: MessageSquare,  title: 'AI Sohbet',            desc: 'İstediğin hisseyi veya piyasa durumunu doğrudan sohbet ile sor. Claude AI gerçek zamanlı makro + teknik bağlamla yanıtlar.',      gradient: 'from-teal-500/20 to-cyan-500/5'     },
+  { icon: Bell,           title: 'Anlık Uyarılar',       desc: 'İzleme listeni tanımla. Sinyal tespit edildiğinde e-posta ile haber al. Her iş günü sabahı tarama özeti gönderilir.',            gradient: 'from-amber-500/20 to-orange-500/5'  },
 ];
 
 // ── Animated Globe — borsa şehirleri + yay bağlantıları ──────────
@@ -511,7 +514,7 @@ function FeatureCard({ f, index }: { f: typeof FEATURES[0]; index: number }) {
 
 // ── Signal row ────────────────────────────────────────────────────
 
-function SignalRow({ sig, index, isLoggedIn }: { sig: typeof MOCK_SIGNALS[0]; index: number; isLoggedIn: boolean }) {
+function SignalRow({ sig, index, isLoggedIn }: { sig: (typeof MOCK_SIGNALS)[0]; index: number; isLoggedIn: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true });
   const isAl = sig.dir === 'AL';
@@ -540,6 +543,19 @@ function SignalRow({ sig, index, isLoggedIn }: { sig: typeof MOCK_SIGNALS[0]; in
         </div>
         {/* Sinyal tipi */}
         <span className="flex-1 text-xs text-text-secondary">{sig.type}</span>
+        {/* Win-rate badge */}
+        {sig.btSample >= 10 && (
+          <span
+            title={`Geçmiş ${sig.btSample} sinyalde %${sig.winRate} başarı oranı`}
+            className={`hidden shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold sm:block ${
+              sig.winRate >= 60
+                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                : 'border-amber-500/40 bg-amber-500/15 text-amber-300'
+            }`}
+          >
+            Bt %{sig.winRate}
+          </span>
+        )}
         {/* Haftalık uyum badge */}
         {sig.weeklyAligned != null && (
           <span
@@ -547,10 +563,10 @@ function SignalRow({ sig, index, isLoggedIn }: { sig: typeof MOCK_SIGNALS[0]; in
             className={`hidden shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold sm:block ${
               sig.weeklyAligned
                 ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
-                : 'border-red-500/40 bg-red-500/15 text-red-300'
+                : 'border-slate-500/40 bg-slate-500/15 text-slate-400'
             }`}
           >
-            {sig.weeklyAligned ? 'W✓' : 'W✗'}
+            {sig.weeklyAligned ? 'D1·W✓' : 'D1·W✗'}
           </span>
         )}
         {/* Makro */}
@@ -719,7 +735,7 @@ export default function LandingPage() {
               >
                 Teknik sinyal × Makro rüzgar × Sektör uyumu →{' '}
                 <span className="gradient-text font-semibold">AL / TUT / SAT</span> kararı.
-                Her sinyal için sade Türkçe AI açıklaması.
+                Portföy takibi, anlık e-posta uyarıları ve AI sohbet desteği ile.
               </motion.p>
 
               <motion.div
@@ -763,9 +779,9 @@ export default function LandingPage() {
                 className="mt-10 flex flex-wrap items-center justify-center gap-6 lg:justify-start"
               >
                 {[
-                  { icon: Globe2,   text: '160+ hisse tarama' },
-                  { icon: Activity, text: '10 sinyal tipi' },
-                  { icon: Users,    text: 'Haftalık trend uyumu' },
+                  { icon: Globe2,          text: '164 BIST hissesi' },
+                  { icon: Activity,        text: '10 sinyal tipi + backtesting' },
+                  { icon: Bell,            text: 'Portföy & anlık uyarılar' },
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs text-text-secondary">
                     <item.icon className="h-3.5 w-3.5 text-primary opacity-60" />
@@ -842,7 +858,8 @@ export default function LandingPage() {
             <div className="flex items-center gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-secondary opacity-60">
               <span className="w-[4.5rem] shrink-0">Hisse</span>
               <span className="flex-1">Sinyal</span>
-              <span className="hidden sm:block">Haftalık</span>
+              <span className="hidden sm:block">Backtest</span>
+              <span className="hidden sm:block">MTF</span>
               <span className="hidden sm:block w-20">Makro</span>
               <span className="hidden w-14 sm:block">Güven</span>
               <span>Karar</span>

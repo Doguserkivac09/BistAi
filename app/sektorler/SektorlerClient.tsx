@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus, RefreshCw, BarChart2, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, RefreshCw, BarChart2, ExternalLink, ChevronsUp, ChevronsDown, Compass } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { SECTORS, SECTOR_REPRESENTATIVES } from '@/lib/sectors';
@@ -13,7 +13,7 @@ import type { OHLCVCandle } from '@/types';
 // ─── Türler ───────────────────────────────────────────────────────────────────
 
 type PeriodDays = 5 | 20 | 60;
-type DirFilter  = 'all' | 'yukari' | 'asagi' | 'nötr';
+type DirFilter  = 'all' | 'yukari' | 'asagi';
 type SortBy     = 'perf' | 'name';
 
 interface StockMomentum {
@@ -25,12 +25,14 @@ interface StockMomentum {
 }
 
 interface SectorData {
-  id:          SectorId;
-  name:        string;
-  shortName:   string;
-  avgByPeriod: { 5: number | null; 20: number | null; 60: number | null };
-  stocks:      StockMomentum[];
-  loaded:      boolean;
+  id:             SectorId;
+  name:           string;
+  shortName:      string;
+  avgByPeriod:    { 5: number | null; 20: number | null; 60: number | null };
+  stocks:         StockMomentum[];
+  loaded:         boolean;
+  macroAlignment: number | null;   // -100..+100, /api/sectors'tan
+  compositeScore: number | null;
 }
 
 // ─── Yardımcılar ─────────────────────────────────────────────────────────────
@@ -176,6 +178,24 @@ function SectorCard({
   const best  = sorted[0] ?? null;
   const worst = sorted[sorted.length - 1] ?? null;
 
+  // Rotasyon: 5g vs 20g kıyasla (ivme kazanıyor/kaybediyor)
+  const avg5  = data.avgByPeriod[5];
+  const avg20 = data.avgByPeriod[20];
+  const rotasyon: 'ivme-kazaniyor' | 'ivme-kaybediyor' | null =
+    avg5 !== null && avg20 !== null
+      ? avg5 > avg20 + 1 ? 'ivme-kazaniyor'
+      : avg5 < avg20 - 1 ? 'ivme-kaybediyor'
+      : null
+    : null;
+
+  // Makro uyum
+  const macroAl = data.macroAlignment;
+  const macroLabel =
+    macroAl === null ? null :
+    macroAl >= 30  ? { text: 'Makro uyumlu', cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' } :
+    macroAl <= -30 ? { text: 'Makro olumsuz', cls: 'text-red-400 bg-red-500/10 border-red-500/25' } :
+    { text: 'Makro nötr', cls: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/25' };
+
   const dirColor =
     direction === 'yukari' ? 'text-emerald-400' :
     direction === 'asagi'  ? 'text-red-400' : 'text-zinc-400';
@@ -198,7 +218,7 @@ function SectorCard({
       className={cn('rounded-xl border p-4 flex flex-col', borderColor, bgGlow)}
     >
       {/* Başlık */}
-      <div className="flex items-start justify-between gap-2 mb-3">
+      <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <h3 className="text-sm font-bold text-text-primary">{data.name}</h3>
           <p className="text-[11px] text-text-muted mt-0.5">{data.stocks.length} hisse</p>
@@ -220,32 +240,48 @@ function SectorCard({
         </div>
       </div>
 
-      {/* Yön ikonu + skor barı */}
+      {/* Badge satırı: yön + rotasyon + makro */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        {avg !== null && (
+          <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+            direction === 'yukari' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' :
+            direction === 'asagi'  ? 'border-red-500/30 bg-red-500/10 text-red-400' :
+            'border-zinc-500/30 bg-zinc-500/10 text-zinc-400'
+          )}>
+            {direction === 'yukari' ? <TrendingUp className="h-2.5 w-2.5" /> :
+             direction === 'asagi'  ? <TrendingDown className="h-2.5 w-2.5" /> :
+             <Minus className="h-2.5 w-2.5" />}
+            {direction === 'yukari' ? 'Yükseliş' : direction === 'asagi' ? 'Düşüş' : 'Yatay'}
+          </span>
+        )}
+        {rotasyon && (
+          <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+            rotasyon === 'ivme-kazaniyor'
+              ? 'border-sky-500/30 bg-sky-500/10 text-sky-400'
+              : 'border-orange-500/30 bg-orange-500/10 text-orange-400'
+          )}>
+            {rotasyon === 'ivme-kazaniyor'
+              ? <><ChevronsUp className="h-2.5 w-2.5" />İvme Kazanıyor</>
+              : <><ChevronsDown className="h-2.5 w-2.5" />İvme Kaybediyor</>}
+          </span>
+        )}
+        {macroLabel && (
+          <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold', macroLabel.cls)}>
+            {macroLabel.text}
+          </span>
+        )}
+      </div>
+
+      {/* Skor barı */}
       {avg !== null && (
-        <div className="mb-3">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            {direction === 'yukari' ? (
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-            ) : direction === 'asagi' ? (
-              <TrendingDown className="h-3.5 w-3.5 text-red-400" />
-            ) : (
-              <Minus className="h-3.5 w-3.5 text-zinc-400" />
+        <div className="mb-3 h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
+          <div
+            className={cn('h-full rounded-full',
+              direction === 'yukari' ? 'bg-emerald-500/60' :
+              direction === 'asagi'  ? 'bg-red-500/60' : 'bg-zinc-500/40',
             )}
-            <span className={cn('text-[11px] font-semibold', dirColor)}>
-              {direction === 'yukari' ? 'Yükseliş Trendi' :
-               direction === 'asagi'  ? 'Düşüş Trendi' : 'Yatay Seyir'}
-            </span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
-            <div
-              className={cn(
-                'h-full rounded-full',
-                direction === 'yukari' ? 'bg-emerald-500/60' :
-                direction === 'asagi'  ? 'bg-red-500/60' : 'bg-zinc-500/40',
-              )}
-              style={{ width: `${Math.min(100, Math.abs(avg) * 5)}%` }}
-            />
-          </div>
+            style={{ width: `${Math.min(100, Math.abs(avg) * 5)}%` }}
+          />
         </div>
       )}
 
@@ -256,10 +292,7 @@ function SectorCard({
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-text-muted">En iyi:</span>
               <span className="flex items-center gap-1.5">
-                <a
-                  href={`/hisse/${best.sembol}`}
-                  className="font-mono font-semibold text-text-primary hover:text-primary transition-colors"
-                >
+                <a href={`/hisse/${best.sembol}`} className="font-mono font-semibold text-text-primary hover:text-primary transition-colors">
                   {best.sembol}
                 </a>
                 <span className="text-emerald-400 font-semibold">{formatPct(getChg(best))}</span>
@@ -270,10 +303,7 @@ function SectorCard({
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-text-muted">En kötü:</span>
               <span className="flex items-center gap-1.5">
-                <a
-                  href={`/hisse/${worst.sembol}`}
-                  className="font-mono font-semibold text-text-primary hover:text-primary transition-colors"
-                >
+                <a href={`/hisse/${worst.sembol}`} className="font-mono font-semibold text-text-primary hover:text-primary transition-colors">
                   {worst.sembol}
                 </a>
                 <span className="text-red-400 font-semibold">{formatPct(getChg(worst))}</span>
@@ -307,14 +337,21 @@ function SectorCard({
         </div>
       )}
 
-      {/* Taramaya Git */}
-      <div className="mt-3 pt-3 border-t border-border/40">
+      {/* Alt linkler */}
+      <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-3">
         <Link
           href={`/tarama?sektor=${data.id}`}
-          className="flex items-center gap-1.5 text-[11px] text-text-muted hover:text-primary transition-colors group"
+          className="flex items-center gap-1 text-[11px] text-text-muted hover:text-primary transition-colors"
         >
-          <ExternalLink className="h-3 w-3 group-hover:text-primary" />
-          Sinyal Taramasına Git
+          <ExternalLink className="h-3 w-3" />
+          Sinyal Taraması
+        </Link>
+        <Link
+          href="/ters-portfolyo"
+          className="flex items-center gap-1 text-[11px] text-text-muted hover:text-primary transition-colors ml-auto"
+        >
+          <Compass className="h-3 w-3" />
+          Fırsatlar
         </Link>
       </div>
     </motion.div>
@@ -356,10 +393,39 @@ export function SektorlerClient() {
           sembol: s, change5d: null, change20d: null, change60d: null, lastPrice: null,
         })),
         loaded: false,
+        macroAlignment: null,
+        compositeScore: null,
       });
     }
     setSectorDataMap(initial);
   }, []);
+
+  // /api/sectors → macroAlignment + compositeScore merge (bir kez çalışır)
+  useEffect(() => {
+    fetch('/api/sectors')
+      .then((r) => r.ok ? r.json() : null)
+      .then((res: { sectors?: Array<{ sectorId?: string; macroAlignment?: number; compositeScore?: number }> } | null) => {
+        const list = res?.sectors;
+        if (!Array.isArray(list)) return;
+        setSectorDataMap((prev) => {
+          const next = new Map(prev);
+          list.forEach((item) => {
+            const sid = item.sectorId as SectorId | undefined;
+            if (!sid) return;
+            const existing = next.get(sid);
+            if (existing) {
+              next.set(sid, {
+                ...existing,
+                macroAlignment: item.macroAlignment ?? null,
+                compositeScore: item.compositeScore ?? null,
+              });
+            }
+          });
+          return next;
+        });
+      })
+      .catch(() => {});
+  }, []); // mount'ta bir kez
 
   // Emtia verisi
   useEffect(() => {
@@ -438,17 +504,15 @@ export function SektorlerClient() {
   const sectors = useMemo(() => {
     const arr = Array.from(sectorDataMap.values());
 
-    const withDir = arr.map((s) => {
+    const getDir = (s: SectorData): 'yukari' | 'asagi' | 'nötr' => {
       const avg = s.avgByPeriod[period];
-      const dir: DirFilter =
-        avg !== null && avg >= 2  ? 'yukari' :
-        avg !== null && avg <= -2 ? 'asagi'  : 'nötr';
-      return { ...s, _dir: dir };
-    });
+      return avg !== null && avg >= 2  ? 'yukari' :
+             avg !== null && avg <= -2 ? 'asagi'  : 'nötr';
+    };
 
     const filtered = dirFilter === 'all'
-      ? withDir
-      : withDir.filter((s) => s._dir === dirFilter);
+      ? arr
+      : arr.filter((s) => getDir(s) === dirFilter);
 
     return [...filtered].sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name, 'tr');
@@ -585,7 +649,7 @@ export function SektorlerClient() {
 
             {/* Yön filtresi */}
             <div className="flex rounded-lg border border-border bg-surface/30 p-0.5">
-              {(['all', 'yukari', 'asagi', 'nötr'] as DirFilter[]).map((f) => (
+              {(['all', 'yukari', 'asagi'] as DirFilter[]).map((f) => (
                 <button
                   key={f}
                   onClick={() => setDirFilter(f)}
@@ -596,20 +660,10 @@ export function SektorlerClient() {
                       : 'text-text-muted hover:text-text-primary',
                   )}
                 >
-                  {f === 'all' ? 'Tümü' : f === 'yukari' ? '↑ Yükselen' : f === 'asagi' ? '↓ Düşen' : '→ Yatay'}
+                  {f === 'all' ? 'Tümü' : f === 'yukari' ? '↑ Yükselen' : '↓ Düşen'}
                 </button>
               ))}
             </div>
-
-            {/* Sıralama */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="rounded-lg border border-border bg-surface/30 px-2 py-1.5 text-xs text-text-secondary focus:outline-none cursor-pointer"
-            >
-              <option value="perf">Performansa göre</option>
-              <option value="name">İsme göre</option>
-            </select>
           </div>
 
           {sectorDataMap.size === 0 ? (

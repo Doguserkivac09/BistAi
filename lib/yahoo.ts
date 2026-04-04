@@ -47,8 +47,13 @@ function setCache(key: string, data: OHLCVFetchResult): void {
 
 function toYahooSymbol(sembol: string): string {
   const trimmed = sembol.trim().toUpperCase();
-  // Index sembolleri (^XU100 gibi) .IS almaz
+  // Index sembolleri (^VIX, ^TNX gibi) .IS almaz
   if (trimmed.startsWith('^')) return trimmed;
+  // Futures/forex/global semboller: = içerenler (GC=F, SI=F, USDTRY=X)
+  // veya . içerenler (DX-Y.NYB, zaten exchange suffix'i var)
+  // veya - içerenler (DX-Y.NYB) .IS almaz
+  if (trimmed.includes('=') || trimmed.includes('.') || trimmed.includes('-')) return trimmed;
+  // BIST hisseleri: .IS suffix ekle
   return trimmed.endsWith(BIST_SUFFIX) ? trimmed : `${trimmed}${BIST_SUFFIX}`;
 }
 

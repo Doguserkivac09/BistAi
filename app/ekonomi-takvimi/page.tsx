@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Calendar, Clock, TrendingUp, TrendingDown, Minus, Sparkles, Bot, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, TrendingUp, TrendingDown, Minus, Sparkles, Bot, RefreshCw, Lock } from 'lucide-react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import {
   EKONOMI_EVENTS,
@@ -190,6 +191,7 @@ export default function EkonomiTakvimiPage() {
   const [aiYorum, setAiYorum]       = useState('');
   const [aiLoading, setAiLoading]   = useState(false);
   const [aiError, setAiError]       = useState<string | null>(null);
+  const [aiUpgrade, setAiUpgrade]   = useState(false);
   const aiAbortRef = useRef<AbortController | null>(null);
 
   const filtered = useMemo(() => {
@@ -240,6 +242,7 @@ export default function EkonomiTakvimiPage() {
                 });
                 if (!res.ok) {
                   const d = await res.json().catch(() => ({}));
+                  if (d.upgrade) { setAiUpgrade(true); return; }
                   setAiError(d.error ?? 'Bir hata oluştu.');
                   return;
                 }
@@ -276,6 +279,16 @@ export default function EkonomiTakvimiPage() {
         )}
 
         {aiError && <p className="mt-2 text-xs text-red-400">{aiError}</p>}
+
+        {aiUpgrade && (
+          <div className="mt-3 flex items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
+            <Lock className="h-4 w-4 text-violet-400 shrink-0" />
+            <p className="text-sm text-violet-300">AI Takvim Yorumu Pro ve Premium planlarda kullanılabilir.</p>
+            <Link href="/fiyatlandirma" className="ml-auto shrink-0 rounded-lg bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-600 transition-colors">
+              Yükselt
+            </Link>
+          </div>
+        )}
 
         {aiYorum && (
           <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">

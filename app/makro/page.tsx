@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { MacroWindGauge } from '@/components/MacroWindGauge';
-import type { MacroScoreResult } from '@/lib/macro-score';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   RefreshCw, TrendingUp, TrendingDown, Minus,
@@ -41,6 +39,8 @@ interface MacroResponse {
     eem:    { price: number; change: number; changePercent: number } | null;
     brent:  { price: number; change: number; changePercent: number } | null;
     gold:   { price: number; change: number; changePercent: number } | null;
+    silver: { price: number; change: number; changePercent: number } | null;
+    copper: { price: number; change: number; changePercent: number } | null;
     bist100:{ price: number; change: number; changePercent: number } | null;
   };
   turkey: {
@@ -199,10 +199,22 @@ function indicatorSignal(label: string, data: { price: number; changePercent: nu
       if (p > 65) return { text: 'Normal',     cls: 'text-yellow-400' };
       return           { text: 'Ucuz',         cls: 'text-green-400' };
     case 'Altın':
-      if (p > 3000) return { text: 'Rekor Yüksek', cls: 'text-red-400' };
-      if (p > 2500) return { text: 'Güçlü',        cls: 'text-orange-400' };
+      if (p > 3500) return { text: 'Rekor Yüksek', cls: 'text-red-400' };
+      if (p > 2800) return { text: 'Güçlü',        cls: 'text-orange-400' };
       if (p > 2000) return { text: 'Normal',        cls: 'text-yellow-400' };
       return             { text: 'Düşük',           cls: 'text-green-400' };
+    case 'Gümüş':
+      if (p > 40)  return { text: 'Çok Güçlü',  cls: 'text-orange-400' };
+      if (p > 28)  return { text: 'Güçlü',       cls: 'text-yellow-400' };
+      if (p > 20)  return { text: 'Normal',       cls: 'text-white/50' };
+      return            { text: 'Zayıf',          cls: 'text-green-400' };
+    case 'Bakır': {
+      // Bakır = ekonomik aktivite barometresi; yüksekse büyüme beklentisi pozitif
+      if (p > 5)   return { text: 'Güçlü Büyüme', cls: 'text-green-400' };
+      if (p > 4)   return { text: 'Normal',        cls: 'text-yellow-400' };
+      if (p > 3)   return { text: 'Yavaşlama',     cls: 'text-orange-400' };
+      return            { text: 'Resesyon Riski',  cls: 'text-red-400' };
+    }
     case 'BIST100': {
       const c = data.changePercent;
       if (c > 2)    return { text: 'Güçlü Artış', cls: 'text-green-400' };
@@ -256,6 +268,8 @@ function TickerBar({ indicators }: { indicators: MacroResponse['indicators'] }) 
     { label: 'EEM',     data: indicators.eem,    suffix: '' },
     { label: 'Brent',   data: indicators.brent,  suffix: '$' },
     { label: 'Altın',   data: indicators.gold,   suffix: '$' },
+    { label: 'Gümüş',   data: indicators.silver, suffix: '$' },
+    { label: 'Bakır',   data: indicators.copper, suffix: '$' },
     { label: 'BIST100', data: indicators.bist100,suffix: '' },
   ];
   const all = [...items, ...items, ...items];
@@ -458,31 +472,58 @@ function HeroSection({ macro, risk }: { macro: MacroResponse; risk: RiskResponse
           </div>
         </div>
 
-        {/* Sağ — Risk Circle */}
-        {risk && (
-          <div className="flex flex-col items-center justify-center py-8 px-6 gap-4">
-            <p className="text-sm text-white/40 uppercase tracking-[0.18em] font-mono">Piyasa Risk Skoru</p>
-            <RiskCircle score={risk.score} label={risk.label} emoji={risk.emoji} />
-            <p className="text-sm text-white/45 text-center max-w-[210px] leading-relaxed">
-              {risk.recommendation}
-            </p>
-            <div className="w-full space-y-1.5 mt-1">
-              {risk.components.map((c) => (
-                <div key={c.name} className="flex items-center gap-2">
-                  <span className="text-sm text-white/45 w-20 truncate">{c.name}</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-white/8 overflow-hidden">
-                    <motion.div className="h-full rounded-full" style={{ backgroundColor: riskColor(c.score) }}
-                      initial={{ width: 0 }} animate={{ width: `${c.score}%` }}
-                      transition={{ duration: 0.8, delay: 0.4 }} />
+        {/* Sağ — Risk + Faktör Özeti */}
+        <div className="flex flex-col py-8 px-6 gap-5">
+          {risk && (
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-xs text-white/40 uppercase tracking-[0.18em] font-mono">Piyasa Risk Skoru</p>
+              <RiskCircle score={risk.score} label={risk.label} emoji={risk.emoji} />
+              <p className="text-xs text-white/40 text-center leading-relaxed max-w-[200px]">
+                {risk.recommendation}
+              </p>
+            </div>
+          )}
+
+          {/* Faktör Ağırlıkları — genişletilmiş */}
+          <div className="flex-1 border-t border-white/5 pt-4">
+            <p className="text-xs text-white/35 uppercase tracking-[0.18em] font-mono mb-3">Faktör Katkıları</p>
+            <div className="space-y-2.5">
+              {macro.score.components.map((c) => {
+                const barPct = Math.min(Math.abs(c.rawScore), 100);
+                const isPos  = c.signal === 'positive';
+                const isNeg  = c.signal === 'negative';
+                const barCol = isPos ? '#22c55e' : isNeg ? '#ef4444' : '#eab308';
+                const textCl = isPos ? 'text-green-400' : isNeg ? 'text-red-400' : 'text-yellow-400';
+                return (
+                  <div key={c.name}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs ${textCl}`}>
+                          {isPos ? '↑' : isNeg ? '↓' : '→'}
+                        </span>
+                        <span className="text-xs text-white/60 font-medium">{c.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/30 font-mono">%{Math.round(c.weight * 100)}</span>
+                        <span className={`text-xs font-bold font-mono w-8 text-right ${textCl}`}>
+                          {c.rawScore > 0 ? '+' : ''}{c.rawScore.toFixed(0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-1 rounded-full bg-white/6 overflow-hidden">
+                      <motion.div className="h-full rounded-full"
+                        style={{ backgroundColor: barCol }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${barPct}%` }}
+                        transition={{ duration: 0.8, delay: 0.3 }} />
+                    </div>
+                    <p className="text-xs text-white/35 mt-0.5 leading-snug">{c.detail}</p>
                   </div>
-                  <span className="text-sm font-mono w-7 text-right" style={{ color: riskColor(c.score) }}>
-                    {c.score}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </motion.div>
   );
@@ -686,6 +727,9 @@ interface HistoryRow {
 }
 
 function MacroHistoryChart({ rows }: { rows: HistoryRow[] }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
+
   if (rows.length < 3) {
     return (
       <div className="flex items-center justify-center h-28 text-white/30 text-sm font-mono">
@@ -694,7 +738,7 @@ function MacroHistoryChart({ rows }: { rows: HistoryRow[] }) {
     );
   }
 
-  const W = 600, H = 120, PAD = { t: 12, b: 28, l: 40, r: 12 };
+  const W = 600, H = 130, PAD = { t: 12, b: 28, l: 44, r: 16 };
   const chartW = W - PAD.l - PAD.r;
   const chartH = H - PAD.t - PAD.b;
   const scores = rows.map(r => r.macro_score);
@@ -706,35 +750,100 @@ function MacroHistoryChart({ rows }: { rows: HistoryRow[] }) {
   const toY = (s: number) => PAD.t + ((maxS - s) / range) * chartH;
   const zeroY = toY(0);
 
-  const points  = rows.map((r, i) => `${toX(i)},${toY(r.macro_score)}`).join(' ');
+  const points  = rows.map((r, i) => `${toX(i).toFixed(1)},${toY(r.macro_score).toFixed(1)}`).join(' ');
   const fillPts = `${toX(0)},${zeroY} ` + points + ` ${toX(rows.length - 1)},${zeroY}`;
 
   const lastScore = scores[scores.length - 1] ?? 0;
-  const lineCol = lastScore >= 30 ? '#22c55e' : lastScore >= 0 ? '#84cc16' : lastScore >= -30 ? '#eab308' : '#ef4444';
+  const scoreCol = (s: number) => s >= 30 ? '#22c55e' : s >= 0 ? '#84cc16' : s >= -30 ? '#eab308' : '#ef4444';
+  const lineCol = scoreCol(lastScore);
   const fillCol = lastScore >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)';
 
-  const labelIdxs = [0, Math.floor(rows.length / 2), rows.length - 1];
+  const labelIdxs = [0, Math.floor(rows.length / 3), Math.floor(rows.length * 2 / 3), rows.length - 1];
+
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const relX = svgX - PAD.l;
+    const frac = Math.max(0, Math.min(1, relX / chartW));
+    const i = Math.round(frac * (rows.length - 1));
+    setHover({ i, x: toX(i), y: toY(rows[i]!.macro_score) });
+  }
+
+  const hRow = hover !== null ? rows[hover.i] : null;
+  const hScore = hRow?.macro_score ?? 0;
+  const hCol = scoreCol(hScore);
+
+  // "Şu an" label — son nokta
+  const nowX = toX(rows.length - 1);
+  const nowY = toY(lastScore);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
-      <line x1={PAD.l} y1={zeroY} x2={W - PAD.r} y2={zeroY} stroke="rgba(255,255,255,0.10)" strokeWidth="1" strokeDasharray="4 3" />
-      <rect x={PAD.l} y={PAD.t} width={chartW} height={toY(30) - PAD.t} fill="rgba(34,197,94,0.04)" />
-      <rect x={PAD.l} y={toY(-30)} width={chartW} height={chartH - (toY(-30) - PAD.t)} fill="rgba(239,68,68,0.04)" />
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full cursor-crosshair"
+      preserveAspectRatio="none"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHover(null)}
+    >
+      {/* Arka plan bölgeler */}
+      <rect x={PAD.l} y={PAD.t} width={chartW} height={Math.max(0, toY(30) - PAD.t)} fill="rgba(34,197,94,0.04)" />
+      <rect x={PAD.l} y={toY(-30)} width={chartW} height={Math.max(0, chartH - (toY(-30) - PAD.t))} fill="rgba(239,68,68,0.04)" />
+      {/* Sıfır çizgisi */}
+      <line x1={PAD.l} y1={zeroY} x2={W - PAD.r} y2={zeroY} stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="4 3" />
+      {/* Alan dolgusu */}
       <polygon points={fillPts} fill={fillCol} />
+      {/* Ana çizgi */}
       <polyline points={points} fill="none" stroke={lineCol} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={toX(rows.length - 1)} cy={toY(lastScore)} r="3.5" fill={lineCol} />
+      {/* Y ekseni etiketleri */}
       {[100, 50, 0, -50, -100].map(v => (
-        <text key={v} x={PAD.l - 4} y={toY(v) + 4}
+        <text key={v} x={PAD.l - 5} y={toY(v) + 4}
           textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.25)" fontFamily="monospace">
           {v > 0 ? `+${v}` : v}
         </text>
       ))}
+      {/* X ekseni etiketleri */}
       {labelIdxs.map(i => (
         <text key={i} x={toX(i)} y={H - 4}
           textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.25)" fontFamily="monospace">
           {rows[i]?.snapshot_date?.slice(5) ?? ''}
         </text>
       ))}
+      {/* "Şu an" işaretçisi */}
+      {/* Son nokta — mevcut konum */}
+      <line x1={nowX} y1={PAD.t} x2={nowX} y2={H - PAD.b} stroke={lineCol} strokeWidth="1" strokeDasharray="3 3" strokeOpacity="0.4" />
+      <circle cx={nowX} cy={nowY} r="4.5" fill={lineCol} />
+      <circle cx={nowX} cy={nowY} r="2" fill="white" />
+
+      {/* Hover çizgisi + tooltip */}
+      {hover && hRow && (
+        <>
+          <line x1={hover.x} y1={PAD.t} x2={hover.x} y2={H - PAD.b}
+            stroke="rgba(255,255,255,0.25)" strokeWidth="1" strokeDasharray="3 3" />
+          <circle cx={hover.x} cy={hover.y} r="4" fill={hCol} />
+          {/* Tooltip kutusu */}
+          {(() => {
+            const tipW = 90, tipH = 36;
+            const tipX = Math.min(W - PAD.r - tipW - 4, Math.max(PAD.l + 4, hover.x - tipW / 2));
+            const tipY = hover.y < PAD.t + tipH + 8 ? hover.y + 8 : hover.y - tipH - 8;
+            return (
+              <g>
+                <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="4"
+                  fill="#0a0a18" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+                <text x={tipX + tipW / 2} y={tipY + 13} textAnchor="middle"
+                  fontSize="9" fill="rgba(255,255,255,0.5)" fontFamily="monospace">
+                  {hRow.snapshot_date?.slice(5)}
+                </text>
+                <text x={tipX + tipW / 2} y={tipY + 27} textAnchor="middle"
+                  fontSize="12" fill={hCol} fontFamily="monospace" fontWeight="bold">
+                  {hScore > 0 ? '+' : ''}{hScore}
+                </text>
+              </g>
+            );
+          })()}
+        </>
+      )}
     </svg>
   );
 }
@@ -816,6 +925,8 @@ export default function MakroPage() {
       DXY:    'DX-Y.NYB',
       US10Y:  '^TNX',
       Altın:  'GC=F',
+      Gümüş:  'SI=F',
+      Bakır:  'HG=F',
       Brent:  'BZ=F',
     };
     Object.entries(symbolMap).forEach(async ([label, sym]) => {
@@ -906,10 +1017,12 @@ export default function MakroPage() {
     { label: 'DXY',     data: ind.dxy,     suffix: '' },
     { label: 'US 10Y',  data: ind.us10y,   suffix: '%' },
     { label: 'USD/TRY', data: ind.usdtry,  suffix: '' },
-    { label: 'EEM',     data: ind.eem,     suffix: '' },
+    { label: 'BIST100', data: ind.bist100, suffix: '' },
     { label: 'Brent',   data: ind.brent,   suffix: '$' },
     { label: 'Altın',   data: ind.gold,    suffix: '$' },
-    { label: 'BIST100', data: ind.bist100, suffix: '' },
+    { label: 'Gümüş',   data: ind.silver,  suffix: '$' },
+    { label: 'Bakır',   data: ind.copper,  suffix: '$' },
+    { label: 'EEM',     data: ind.eem,     suffix: '' },
   ];
 
   return (
@@ -982,50 +1095,156 @@ export default function MakroPage() {
         {/* Hero Command Center */}
         <HeroSection macro={macro} risk={risk} />
 
-        {/* Makro Rüzgar Gauge */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MacroWindGauge result={macro.score as MacroScoreResult} />
-          <div className="rounded-xl border border-border bg-background/50 p-5 flex flex-col justify-center gap-3">
-            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Faktör Ağırlıkları</p>
-            {macro.score.components.map((c) => (
-              <div key={c.name} className="flex items-center gap-2 text-xs">
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${c.signal === 'positive' ? 'bg-emerald-500' : c.signal === 'negative' ? 'bg-red-500' : 'bg-zinc-500'}`} />
-                <span className="text-text-secondary flex-1">{c.name}</span>
-                <span className="text-text-secondary/50">%{Math.round(c.weight * 100)}</span>
-                <span className={`font-mono font-semibold w-10 text-right ${c.signal === 'positive' ? 'text-emerald-400' : c.signal === 'negative' ? 'text-red-400' : 'text-zinc-400'}`}>
-                  {c.rawScore > 0 ? '+' : ''}{c.rawScore}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Piyasa Göstergeleri */}
         <section className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Zap className="h-4 w-4 text-primary" />
             <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Piyasa Göstergeleri</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {INDICATOR_CARDS.map(({ label, data, suffix }, i) => (
               <IndicatorCard
                 key={label}
                 label={label}
                 data={data}
                 suffix={suffix}
-                delay={i * 0.06}
+                delay={i * 0.05}
                 sparkline={indicatorSparklines[label]}
               />
             ))}
           </div>
         </section>
 
-        {/* Türkiye + ABD */}
-        <section className="grid gap-4 md:grid-cols-2 mb-6">
-          {/* Türkiye */}
+        {/* Değerli Metaller & Emtia Analizi */}
+        <section className="mb-6 rounded-xl border border-white/8 bg-[#0a0a18] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-base">🥇</span>
+            <h3 className="text-base font-semibold text-white">Değerli Metaller & Emtia</h3>
+            <span className="ml-auto text-xs text-white/25 font-mono">BIST & global risk iştahı için bağlam</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Altın */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/50 font-semibold uppercase tracking-wide">Altın (XAU)</span>
+                <span className={`text-xs font-bold font-mono ${(ind.gold?.changePercent ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {ind.gold ? `${ind.gold.changePercent >= 0 ? '+' : ''}${ind.gold.changePercent.toFixed(2)}%` : '—'}
+                </span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono">
+                {ind.gold ? `$${ind.gold.price.toFixed(0)}` : '—'}
+              </p>
+              <p className="text-xs text-white/45 leading-relaxed">
+                Risk-off varlığı. Yükselmesi küresel belirsizliğe işaret eder. TL hedge'i olarak BIST yatırımcıları için kritik.
+              </p>
+              {indicatorSparklines['Altın'] && <MiniSparkline values={indicatorSparklines['Altın']} up={(ind.gold?.changePercent ?? 0) >= 0} />}
+            </div>
+            {/* Gümüş */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/50 font-semibold uppercase tracking-wide">Gümüş (XAG)</span>
+                <span className={`text-xs font-bold font-mono ${(ind.silver?.changePercent ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {ind.silver ? `${ind.silver.changePercent >= 0 ? '+' : ''}${ind.silver.changePercent.toFixed(2)}%` : '—'}
+                </span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono">
+                {ind.silver ? `$${ind.silver.price.toFixed(2)}` : '—'}
+              </p>
+              <p className="text-xs text-white/45 leading-relaxed">
+                Hem güvenli liman hem sanayi metali. Altın/Gümüş oranı yüksekse gümüş geri kalmış demektir.
+              </p>
+              {indicatorSparklines['Gümüş'] && <MiniSparkline values={indicatorSparklines['Gümüş']} up={(ind.silver?.changePercent ?? 0) >= 0} />}
+            </div>
+            {/* Bakır */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/50 font-semibold uppercase tracking-wide">Bakır (Dr. Copper)</span>
+                <span className={`text-xs font-bold font-mono ${(ind.copper?.changePercent ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {ind.copper ? `${ind.copper.changePercent >= 0 ? '+' : ''}${ind.copper.changePercent.toFixed(2)}%` : '—'}
+                </span>
+              </div>
+              <p className="text-2xl font-black text-white font-mono">
+                {ind.copper ? `$${ind.copper.price.toFixed(3)}/lb` : '—'}
+              </p>
+              <p className="text-xs text-white/45 leading-relaxed">
+                "Dr. Copper" — ekonomik aktivitenin en iyi barometresi. Yükselişi global büyüme beklentisini gösterir.
+              </p>
+              {indicatorSparklines['Bakır'] && <MiniSparkline values={indicatorSparklines['Bakır']} up={(ind.copper?.changePercent ?? 0) >= 0} />}
+            </div>
+          </div>
+          {/* Altın/Gümüş Oranı + Dinamik Yorum */}
+          <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+            {ind.gold && ind.silver && ind.silver.price > 0 && (
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs text-white/35">Altın/Gümüş Oranı:</span>
+                <span className="text-sm font-bold font-mono text-white">
+                  {(ind.gold.price / ind.silver.price).toFixed(1)}
+                </span>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                  (ind.gold.price / ind.silver.price) > 80
+                    ? 'border-orange-500/30 bg-orange-500/10 text-orange-400'
+                    : (ind.gold.price / ind.silver.price) < 50
+                    ? 'border-green-500/30 bg-green-500/10 text-green-400'
+                    : 'border-white/10 bg-white/5 text-white/40'
+                }`}>
+                  {(ind.gold.price / ind.silver.price) > 80
+                    ? 'Gümüş görece ucuz'
+                    : (ind.gold.price / ind.silver.price) < 50
+                    ? 'Gümüş görece pahalı'
+                    : 'Normal aralık'}
+                </span>
+                <span className="text-xs text-white/20">tarihsel ort. ~65</span>
+              </div>
+            )}
+            {/* Dinamik piyasa yorumu */}
+            {(() => {
+              const msgs: { text: string; color: string }[] = [];
+              const goldChg   = ind.gold?.changePercent ?? 0;
+              const copperChg = ind.copper?.changePercent ?? 0;
+              const silverChg = ind.silver?.changePercent ?? 0;
+              const goldPrice = ind.gold?.price ?? 0;
+              const copperPrice = ind.copper?.price ?? 0;
+
+              if (goldPrice > 3000)
+                msgs.push({ text: '🔴 Altın rekor bölgede — küresel risk iştahı zayıf, güvenli liman talebi yüksek.', color: 'text-orange-400' });
+              else if (goldChg > 1.5)
+                msgs.push({ text: '🟡 Altın güçlü yükselişte — belirsizlik arttı ya da dolar zayıfladı.', color: 'text-yellow-400' });
+              else if (goldChg < -1.5)
+                msgs.push({ text: '🟢 Altın düşüşte — risk iştahı artıyor, dolar güçleniyor olabilir.', color: 'text-green-400' });
+
+              if (copperChg > 1.5)
+                msgs.push({ text: '🟢 Bakır yükselişte — global büyüme beklentisi güçleniyor, endüstriyel talep artıyor.', color: 'text-green-400' });
+              else if (copperChg < -1.5)
+                msgs.push({ text: '🔴 Bakır düşüşte — ekonomik yavaşlama sinyali, risk-off eğilimi.', color: 'text-red-400' });
+              else if (copperPrice > 0 && copperPrice < 3.5)
+                msgs.push({ text: '🟡 Bakır 3.50$/lb altında — resesyon riski arttı.', color: 'text-orange-400' });
+
+              if (ind.gold && ind.silver && ind.silver.price > 0) {
+                const ratio = ind.gold.price / ind.silver.price;
+                if (ratio > 90)
+                  msgs.push({ text: `🟡 Altın/Gümüş oranı ${ratio.toFixed(0)} ile tarihin en yükseklerinde — gümüş aşırı satılmış olabilir.`, color: 'text-yellow-400' });
+              }
+
+              if (silverChg > 2 && goldChg < silverChg - 1)
+                msgs.push({ text: '🟢 Gümüş altından daha hızlı yükseliyor — sanayi metali talebi öne çıkıyor.', color: 'text-green-400' });
+
+              if (msgs.length === 0) return null;
+              return (
+                <div className="space-y-1.5">
+                  {msgs.map((m, i) => (
+                    <p key={i} className={`text-xs leading-relaxed ${m.color}`}>{m.text}</p>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </section>
+
+        {/* Türkiye Makro */}
+        <section className="mb-6">
           <motion.div
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
             className="rounded-xl border border-white/8 bg-[#0a0a18] p-5"
           >
@@ -1033,68 +1252,102 @@ export default function MakroPage() {
               <span className="text-base">🇹🇷</span>
               <h3 className="text-base font-semibold text-white">Türkiye Makro</h3>
             </div>
-            <MetricRow
-              label="TCMB Politika Faizi"
-              value={numVal(macro.turkey.policyRate) != null ? `%${numVal(macro.turkey.policyRate)}` : '—'}
-              context={numVal(macro.turkey.policyRate) != null && numVal(macro.turkey.policyRate)! > 35 ? 'Kısıtlayıcı' : 'Nötr'}
-              contextCls={numVal(macro.turkey.policyRate) != null && numVal(macro.turkey.policyRate)! > 35 ? 'text-orange-400' : 'text-yellow-400'}
-            />
-            <MetricRow
-              label="CDS (5Y)"
-              value={numVal(macro.turkey.cds5y) != null ? numVal(macro.turkey.cds5y)!.toFixed(0) : '—'}
-              context={numVal(macro.turkey.cds5y) != null ? (numVal(macro.turkey.cds5y)! < 200 ? 'Düşük Risk' : numVal(macro.turkey.cds5y)! < 400 ? 'Orta Risk' : 'Yüksek Risk') : undefined}
-              contextCls={numVal(macro.turkey.cds5y) != null ? (numVal(macro.turkey.cds5y)! < 200 ? 'text-green-400' : numVal(macro.turkey.cds5y)! < 400 ? 'text-yellow-400' : 'text-red-400') : undefined}
-            />
-            <MetricRow
-              label="TÜFE"
-              value={numVal(macro.turkey.inflation) != null ? fmtPct(numVal(macro.turkey.inflation)) : '—'}
-              context={numVal(macro.turkey.inflation) != null ? (numVal(macro.turkey.inflation)! > 30 ? 'Yüksek' : numVal(macro.turkey.inflation)! > 10 ? 'Orta' : 'Düşük') : undefined}
-              contextCls={numVal(macro.turkey.inflation) != null ? (numVal(macro.turkey.inflation)! > 30 ? 'text-red-400' : numVal(macro.turkey.inflation)! > 10 ? 'text-orange-400' : 'text-green-400') : undefined}
-            />
-          </motion.div>
-
-          {/* ABD */}
-          <motion.div
-            initial={{ opacity: 0, x: 12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.25 }}
-            className="rounded-xl border border-white/8 bg-[#0a0a18] p-5"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-base">🇺🇸</span>
-              <h3 className="text-base font-semibold text-white">ABD Ekonomisi</h3>
-              {macro.usEconomy && (
-                <div className="ml-auto flex items-center gap-2">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-md bg-white/5 ${
-                    macro.usEconomy.color === 'green' ? 'text-green-400' :
-                    macro.usEconomy.color === 'red'   ? 'text-red-400'   : 'text-yellow-400'
-                  }`}>
-                    {macro.usEconomy.label}
-                  </span>
-                  <span className="text-xs text-white/30 font-mono">
-                    {macro.usEconomy.score > 0 ? '+' : ''}{macro.usEconomy.score}
-                  </span>
-                </div>
-              )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+              {/* TCMB */}
+              <div className="pb-3 sm:pb-0 sm:pr-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">TCMB Politika Faizi</p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {numVal(macro.turkey.policyRate) != null ? `%${numVal(macro.turkey.policyRate)}` : '—'}
+                </p>
+                <span className={`text-xs font-semibold mt-1 inline-block ${numVal(macro.turkey.policyRate) != null && numVal(macro.turkey.policyRate)! > 35 ? 'text-orange-400' : 'text-yellow-400'}`}>
+                  {numVal(macro.turkey.policyRate) != null && numVal(macro.turkey.policyRate)! > 35 ? 'Kısıtlayıcı' : 'Nötr'}
+                </span>
+              </div>
+              {/* CDS */}
+              <div className="py-3 sm:py-0 sm:px-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">CDS 5Y <span className="normal-case text-white/20">(proxy)</span></p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {numVal(macro.turkey.cds5y) != null ? `${numVal(macro.turkey.cds5y)!.toFixed(0)}` : '—'}
+                  <span className="text-base font-normal text-white/40 ml-1">bps</span>
+                </p>
+                {numVal(macro.turkey.cds5y) != null && (() => {
+                  const v = numVal(macro.turkey.cds5y)!;
+                  const label = v < 200 ? 'Düşük Risk' : v < 300 ? 'Normal' : v < 450 ? 'Yüksek Risk' : 'Kritik';
+                  const cls   = v < 200 ? 'text-green-400' : v < 300 ? 'text-yellow-400' : v < 450 ? 'text-orange-400' : 'text-red-400';
+                  return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{label}</span>;
+                })()}
+              </div>
+              {/* TÜFE */}
+              <div className="pt-3 sm:pt-0 sm:pl-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">TÜFE (Enflasyon)</p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {numVal(macro.turkey.inflation) != null ? fmtPct(numVal(macro.turkey.inflation)) : '—'}
+                </p>
+                {numVal(macro.turkey.inflation) != null && (() => {
+                  const v = numVal(macro.turkey.inflation)!;
+                  const label = v > 30 ? 'Yüksek' : v > 10 ? 'Orta' : 'Düşük';
+                  const cls   = v > 30 ? 'text-red-400' : v > 10 ? 'text-orange-400' : 'text-green-400';
+                  return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{label}</span>;
+                })()}
+              </div>
             </div>
-            <MetricRow
-              label="Fed Funds Rate"
-              value={macro.fred.fedFundsRate ? `%${Number(macro.fred.fedFundsRate.value).toFixed(2)}` : '—'}
-              context={macro.fred.fedFundsRate ? (Number(macro.fred.fedFundsRate.value) > 4 ? 'Kısıtlayıcı' : 'Nötr') : undefined}
-              contextCls={macro.fred.fedFundsRate && Number(macro.fred.fedFundsRate.value) > 4 ? 'text-orange-400' : 'text-yellow-400'}
-            />
-            <MetricRow
-              label="GDP Büyüme"
-              value={macro.fred.gdpGrowth ? fmtPct(Number(macro.fred.gdpGrowth.value)) : '—'}
-              context={macro.fred.gdpGrowth ? (Number(macro.fred.gdpGrowth.value) > 2 ? 'Güçlü' : Number(macro.fred.gdpGrowth.value) > 0 ? 'Zayıf' : 'Negatif') : undefined}
-              contextCls={macro.fred.gdpGrowth ? (Number(macro.fred.gdpGrowth.value) > 2 ? 'text-green-400' : Number(macro.fred.gdpGrowth.value) > 0 ? 'text-yellow-400' : 'text-red-400') : undefined}
-            />
-            <MetricRow
-              label="İşsizlik Oranı"
-              value={macro.fred.unemployment ? fmtPct(Number(macro.fred.unemployment.value)) : '—'}
-              context={macro.fred.unemployment ? (Number(macro.fred.unemployment.value) < 4 ? 'Tam İstihdam' : Number(macro.fred.unemployment.value) < 6 ? 'Normal' : 'Yüksek') : undefined}
-              contextCls={macro.fred.unemployment ? (Number(macro.fred.unemployment.value) < 4 ? 'text-green-400' : Number(macro.fred.unemployment.value) < 6 ? 'text-yellow-400' : 'text-red-400') : undefined}
-            />
+
+            {/* Türkiye Dinamik Yorum */}
+            {(() => {
+              const rate   = numVal(macro.turkey.policyRate);
+              const cds    = numVal(macro.turkey.cds5y);
+              const infl   = numVal(macro.turkey.inflation);
+              const usdtry = ind.usdtry?.changePercent ?? 0;
+
+              const msgs: { text: string; positive: boolean }[] = [];
+
+              // Faiz
+              if (rate != null) {
+                if (rate >= 40)
+                  msgs.push({ text: `TCMB faizi %${rate} ile kısıtlayıcı bölgede — TCMB dezenflasyon sürecini önceliyor.`, positive: false });
+                else if (rate >= 25)
+                  msgs.push({ text: `TCMB faizi %${rate} — sıkı para politikası devam ediyor.`, positive: false });
+                else
+                  msgs.push({ text: `TCMB faizi %${rate} — faiz indirimi dönemine girilmiş.`, positive: true });
+              }
+
+              // CDS trend
+              if (cds != null) {
+                if (cds < 250)
+                  msgs.push({ text: `CDS ${cds} bps ile tarihsel düşük seviyelerde — uluslararası yatırımcı güveni güçlü.`, positive: true });
+                else if (cds < 400)
+                  msgs.push({ text: `CDS ${cds} bps — risk algısı normal aralıkta.`, positive: true });
+                else
+                  msgs.push({ text: `CDS ${cds} bps ile yüksek seyrediyor — ülke risk algısı yüksek.`, positive: false });
+              }
+
+              // Enflasyon
+              if (infl != null) {
+                if (infl > 50)
+                  msgs.push({ text: `TÜFE %${infl.toFixed(1)} — çift haneli enflasyon alım gücünü baskılamaya devam ediyor.`, positive: false });
+                else if (infl > 20)
+                  msgs.push({ text: `TÜFE %${infl.toFixed(1)} — enflasyon hâlâ yüksek fakat düşüş trendinde olabilir.`, positive: false });
+                else
+                  msgs.push({ text: `TÜFE %${infl.toFixed(1)} — enflasyon kontrol altına alınmış.`, positive: true });
+              }
+
+              // USD/TRY hareketi
+              if (usdtry > 0.5)
+                msgs.push({ text: `TL değer kaybediyor (+${usdtry.toFixed(2)}%) — ihracatçılar avantajlı, ithalatçılar olumsuz etkilenir.`, positive: false });
+              else if (usdtry < -0.5)
+                msgs.push({ text: `TL güçleniyor (${usdtry.toFixed(2)}%) — dövizde istikrar sinyali.`, positive: true });
+
+              if (msgs.length === 0) return null;
+              return (
+                <div className="mt-4 pt-4 border-t border-white/5 space-y-1.5">
+                  {msgs.map((m, i) => (
+                    <p key={i} className={`text-xs leading-relaxed ${m.positive ? 'text-emerald-400/80' : 'text-orange-400/80'}`}>
+                      {m.positive ? '✓' : '→'} {m.text}
+                    </p>
+                  ))}
+                </div>
+              );
+            })()}
           </motion.div>
         </section>
 
@@ -1128,10 +1381,9 @@ export default function MakroPage() {
         {/* Sektör Isı Haritası */}
         {sectors?.sectors && sectors.sectors.length > 0 && (
           <section className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-1">
               <Building2 className="h-4 w-4 text-primary" />
               <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">Sektör Momentum</h2>
-              <span className="ml-1 text-xs text-white/25 font-mono">Sektöre tıkla → sinyal taraması</span>
               {sectors.bestSector && (
                 <span className="ml-auto text-xs text-white/30">
                   En iyi:{' '}
@@ -1144,6 +1396,11 @@ export default function MakroPage() {
                 </span>
               )}
             </div>
+            <p className="text-xs text-white/25 font-mono mb-3">
+              Skor = Fiyat Momentum + Makro Uyum · Detaylı analiz:{' '}
+              <a href="/sektorler" className="text-primary/60 hover:text-primary transition-colors">Sektör Analizi</a>
+              {' '}· Sektöre tıkla → sinyal taraması
+            </p>
             <SectorHeatmap sectors={sectors.sectors} onSectorClick={handleSectorClick} />
           </section>
         )}

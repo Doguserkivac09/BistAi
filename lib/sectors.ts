@@ -149,7 +149,7 @@ export const SECTORS: Record<SectorId, SectorInfo> = {
   },
   cam_kimya: {
     id: 'cam_kimya',
-    name: 'Cam & Kimya',
+    name: 'Cam & Kimya Sanayi',
     shortName: 'Cam/Kimya',
     macroSensitivity: {
       benefitsFromRateCut: 0.2,
@@ -236,72 +236,105 @@ export const SECTORS: Record<SectorId, SectorInfo> = {
 // ── Hisse → Sektör Mapping ──────────────────────────────────────────
 
 const SYMBOL_SECTOR_MAP: Record<string, SectorId> = {
-  // Bankacılık & Finans
+  // ── Bankacılık ────────────────────────────────────────────────────
   AKBNK: 'banka', GARAN: 'banka', HALKB: 'banka', ISCTR: 'banka',
   VAKBN: 'banka', YKBNK: 'banka', SKBNK: 'banka', ALBRK: 'banka',
   QNBFB: 'banka', TSKB: 'banka',
 
-  // Holding
+  // ── Sigorta & Finansal Hizmetler ─────────────────────────────────
+  HEKTS: 'sigorta_finans', ANHYT: 'sigorta_finans', AGROT: 'sigorta_finans',
+  ISMEN: 'sigorta_finans', ANSGR: 'sigorta_finans', AKGRT: 'sigorta_finans',
+  RAYSG: 'sigorta_finans', ISFIN: 'sigorta_finans', HBCAG: 'sigorta_finans',
+  TURSG: 'sigorta_finans', LIDER: 'sigorta_finans', HEDEF: 'sigorta_finans',
+
+  // ── Holding ───────────────────────────────────────────────────────
   KCHOL: 'holding', SAHOL: 'holding', DOHOL: 'holding',
-  TAVHL: 'holding', TKFEN: 'holding',
+  TAVHL: 'holding', TKFEN: 'holding', IHLAS: 'holding',
+  PEHOL: 'holding', GLYHO: 'holding', ALARK: 'holding',
 
-  // Havacılık & Savunma
+  // ── Havacılık & Savunma ───────────────────────────────────────────
   THYAO: 'havacilik_savunma', PGSUS: 'havacilik_savunma', ASELS: 'havacilik_savunma',
+  KATMR: 'havacilik_savunma', // Katmerciler — zırhlı araç / savunma
 
-  // Enerji & Petrol
+  // ── Enerji & Petrokimya ───────────────────────────────────────────
   TUPRS: 'enerji', AKSEN: 'enerji', AKENR: 'enerji', AKSA: 'enerji',
-  ENKAI: 'enerji', ODAS: 'enerji', KONTR: 'enerji', ENJSA: 'enerji',
+  ODAS: 'enerji', KONTR: 'enerji', ENJSA: 'enerji',
+  ORGE: 'enerji', NATEN: 'enerji', AYDEM: 'enerji',
+  CWENE: 'enerji', EUPWR: 'enerji', ZOREN: 'enerji',
+  PETKM: 'enerji', // Petkim — petrokimya rafinerisi
 
-  // Otomotiv
+  // ── Otomotiv & Makine ─────────────────────────────────────────────
   FROTO: 'otomotiv', TOASO: 'otomotiv', OTKAR: 'otomotiv', DOAS: 'otomotiv',
+  TTRAK: 'otomotiv', // Türk Traktör
+  KARSN: 'otomotiv', // Karsan — otobüs/hafif ticari araç üreticisi
 
-  // Perakende & Tüketici
+  // ── Perakende & Tüketici ──────────────────────────────────────────
   BIMAS: 'perakende', MGROS: 'perakende', SOKM: 'perakende',
   ULKER: 'perakende', CCOLA: 'perakende', TATGD: 'perakende',
-  BIZIM: 'perakende', MAVI: 'perakende',
+  BIZIM: 'perakende', MAVI: 'perakende', KENT: 'perakende',
+  ADEL: 'perakende', AEFES: 'perakende', BERA: 'perakende',
+  MPARK: 'perakende', MEGAP: 'perakende', METRO: 'perakende',
+  OYLUM: 'perakende', // Oylum Sınai Yatırım — tarım/gıda ticaret
+  TKNSA: 'perakende', // Teknosa — elektronik perakende
+  // Gıda üreticileri
+  PENGD: 'perakende', PETUN: 'perakende', TUKAS: 'perakende',
 
-  // Telekomünikasyon & Teknoloji
+  // ── Telekomünikasyon & Teknoloji ──────────────────────────────────
   TCELL: 'telekom_teknoloji', TTKOM: 'telekom_teknoloji',
-  ASTOR: 'telekom_teknoloji', LOGO: 'telekom_teknoloji',
-  ARDYZ: 'telekom_teknoloji', NETAS: 'telekom_teknoloji',
+  LOGO: 'telekom_teknoloji', ARDYZ: 'telekom_teknoloji',
+  NETAS: 'telekom_teknoloji', MARTI: 'telekom_teknoloji',
+  KAREL: 'telekom_teknoloji', // Karel Elektronik
+  SMRTG: 'telekom_teknoloji', INDES: 'telekom_teknoloji',
 
-  // Demir-Çelik & Madencilik
+  // ── Demir-Çelik & Madencilik ──────────────────────────────────────
   EREGL: 'demir_celik_madencilik', KRDMD: 'demir_celik_madencilik',
+  KRDMA: 'demir_celik_madencilik', KRDMC: 'demir_celik_madencilik',
   KOZAL: 'demir_celik_madencilik', KOZAA: 'demir_celik_madencilik',
-  IPEKE: 'demir_celik_madencilik',
+  IPEKE: 'demir_celik_madencilik', SILVR: 'demir_celik_madencilik',
+  BRSAN: 'demir_celik_madencilik', // Borusan Mannesmann — çelik boru
+  CEMTS: 'demir_celik_madencilik', // Çemtaş — çelik döküm
+  PARSN: 'demir_celik_madencilik', // Parsan — çelik dökme parça
 
-  // Cam & Kimya
+  // ── Cam & Kimya ───────────────────────────────────────────────────
   SISE: 'cam_kimya', TRKCM: 'cam_kimya', SODA: 'cam_kimya',
-  GUBRF: 'cam_kimya', PETKM: 'cam_kimya',
+  ECILC: 'cam_kimya', ALKIM: 'cam_kimya', // Alkim Kimya
+  PIMAS: 'cam_kimya', // Pimas Plastik
 
-  // İnşaat & GYO
+  // ── İnşaat & GYO ─────────────────────────────────────────────────
   EKGYO: 'insaat_gyo', ENKA: 'insaat_gyo', KLGYO: 'insaat_gyo',
-  ALGYO: 'insaat_gyo', ISGYO: 'insaat_gyo',
+  ALGYO: 'insaat_gyo', ISGYO: 'insaat_gyo', TRGYO: 'insaat_gyo',
+  HLGYO: 'insaat_gyo', OZGYO: 'insaat_gyo', RGYAS: 'insaat_gyo',
+  PAGYO: 'insaat_gyo', NIBAS: 'insaat_gyo', PEKGY: 'insaat_gyo',
+  INTEM: 'insaat_gyo', // İntema — yapı malzemeleri/inşaat
 
-  // Sigorta & Finansal Hizmetler
-  HEKTS: 'sigorta_finans', ANHYT: 'sigorta_finans',
-  AGROT: 'sigorta_finans', ISMEN: 'sigorta_finans',
-
-  // Sanayi & Üretim
+  // ── Sanayi & Üretim ───────────────────────────────────────────────
   ARCLK: 'sanayi', VESBE: 'sanayi', VESTL: 'sanayi', BRISA: 'sanayi',
-  CIMSA: 'sanayi', OYAKC: 'sanayi', GESAN: 'sanayi', EGEEN: 'sanayi',
+  OYAKC: 'sanayi', GESAN: 'sanayi', EGEEN: 'sanayi',
+  SANEL: 'sanayi', GEREL: 'sanayi', ALFAS: 'sanayi',
+  BTCIM: 'sanayi', BUCIM: 'sanayi', CEMAS: 'sanayi',
+  SARKY: 'sanayi', TMSN: 'sanayi', KORDS: 'sanayi',
+  OBAMS: 'sanayi', KARTN: 'sanayi', // Kartonsan — kağıt/ambalaj
+  JANTS: 'sanayi', // Jantsa — jant üretimi
+  MAKIM: 'sanayi', // Makina Takım — takım tezgahı
+  OSTIM: 'sanayi', // Ostim — sanayi sitesi yönetim/yatırım
+  // Çimento & Yapı Malzemeleri → Sanayi altında
+  CIMSA: 'sanayi', AKCNS: 'sanayi', AFYON: 'sanayi', BOLUC: 'sanayi',
+  BURVA: 'sanayi', KONYA: 'sanayi', UNYEC: 'sanayi', IZOCM: 'sanayi',
+  // Tekstil
+  MNDRS: 'sanayi', SUWEN: 'sanayi', SONME: 'sanayi',
+  YUNSA: 'sanayi', DAGI: 'sanayi', EDIP: 'sanayi',
+  // Tarımsal kimya/gübre
+  GUBRF: 'sanayi', BAGFS: 'sanayi',
 
-  // Ulaştırma & Lojistik
-  CLEBI: 'ulastirma', RYSAS: 'ulastirma',
+  // ── Ulaştırma & Lojistik ──────────────────────────────────────────
+  CLEBI: 'ulastirma', RYSAS: 'ulastirma', ULASL: 'ulastirma',
+  TEKTU: 'ulastirma', // Tek-Art Turizm & Otelcilik veya ulaşım
 
-  // Sağlık & İlaç
-  SELEC: 'saglik', DEVA: 'saglik',
+  // ── Sağlık & İlaç ─────────────────────────────────────────────────
+  SELEC: 'saglik', DEVA: 'saglik', ONCSM: 'saglik',
 
-  // Diğer
-  ALFAS: 'sanayi', BERA: 'perakende', BTCIM: 'sanayi', BUCIM: 'sanayi',
-  CEMAS: 'sanayi', ECILC: 'cam_kimya', GLYHO: 'holding',
-  KARSN: 'sanayi', MPARK: 'perakende', PEKGY: 'insaat_gyo',
-  SARKY: 'sanayi', SMRTG: 'telekom_teknoloji', TMSN: 'sanayi',
-  TURSG: 'sigorta_finans', ALARK: 'holding', AEFES: 'perakende',
-  BAGFS: 'cam_kimya', CWENE: 'enerji', EUPWR: 'enerji',
-  HBCAG: 'sigorta_finans', INDES: 'telekom_teknoloji',
-  KORDS: 'sanayi', MEGAP: 'perakende', OBAMS: 'sanayi',
-  SILVR: 'demir_celik_madencilik', ZOREN: 'enerji',
+  // ── Diğer (Spor Kulüpleri vb.) ────────────────────────────────────
+  BJKAS: 'diger', FENER: 'diger', GSRAY: 'diger', TSPOR: 'diger',
 };
 
 // ── Public API ──────────────────────────────────────────────────────
@@ -365,17 +398,19 @@ export function groupBySector(symbols: string[]): Record<SectorId, string[]> {
 
 export const SECTOR_REPRESENTATIVES: Partial<Record<SectorId, string[]>> = {
   banka:                    ['GARAN', 'AKBNK', 'YKBNK', 'HALKB', 'ISCTR'],
+  sigorta_finans:           ['AKGRT', 'ANHYT', 'ANSGR', 'ISMEN'],
   holding:                  ['KCHOL', 'SAHOL', 'DOHOL', 'TKFEN'],
-  havacilik_savunma:        ['THYAO', 'PGSUS', 'ASELS'],
-  enerji:                   ['TUPRS', 'AKSEN', 'ENJSA', 'ODAS', 'ZOREN'],
-  otomotiv:                 ['FROTO', 'TOASO', 'ARCLK', 'OTKAR'],
+  havacilik_savunma:        ['THYAO', 'PGSUS', 'ASELS', 'KATMR'],
+  enerji:                   ['TUPRS', 'AKSEN', 'ENJSA', 'PETKM', 'ODAS'],
+  otomotiv:                 ['FROTO', 'TOASO', 'OTKAR', 'TTRAK', 'KARSN'],
   perakende:                ['BIMAS', 'MGROS', 'SOKM', 'ULKER', 'CCOLA'],
-  telekom_teknoloji:        ['TCELL', 'TTKOM', 'LOGO', 'ARDYZ'],
-  demir_celik_madencilik:   ['EREGL', 'KRDMD', 'KOZAL', 'KOZAA'],
-  cam_kimya:                ['SISE', 'TRKCM', 'PETKM', 'SODA'],
-  insaat_gyo:               ['EKGYO', 'ENKA', 'ISGYO', 'KLGYO'],
-  sanayi:                   ['ARCLK', 'VESTL', 'BRISA', 'CIMSA'],
-  sigorta_finans:           ['AKGRT', 'ANHYT', 'ISMEN'],
+  telekom_teknoloji:        ['TCELL', 'TTKOM', 'LOGO', 'ARDYZ', 'KAREL'],
+  demir_celik_madencilik:   ['EREGL', 'KRDMD', 'KOZAL', 'KOZAA', 'BRSAN'],
+  cam_kimya:                ['SISE', 'SODA', 'ECILC', 'ALKIM'],
+  insaat_gyo:               ['EKGYO', 'ENKA', 'ISGYO', 'KLGYO', 'TRGYO'],
+  sanayi:                   ['ARCLK', 'VESTL', 'BRISA', 'CIMSA', 'AKCNS'],
+  ulastirma:                ['CLEBI', 'RYSAS', 'THYAO'],
+  saglik:                   ['SELEC', 'DEVA', 'ONCSM'],
 };
 
 // ── Sektör Momentum ─────────────────────────────────────────────────
