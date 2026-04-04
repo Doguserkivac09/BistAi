@@ -7,10 +7,11 @@ import { useSearchParams } from 'next/navigation';
 import {
   TrendingUp, TrendingDown, Plus, Trash2, RefreshCw,
   Briefcase, AlertCircle, X, ChevronUp, ChevronDown, Bell, BellOff, BarChart2,
-  Pencil, ChevronsUpDown, Download, Compass, Zap, ShieldAlert,
+  Pencil, ChevronsUpDown, Download, Compass, Zap, ShieldAlert, PieChart,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import type { PortfolyoPozisyonWithStats } from '@/types';
+import { getSector } from '@/lib/sectors';
 import dynamic from 'next/dynamic';
 
 const PortfolioPerformanceChart = dynamic(
@@ -898,6 +899,43 @@ export default function PortfolyoPage() {
   const totalKarZararPct = totalMaliyet > 0 ? (totalKarZarar / totalMaliyet) * 100 : 0;
   const profit          = totalKarZarar >= 0;
 
+  // ── Günlük değişim ───────────────────────────────────────────────────────
+  // ohlcvMap'teki son 2 mumu kullanarak her pozisyonun günlük değişimini topla
+  const { gunlukDegisim, gunlukDegisimPct } = useMemo(() => {
+    let bugun = 0;
+    let dun   = 0;
+    for (const poz of pozisyonlar) {
+      const candles = ohlcvMap[poz.sembol];
+      if (!candles || candles.length < 2) continue;
+      const last = candles[candles.length - 1]!.close;
+      const prev = candles[candles.length - 2]!.close;
+      bugun += last * poz.miktar;
+      dun   += prev * poz.miktar;
+    }
+    const degisim = bugun > 0 && dun > 0 ? bugun - dun : null;
+    const degisimPct = dun > 0 && degisim !== null ? (degisim / dun) * 100 : null;
+    return { gunlukDegisim: degisim, gunlukDegisimPct: degisimPct };
+  }, [pozisyonlar, ohlcvMap]);
+
+  // ── Sektör çeşitliliği ───────────────────────────────────────────────────
+  const { sektorSayisi, dominantSektor } = useMemo(() => {
+    const sektorMap = new Map<string, number>(); // sektörAdı → toplam değer
+    for (const poz of pozisyonlar) {
+      const sektor = getSector(poz.sembol);
+      const deger  = poz.guncel_deger ?? poz.maliyet;
+      sektorMap.set(sektor.name, (sektorMap.get(sektor.name) ?? 0) + deger);
+    }
+    const sorted = [...sektorMap.entries()].sort((a, b) => b[1] - a[1]);
+    const dominant = sorted[0];
+    const dominantPct = dominant && totalDeger > 0
+      ? (dominant[1] / totalDeger) * 100
+      : null;
+    return {
+      sektorSayisi: sektorMap.size,
+      dominantSektor: dominant ? { name: dominant[0], pct: dominantPct } : null,
+    };
+  }, [pozisyonlar, totalDeger]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -1008,12 +1046,12 @@ export default function PortfolyoPage() {
             ) : (
               <>
                 {/* Özet kartlar */}
-                <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {[
                     { label: 'Toplam Maliyet',  value: fmtTL(totalMaliyet),  icon: Briefcase,  color: 'text-text-primary' },
                     { label: 'Güncel Değer',     value: fmtTL(totalDeger),    icon: TrendingUp, color: 'text-text-primary' },
-                    { label: 'Toplam K/Z',       value: fmtTL(Math.abs(totalKarZarar)), icon: profit ? TrendingUp : TrendingDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
-                    { label: 'Getiri',           value: fmtPct(totalKarZararPct), icon: profit ? ChevronUp : ChevronDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
+                    { label: 'Toplam K/Z',       value: `${profit ? '+' : '-'}${fmtTL(Math.abs(totalKarZarar))}`, icon: profit ? TrendingUp : TrendingDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
+                    { label: 'Toplam Getiri',    value: fmtPct(totalKarZararPct), icon: profit ? ChevronUp : ChevronDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
                   ].map(({ label, value, icon: Icon, color }) => (
                     <div key={label} className="rounded-xl border border-border bg-surface p-4">
                       <div className="mb-1 flex items-center gap-1.5 text-xs text-text-muted">
@@ -1023,7 +1061,52 @@ export default function PortfolyoPage() {
                       <div className={`text-lg font-bold ${color}`}>{value}</div>
                     </div>
                   ))}
+                  {/* Günlük değişim kartı */}
+                  <div className="rounded-xl border border-border bg-surface p-4">
+                    <div className="mb-1 flex items-center gap-1.5 text-xs text-text-muted">
+                      {gunlukDegisim !== null && gunlukDegisim >= 0
+                        ? <TrendingUp className="h-3.5 w-3.5" />
+                        : <TrendingDown className="h-3.5 w-3.5" />}
+                      Bugün
+                    </div>
+                    {gunlukDegisim !== null ? (
+                      <div className={`text-lg font-bold ${gunlukDegisim >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {gunlukDegisim >= 0 ? '+' : ''}{fmtTL(gunlukDegisim)}
+                      </div>
+                    ) : (
+                      <div className="text-lg font-bold text-text-muted">—</div>
+                    )}
+                    {gunlukDegisimPct !== null && (
+                      <div className={`text-xs mt-0.5 ${gunlukDegisimPct >= 0 ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
+                        {gunlukDegisimPct >= 0 ? '+' : ''}{gunlukDegisimPct.toFixed(2)}%
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {/* Sektör çeşitliliği bilgisi */}
+                {pozisyonlar.length >= 2 && sektorSayisi > 0 && (
+                  <div className="mb-6 flex items-center gap-2 rounded-lg border border-border bg-surface/50 px-4 py-2.5 text-xs text-text-secondary flex-wrap">
+                    <PieChart className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                    <span>
+                      <span className="font-semibold text-text-primary">{sektorSayisi}</span> farklı sektör
+                    </span>
+                    {dominantSektor && dominantSektor.pct !== null && (
+                      <>
+                        <span className="text-text-muted">·</span>
+                        <span>
+                          En yoğun:{' '}
+                          <span className={`font-semibold ${dominantSektor.pct > 50 ? 'text-amber-400' : 'text-text-primary'}`}>
+                            {dominantSektor.name} %{dominantSektor.pct.toFixed(0)}
+                          </span>
+                          {dominantSektor.pct > 50 && (
+                            <span className="ml-1.5 text-amber-400">— çeşitlendirmeyi değerlendirin</span>
+                          )}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* En güçlü sinyal banner */}
                 {(() => {
