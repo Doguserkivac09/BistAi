@@ -19,6 +19,7 @@ import type { StockSignal, SignalDirection } from '@/types';
 import type { MacroScoreResult } from './macro-score';
 import type { SectorMomentum } from './sector-engine';
 import type { RiskScoreResult } from './risk-engine';
+import { getSectorId } from './sectors';
 
 // ── Türler ──────────────────────────────────────────────────────────
 
@@ -422,18 +423,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(value)));
 }
 
-/**
- * Sembolden sektör ID'sini çıkarır (sectors.ts'den dynamic import ile).
- * Burada lightweight bir fallback kullanıyoruz.
- */
 function getSectorIdForSymbol(symbol: string): string {
-  // Bu fonksiyon sector-engine.ts'den import etmek yerine
-  // sectors.ts modülünü lazy-load etmek için kullanılır
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getSectorId } = require('./sectors');
-    return getSectorId(symbol);
-  } catch {
-    return 'diger';
-  }
+  return getSectorId(symbol);
 }
