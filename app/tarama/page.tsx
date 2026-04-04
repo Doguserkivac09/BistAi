@@ -678,7 +678,7 @@ function TaramaPageInner() {
     for (const r of results) {
       for (const s of r.signals) {
         const wr = winRateMap.get(s.type);
-        if (wr && wr.sampleSize >= 20) { totalWR += wr.rate * wr.sampleSize; totalN += wr.sampleSize; }
+        if (wr && wr.sampleSize >= 10) { totalWR += wr.rate * wr.sampleSize; totalN += wr.sampleSize; }
       }
     }
     if (totalN > 0) avgWinRate = totalWR / totalN;
