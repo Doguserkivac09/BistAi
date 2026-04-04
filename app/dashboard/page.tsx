@@ -22,11 +22,15 @@ export default async function DashboardPage() {
     redirect('/giris?redirect=/dashboard');
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const [
     { data: watchlistRows },
     { data: savedSignalsRows },
     { count: portfolyoCount },
     macroScore,
+    { data: profileRow },
+    { count: dailyAiCount },
   ] = await Promise.all([
     supabase
       .from('watchlist')
@@ -43,6 +47,16 @@ export default async function DashboardPage() {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id),
     getMacroScore().catch(() => null),
+    supabase
+      .from('profiles')
+      .select('display_name, avatar_url, tier')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('ai_chat_usage')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', `${today}T00:00:00Z`),
   ]);
 
   const watchlist = (watchlistRows ?? []) as WatchlistItem[];
@@ -50,21 +64,17 @@ export default async function DashboardPage() {
   const savedSignalsCount = savedSignals.length;
   const lastSignalAt = savedSignals.length > 0 ? formatDate(savedSignals[0]!.created_at) : '—';
 
-  // Profil bilgilerini çek
-  const { data: profileRow } = await supabase
-    .from('profiles')
-    .select('display_name, avatar_url')
-    .eq('id', user.id)
-    .single();
-
   const displayName = profileRow?.display_name?.trim() || (user.email?.split('@')[0] ?? 'Kullanıcı');
   const avatarUrl = profileRow?.avatar_url ?? null;
+  const tier = (profileRow?.tier as string) ?? 'free';
 
   return (
     <DashboardClient
       email={user.email ?? 'Kullanıcı'}
       displayName={displayName}
       avatarUrl={avatarUrl}
+      tier={tier}
+      dailyAiCount={dailyAiCount ?? 0}
       watchlist={watchlist}
       savedSignals={savedSignals}
       savedSignalsCount={savedSignalsCount}
