@@ -598,10 +598,19 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   </div>
 
                   {/* Sağ: Butonlar */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                     <PortfolyoEkleButton sembol={sembol} defaultFiyat={lastCandle?.close} />
                     <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
                     <PriceAlertButton sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
+                    {currentPrice && (
+                      <Link
+                        href={`/araclar?tab=karZarar&fiyat=${currentPrice.toFixed(2)}`}
+                        className="flex items-center gap-1.5 rounded-lg border border-border bg-surface/50 px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-primary/40 hover:text-primary transition-colors"
+                        title="Bu hisse için kâr/zarar hesapla"
+                      >
+                        🧮 Hesapla
+                      </Link>
+                    )}
                   </div>
                 </div>
 
