@@ -51,7 +51,7 @@ const MOCK_SIGNALS = [
 // ── Stats ─────────────────────────────────────────────────────────
 
 const STATS = [
-  { value: '160+', label: 'BIST Hissesi'         },
+  { value: '295',  label: 'BIST Hissesi'          },
   { value: '10',   label: 'Farklı Sinyal Tipi'   },
   { value: '5 dakika', label: 'Güncelleme Sıklığı'   },
   { value: '7/24', label: 'Canlı Analiz'          },
@@ -60,7 +60,7 @@ const STATS = [
 // ── Features ──────────────────────────────────────────────────────
 
 const FEATURES = [
-  { icon: BarChart3,      title: 'Sinyal Tarama',       desc: '10 farklı teknik sinyal — RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi — 164 BIST hissesinde tek taramada.',  gradient: 'from-indigo-500/20 to-violet-500/5'  },
+  { icon: BarChart3,      title: 'Sinyal Tarama',       desc: '10 farklı teknik sinyal — RSI uyumsuzluğu, MACD kesişimi, Altın Çapraz, hacim anomalisi — 295 BIST hissesinde tek taramada.',  gradient: 'from-indigo-500/20 to-violet-500/5'  },
   { icon: Brain,          title: 'AI Açıklamalar',      desc: 'Her sinyal için Claude AI ile üretilen sade Türkçe analiz. Ne olduğunu değil, ne anlama geldiğini öğren.',                       gradient: 'from-violet-500/20 to-fuchsia-500/5' },
   { icon: TrendingUp,     title: 'Sektör & Makro Radar',desc: 'Sektör momentum skoru + VIX, DXY, USD/TRY, TCMB faizi — tüm bağlam tek panelde. Sinyalin sektör trendi ile uyumlu mu?',         gradient: 'from-cyan-500/20 to-blue-500/5'      },
   { icon: Shield,         title: 'Çok Katmanlı Skor',   desc: 'Confluence skoru, haftalık trend uyumu, win-rate geçmişi — her sinyal için 4+ kalite göstergesi. Güçlü sinyalleri ilk bul.',     gradient: 'from-emerald-500/20 to-teal-500/5'  },
@@ -779,7 +779,7 @@ export default function LandingPage() {
                 className="mt-10 flex flex-wrap items-center justify-center gap-6 lg:justify-start"
               >
                 {[
-                  { icon: Globe2,          text: '164 BIST hissesi' },
+                  { icon: Globe2,          text: '295 BIST hissesi' },
                   { icon: Activity,        text: '10 sinyal tipi + backtesting' },
                   { icon: Bell,            text: 'Portföy & anlık uyarılar' },
                 ].map((item, i) => (
@@ -879,7 +879,7 @@ export default function LandingPage() {
                 className="mt-3 flex flex-col items-center gap-2 rounded-xl border border-primary/25 bg-surface/70 px-6 py-5 text-center backdrop-blur-sm"
               >
                 <p className="text-xs font-semibold text-text-primary">+{MOCK_SIGNALS.length - 3} sinyal ve çok daha fazlası</p>
-                <p className="text-[11px] text-text-secondary">160+ hissedeki tüm sinyalleri görmek için ücretsiz hesap oluştur.</p>
+                <p className="text-[11px] text-text-secondary">295 hissedeki tüm sinyalleri görmek için ücretsiz hesap oluştur.</p>
                 <Button size="sm" className="mt-1 text-xs" asChild>
                   <Link href="/kayit">Ücretsiz Başla <ArrowRight className="ml-1 h-3 w-3" /></Link>
                 </Button>
