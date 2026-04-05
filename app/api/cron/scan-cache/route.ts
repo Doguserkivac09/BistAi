@@ -52,7 +52,23 @@ export async function GET(request: NextRequest) {
     scanned_at: string;
   }> = [];
 
+  // signal_performance kayıtları — entry_time günün başına normalize edilir
+  const perfRows: Array<{
+    user_id: null;
+    sembol: string;
+    signal_type: string;
+    direction: string;
+    entry_price: number;
+    entry_time: string;
+    evaluated: boolean;
+    regime: null;
+  }> = [];
+
   const scannedAt = new Date().toISOString();
+  // Günün başı (UTC midnight) — deduplication için
+  const entryDay = new Date(scannedAt);
+  entryDay.setUTCHours(0, 0, 0, 0);
+  const entryTime = entryDay.toISOString();
 
   for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
     const batch = symbols.slice(i, i + BATCH_SIZE);
@@ -90,6 +106,23 @@ export async function GET(request: NextRequest) {
         change_percent: changePercent ?? null,
         scanned_at: scannedAt,
       });
+
+      // signal_performance kayıtları — entry_price = son kapanış
+      const lastClose = candles[candles.length - 1]?.close;
+      if (lastClose && lastClose > 0) {
+        for (const sig of signals) {
+          perfRows.push({
+            user_id: null,
+            sembol,
+            signal_type: sig.type,
+            direction: sig.direction,
+            entry_price: lastClose,
+            entry_time: entryTime,
+            evaluated: false,
+            regime: null,
+          });
+        }
+      }
     }
 
     if (i + BATCH_SIZE < symbols.length) {
@@ -97,7 +130,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Tüm sonuçları tek seferde upsert et
+  // scan_cache upsert
   if (rows.length > 0) {
     const { error } = await supabase
       .from('scan_cache')
@@ -109,14 +142,33 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // signal_performance insert — günlük unique index ile deduplication
+  let perfInserted = 0;
+  if (perfRows.length > 0) {
+    // 100'erli batch'ler halinde insert et (payload limit)
+    const PERF_BATCH = 100;
+    for (let i = 0; i < perfRows.length; i += PERF_BATCH) {
+      const batch = perfRows.slice(i, i + PERF_BATCH);
+      const { error } = await supabase
+        .from('signal_performance')
+        .upsert(batch, { onConflict: 'sembol,signal_type,entry_time', ignoreDuplicates: true });
+      if (error) {
+        console.error('[cron/scan-cache] signal_performance insert hatası:', error.message);
+      } else {
+        perfInserted += batch.length;
+      }
+    }
+  }
+
   const durationMs = Date.now() - startedAt;
-  console.log(`[cron/scan-cache] ${scanned}/${symbols.length} tarandı, ${signalsFound} sinyal, ${failed.length} hata, ${durationMs}ms`);
+  console.log(`[cron/scan-cache] ${scanned}/${symbols.length} tarandı, ${signalsFound} sinyal, ${perfInserted} perf kaydı, ${failed.length} hata, ${durationMs}ms`);
 
   return NextResponse.json({
     ok: true,
     scanned,
     total: symbols.length,
     signalsFound,
+    perfInserted,
     failed,
     durationMs,
     scannedAt,
