@@ -959,9 +959,26 @@ function TaramaPageInner() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="rounded-xl border border-border bg-surface/50 p-8 text-center text-text-secondary"
           >
-            Seçilen filtreye uygun sinyal bulunamadı.{' '}
-            {activeFilterCount > 0 && (
-              <button onClick={clearFilters} className="ml-1 text-primary underline underline-offset-2">Filtreleri temizle</button>
+            {searchUpper && (BIST_SYMBOLS as readonly string[]).some(s => s.includes(searchUpper)) ? (
+              <>
+                <p className="mb-3 font-medium text-text-primary">
+                  {searchUpper} için şu an aktif sinyal yok
+                </p>
+                <p className="mb-4 text-sm">Hisse detay sayfasında grafik ve geçmiş analizleri görüntüleyebilirsin.</p>
+                <a
+                  href={`/hisse/${searchUpper}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/30 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+                >
+                  {searchUpper} Detay Sayfası →
+                </a>
+              </>
+            ) : (
+              <>
+                Seçilen filtreye uygun sinyal bulunamadı.{' '}
+                {activeFilterCount > 0 && (
+                  <button onClick={clearFilters} className="ml-1 text-primary underline underline-offset-2">Filtreleri temizle</button>
+                )}
+              </>
             )}
           </motion.div>
         )}
