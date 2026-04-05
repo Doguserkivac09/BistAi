@@ -57,8 +57,8 @@ const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeCol
 
 const ALL_SIGNAL_TYPES = SCANNABLE_SIGNALS.map(s => s.type);
 const SCAN_PREFS_KEY   = 'bistai_scan_signal_prefs';
-const SCAN_CACHE_KEY   = 'bistai_scan_results';
-const SCAN_CACHE_TTL_MS = 10 * 60 * 1000;
+const SCAN_CACHE_KEY   = `bistai_scan_results_${new Date().toISOString().slice(0, 10)}`;
+const SCAN_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 saat — aynı gün içinde anında yükle
 
 const DIRECTION_OPTIONS: { value: DirectionFilter; label: string; icon: React.ElementType }[] = [
   { value: 'Tümü',   label: 'Tümü',   icon: Activity     },
@@ -493,17 +493,17 @@ function TaramaPageInner() {
     });
   }, []);
 
-  // Restore scan cache
+  // Restore scan cache (localStorage — 4 saat, aynı gün içinde sayfa yenilemede anında yükle)
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem(SCAN_CACHE_KEY);
+      const cached = localStorage.getItem(SCAN_CACHE_KEY);
       if (cached) {
         const { results: cr, scannedCount: cc, ts } = JSON.parse(cached);
         if (Date.now() - ts < SCAN_CACHE_TTL_MS) {
           setResults(cr);
           setScannedCount(cc);
         } else {
-          sessionStorage.removeItem(SCAN_CACHE_KEY);
+          localStorage.removeItem(SCAN_CACHE_KEY);
         }
       }
     } catch { /* ignore */ }
@@ -564,8 +564,8 @@ function TaramaPageInner() {
     setLoading(true);
     setError(null);
     const failed: string[] = [];
-    const BATCH_SIZE = 5;
-    const BATCH_DELAY_MS = 200;
+    const BATCH_SIZE = 8;
+    const BATCH_DELAY_MS = 100;
 
     try {
       const all: ScanResult[] = [...results];
@@ -609,6 +609,8 @@ function TaramaPageInner() {
             setScanProgress({ current: completed, total: symbols.length, symbol: sembol });
           }
         }
+        // Progressive render: her batch sonrası sinyaller varsa göster
+        if (all.length > 0) setResults([...all]);
         if (batchStart + BATCH_SIZE < symbols.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
       }
 
@@ -617,7 +619,7 @@ function TaramaPageInner() {
       setScannedCount(symbols.length);
       setSectorMap(computeSectorMomentum(allScanned));
       try {
-        sessionStorage.setItem(SCAN_CACHE_KEY, JSON.stringify({ results: all, scannedCount: symbols.length, ts: Date.now() }));
+        localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify({ results: all, scannedCount: symbols.length, ts: Date.now() }));
       } catch { /* ignore */ }
 
       const signalCount = all.reduce((sum, r) => sum + r.signals.length, 0);
@@ -636,7 +638,7 @@ function TaramaPageInner() {
 
   const runScan = useCallback(() => {
     setResults([]); setFailedSymbols([]); setScannedCount(0);
-    try { sessionStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
     scanSymbols([...BIST_SYMBOLS], selectedTypes);
   }, [scanSymbols, selectedTypes]);
 
@@ -646,7 +648,7 @@ function TaramaPageInner() {
 
   const resetToEmptyState = useCallback(() => {
     setResults([]); setFailedSymbols([]); setScannedCount(0);
-    try { sessionStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
   }, []);
 
   const clearFilters = useCallback(() => {
@@ -659,7 +661,7 @@ function TaramaPageInner() {
     setSelectedTypes(types);
     try { localStorage.setItem(SCAN_PREFS_KEY, JSON.stringify(types)); } catch { /* ignore */ }
     setResults([]); setFailedSymbols([]); setScannedCount(0);
-    try { sessionStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
     scanSymbols([...BIST_SYMBOLS], types);
   }, [scanSymbols]);
 
@@ -685,7 +687,8 @@ function TaramaPageInner() {
   }
 
   const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
-  const rawDisplayList = loading ? [] : filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
+  // Progressive render: tarama devam ederken de bulunan sinyalleri göster
+  const rawDisplayList = filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
   // Sektör URL param filtresi + sembol arama
   const searchUpper = searchQuery.trim().toUpperCase();
   const filteredBySearch = searchUpper
@@ -878,12 +881,12 @@ function TaramaPageInner() {
 
         {/* Macro banner */}
         <AnimatePresence>
-          {!loading && hasScanResults && macroScore && !macroBannerDismissed && (
+          {hasScanResults && macroScore && !macroBannerDismissed && (
             <MacroBanner score={macroScore.score} wind={macroScore.wind} onDismiss={() => setMacroBannerDismissed(true)} />
           )}
         </AnimatePresence>
 
-        {!loading && hasScanResults && (
+        {hasScanResults && (
           <ScanSummary
             total={scannedCount} signalCount={signalCount} strongCount={strongCount}
             midCount={midCount} weakCount={weakCount} alCount={alCount}
@@ -892,7 +895,7 @@ function TaramaPageInner() {
         )}
 
         {/* Active filter counter */}
-        {!loading && hasScanResults && activeFilterCount > 0 && filteredByKap.length > 0 && (
+        {hasScanResults && activeFilterCount > 0 && filteredByKap.length > 0 && (
           <div className="mb-3 flex items-center justify-between text-xs text-text-secondary">
             <span>{filteredByKap.length} sonuç gösteriliyor · {activeFilterCount} filtre aktif</span>
             <button onClick={clearFilters} className="flex items-center gap-1 text-primary transition-opacity hover:opacity-70">
@@ -916,7 +919,7 @@ function TaramaPageInner() {
           </motion.div>
         )}
 
-        {!loading && filteredByKap.length > 0 && (
+        {filteredByKap.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
