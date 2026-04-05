@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * AI Sohbet — BistAI Yatırım Asistanı
+ * AI Sohbet — Investable Edge Yatırım Asistanı
  *
  * claude-opus-4-6 modeli ile streaming chat.
  * Kullanıcının portföy bağlamı + makro durum otomatik eklenir.
@@ -233,7 +233,7 @@ export default function SohbetPage() {
     } else if (!sembol && messages.length === 0) {
       setMessages([{
         role: 'assistant',
-        content: 'Merhaba! Ben BistAI\'nin yatırım asistanıyım. Portföyünüz, BIST hisseleri, teknik analiz veya makroekonomik gelişmeler hakkında sorularınızı yanıtlayabilirim.',
+        content: 'Merhaba! Ben Investable Edge\'nin yatırım asistanıyım. Portföyünüz, BIST hisseleri, teknik analiz veya makroekonomik gelişmeler hakkında sorularınızı yanıtlayabilirim.',
       }]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -391,7 +391,7 @@ export default function SohbetPage() {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-semibold text-text-primary">BistAI Asistan</span>
+                <span className="text-sm font-semibold text-text-primary">Investable Edge Asistan</span>
                 <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
               </div>
               {sembol && (

@@ -147,7 +147,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
 
   // Read localStorage cache after mount to avoid SSR/client mismatch
   useEffect(() => {
-    const cached = localStorage.getItem('bistai_avatar_url');
+    const cached = localStorage.getItem('investableedge_avatar_url');
     if (cached) setAvatarUrl(cached);
   }, []);
   const pathname = usePathname();
@@ -163,8 +163,8 @@ export function NavbarClient({ user }: NavbarClientProps) {
         if (cancelled) return;
         const url = d?.avatar_url ?? null;
         setAvatarUrl(url);
-        if (url) localStorage.setItem('bistai_avatar_url', url);
-        else localStorage.removeItem('bistai_avatar_url');
+        if (url) localStorage.setItem('investableedge_avatar_url', url);
+        else localStorage.removeItem('investableedge_avatar_url');
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -175,7 +175,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
     function onAvatarChange(e: Event) {
       const url = (e as CustomEvent<string>).detail;
       setAvatarUrl(url);
-      if (url) localStorage.setItem('bistai_avatar_url', url);
+      if (url) localStorage.setItem('investableedge_avatar_url', url);
     }
     window.addEventListener('avatar-changed', onAvatarChange);
     return () => window.removeEventListener('avatar-changed', onAvatarChange);

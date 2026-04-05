@@ -1,5 +1,5 @@
-// BistAI Service Worker
-const CACHE_NAME = 'bistai-v1';
+// Investable Edge Service Worker
+const CACHE_NAME = 'investableedge-v1';
 
 // Offline'da gösterilecek sayfalar
 const STATIC_CACHE = [

@@ -57,7 +57,7 @@ function buildSystemPrompt(ctx: ChatContext, userEmail: string): string {
     day: 'numeric', month: 'long', year: 'numeric', weekday: 'long',
   });
 
-  let system = `Sen BistAI'nin AI yatırım asistanısın. Türkiye Borsa İstanbul (BIST) uzmanısın.
+  let system = `Sen Investable Edge'nin AI yatırım asistanısın. Türkiye Borsa İstanbul (BIST) uzmanısın.
 
 Bugünün tarihi: ${now}
 Kullanıcı: ${userEmail.split('@')[0]}

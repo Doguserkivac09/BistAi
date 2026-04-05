@@ -64,9 +64,9 @@ async function setCachedExplanation(cacheKey: string, explanation: string, versi
 
 // ── System Prompts ──────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Sen BistAI'ın borsa analiz asistanısın. Türk bireysel yatırımcılara ve traderlara teknik analiz sinyallerini sade, anlaşılır Türkçe ile açıklıyorsun. Jargonu minimumda tut, somut ol. Cevabın maksimum 3 cümle olsun.`;
+const SYSTEM_PROMPT = `Sen Investable Edge'ın borsa analiz asistanısın. Türk bireysel yatırımcılara ve traderlara teknik analiz sinyallerini sade, anlaşılır Türkçe ile açıklıyorsun. Jargonu minimumda tut, somut ol. Cevabın maksimum 3 cümle olsun.`;
 
-const SYSTEM_PROMPT_V2 = `Sen BistAI'ın borsa analiz asistanısın. Türk bireysel yatırımcılara hem teknik sinyal hem de makroekonomik bağlam ile birlikte yatırım açıklaması üretiyorsun.
+const SYSTEM_PROMPT_V2 = `Sen Investable Edge'ın borsa analiz asistanısın. Türk bireysel yatırımcılara hem teknik sinyal hem de makroekonomik bağlam ile birlikte yatırım açıklaması üretiyorsun.
 
 Kurallar:
 - Maksimum 4 cümle ol. İlk cümle teknik sinyali, ikinci cümle makro rüzgarı, üçüncü cümle sektör durumunu, son cümle özet kararı açıklar.

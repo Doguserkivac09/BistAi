@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { AlertTriangle } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Yasal Uyarı | BistAI',
-  description: 'BistAI platformunun yasal uyarıları ve sorumluluk reddi beyanı.',
+  title: 'Yasal Uyarı | Investable Edge',
+  description: 'Investable Edge platformunun yasal uyarıları ve sorumluluk reddi beyanı.',
 };
 
 export default function YasalPage() {
@@ -23,7 +23,7 @@ export default function YasalPage() {
 
         <Section title="Yatırım Tavsiyesi Değildir">
           <p>
-            BistAI platformunda sunulan tüm içerikler, analizler, sinyaller, göstergeler ve
+            Investable Edge platformunda sunulan tüm içerikler, analizler, sinyaller, göstergeler ve
             bilgiler yalnızca <strong className="text-text-primary">bilgilendirme amaçlıdır</strong> ve
             herhangi bir yatırım tavsiyesi, alım-satım önerisi veya finansal danışmanlık hizmeti
             niteliği taşımaz. Platform, 6362 sayılı Sermaye Piyasası Kanunu kapsamında yatırım
@@ -53,7 +53,7 @@ export default function YasalPage() {
           <p>
             Fiyat verileri Yahoo Finance başta olmak üçüncü taraf kaynaklardan çekilmektedir ve
             <strong className="text-text-primary"> 15 dakikaya kadar gecikme</strong> içerebilir.
-            BistAI, veri sağlayıcılardan kaynaklanan hata, eksiklik veya gecikmelerden sorumlu
+            Investable Edge, veri sağlayıcılardan kaynaklanan hata, eksiklik veya gecikmelerden sorumlu
             tutulamaz. Anlık işlem kararlarında borsa veya aracı kurum uygulamalarından teyit
             alınması zorunludur.
           </p>
@@ -61,7 +61,7 @@ export default function YasalPage() {
 
         <Section title="Sorumluluk Reddi">
           <p>
-            BistAI ve platformun geliştiricileri; platformun kullanımından doğacak doğrudan,
+            Investable Edge ve platformun geliştiricileri; platformun kullanımından doğacak doğrudan,
             dolaylı, arızi veya sonuçsal hiçbir zarar, kayıp, kar kaybı veya fırsatın
             değerlendirilememesinden sorumlu değildir. Platform&quot;olduğu gibi&quot; (as-is)
             sunulmakta olup herhangi bir kâr garantisi, belirli bir amaca uygunluk veya kesintisiz
@@ -81,7 +81,7 @@ export default function YasalPage() {
 
         <Section title="Regülasyon">
           <p>
-            BistAI, Sermaye Piyasası Kurulu (SPK) tarafından lisanslandırılmış bir yatırım
+            Investable Edge, Sermaye Piyasası Kurulu (SPK) tarafından lisanslandırılmış bir yatırım
             kuruluşu değildir. Platform, teknik analiz araçları sunan bağımsız bir yazılım
             servisi olarak faaliyet göstermektedir.
           </p>

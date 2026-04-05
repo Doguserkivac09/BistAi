@@ -38,9 +38,9 @@ async function sendPriceAlertEmail(
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return;
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bistai.vercel.app';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://investableedge.vercel.app';
   const dirLabel = alert.direction === 'above' ? 'üzerine çıktı' : 'altına düştü';
-  const subject = `BistAI Fiyat Alarmı: ${alert.sembol} ₺${currentPrice.toFixed(2)}`;
+  const subject = `Investable Edge Fiyat Alarmı: ${alert.sembol} ₺${currentPrice.toFixed(2)}`;
 
   const html = `
 <!DOCTYPE html>
@@ -62,7 +62,7 @@ async function sendPriceAlertEmail(
       <a href="${appUrl}/hisse/${alert.sembol}" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px;">${alert.sembol} Sayfasına Git</a>
     </div>
     <p style="color:#52525b;font-size:12px;text-align:center;margin:0;">
-      Bu alarm artık pasif durumda. Yeni alarm eklemek için <a href="${appUrl}/fiyat-alertler" style="color:#10b981;">BistAI</a>'ı ziyaret edin.
+      Bu alarm artık pasif durumda. Yeni alarm eklemek için <a href="${appUrl}/fiyat-alertler" style="color:#10b981;">Investable Edge</a>'ı ziyaret edin.
     </p>
   </div>
 </body>
@@ -72,7 +72,7 @@ async function sendPriceAlertEmail(
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: process.env.RESEND_FROM ?? 'BistAI <bildirim@bistai.app>',
+      from: process.env.RESEND_FROM ?? 'Investable Edge <bildirim@investableedge.app>',
       to: email,
       subject,
       html,

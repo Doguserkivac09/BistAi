@@ -71,7 +71,7 @@ export function getEnv(): EnvConfig {
 }
 
 // .env.example dosyası için template
-export const ENV_TEMPLATE = `# BistAI Environment Variables
+export const ENV_TEMPLATE = `# Investable Edge Environment Variables
 # Zorunlu
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key

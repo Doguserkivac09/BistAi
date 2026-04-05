@@ -93,7 +93,7 @@ function setMacroCache<T>(key: string, data: T, ttlMs: number = MACRO_CACHE_TTL_
 
 // ── Yahoo Finance Fetch ─────────────────────────────────────────────
 
-const USER_AGENT = 'Mozilla/5.0 (compatible; BistAI/1.0)';
+const USER_AGENT = 'Mozilla/5.0 (compatible; Investable Edge/1.0)';
 
 /**
  * Tek bir makro sembol için güncel fiyat bilgisi çeker.

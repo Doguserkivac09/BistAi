@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { Shield } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Gizlilik Politikası | BistAI',
-  description: 'BistAI gizlilik politikası — kişisel verilerinizi nasıl topluyor, kullanıyor ve koruyoruz.',
+  title: 'Gizlilik Politikası | Investable Edge',
+  description: 'Investable Edge gizlilik politikası — kişisel verilerinizi nasıl topluyor, kullanıyor ve koruyoruz.',
 };
 
 export default function GizlilikPage() {
@@ -65,7 +65,7 @@ export default function GizlilikPage() {
 
         <Section title="Çerezler (Cookies)">
           <p>
-            BistAI yalnızca oturum yönetimi için zorunlu çerezler kullanır. Reklamcılık veya
+            Investable Edge yalnızca oturum yönetimi için zorunlu çerezler kullanır. Reklamcılık veya
             takip amaçlı üçüncü taraf çerez bulunmamaktadır. Oturum çerezleri tarayıcınızı
             kapattığınızda silinir.
           </p>
@@ -74,8 +74,8 @@ export default function GizlilikPage() {
         <Section title="Verilerinizi Silme Hakkı">
           <p>
             Hesabınızı ve tüm verilerinizi kalıcı olarak silmek için{' '}
-            <a href="mailto:destek@bistai.app" className="text-primary underline-offset-2 hover:underline">
-              destek@bistai.app
+            <a href="mailto:destek@investableedge.app" className="text-primary underline-offset-2 hover:underline">
+              destek@investableedge.app
             </a>{' '}
             adresine e-posta gönderebilirsiniz. Talepler 30 gün içinde işleme alınır.
             Profil sayfasından portföy ve watchlist verilerinizi kendiniz silebilirsiniz.
@@ -85,8 +85,8 @@ export default function GizlilikPage() {
         <Section title="İletişim">
           <p>
             Gizlilik politikamız hakkında sorularınız için:{' '}
-            <a href="mailto:destek@bistai.app" className="text-primary underline-offset-2 hover:underline">
-              destek@bistai.app
+            <a href="mailto:destek@investableedge.app" className="text-primary underline-offset-2 hover:underline">
+              destek@investableedge.app
             </a>
           </p>
         </Section>

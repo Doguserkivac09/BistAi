@@ -643,7 +643,7 @@ export default function LandingPage() {
 
       {/* ── Side labels ──────────────────────────────────────────── */}
       <div className="side-label pointer-events-none fixed left-4 top-1/2 -translate-y-1/2 hidden text-text-secondary xl:block">
-        BistAI // 2026
+        Investable Edge // 2026
       </div>
       <div
         className="side-label pointer-events-none fixed right-4 top-1/2 -translate-y-1/2 hidden text-text-secondary xl:block"

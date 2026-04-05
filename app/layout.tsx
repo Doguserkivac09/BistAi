@@ -8,7 +8,7 @@ import { PwaRegister } from '@/components/PwaRegister';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bistai.vercel.app';
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://investableedge.vercel.app';
 
 export const viewport: Viewport = {
   themeColor: '#6366f1',
@@ -21,17 +21,17 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: 'BistAI — BIST Hisselerinde AI Destekli Sinyal Analizi',
-    template: '%s | BistAI',
+    default: 'Investable Edge — BIST Hisselerinde AI Destekli Sinyal Analizi',
+    template: '%s | Investable Edge',
   },
   description: 'BIST hisselerini tarayın, teknik analiz sinyallerini ve yapay zeka açıklamalarını görün.',
   keywords: ['BIST', 'hisse senedi', 'teknik analiz', 'sinyal', 'yapay zeka', 'borsa istanbul', 'borsa', 'yatırım'],
-  authors: [{ name: 'BistAI' }],
+  authors: [{ name: 'Investable Edge' }],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'BistAI',
+    title: 'Investable Edge',
     startupImage: '/icons/apple-touch-icon.png',
   },
   icons: {
@@ -45,14 +45,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'tr_TR',
-    siteName: 'BistAI',
-    title: 'BistAI — BIST Hisselerinde AI Destekli Sinyal Analizi',
+    siteName: 'Investable Edge',
+    title: 'Investable Edge — BIST Hisselerinde AI Destekli Sinyal Analizi',
     description: 'BIST hisselerini tarayın, teknik analiz sinyallerini ve yapay zeka açıklamalarını görün.',
     url: BASE_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BistAI — BIST Hisselerinde AI Destekli Sinyal Analizi',
+    title: 'Investable Edge — BIST Hisselerinde AI Destekli Sinyal Analizi',
     description: 'BIST hisselerini tarayın, teknik analiz sinyallerini ve yapay zeka açıklamalarını görün.',
   },
   robots: { index: true, follow: true },
@@ -73,7 +73,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'WebApplication',
-              name: 'BistAI',
+              name: 'Investable Edge',
               url: BASE_URL,
               description: 'BIST hisse senetleri için AI destekli teknik analiz ve sinyal tarama platformu.',
               applicationCategory: 'FinanceApplication',

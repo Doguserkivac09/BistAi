@@ -687,7 +687,7 @@ export default function PortfolyoPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bistai-portfolyo-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `investableedge-portfolyo-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

@@ -442,7 +442,7 @@ export default function WatchlistPage() {
     if (items.length === 0) return;
     const loaded: Record<string, string> = {};
     items.forEach((item) => {
-      const val = localStorage.getItem(`bistai_targets_${item.sembol}`);
+      const val = localStorage.getItem(`investableedge_targets_${item.sembol}`);
       if (val) loaded[item.sembol] = val;
     });
     setTargets(loaded);
@@ -450,8 +450,8 @@ export default function WatchlistPage() {
 
   function handleTargetChange(sembol: string, value: string) {
     setTargets((prev) => ({ ...prev, [sembol]: value }));
-    if (value) localStorage.setItem(`bistai_targets_${sembol}`, value);
-    else localStorage.removeItem(`bistai_targets_${sembol}`);
+    if (value) localStorage.setItem(`investableedge_targets_${sembol}`, value);
+    else localStorage.removeItem(`investableedge_targets_${sembol}`);
   }
 
   // ── Veri yükle ────────────────────────────────────────────────────────────

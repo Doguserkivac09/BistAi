@@ -900,8 +900,8 @@ export default function ProfilPage() {
             onSave={(url) => {
               setProfile({ ...profile, avatar_url: url });
               // Update localStorage so navbar picks it up immediately on next page load
-              if (url) localStorage.setItem('bistai_avatar_url', url);
-              else localStorage.removeItem('bistai_avatar_url');
+              if (url) localStorage.setItem('investableedge_avatar_url', url);
+              else localStorage.removeItem('investableedge_avatar_url');
               // Notify navbar (same-page update via custom event)
               window.dispatchEvent(new CustomEvent('avatar-changed', { detail: url }));
             }}

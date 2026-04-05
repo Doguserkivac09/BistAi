@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { FileText } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Kullanım Koşulları | BistAI',
-  description: 'BistAI platformunu kullanmadan önce lütfen kullanım koşullarını okuyunuz.',
+  title: 'Kullanım Koşulları | Investable Edge',
+  description: 'Investable Edge platformunu kullanmadan önce lütfen kullanım koşullarını okuyunuz.',
 };
 
 export default function KullanimKosullariPage() {
@@ -23,14 +23,14 @@ export default function KullanimKosullariPage() {
 
         <Section title="Kabul">
           <p>
-            BistAI platformunu kullanarak bu kullanım koşullarını okuduğunuzu, anladığınızı
+            Investable Edge platformunu kullanarak bu kullanım koşullarını okuduğunuzu, anladığınızı
             ve kabul ettiğinizi beyan edersiniz. Koşulları kabul etmiyorsanız platformu
             kullanmayınız.
           </p>
         </Section>
 
         <Section title="Hizmetin Kapsamı">
-          <p className="mb-3">BistAI aşağıdaki hizmetleri sunar:</p>
+          <p className="mb-3">Investable Edge aşağıdaki hizmetleri sunar:</p>
           <ul className="space-y-1.5">
             <li>BIST hisselerinde teknik analiz sinyal taraması</li>
             <li>Hisse fiyat grafikleri ve göstergeleri</li>
@@ -54,7 +54,7 @@ export default function KullanimKosullariPage() {
 
         <Section title="Fikri Mülkiyet">
           <p>
-            Platform tasarımı, kodu, logosu ve içerikleri BistAI&apos;a aittir. İzin alınmaksızın
+            Platform tasarımı, kodu, logosu ve içerikleri Investable Edge&apos;a aittir. İzin alınmaksızın
             kopyalanamaz, dağıtılamaz veya ticari amaçla kullanılamaz. Kullanıcılar tarafından
             oluşturulan portföy ve watchlist verileri kullanıcıya aittir.
           </p>
@@ -62,7 +62,7 @@ export default function KullanimKosullariPage() {
 
         <Section title="Hizmet Kesintileri">
           <p>
-            BistAI, bakım, güncelleme veya teknik sorunlar nedeniyle hizmeti geçici olarak
+            Investable Edge, bakım, güncelleme veya teknik sorunlar nedeniyle hizmeti geçici olarak
             kesme hakkını saklı tutar. Hizmet kesintilerinden doğan kayıplar için sorumluluk
             kabul edilmez.
           </p>
@@ -95,8 +95,8 @@ export default function KullanimKosullariPage() {
         <Section title="İletişim">
           <p>
             Kullanım koşulları hakkında sorularınız için:{' '}
-            <a href="mailto:destek@bistai.app" className="text-primary underline-offset-2 hover:underline">
-              destek@bistai.app
+            <a href="mailto:destek@investableedge.app" className="text-primary underline-offset-2 hover:underline">
+              destek@investableedge.app
             </a>
           </p>
         </Section>

@@ -63,7 +63,7 @@ export async function fetchKapDuyurular(limit = 50): Promise<KapDuyuru[]> {
       headers: {
         'Accept': 'application/json, text/plain, */*',
         'Referer': 'https://www.kap.org.tr/',
-        'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)',
       },
       signal: AbortSignal.timeout(8000),
     });
@@ -118,7 +118,7 @@ export async function fetchKapBySembol(sembol: string, limit = 20): Promise<KapD
       headers: {
         'Accept': 'application/json, text/plain, */*',
         'Referer': 'https://www.kap.org.tr/',
-        'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)',
       },
       signal: AbortSignal.timeout(6000),
     });

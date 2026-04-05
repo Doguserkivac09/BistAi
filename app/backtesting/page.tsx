@@ -113,7 +113,7 @@ function exportCSV(matrix: PerformanceMatrixRow[], regimeKeys: string[], horizon
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `bistai-backtest-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `investableedge-backtest-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -477,7 +477,7 @@ function EmptyStateImproved() {
               className="mt-4 rounded-xl border border-border bg-surface/30 p-4 text-left"
             >
               <p className="text-xs leading-relaxed text-text-secondary">
-                BistAI her tarama yaptığınızda sinyallerin o anki fiyatını kaydeder.
+                Investable Edge her tarama yaptığınızda sinyallerin o anki fiyatını kaydeder.
                 3, 7 ve 14 gün sonra fiyatlar tekrar kontrol edilerek sinyalin başarılı olup
                 olmadığı değerlendirilir. Bu veriler birikerek hangi sinyalin hangi piyasa
                 koşulunda daha başarılı olduğunu ortaya koyar.

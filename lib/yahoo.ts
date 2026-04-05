@@ -121,7 +121,7 @@ export async function fetchOHLCV(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8_000);
     res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)' },
       next: { revalidate: 300 },
       signal: controller.signal,
     });
@@ -243,7 +243,7 @@ export async function fetchOHLCVByTimeframe(
   let res: Response;
   try {
     res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)' },
       next: { revalidate: 120 },
       signal: AbortSignal.timeout(8_000),
     });
@@ -327,7 +327,7 @@ export async function fetchQuote(sembol: string): Promise<{
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=1d&interval=1d`;
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)' },
       next: { revalidate: 60 },
     });
     const json = (await res.json()) as {

@@ -6,7 +6,7 @@
  * Next.js → Python ML servisi köprüsü.
  * ML servisi çevrimdışıysa composite signal'dan heuristic fallback.
  *
- * Env: ML_SERVICE_URL (örn: https://bistai-ml.railway.app)
+ * Env: ML_SERVICE_URL (örn: https://investableedge-ml.railway.app)
  */
 
 import { NextRequest, NextResponse } from 'next/server';

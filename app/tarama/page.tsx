@@ -56,8 +56,8 @@ const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeCol
 ];
 
 const ALL_SIGNAL_TYPES = SCANNABLE_SIGNALS.map(s => s.type);
-const SCAN_PREFS_KEY   = 'bistai_scan_signal_prefs';
-const SCAN_CACHE_KEY   = `bistai_scan_results_${new Date().toISOString().slice(0, 10)}`;
+const SCAN_PREFS_KEY   = 'investableedge_scan_signal_prefs';
+const SCAN_CACHE_KEY   = `investableedge_scan_results_${new Date().toISOString().slice(0, 10)}`;
 const SCAN_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 saat — aynı gün içinde anında yükle
 
 const DIRECTION_OPTIONS: { value: DirectionFilter; label: string; icon: React.ElementType }[] = [
