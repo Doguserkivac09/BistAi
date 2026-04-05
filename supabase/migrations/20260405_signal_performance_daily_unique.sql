@@ -1,6 +1,7 @@
 -- signal_performance tablosuna günlük unique constraint ekle.
 -- Aynı hisse + sinyal tipi için günde bir kayıt yeterli (cron deduplication).
--- entry_time günün başına normalize edilir (UTC midnight).
+-- entry_time zaten UTC midnight olarak normalize edilmiş gelir (cron bunu garanti eder).
 
-CREATE UNIQUE INDEX IF NOT EXISTS signal_performance_daily_unique
-  ON public.signal_performance (sembol, signal_type, date_trunc('day', entry_time));
+ALTER TABLE public.signal_performance
+  ADD CONSTRAINT signal_performance_daily_unique
+  UNIQUE (sembol, signal_type, entry_time);
