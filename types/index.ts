@@ -121,7 +121,7 @@ export const BIST_SYMBOLS = [
   // Havacılık & Savunma
   'THYAO', 'PGSUS', 'ASELS',
   // Enerji & Petrol
-  'TUPRS', 'AKSEN', 'AKENR', 'AKSA', 'ODAS', 'KONTR', 'ENJSA', 'ORGE', 'NATEN', 'AYDEM',
+  'TUPRS', 'AKSEN', 'AKENR', 'AKSA', 'ENKAI', 'ODAS', 'KONTR', 'ENJSA', 'ORGE', 'NATEN', 'AYDEM',
   // Otomotiv & Makine
   'FROTO', 'TOASO', 'OTKAR', 'DOAS', 'TTRAK', 'KATMR', 'JANTS', 'KAREL', 'MAKIM',
   // Perakende & Tüketici
