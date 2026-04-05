@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
   Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp,
+  Calendar, FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -26,9 +27,9 @@ const navItems = [
   {
     label: 'Piyasa',
     dropdown: [
-      { href: '/sektorler', label: 'Sektör Analizi', icon: TrendingUp },
-      { href: '/makro',     label: 'Makro Radar',    icon: BarChart2 },
-      { href: '/haberler',  label: 'Haberler',        icon: Newspaper },
+      { href: '/sektorler',           label: 'Sektör Analizi',    icon: TrendingUp },
+      { href: '/makro',               label: 'Makro Radar',        icon: BarChart2 },
+      { href: '/haberler',            label: 'Gündem Merkezi',      icon: Newspaper },
     ],
   },
   { href: '/backtesting', label: 'Backtest' },
