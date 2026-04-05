@@ -202,8 +202,8 @@ export function NavbarClient({ user }: NavbarClientProps) {
     <>
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold text-text-primary">
-          <span className="text-primary">Bist</span>
-          <span>AI</span>
+          <span className="text-primary">Investable</span>
+          <span>Edge</span>
         </Link>
 
         {/* Desktop nav */}
