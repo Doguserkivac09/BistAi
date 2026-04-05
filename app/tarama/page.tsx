@@ -727,8 +727,20 @@ function TaramaPageInner() {
   const rawDisplayList = filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
   // Sektör URL param filtresi + sembol arama
   const searchUpper = searchQuery.trim().toUpperCase();
+
+  // Arama aktifken tüm BIST_SYMBOLS içinde ara — sinyali olmayan hisseler de çıksın
+  const searchMatchedSymbols: string[] = searchUpper
+    ? (BIST_SYMBOLS as readonly string[]).filter(s => s.includes(searchUpper))
+    : [];
+  const resultSembolSet = new Set(rawDisplayList.map(r => r.sembol));
+  const noSignalSearchResults: ScanResult[] = searchUpper
+    ? searchMatchedSymbols
+        .filter(s => !resultSembolSet.has(s))
+        .map(s => ({ sembol: s, signals: [], candles: [], changePercent: undefined }))
+    : [];
+
   const filteredBySearch = searchUpper
-    ? rawDisplayList.filter(r => r.sembol.includes(searchUpper))
+    ? [...rawDisplayList.filter(r => r.sembol.includes(searchUpper)), ...noSignalSearchResults]
     : rawDisplayList;
   const filteredBySectorParam = sektorParam
     ? filteredBySearch.filter(r => getSectorId(r.sembol) === sektorParam)
@@ -959,26 +971,9 @@ function TaramaPageInner() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="rounded-xl border border-border bg-surface/50 p-8 text-center text-text-secondary"
           >
-            {searchUpper && (BIST_SYMBOLS as readonly string[]).some(s => s.includes(searchUpper)) ? (
-              <>
-                <p className="mb-3 font-medium text-text-primary">
-                  {searchUpper} için şu an aktif sinyal yok
-                </p>
-                <p className="mb-4 text-sm">Hisse detay sayfasında grafik ve geçmiş analizleri görüntüleyebilirsin.</p>
-                <a
-                  href={`/hisse/${searchUpper}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/30 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
-                >
-                  {searchUpper} Detay Sayfası →
-                </a>
-              </>
-            ) : (
-              <>
-                Seçilen filtreye uygun sinyal bulunamadı.{' '}
-                {activeFilterCount > 0 && (
-                  <button onClick={clearFilters} className="ml-1 text-primary underline underline-offset-2">Filtreleri temizle</button>
-                )}
-              </>
+            Seçilen filtreye uygun sinyal bulunamadı.{' '}
+            {activeFilterCount > 0 && (
+              <button onClick={clearFilters} className="ml-1 text-primary underline underline-offset-2">Filtreleri temizle</button>
             )}
           </motion.div>
         )}
@@ -991,6 +986,27 @@ function TaramaPageInner() {
           >
             <AnimatePresence>
               {filteredByKap.map((r) => {
+                // Sinyalsiz hisse (arama sonucu) — detay sayfasına yönlendir
+                if (r.signals.length === 0) {
+                  return (
+                    <motion.div
+                      key={r.sembol}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <a
+                        href={`/hisse/${r.sembol}`}
+                        className="flex flex-col gap-2 rounded-xl border border-border bg-surface/50 p-5 hover:border-primary/40 hover:bg-surface transition-colors"
+                      >
+                        <span className="text-sm font-bold text-text-primary">{r.sembol}</span>
+                        <span className="text-xs text-text-muted">Şu an aktif sinyal yok</span>
+                        <span className="text-[11px] text-primary">Detay sayfasını görüntüle →</span>
+                      </a>
+                    </motion.div>
+                  );
+                }
                 const primarySig = r.signals[0]!;
                 return (
                   <motion.div
