@@ -52,9 +52,9 @@ const MOCK_SIGNALS = [
 
 const STATS = [
   { value: '295',  label: 'BIST Hissesi'          },
-  { value: '10',   label: 'Farklı Sinyal Tipi'   },
-  { value: '5 dakika', label: 'Güncelleme Sıklığı'   },
-  { value: '7/24', label: 'Canlı Analiz'          },
+  { value: '%95',  label: 'İşlem Hacmi Kapsamı'   },
+  { value: '10',   label: 'Farklı Sinyal Tipi'    },
+  { value: '7/24', label: 'Canlı Analiz'           },
 ];
 
 // ── Features ──────────────────────────────────────────────────────
@@ -779,7 +779,7 @@ export default function LandingPage() {
                 className="mt-10 flex flex-wrap items-center justify-center gap-6 lg:justify-start"
               >
                 {[
-                  { icon: Globe2,          text: '295 BIST hissesi' },
+                  { icon: Globe2,          text: '295 hisse · %95 işlem hacmi' },
                   { icon: Activity,        text: '10 sinyal tipi + backtesting' },
                   { icon: Bell,            text: 'Portföy & anlık uyarılar' },
                 ].map((item, i) => (
