@@ -471,6 +471,8 @@ function TaramaPageInner() {
   const [macroBannerDismissed, setMacroBannerDismissed] = useState(false);
   const [onlyKapToday,         setOnlyKapToday]         = useState(false);
   const [kapTodaySet,          setKapTodaySet]          = useState<Set<string>>(new Set());
+  const [dbScannedAt,          setDbScannedAt]          = useState<string | null>(null);
+  const [dbAgeMinutes,         setDbAgeMinutes]         = useState<number | null>(null);
   const explanationCache = useRef<Map<string, string>>(new Map());
 
   // Load prefs
@@ -493,8 +495,11 @@ function TaramaPageInner() {
     });
   }, []);
 
-  // Restore scan cache (localStorage — 4 saat, aynı gün içinde sayfa yenilemede anında yükle)
+  // DB cache yükle — sayfa açılırken anlık sonuçları göster
   useEffect(() => {
+    let cancelled = false;
+
+    // Önce localStorage'dan yükle (anlık)
     try {
       const cached = localStorage.getItem(SCAN_CACHE_KEY);
       if (cached) {
@@ -507,6 +512,37 @@ function TaramaPageInner() {
         }
       }
     } catch { /* ignore */ }
+
+    // Sonra DB cache'i çek — localStorage'dan daha güncel olabilir
+    fetch('/api/scan-cache')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: {
+        results: Array<{ sembol: string; signals: import('@/types').StockSignal[]; candles: import('@/types').OHLCVCandle[]; changePercent: number | null }>;
+        allScanned: Array<{ sembol: string; candles: import('@/types').OHLCVCandle[] }>;
+        fromCache: boolean;
+        count: number;
+        scannedAt: string | null;
+        ageMinutes: number | null;
+      } | null) => {
+        if (cancelled || !data?.fromCache || !data.results?.length) return;
+        // DB'de veri var ve 12 saatten taze ise kullan
+        const ageMs = data.scannedAt ? Date.now() - new Date(data.scannedAt).getTime() : Infinity;
+        if (ageMs > 12 * 60 * 60 * 1000) return;
+        const mapped: ScanResult[] = data.results.map(r => ({
+          sembol: r.sembol,
+          signals: r.signals,
+          candles: r.candles,
+          changePercent: r.changePercent ?? undefined,
+        }));
+        setResults(mapped);
+        setScannedCount(data.count + (data.results.length < BIST_SYMBOLS.length ? BIST_SYMBOLS.length - data.results.length : 0));
+        setDbScannedAt(data.scannedAt);
+        setDbAgeMinutes(data.ageMinutes);
+        if (data.allScanned?.length) setSectorMap(computeSectorMomentum(data.allScanned));
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
   }, []);
 
 
@@ -887,11 +923,22 @@ function TaramaPageInner() {
         </AnimatePresence>
 
         {hasScanResults && (
-          <ScanSummary
-            total={scannedCount} signalCount={signalCount} strongCount={strongCount}
-            midCount={midCount} weakCount={weakCount} alCount={alCount}
-            satCount={satCount} avgWinRate={avgWinRate}
-          />
+          <>
+            <ScanSummary
+              total={scannedCount} signalCount={signalCount} strongCount={strongCount}
+              midCount={midCount} weakCount={weakCount} alCount={alCount}
+              satCount={satCount} avgWinRate={avgWinRate}
+            />
+            {dbScannedAt && !loading && (
+              <div className="mb-3 flex items-center gap-2 text-xs text-text-secondary opacity-60">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70" />
+                Son tarama: {new Date(dbScannedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                {dbAgeMinutes !== null && dbAgeMinutes > 60 && (
+                  <span className="opacity-70">· {Math.floor(dbAgeMinutes / 60)}s {dbAgeMinutes % 60}dk önce</span>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {/* Active filter counter */}
