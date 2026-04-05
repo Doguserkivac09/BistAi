@@ -113,15 +113,15 @@ export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
  */
 export const BIST_SYMBOLS = [
   // Bankacılık & Finans
-  'AKBNK', 'GARAN', 'HALKB', 'ISCTR', 'VAKBN', 'YKBNK', 'SKBNK', 'ALBRK', 'QNBFB', 'TSKB',
+  'AKBNK', 'GARAN', 'HALKB', 'ISCTR', 'VAKBN', 'YKBNK', 'SKBNK', 'ALBRK', 'TSKB',
   // Sigorta & Finansal Hizmetler
   'HEKTS', 'ANHYT', 'AGROT', 'ISMEN', 'ANSGR', 'AKGRT', 'RAYSG', 'ISFIN',
   // Holding
-  'KCHOL', 'SAHOL', 'DOHOL', 'TAVHL', 'TKFEN', 'IHLAS', 'PEHOL',
+  'KCHOL', 'SAHOL', 'DOHOL', 'TAVHL', 'TKFEN', 'IHLAS',
   // Havacılık & Savunma
   'THYAO', 'PGSUS', 'ASELS',
   // Enerji & Petrol
-  'TUPRS', 'AKSEN', 'AKENR', 'AKSA', 'ENKAI', 'ODAS', 'KONTR', 'ENJSA', 'ORGE', 'NATEN', 'AYDEM',
+  'TUPRS', 'AKSEN', 'AKENR', 'AKSA', 'ODAS', 'KONTR', 'ENJSA', 'ORGE', 'NATEN', 'AYDEM',
   // Otomotiv & Makine
   'FROTO', 'TOASO', 'OTKAR', 'DOAS', 'TTRAK', 'KATMR', 'JANTS', 'KAREL', 'MAKIM',
   // Perakende & Tüketici
@@ -131,20 +131,20 @@ export const BIST_SYMBOLS = [
   // Telekomünikasyon & Teknoloji
   'TCELL', 'TTKOM', 'ASTOR', 'LOGO', 'ARDYZ', 'NETAS', 'MARTI', 'TKNSA',
   // Demir-Çelik & Madencilik
-  'EREGL', 'KRDMD', 'KRDMA', 'KRDMC', 'KOZAL', 'KOZAA', 'IPEKE', 'BRSAN', 'CEMTS', 'PARSN',
+  'EREGL', 'KRDMD', 'KRDMA', 'BRSAN', 'CEMTS', 'PARSN',
   // Çimento & Yapı Malzemeleri
-  'CIMSA', 'AKCNS', 'AFYON', 'BOLUC', 'BURVA', 'KONYA', 'UNYEC', 'IZOCM',
+  'CIMSA', 'AKCNS', 'AFYON', 'BURVA', 'KONYA',
   // Cam & Kimya
-  'SISE', 'TRKCM', 'SODA', 'GUBRF', 'PETKM', 'ALKIM', 'PIMAS',
+  'SISE', 'GUBRF', 'PETKM', 'ALKIM',
   // İnşaat & GYO
-  'EKGYO', 'ENKA', 'KLGYO', 'ALGYO', 'ISGYO', 'TRGYO', 'HLGYO', 'OZGYO', 'RGYAS', 'PAGYO',
+  'EKGYO', 'KLGYO', 'ALGYO', 'ISGYO', 'TRGYO', 'HLGYO', 'OZGYO', 'RGYAS', 'PAGYO',
   'NIBAS', 'OSTIM', 'OYLUM',
   // Sanayi & Üretim
   'ARCLK', 'VESBE', 'VESTL', 'BRISA', 'OYAKC', 'GESAN', 'EGEEN', 'SANEL', 'GEREL',
   // Tekstil & Hazır Giyim
   'MNDRS', 'SUWEN', 'SONME', 'YUNSA', 'DAGI', 'EDIP',
   // Ulaştırma & Lojistik
-  'CLEBI', 'RYSAS', 'ULASL',
+  'CLEBI', 'RYSAS',
   // Sağlık & İlaç
   'SELEC', 'DEVA', 'ONCSM',
   // Spor Kulüpleri
@@ -152,7 +152,7 @@ export const BIST_SYMBOLS = [
   // Diğer BIST bileşenleri
   'ALFAS', 'BERA', 'BTCIM', 'BUCIM', 'CEMAS', 'ECILC', 'GLYHO',
   'KARSN', 'MPARK', 'PEKGY', 'SARKY', 'SMRTG', 'TMSN', 'TURSG',
-  'ALARK', 'AEFES', 'BAGFS', 'CWENE', 'EUPWR', 'HBCAG',
+  'ALARK', 'AEFES', 'BAGFS', 'CWENE', 'EUPWR',
   'INDES', 'KORDS', 'MEGAP', 'OBAMS', 'SILVR', 'ZOREN',
   'KARTN', 'LIDER', 'METRO', 'INTEM', 'HEDEF', 'TEKTU',
 ] as const;
