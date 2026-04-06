@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import { fetchOHLCV } from '@/lib/yahoo';
 
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
@@ -11,7 +12,7 @@ export async function GET(
   const symbol = params.symbol.trim().toUpperCase();
 
   if (!/^[\w^.\-=]{1,20}$/i.test(symbol)) {
-    return new Response('Geçersiz sembol', { status: 400 });
+    return new Response('Gecersiz sembol', { status: 400 });
   }
 
   try {
@@ -67,12 +68,12 @@ export async function GET(
                 {symbol}
               </span>
               <span style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>
-                Son 50 İşlem Günü
+                Son 50 Islem Gunu
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
               <span style={{ color: '#ffffff', fontSize: 28, fontWeight: 'bold' }}>
-                {price} ₺
+                {price} TL
               </span>
               <span
                 style={{
@@ -153,7 +154,7 @@ export async function GET(
           >
             <span style={{ color: '#334155', fontSize: 11 }}>bistai.vercel.app</span>
             <span style={{ color: '#334155', fontSize: 11 }}>
-              AI Sinyal Botu • {new Date().toLocaleDateString('tr-TR')}
+              AI Sinyal Botu
             </span>
           </div>
         </div>
@@ -162,6 +163,6 @@ export async function GET(
     );
   } catch (err) {
     console.error('[chart-image]', err);
-    return new Response('Grafik oluşturulamadı', { status: 500 });
+    return new Response('Grafik olusturulamadi', { status: 500 });
   }
 }
