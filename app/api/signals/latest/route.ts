@@ -145,7 +145,6 @@ function buildTelegramMessage(sig: SocialSignal): string {
     `💰 Fiyat: *${sig.currentPrice.toFixed(2)} TL* ` +
     `(${changeSign}${sig.changePercent.toFixed(2)}%)\n\n` +
     `${separator}\n` +
-    `🔗 [Detaylı Analiz](https://bistai.vercel.app/hisse/${sig.symbol}) · ` +
     `[📊 Grafik](${chartUrl})`
   );
 }
