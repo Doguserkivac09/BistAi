@@ -26,9 +26,16 @@ const WINDOW_MS = 60_000;
 
 // Günlük mesaj limitleri (tier başına)
 const DAILY_LIMITS: Record<string, number> = {
-  free: 3,
-  pro: 30,
-  premium: 100,
+  free: 7,
+  pro: 20,
+  premium: 50,
+};
+
+// Tier başına max_tokens (kalite farkı)
+const MAX_TOKENS_BY_TIER: Record<string, number> = {
+  free: 900,
+  pro: 1500,
+  premium: 2000,
 };
 
 export interface ChatMessage {
@@ -50,7 +57,7 @@ function buildSystemPrompt(ctx: ChatContext, userEmail: string): string {
     day: 'numeric', month: 'long', year: 'numeric', weekday: 'long',
   });
 
-  let system = `Sen BistAI'nin AI yatırım asistanısın. Türkiye Borsa İstanbul (BIST) uzmanısın.
+  let system = `Sen Investable Edge'nin AI yatırım asistanısın. Türkiye Borsa İstanbul (BIST) uzmanısın.
 
 Bugünün tarihi: ${now}
 Kullanıcı: ${userEmail.split('@')[0]}
@@ -126,6 +133,35 @@ async function recordUsage(userId: string): Promise<void> {
     const admin = createClient(supabaseUrl, serviceKey);
     await admin.from('ai_chat_usage').insert({ user_id: userId });
   } catch { /* sessizce geç */ }
+}
+
+// ── Makro bağlamı inşa et ─────────────────────────────────────────────
+
+async function buildMacroContext(): Promise<string> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/macro`, {
+      next: { revalidate: 300 }, // 5 dk cache
+    });
+    if (!res.ok) return '';
+    const data = await res.json();
+    const s = data?.score;
+    const i = data?.indicators;
+    if (!s || !i) return '';
+
+    const parts: string[] = [];
+    if (s.score !== undefined) parts.push(`Makro skor: ${s.score > 0 ? '+' : ''}${s.score}/100 (${s.wind ?? ''})`);
+    if (i.USDTRY)  parts.push(`USD/TRY: ${i.USDTRY.value?.toFixed(2)}`);
+    if (i.VIX)    parts.push(`VIX: ${i.VIX.value?.toFixed(1)}`);
+    if (i.BRENT)  parts.push(`Brent: $${i.BRENT.value?.toFixed(1)}`);
+    if (i.GOLD)   parts.push(`Altın: $${i.GOLD.value?.toFixed(0)}`);
+    if (data?.turkey?.tcmbRate) parts.push(`TCMB faiz: %${data.turkey.tcmbRate}`);
+    if (data?.turkey?.tufe)     parts.push(`TÜFE: %${data.turkey.tufe}`);
+
+    return parts.join(' | ');
+  } catch {
+    return '';
+  }
 }
 
 // ── Portföy özeti inşa et ─────────────────────────────────────────────
@@ -238,9 +274,12 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Portföy bağlamını otomatik ekle (context'te yoksa)
+  // Bağlamları otomatik doldur
   if (!context.portfolyoOzet) {
     context.portfolyoOzet = await buildPortfolioSummary(user.id);
+  }
+  if (!context.makroOzet) {
+    context.makroOzet = await buildMacroContext();
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -268,9 +307,10 @@ export async function POST(request: NextRequest) {
           content: m.role === 'user' ? sanitizeUserInput(m.content, 2000) : m.content,
         }));
 
+        const maxTokens = MAX_TOKENS_BY_TIER[tier] ?? MAX_TOKENS_BY_TIER.free;
         const anthropicStream = client.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 800,
+          max_tokens: maxTokens,
           system: systemPrompt,
           messages: sanitizedMessages,
         });

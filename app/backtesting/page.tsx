@@ -113,7 +113,7 @@ function exportCSV(matrix: PerformanceMatrixRow[], regimeKeys: string[], horizon
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `bistai-backtest-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `investableedge-backtest-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -391,6 +391,8 @@ function RiskRewardBar({
 
 function EmptyStateImproved() {
   const [showHelp, setShowHelp] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedMsg, setSeedMsg] = useState<string | null>(null);
 
   return (
     <div className="mx-auto max-w-lg">
@@ -422,7 +424,7 @@ function EmptyStateImproved() {
           ))}
         </div>
 
-        <div className="flex justify-center gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           <Link
             href="/tarama"
             className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/80"
@@ -431,6 +433,28 @@ function EmptyStateImproved() {
             Taramaya Git
           </Link>
           <button
+            onClick={async () => {
+              setSeeding(true);
+              setSeedMsg(null);
+              try {
+                const res = await fetch('/api/dev/seed-backtest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ count: 300 }) });
+                const d = await res.json();
+                if (!res.ok) { setSeedMsg(d.error ?? 'Hata oluştu.'); return; }
+                setSeedMsg(d.message ?? `${d.inserted} kayıt eklendi.`);
+                setTimeout(() => window.location.reload(), 1500);
+              } catch {
+                setSeedMsg('Bağlantı hatası.');
+              } finally {
+                setSeeding(false);
+              }
+            }}
+            disabled={seeding}
+            className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+          >
+            {seeding ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
+            {seeding ? 'Yükleniyor…' : 'Demo Veri Yükle'}
+          </button>
+          <button
             onClick={() => setShowHelp(v => !v)}
             className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm text-text-secondary transition-colors hover:border-primary/40 hover:text-text-primary"
           >
@@ -438,6 +462,9 @@ function EmptyStateImproved() {
             Nasıl Çalışır?
           </button>
         </div>
+        {seedMsg && (
+          <p className="mt-3 text-xs text-center text-emerald-400">{seedMsg}</p>
+        )}
 
         <AnimatePresence>
           {showHelp && (
@@ -450,7 +477,7 @@ function EmptyStateImproved() {
               className="mt-4 rounded-xl border border-border bg-surface/30 p-4 text-left"
             >
               <p className="text-xs leading-relaxed text-text-secondary">
-                BistAI her tarama yaptığınızda sinyallerin o anki fiyatını kaydeder.
+                Investable Edge her tarama yaptığınızda sinyallerin o anki fiyatını kaydeder.
                 3, 7 ve 14 gün sonra fiyatlar tekrar kontrol edilerek sinyalin başarılı olup
                 olmadığı değerlendirilir. Bu veriler birikerek hangi sinyalin hangi piyasa
                 koşulunda daha başarılı olduğunu ortaya koyar.
@@ -676,7 +703,7 @@ function SummaryCards({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-9"
+      className="mb-6 grid grid-cols-3 gap-3 sm:grid-cols-3 lg:grid-cols-9"
     >
       {cards.map((card) => (
         <div

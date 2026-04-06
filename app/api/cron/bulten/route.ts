@@ -16,8 +16,8 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
 
-const FROM    = process.env.RESEND_FROM    ?? 'BistAI <bildirim@bistai.app>';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bistai.vercel.app';
+const FROM    = process.env.RESEND_FROM    ?? 'Investable Edge <bildirim@investableedge.app>';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://investableedge.vercel.app';
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -123,7 +123,7 @@ function buildHtml(portfolio: PortfolioSummary | null, topSignals: TopSignal[], 
     <tr><td align="center" style="padding:40px 16px;">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%;">
         <tr><td style="padding:24px; background:#10b981; border-radius:12px 12px 0 0; text-align:center;">
-          <h1 style="margin:0; font-size:22px; font-weight:800; color:#fff; letter-spacing:-.02em;">📊 BistAI Haftalık Bülten</h1>
+          <h1 style="margin:0; font-size:22px; font-weight:800; color:#fff; letter-spacing:-.02em;">📊 Investable Edge Haftalık Bülten</h1>
           <p style="margin:6px 0 0; font-size:13px; color:rgba(255,255,255,.8);">${weekStr}</p>
         </td></tr>
         <tr><td style="padding:24px; background:#18181b; border:1px solid #27272a; border-top:none; border-radius:0 0 12px 12px;">
@@ -162,7 +162,7 @@ function buildHtml(portfolio: PortfolioSummary | null, topSignals: TopSignal[], 
           <hr style="border:none; border-top:1px solid #27272a; margin:20px 0;" />
 
           <p style="margin:0; font-size:11px; color:#52525b; text-align:center; line-height:1.6;">
-            BistAI · BIST Sinyal Analiz Platformu<br/>
+            Investable Edge · BIST Sinyal Analiz Platformu<br/>
             Bülten almak istemiyorsanız <a href="${APP_URL}/profil" style="color:#71717a;">profil sayfanızdan</a> devre dışı bırakabilirsiniz.
           </p>
         </td></tr>
@@ -232,7 +232,7 @@ export async function GET(request: Request) {
         const signalSummary = signals.length > 0
           ? signals.map(s => `${s.sembol}: ${s.type} (${s.direction === 'yukari' ? '↑' : '↓'} ${s.severity})`).join(', ')
           : 'Bu hafta güçlü sinyal yok';
-        const prompt = `Sen BistAI haftalık bülten editörüsün. Bugün ${weekStr}.
+        const prompt = `Sen Investable Edge haftalık bülten editörüsün. Bugün ${weekStr}.
 Bu haftanın BIST sinyal özeti: ${signalSummary}
 
 Aboneler için kişisel, samimi ve aksiyon odaklı 3-4 cümlelik Türkçe haftalık piyasa yorumu yaz.
@@ -313,7 +313,7 @@ Sadece yorumu yaz, başlık veya açıklama ekleme.`;
         await resend.emails.send({
           from: FROM,
           to: userEmail,
-          subject: `📊 BistAI Haftalık Bülten — ${new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}`,
+          subject: `📊 Investable Edge Haftalık Bülten — ${new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}`,
           html,
         });
         sentCount++;

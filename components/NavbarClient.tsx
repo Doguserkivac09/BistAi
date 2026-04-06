@@ -20,7 +20,6 @@ const navItems = [
     dropdown: [
       { href: '/portfolyo',       label: 'Portföyüm',      icon: Briefcase },
       { href: '/watchlist',        label: 'Watchlist',        icon: Star },
-      { href: '/fiyat-alertler',  label: 'Fiyat Alarmları',  icon: Bell },
       { href: '/ters-portfolyo',  label: 'Fırsatlar',        icon: Compass },
       { href: '/karsilastir',     label: 'Karşılaştır',      icon: GitCompare },
     ],
@@ -31,9 +30,7 @@ const navItems = [
       { href: '/sektorler',        label: 'Sektör Analizi',   icon: TrendingUp },
       { href: '/makro',            label: 'Makro Radar',       icon: BarChart2 },
       { href: '/simulasyon',       label: 'Makro Simülatör',   icon: FlaskConical },
-      { href: '/ekonomi-takvimi', label: 'Ekonomi Takvimi',   icon: CalendarClock },
-      { href: '/haberler',         label: 'Haberler',           icon: Newspaper },
-      { href: '/kap',              label: 'KAP Duyuruları',     icon: FileText },
+      { href: '/haberler',            label: 'Gündem Merkezi',   icon: Newspaper },
       { href: '/araclar',          label: 'Araçlar',            icon: Calculator },
     ],
   },
@@ -150,7 +147,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
 
   // Read localStorage cache after mount to avoid SSR/client mismatch
   useEffect(() => {
-    const cached = localStorage.getItem('bistai_avatar_url');
+    const cached = localStorage.getItem('investableedge_avatar_url');
     if (cached) setAvatarUrl(cached);
   }, []);
   const pathname = usePathname();
@@ -166,8 +163,8 @@ export function NavbarClient({ user }: NavbarClientProps) {
         if (cancelled) return;
         const url = d?.avatar_url ?? null;
         setAvatarUrl(url);
-        if (url) localStorage.setItem('bistai_avatar_url', url);
-        else localStorage.removeItem('bistai_avatar_url');
+        if (url) localStorage.setItem('investableedge_avatar_url', url);
+        else localStorage.removeItem('investableedge_avatar_url');
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -178,7 +175,7 @@ export function NavbarClient({ user }: NavbarClientProps) {
     function onAvatarChange(e: Event) {
       const url = (e as CustomEvent<string>).detail;
       setAvatarUrl(url);
-      if (url) localStorage.setItem('bistai_avatar_url', url);
+      if (url) localStorage.setItem('investableedge_avatar_url', url);
     }
     window.addEventListener('avatar-changed', onAvatarChange);
     return () => window.removeEventListener('avatar-changed', onAvatarChange);
@@ -205,8 +202,8 @@ export function NavbarClient({ user }: NavbarClientProps) {
     <>
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold text-text-primary">
-          <span className="text-primary">Bist</span>
-          <span>AI</span>
+          <span className="text-primary">Investable</span>
+          <span>Edge</span>
         </Link>
 
         {/* Desktop nav */}

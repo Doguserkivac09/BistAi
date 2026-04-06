@@ -101,25 +101,30 @@ async function fetchEvdsSeries(
     return [];
   }
 
-  const url = new URL(EVDS_BASE_URL);
-  url.searchParams.set('series', seriesCode);
-  url.searchParams.set('startDate', startDate);
-  url.searchParams.set('endDate', endDate);
-  url.searchParams.set('type', 'json');
-  url.searchParams.set('key', apiKey);
+  // TCMB EVDS alışılmadık URL formatı: parametreler path segmenti olarak gönderilir
+  // Doğru: /service/evds/series=X&startDate=Y&endDate=Z&type=json&key=K
+  const url = `${EVDS_BASE_URL}/series=${encodeURIComponent(seriesCode)}&startDate=${startDate}&endDate=${endDate}&type=json&key=${apiKey}`;
+
+  console.log(`[TCMB] İstek URL: ${url.replace(apiKey, 'KEY_HIDDEN')}`);
 
   try {
-    const res = await fetch(url.toString(), {
-      next: { revalidate: 1800 }, // 30 dk
+    const res = await fetch(url, {
+      cache: 'no-store', // Next.js cache bypass — TCMB kendi cache'ini yönetiyor
+      headers: {
+        'key': apiKey,
+        'Accept': 'application/json',
+      },
       signal: AbortSignal.timeout(8_000),
     });
 
-    if (!res.ok) {
-      console.error(`[TCMB] HTTP ${res.status} (${seriesCode})`);
+    const text = await res.text();
+
+    if (!res.ok || text.trimStart().startsWith('<')) {
+      console.error(`[TCMB] HTTP ${res.status} (${seriesCode}) — İlk 300 karakter: ${text.slice(0, 300)}`);
       return [];
     }
 
-    const json = await res.json() as EvdsResponse;
+    const json = JSON.parse(text) as EvdsResponse;
     const items = json.items;
 
     if (!items?.length) return [];
@@ -165,8 +170,8 @@ export async function fetchPolicyRate(): Promise<TurkeyIndicator | null> {
 
   const data = await fetchEvdsSeries(code, startDate, endDate);
   if (data.length === 0) {
-    // Fallback: hardcoded son bilinen değer (güncellenebilir)
-    return createFallbackIndicator(name, 50, unit, 'hardcoded-fallback');
+    // Fallback: son bilinen TCMB politika faizi (2026 Nisan itibarıyla ~%37)
+    return createFallbackIndicator(name, 37, unit, 'hardcoded-fallback');
   }
 
   const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
@@ -187,7 +192,10 @@ export async function fetchTurkeyInflation(): Promise<TurkeyIndicator | null> {
   const startDate = formatDateEvds(monthsAgo(24));
 
   const data = await fetchEvdsSeries(code, startDate, endDate);
-  if (data.length === 0) return null;
+  if (data.length === 0) {
+    // Fallback: TÜİK son açıklanan TÜFE yıllık (2026 itibarıyla ~%30.9)
+    return createFallbackIndicator(name, 30.9, unit, 'tuik-hardcoded-fallback');
+  }
 
   const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
   if (indicator) setTurkeyCache(cacheKey, indicator);
@@ -217,7 +225,7 @@ export async function fetchTurkeyCDS(): Promise<TurkeyIndicator | null> {
     const usdtryHistory = await fetchMacroHistory('USDTRY', 90);
 
     if (!usdtryHistory?.data || usdtryHistory.data.length < 30) {
-      return createFallbackIndicator('Türkiye 5Y CDS (proxy)', 300, 'bps', 'proxy-estimate');
+      return createFallbackIndicator('Türkiye 5Y CDS (proxy)', 290, 'bps', 'proxy-estimate');
     }
 
     // 30 günlük USD/TRY volatilite → proxy CDS
@@ -235,7 +243,8 @@ export async function fetchTurkeyCDS(): Promise<TurkeyIndicator | null> {
     const volatility = Math.sqrt(variance) * Math.sqrt(252); // Annualize
 
     // Proxy CDS = volatility × 1500 (kaba tahmin, gerçek CDS korelasyonu baz alınarak)
-    const proxyCds = Math.round(volatility * 1500);
+    // Türkiye için minimum 280 bps floor — 2026 itibarıyla gerçek CDS ~280-300 bps
+    const proxyCds = Math.max(280, Math.round(volatility * 1500));
 
     // Önceki 30 gün CDS
     const prev30 = usdtryHistory.data.slice(-60, -30);
@@ -248,7 +257,7 @@ export async function fetchTurkeyCDS(): Promise<TurkeyIndicator | null> {
       }
       const prevAvg = prevReturns.reduce((s, r) => s + r, 0) / prevReturns.length;
       const prevVar = prevReturns.reduce((s, r) => s + (r - prevAvg) ** 2, 0) / prevReturns.length;
-      previousCds = Math.round(Math.sqrt(prevVar) * Math.sqrt(252) * 1500);
+      previousCds = Math.max(280, Math.round(Math.sqrt(prevVar) * Math.sqrt(252) * 1500));
     }
 
     const change = previousCds !== null ? proxyCds - previousCds : null;
@@ -278,7 +287,7 @@ export async function fetchTurkeyCDS(): Promise<TurkeyIndicator | null> {
     return indicator;
   } catch (err) {
     console.error('[Turkey] CDS proxy hesaplama hatası:', err);
-    return createFallbackIndicator('Türkiye 5Y CDS (proxy)', 300, 'bps', 'proxy-error-fallback');
+    return createFallbackIndicator('Türkiye 5Y CDS (proxy)', 290, 'bps', 'proxy-error-fallback');
   }
 }
 

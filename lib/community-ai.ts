@@ -19,7 +19,7 @@ import { checkRateLimit } from './rate-limit';
 
 // ── System Prompt ─────────────────────────────────────────────────────
 
-const COMMUNITY_AI_SYSTEM_PROMPT = `Sen BistAI'ın topluluk analiz asistanısın. BIST yatırımcılarının toplulukta paylaştığı analizleri ve yorumları değerlendirip kısa, nesnel bir yapay zeka perspektifi sunuyorsun.
+const COMMUNITY_AI_SYSTEM_PROMPT = `Sen Investable Edge'ın topluluk analiz asistanısın. BIST yatırımcılarının toplulukta paylaştığı analizleri ve yorumları değerlendirip kısa, nesnel bir yapay zeka perspektifi sunuyorsun.
 
 Kurallar:
 - Türkçe yaz, sade ve anlaşılır ol.

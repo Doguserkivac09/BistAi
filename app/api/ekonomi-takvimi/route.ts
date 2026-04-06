@@ -175,17 +175,28 @@ export async function POST(request: NextRequest) {
 
   const key = cacheKey(events);
 
-  // In-memory cache
-  const mem = yorumCache.get(key);
-  if (mem && Date.now() - mem.ts < CACHE_TTL) {
-    return Response.json({ yorum: mem.yorum, cached: true });
-  }
+  // Cache — SSE formatında dön (frontend her zaman stream okur)
+  const makeSseResponse = (text: string) => {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    });
+  };
 
-  // DB cache
+  const mem = yorumCache.get(key);
+  if (mem && Date.now() - mem.ts < CACHE_TTL) return makeSseResponse(mem.yorum);
+
   const db = await getDbCache(key);
   if (db) {
     yorumCache.set(key, { yorum: db, ts: Date.now() });
-    return Response.json({ yorum: db, cached: true });
+    return makeSseResponse(db);
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -205,7 +216,7 @@ export async function POST(request: NextRequest) {
         let acc = '';
         const s = client.messages.stream({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 800,
+          max_tokens: 1200,
           messages: [{ role: 'user', content: prompt }],
         });
         for await (const chunk of s) {

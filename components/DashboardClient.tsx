@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Star, BookMarked, Clock, Search, BarChart2, TrendingUp, Users,
-  Briefcase, Newspaper, PieChart,
+  Briefcase, Newspaper, PieChart, MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BeamsBackground } from '@/components/ui/beams-background';
@@ -91,6 +91,13 @@ const QUICK_ACTIONS = [
     color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 hover:border-emerald-400/50 hover:from-emerald-500/30 hover:to-teal-500/30',
   },
   {
+    href: '/sohbet',
+    icon: MessageSquare,
+    label: 'AI Sohbet',
+    desc: 'Asistanla konuş',
+    color: 'from-violet-500/20 to-purple-500/20 border-violet-500/30 hover:border-violet-400/50 hover:from-violet-500/30 hover:to-purple-500/30',
+  },
+  {
     href: '/topluluk',
     icon: Users,
     label: 'Topluluk',
@@ -100,8 +107,8 @@ const QUICK_ACTIONS = [
   {
     href: '/haberler',
     icon: Newspaper,
-    label: 'Haberler',
-    desc: 'Son gelişmeler',
+    label: 'Gündem',
+    desc: 'Haber & takvim',
     color: 'from-amber-500/20 to-orange-500/20 border-amber-500/30 hover:border-amber-400/50 hover:from-amber-500/30 hover:to-orange-500/30',
   },
   {
@@ -146,10 +153,20 @@ function SignalDistribution({ signals }: { signals: SavedSignal[] }) {
   );
 }
 
+const TIER_CONFIG: Record<string, { label: string; color: string; border: string }> = {
+  free:    { label: 'Ücretsiz', color: 'text-white/40',   border: 'border-white/15 bg-white/5'      },
+  pro:     { label: 'Pro',      color: 'text-blue-400',   border: 'border-blue-500/30 bg-blue-500/10' },
+  premium: { label: 'Premium',  color: 'text-yellow-400', border: 'border-yellow-500/30 bg-yellow-500/10' },
+};
+
+const DAILY_LIMITS: Record<string, number> = { free: 7, pro: 20, premium: 50 };
+
 interface Props {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  tier: string;
+  dailyAiCount: number;
   watchlist: WatchlistItem[];
   savedSignals: SavedSignal[];
   savedSignalsCount: number;
@@ -162,6 +179,8 @@ export function DashboardClient({
   email,
   displayName,
   avatarUrl: initialAvatarUrl,
+  tier,
+  dailyAiCount,
   watchlist,
   savedSignals,
   savedSignalsCount,
@@ -247,7 +266,17 @@ export function DashboardClient({
               <h1 className="text-5xl md:text-6xl font-black tracking-tight text-white mb-2">
                 {displayName}
               </h1>
-              <p className="text-white/35 text-sm">{email}</p>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <p className="text-white/35 text-sm">{email}</p>
+                {(() => {
+                  const tc = TIER_CONFIG[tier] ?? TIER_CONFIG.free!;
+                  return (
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tc.color} ${tc.border}`}>
+                      {tc.label}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
 
             {/* Stat Kartları */}
@@ -276,8 +305,42 @@ export function DashboardClient({
               })}
             </div>
 
+            {/* AI Kullanım Şeridi */}
+            {(() => {
+              const limit = DAILY_LIMITS[tier] ?? 7;
+              const pct   = Math.min(100, Math.round((dailyAiCount / limit) * 100));
+              const barColor = pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-yellow-500' : 'bg-primary';
+              return (
+                <div className="animate-fade-in-up stagger-7 rounded-xl border border-white/8 bg-black/30 backdrop-blur-md px-5 py-3 flex items-center gap-4">
+                  <MessageSquare className="h-4 w-4 text-white/30 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-white/45">AI Asistan — Bugün</span>
+                      <span className="text-xs font-semibold text-white/60 tabular-nums">
+                        {dailyAiCount} / {limit} mesaj
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                  {tier === 'free' && pct >= 60 && (
+                    <Link
+                      href="/fiyatlandirma"
+                      className="shrink-0 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+                    >
+                      Yükselt
+                    </Link>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Hızlı Eylemler */}
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 animate-fade-in-up stagger-7">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3 animate-fade-in-up stagger-7">
               {QUICK_ACTIONS.map((action) => {
                 const Icon = action.icon;
                 return (

@@ -47,8 +47,13 @@ function setCache(key: string, data: OHLCVFetchResult): void {
 
 function toYahooSymbol(sembol: string): string {
   const trimmed = sembol.trim().toUpperCase();
-  // Index sembolleri (^XU100 gibi) .IS almaz
+  // Index sembolleri (^VIX, ^TNX gibi) .IS almaz
   if (trimmed.startsWith('^')) return trimmed;
+  // Futures/forex/global semboller: = içerenler (GC=F, SI=F, USDTRY=X)
+  // veya . içerenler (DX-Y.NYB, zaten exchange suffix'i var)
+  // veya - içerenler (DX-Y.NYB) .IS almaz
+  if (trimmed.includes('=') || trimmed.includes('.') || trimmed.includes('-')) return trimmed;
+  // BIST hisseleri: .IS suffix ekle
   return trimmed.endsWith(BIST_SUFFIX) ? trimmed : `${trimmed}${BIST_SUFFIX}`;
 }
 
@@ -116,7 +121,7 @@ export async function fetchOHLCV(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8_000);
     res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)' },
       next: { revalidate: 300 },
       signal: controller.signal,
     });
@@ -238,7 +243,7 @@ export async function fetchOHLCVByTimeframe(
   let res: Response;
   try {
     res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)' },
       next: { revalidate: 120 },
       signal: AbortSignal.timeout(8_000),
     });
@@ -322,7 +327,7 @@ export async function fetchQuote(sembol: string): Promise<{
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=1d&interval=1d`;
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BistAI/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)' },
       next: { revalidate: 60 },
     });
     const json = (await res.json()) as {

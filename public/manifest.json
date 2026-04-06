@@ -1,8 +1,9 @@
 {
-  "name": "BistAI — BIST Sinyal Analizi",
-  "short_name": "BistAI",
+  "name": "Investable Edge — BIST Sinyal Analizi",
+  "short_name": "Investable Edge",
   "description": "BIST hisselerinde AI destekli teknik analiz sinyalleri",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f0f1a",
   "theme_color": "#6366f1",
@@ -11,10 +12,28 @@
   "categories": ["finance", "business"],
   "icons": [
     {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -22,19 +41,22 @@
       "name": "Hisse Tara",
       "short_name": "Tarama",
       "description": "BIST hisselerini tara",
-      "url": "/tarama"
+      "url": "/tarama",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Portföy",
       "short_name": "Portföy",
       "description": "Portföyümü görüntüle",
-      "url": "/portfolyo"
+      "url": "/portfolyo",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Makro Radar",
       "short_name": "Makro",
       "description": "Makro göstergeleri görüntüle",
-      "url": "/makro"
+      "url": "/makro",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

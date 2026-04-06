@@ -13,14 +13,14 @@ export function Footer() {
           <p className="text-[11px] leading-snug text-text-muted sm:text-xs sm:leading-relaxed">
             <span className="font-semibold text-amber-400">Yasal Uyarı: </span>
             <span className="hidden sm:inline">
-              BistAI yalnızca bilgilendirme amaçlıdır ve yatırım tavsiyesi niteliği taşımaz.
+              Investable Edge yalnızca bilgilendirme amaçlıdır ve yatırım tavsiyesi niteliği taşımaz.
               Buradaki sinyaller, göstergeler ve analizler teknik veriye dayanır; kesin getiri
               veya kayıp garantisi verilmez. Yatırım kararlarınızı vermeden önce lisanslı bir
               yatırım danışmanına başvurmanız tavsiye edilir. Tüm yatırımlar risk içerir ve
               geçmiş performans gelecek sonuçların güvencesi değildir.
             </span>
             <span className="sm:hidden">
-              BistAI yalnızca bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.
+              Investable Edge yalnızca bilgilendirme amaçlıdır, yatırım tavsiyesi değildir.
               Tüm yatırımlar risk içerir.
             </span>
           </p>
@@ -38,7 +38,7 @@ export function Footer() {
               <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/20 sm:h-7 sm:w-7 sm:rounded-lg">
                 <TrendingUp className="h-3.5 w-3.5 text-primary sm:h-4 sm:w-4" />
               </div>
-              <span className="text-sm font-bold text-text-primary">BistAI</span>
+              <span className="text-sm font-bold text-text-primary">Investable Edge</span>
             </Link>
             <p className="text-[11px] leading-snug text-text-muted sm:text-xs sm:leading-relaxed">
               BIST hisselerinde yapay zeka destekli teknik analiz ve sinyal platformu.
@@ -127,7 +127,7 @@ export function Footer() {
         {/* Alt çizgi */}
         <div className="mt-4 flex flex-col items-center justify-between gap-1 border-t border-border/60 pt-3 sm:mt-8 sm:flex-row sm:gap-2 sm:pt-6">
           <p className="text-[10px] text-text-muted sm:text-xs">
-            © {year} BistAI. Tüm hakları saklıdır.
+            © {year} Investable Edge. Tüm hakları saklıdır.
           </p>
           <p className="text-[10px] text-text-muted sm:text-xs">
             Fiyat verileri Yahoo Finance · 15 dk gecikmeli olabilir

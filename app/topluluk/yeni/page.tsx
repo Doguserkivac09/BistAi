@@ -80,7 +80,7 @@ const CATEGORY_CONFIG: CategoryConfig[] = [
   },
 ];
 
-const DRAFT_KEY = 'bistai-post-draft';
+const DRAFT_KEY = 'investableedge-post-draft';
 
 function titleCounterColor(len: number): string {
   if (len >= 180) return 'text-red-400';

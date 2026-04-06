@@ -56,9 +56,9 @@ const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeCol
 ];
 
 const ALL_SIGNAL_TYPES = SCANNABLE_SIGNALS.map(s => s.type);
-const SCAN_PREFS_KEY   = 'bistai_scan_signal_prefs';
-const SCAN_CACHE_KEY   = 'bistai_scan_results';
-const SCAN_CACHE_TTL_MS = 10 * 60 * 1000;
+const SCAN_PREFS_KEY   = 'investableedge_scan_signal_prefs';
+const SCAN_CACHE_KEY   = `investableedge_scan_results_${new Date().toISOString().slice(0, 10)}`;
+const SCAN_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 saat — aynı gün içinde anında yükle
 
 const DIRECTION_OPTIONS: { value: DirectionFilter; label: string; icon: React.ElementType }[] = [
   { value: 'Tümü',   label: 'Tümü',   icon: Activity     },
@@ -439,7 +439,9 @@ function EmptyState({
 
 function TaramaPageInner() {
   const searchParams = useSearchParams();
-  const sektorParam  = searchParams.get('sektor');
+  const sektorParam   = searchParams.get('sektor');
+  const excludeParam  = searchParams.get('exclude');
+  const excludeSet    = new Set(excludeParam ? excludeParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : []);
 
   // Filter state
   const [signalType,         setSignalType]         = useState<SignalTypeFilter>('Tümü');
@@ -467,6 +469,10 @@ function TaramaPageInner() {
   const [macroScore,           setMacroScore]           = useState<{ score: number; wind: string } | null>(null);
   const [winRateMap,           setWinRateMap]           = useState<Map<string, { rate: number; sampleSize: number }>>(new Map());
   const [macroBannerDismissed, setMacroBannerDismissed] = useState(false);
+  const [onlyKapToday,         setOnlyKapToday]         = useState(false);
+  const [kapTodaySet,          setKapTodaySet]          = useState<Set<string>>(new Set());
+  const [dbScannedAt,          setDbScannedAt]          = useState<string | null>(null);
+  const [dbAgeMinutes,         setDbAgeMinutes]         = useState<number | null>(null);
   const explanationCache = useRef<Map<string, string>>(new Map());
 
   // Load prefs
@@ -489,21 +495,56 @@ function TaramaPageInner() {
     });
   }, []);
 
-  // Restore scan cache
+  // DB cache yükle — sayfa açılırken anlık sonuçları göster
   useEffect(() => {
+    let cancelled = false;
+
+    // Önce localStorage'dan yükle (anlık)
     try {
-      const cached = sessionStorage.getItem(SCAN_CACHE_KEY);
+      const cached = localStorage.getItem(SCAN_CACHE_KEY);
       if (cached) {
         const { results: cr, scannedCount: cc, ts } = JSON.parse(cached);
         if (Date.now() - ts < SCAN_CACHE_TTL_MS) {
           setResults(cr);
           setScannedCount(cc);
         } else {
-          sessionStorage.removeItem(SCAN_CACHE_KEY);
+          localStorage.removeItem(SCAN_CACHE_KEY);
         }
       }
     } catch { /* ignore */ }
+
+    // Sonra DB cache'i çek — localStorage'dan daha güncel olabilir
+    fetch('/api/scan-cache')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: {
+        results: Array<{ sembol: string; signals: import('@/types').StockSignal[]; candles: import('@/types').OHLCVCandle[]; changePercent: number | null }>;
+        allScanned: Array<{ sembol: string; candles: import('@/types').OHLCVCandle[] }>;
+        fromCache: boolean;
+        count: number;
+        scannedAt: string | null;
+        ageMinutes: number | null;
+      } | null) => {
+        if (cancelled || !data?.fromCache || !data.results?.length) return;
+        // DB'de veri var ve 12 saatten taze ise kullan
+        const ageMs = data.scannedAt ? Date.now() - new Date(data.scannedAt).getTime() : Infinity;
+        if (ageMs > 12 * 60 * 60 * 1000) return;
+        const mapped: ScanResult[] = data.results.map(r => ({
+          sembol: r.sembol,
+          signals: r.signals,
+          candles: r.candles,
+          changePercent: r.changePercent ?? undefined,
+        }));
+        setResults(mapped);
+        setScannedCount(data.count + (data.results.length < BIST_SYMBOLS.length ? BIST_SYMBOLS.length - data.results.length : 0));
+        setDbScannedAt(data.scannedAt);
+        setDbAgeMinutes(data.ageMinutes);
+        if (data.allScanned?.length) setSectorMap(computeSectorMomentum(data.allScanned));
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
   }, []);
+
 
   // Fetch macro
   useEffect(() => {
@@ -514,6 +555,23 @@ function TaramaPageInner() {
       .then(data => { if (!cancelled && data.score) setMacroScore({ score: data.score.score, wind: data.score.wind }); })
       .catch(() => {});
     return () => { cancelled = true; controller.abort(); };
+  }, []);
+
+  // Fetch KAP — bugün duyurusu olan semboller
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    fetch('/api/kap')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.duyurular) return;
+        const set = new Set<string>(
+          (data.duyurular as { sembol: string; tarih: string }[])
+            .filter(d => d.tarih?.startsWith(today) && d.sembol)
+            .map(d => d.sembol.toUpperCase())
+        );
+        setKapTodaySet(set);
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch win rates
@@ -542,8 +600,8 @@ function TaramaPageInner() {
     setLoading(true);
     setError(null);
     const failed: string[] = [];
-    const BATCH_SIZE = 5;
-    const BATCH_DELAY_MS = 200;
+    const BATCH_SIZE = 8;
+    const BATCH_DELAY_MS = 100;
 
     try {
       const all: ScanResult[] = [...results];
@@ -587,6 +645,8 @@ function TaramaPageInner() {
             setScanProgress({ current: completed, total: symbols.length, symbol: sembol });
           }
         }
+        // Progressive render: her batch sonrası sinyaller varsa göster
+        if (all.length > 0) setResults([...all]);
         if (batchStart + BATCH_SIZE < symbols.length) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
       }
 
@@ -595,7 +655,7 @@ function TaramaPageInner() {
       setScannedCount(symbols.length);
       setSectorMap(computeSectorMomentum(allScanned));
       try {
-        sessionStorage.setItem(SCAN_CACHE_KEY, JSON.stringify({ results: all, scannedCount: symbols.length, ts: Date.now() }));
+        localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify({ results: all, scannedCount: symbols.length, ts: Date.now() }));
       } catch { /* ignore */ }
 
       const signalCount = all.reduce((sum, r) => sum + r.signals.length, 0);
@@ -614,7 +674,7 @@ function TaramaPageInner() {
 
   const runScan = useCallback(() => {
     setResults([]); setFailedSymbols([]); setScannedCount(0);
-    try { sessionStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
     scanSymbols([...BIST_SYMBOLS], selectedTypes);
   }, [scanSymbols, selectedTypes]);
 
@@ -624,12 +684,12 @@ function TaramaPageInner() {
 
   const resetToEmptyState = useCallback(() => {
     setResults([]); setFailedSymbols([]); setScannedCount(0);
-    try { sessionStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
   }, []);
 
   const clearFilters = useCallback(() => {
     setSignalType('Tümü'); setDirection('Tümü');
-    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyStrongSectors(false); setSelectedSector('');
+    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyStrongSectors(false); setOnlyKapToday(false); setSelectedSector('');
     setSearchQuery('');
   }, []);
 
@@ -637,7 +697,7 @@ function TaramaPageInner() {
     setSelectedTypes(types);
     try { localStorage.setItem(SCAN_PREFS_KEY, JSON.stringify(types)); } catch { /* ignore */ }
     setResults([]); setFailedSymbols([]); setScannedCount(0);
-    try { sessionStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(SCAN_CACHE_KEY); } catch { /* ignore */ }
     scanSymbols([...BIST_SYMBOLS], types);
   }, [scanSymbols]);
 
@@ -656,18 +716,31 @@ function TaramaPageInner() {
     for (const r of results) {
       for (const s of r.signals) {
         const wr = winRateMap.get(s.type);
-        if (wr && wr.sampleSize >= 20) { totalWR += wr.rate * wr.sampleSize; totalN += wr.sampleSize; }
+        if (wr && wr.sampleSize >= 10) { totalWR += wr.rate * wr.sampleSize; totalN += wr.sampleSize; }
       }
     }
     if (totalN > 0) avgWinRate = totalWR / totalN;
   }
 
   const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
-  const rawDisplayList = loading ? [] : filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
+  // Progressive render: tarama devam ederken de bulunan sinyalleri göster
+  const rawDisplayList = filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
   // Sektör URL param filtresi + sembol arama
   const searchUpper = searchQuery.trim().toUpperCase();
+
+  // Arama aktifken tüm BIST_SYMBOLS içinde ara — sinyali olmayan hisseler de çıksın
+  const searchMatchedSymbols: string[] = searchUpper
+    ? (BIST_SYMBOLS as readonly string[]).filter(s => s.includes(searchUpper))
+    : [];
+  const resultSembolSet = new Set(rawDisplayList.map(r => r.sembol));
+  const noSignalSearchResults: ScanResult[] = searchUpper
+    ? searchMatchedSymbols
+        .filter(s => !resultSembolSet.has(s))
+        .map(s => ({ sembol: s, signals: [], candles: [], changePercent: undefined }))
+    : [];
+
   const filteredBySearch = searchUpper
-    ? rawDisplayList.filter(r => r.sembol.includes(searchUpper))
+    ? [...rawDisplayList.filter(r => r.sembol.includes(searchUpper)), ...noSignalSearchResults]
     : rawDisplayList;
   const filteredBySectorParam = sektorParam
     ? filteredBySearch.filter(r => getSectorId(r.sembol) === sektorParam)
@@ -675,15 +748,21 @@ function TaramaPageInner() {
   const filteredBySectorDropdown = selectedSector
     ? filteredBySectorParam.filter(r => getSectorId(r.sembol) === selectedSector)
     : filteredBySectorParam;
+  const filteredByExclude = excludeSet.size > 0
+    ? filteredBySectorDropdown.filter((r) => !excludeSet.has(r.sembol))
+    : filteredBySectorDropdown;
   const displayList = onlyStrongSectors
-    ? filteredBySectorDropdown.filter(r => {
+    ? filteredByExclude.filter(r => {
         const hasBullish = r.signals.some(s => s.direction === 'yukari');
-        if (!hasBullish) return true; // bearish/nötr sinyalleri etkileme
+        if (!hasBullish) return true;
         const sector = sectorMap.get(getSector(r.sembol).id);
         return !sector || sector.direction !== 'asagi';
       })
-    : filteredBySectorDropdown;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper].filter(Boolean).length;
+    : filteredByExclude;
+  const filteredByKap = onlyKapToday && kapTodaySet.size > 0
+    ? displayList.filter(r => kapTodaySet.has(r.sembol))
+    : displayList;
+  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper, excludeSet.size > 0, onlyKapToday].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -799,6 +878,12 @@ function TaramaPageInner() {
               <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
               <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)}>Yüksek Güven</Chip>
               <Chip active={onlyStrongSectors}   onClick={() => setOnlyStrongSectors(v => !v)}>Güçlü Sektör</Chip>
+              <Chip
+                active={onlyKapToday}
+                onClick={() => setOnlyKapToday(v => !v)}
+              >
+                KAP{kapTodaySet.size > 0 && ` (${kapTodaySet.size})`}
+              </Chip>
             </>
           )}
         </div>
@@ -810,6 +895,16 @@ function TaramaPageInner() {
               <BarChart2 className="inline h-3.5 w-3.5 mr-1.5 align-text-bottom" />
               Sektör filtresi aktif: <span className="font-semibold uppercase">{sektorParam}</span>
               {' '}· Sadece bu sektördeki hisseler gösteriliyor
+            </span>
+            <a href="/tarama" className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity">Tüm hisseler →</a>
+          </div>
+        )}
+
+        {/* Portföy dışı fırsatlar bandı */}
+        {excludeSet.size > 0 && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-2.5 text-sm text-violet-400">
+            <span>
+              Portföyündeki <span className="font-semibold">{excludeSet.size} hisse</span> filtrelendi · Yalnızca portföy dışı fırsatlar gösteriliyor
             </span>
             <a href="/tarama" className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity">Tüm hisseler →</a>
           </div>
@@ -834,23 +929,34 @@ function TaramaPageInner() {
 
         {/* Macro banner */}
         <AnimatePresence>
-          {!loading && hasScanResults && macroScore && !macroBannerDismissed && (
+          {hasScanResults && macroScore && !macroBannerDismissed && (
             <MacroBanner score={macroScore.score} wind={macroScore.wind} onDismiss={() => setMacroBannerDismissed(true)} />
           )}
         </AnimatePresence>
 
-        {!loading && hasScanResults && (
-          <ScanSummary
-            total={scannedCount} signalCount={signalCount} strongCount={strongCount}
-            midCount={midCount} weakCount={weakCount} alCount={alCount}
-            satCount={satCount} avgWinRate={avgWinRate}
-          />
+        {hasScanResults && (
+          <>
+            <ScanSummary
+              total={scannedCount} signalCount={signalCount} strongCount={strongCount}
+              midCount={midCount} weakCount={weakCount} alCount={alCount}
+              satCount={satCount} avgWinRate={avgWinRate}
+            />
+            {dbScannedAt && !loading && (
+              <div className="mb-3 flex items-center gap-2 text-xs text-text-secondary opacity-60">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/70" />
+                Son tarama: {new Date(dbScannedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                {dbAgeMinutes !== null && dbAgeMinutes > 60 && (
+                  <span className="opacity-70">· {Math.floor(dbAgeMinutes / 60)}s {dbAgeMinutes % 60}dk önce</span>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {/* Active filter counter */}
-        {!loading && hasScanResults && activeFilterCount > 0 && displayList.length > 0 && (
+        {hasScanResults && activeFilterCount > 0 && filteredByKap.length > 0 && (
           <div className="mb-3 flex items-center justify-between text-xs text-text-secondary">
-            <span>{displayList.length} sonuç gösteriliyor · {activeFilterCount} filtre aktif</span>
+            <span>{filteredByKap.length} sonuç gösteriliyor · {activeFilterCount} filtre aktif</span>
             <button onClick={clearFilters} className="flex items-center gap-1 text-primary transition-opacity hover:opacity-70">
               <X className="h-3 w-3" /> Filtreleri Temizle
             </button>
@@ -861,7 +967,7 @@ function TaramaPageInner() {
           <EmptyState onScan={runScan} selectedTypes={selectedTypes} onToggleType={toggleType} onPreset={applyPreset} />
         )}
 
-        {!loading && hasScanResults && displayList.length === 0 && (
+        {!loading && hasScanResults && filteredByKap.length === 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="rounded-xl border border-border bg-surface/50 p-8 text-center text-text-secondary"
           >
@@ -872,14 +978,35 @@ function TaramaPageInner() {
           </motion.div>
         )}
 
-        {!loading && displayList.length > 0 && (
+        {filteredByKap.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className={viewMode === 'grid' ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'flex flex-col gap-2'}
           >
             <AnimatePresence>
-              {displayList.map((r) => {
+              {filteredByKap.map((r) => {
+                // Sinyalsiz hisse (arama sonucu) — detay sayfasına yönlendir
+                if (r.signals.length === 0) {
+                  return (
+                    <motion.div
+                      key={r.sembol}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <a
+                        href={`/hisse/${r.sembol}`}
+                        className="flex flex-col gap-2 rounded-xl border border-border bg-surface/50 p-5 hover:border-primary/40 hover:bg-surface transition-colors"
+                      >
+                        <span className="text-sm font-bold text-text-primary">{r.sembol}</span>
+                        <span className="text-xs text-text-muted">Şu an aktif sinyal yok</span>
+                        <span className="text-[11px] text-primary">Detay sayfasını görüntüle →</span>
+                      </a>
+                    </motion.div>
+                  );
+                }
                 const primarySig = r.signals[0]!;
                 return (
                   <motion.div

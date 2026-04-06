@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { BIST_SYMBOLS } from '@/types';
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bistai.vercel.app';
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://investableedge.vercel.app';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

@@ -38,6 +38,8 @@ export interface MacroSnapshot {
   eem: MacroQuote | null;
   brent: MacroQuote | null;
   gold: MacroQuote | null;
+  silver: MacroQuote | null;
+  copper: MacroQuote | null;
   bist100: MacroQuote | null;
   fetchedAt: string;
 }
@@ -52,6 +54,8 @@ export const MACRO_SYMBOLS = {
   EEM:    { yahoo: 'EEM',       name: 'iShares MSCI EM ETF' },
   BRENT:  { yahoo: 'BZ=F',      name: 'Brent Petrol' },
   GOLD:   { yahoo: 'GC=F',      name: 'Altın (XAU/USD)' },
+  SILVER: { yahoo: 'SI=F',      name: 'Gümüş (XAG/USD)' },
+  COPPER: { yahoo: 'HG=F',      name: 'Bakır ($/lb)' },
   BIST100:{ yahoo: 'XU100.IS',  name: 'BIST 100 Endeksi' },
 } as const;
 
@@ -89,7 +93,7 @@ function setMacroCache<T>(key: string, data: T, ttlMs: number = MACRO_CACHE_TTL_
 
 // ── Yahoo Finance Fetch ─────────────────────────────────────────────
 
-const USER_AGENT = 'Mozilla/5.0 (compatible; BistAI/1.0)';
+const USER_AGENT = 'Mozilla/5.0 (compatible; Investable Edge/1.0)';
 
 /**
  * Tek bir makro sembol için güncel fiyat bilgisi çeker.
@@ -123,6 +127,14 @@ export async function fetchMacroQuote(key: MacroSymbolKey): Promise<MacroQuote |
     }
 
     const price = meta.regularMarketPrice;
+
+    // Anomali filtresi: Gümüş (SI=F) hiçbir zaman $80+ olmaz (tarihsel max ~$50)
+    // Yahoo Finance bazen hatalı veri döner (ör: $73 yerine gerçek $32)
+    if (key === 'SILVER' && price > 80) {
+      console.warn(`[Macro] SILVER anormal fiyat (${price}) — veri atlanıyor`);
+      return null;
+    }
+
     const previousClose = meta.chartPreviousClose ?? meta.previousClose ?? price;
     const change = price - previousClose;
     const changePercent = previousClose !== 0 ? (change / previousClose) * 100 : 0;
@@ -226,6 +238,8 @@ export async function fetchAllMacroQuotes(): Promise<MacroSnapshot> {
     eem: null,
     brent: null,
     gold: null,
+    silver: null,
+    copper: null,
     bist100: null,
     fetchedAt: new Date().toISOString(),
   };

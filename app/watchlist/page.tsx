@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
   Star, Plus, Trash2, RefreshCw, TrendingUp, TrendingDown,
-  AlertCircle, X, Search, Eye, Briefcase, ChevronDown,
+  AlertCircle, X, Search, Eye, Briefcase, ChevronDown, Compass,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import Link from 'next/link';
@@ -145,28 +145,45 @@ function WatchRow({
     >
       {/* Checkbox */}
       <td className="py-3 pl-3 pr-1">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={() => onToggleSelect(item.id)}
-          className="h-3.5 w-3.5 cursor-pointer accent-primary"
-        />
+        <label className="flex h-8 w-8 cursor-pointer items-center justify-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(item.id)}
+            className="h-4 w-4 cursor-pointer accent-primary"
+          />
+        </label>
       </td>
 
       {/* Sembol */}
       <td className="py-3 pl-2 pr-3">
         <div className="flex items-center gap-2">
-          <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary ${hitTarget ? 'animate-pulse' : ''}`}>
+          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary ${hitTarget ? 'animate-pulse' : ''}`}>
             {item.sembol.slice(0, 2)}
           </div>
-          <div>
+          <div className="min-w-0">
             <div className={`font-semibold ${hitTarget ? 'text-amber-400' : 'text-text-primary'}`}>
               {item.sembol}
               {hitTarget && <span className="ml-1 animate-bounce inline-block">🔔</span>}
             </div>
             {item.notlar && (
-              <div className="text-xs text-text-muted truncate max-w-[120px]">{item.notlar}</div>
+              <div className="text-xs text-text-muted truncate max-w-[180px]" title={item.notlar}>{item.notlar}</div>
             )}
+            {/* Mobil: sinyal ve hedef fiyat (sm+ kolonlarda gösteriliyor) */}
+            <div className="mt-0.5 flex flex-wrap items-center gap-1 sm:hidden">
+              {sinyaller.slice(0, 1).map((sig, i) => (
+                <span key={i} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${
+                  sig.direction === 'yukari' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'
+                }`}>
+                  {sig.direction === 'yukari' ? '↑' : '↓'} {sig.type}
+                </span>
+              ))}
+              {target && (
+                <span className={`text-[10px] ${hitTarget ? 'text-amber-400 font-semibold' : 'text-text-muted'}`}>
+                  🎯 ₺{parseFloat(target).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </td>
@@ -425,7 +442,7 @@ export default function WatchlistPage() {
     if (items.length === 0) return;
     const loaded: Record<string, string> = {};
     items.forEach((item) => {
-      const val = localStorage.getItem(`bistai_targets_${item.sembol}`);
+      const val = localStorage.getItem(`investableedge_targets_${item.sembol}`);
       if (val) loaded[item.sembol] = val;
     });
     setTargets(loaded);
@@ -433,8 +450,8 @@ export default function WatchlistPage() {
 
   function handleTargetChange(sembol: string, value: string) {
     setTargets((prev) => ({ ...prev, [sembol]: value }));
-    if (value) localStorage.setItem(`bistai_targets_${sembol}`, value);
-    else localStorage.removeItem(`bistai_targets_${sembol}`);
+    if (value) localStorage.setItem(`investableedge_targets_${sembol}`, value);
+    else localStorage.removeItem(`investableedge_targets_${sembol}`);
   }
 
   // ── Veri yükle ────────────────────────────────────────────────────────────
@@ -592,6 +609,13 @@ export default function WatchlistPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               Güncelle
             </button>
+            <Link
+              href="/ters-portfolyo"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Compass className="h-4 w-4" />
+              Fırsatları Keşfet
+            </Link>
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"

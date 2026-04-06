@@ -7,10 +7,11 @@ import { useSearchParams } from 'next/navigation';
 import {
   TrendingUp, TrendingDown, Plus, Trash2, RefreshCw,
   Briefcase, AlertCircle, X, ChevronUp, ChevronDown, Bell, BellOff, BarChart2,
-  Pencil, ChevronsUpDown, Download,
+  Pencil, ChevronsUpDown, Download, Compass, Zap, ShieldAlert, PieChart,
 } from 'lucide-react';
 import { BIST_SYMBOLS } from '@/types';
 import type { PortfolyoPozisyonWithStats } from '@/types';
+import { getSector } from '@/lib/sectors';
 import dynamic from 'next/dynamic';
 
 const PortfolioPerformanceChart = dynamic(
@@ -29,6 +30,7 @@ interface RawPozisyon {
   alis_fiyati: number;
   alis_tarihi: string;
   notlar?: string | null;
+  hedef_fiyat?: number | null;
   created_at: string;
 }
 
@@ -38,6 +40,7 @@ interface FormData {
   alis_fiyati: string;
   alis_tarihi: string;
   notlar: string;
+  hedef_fiyat: string;
 }
 
 type SortField = 'sembol' | 'kar_zarar' | 'kar_zarar_yuzde';
@@ -238,6 +241,10 @@ function PozisyonRow({
           <div className="min-w-0">
             <div className="font-semibold text-text-primary text-sm group-hover:text-primary transition-colors">{poz.sembol}</div>
             <SinyalBadge sinyaller={sinyaller} />
+            {/* Mobil: lot + alış fiyatı (sm+ kolonlarda gösteriliyor) */}
+            <div className="mt-0.5 text-[10px] text-text-muted sm:hidden">
+              {fmt(poz.miktar, 0)} lot · {fmtTL(poz.alis_fiyati)}
+            </div>
           </div>
           <Sparkline closes={sparkline} />
         </Link>
@@ -284,6 +291,38 @@ function PozisyonRow({
           </div>
         ) : (
           <span className="text-text-muted text-xs">—</span>
+        )}
+      </td>
+
+      {/* Hedef fiyat */}
+      <td className="hidden lg:table-cell py-3.5 px-3 text-right text-xs">
+        {poz.hedef_fiyat && poz.guncel_fiyat ? (() => {
+          const kalan = ((poz.hedef_fiyat - poz.guncel_fiyat) / poz.guncel_fiyat) * 100;
+          const reached = poz.guncel_fiyat >= poz.hedef_fiyat;
+          // Progress: alış → hedef arasında güncel fiyatın konumu
+          const progress = Math.min(
+            Math.max(((poz.guncel_fiyat - poz.alis_fiyati) / (poz.hedef_fiyat - poz.alis_fiyati)) * 100, 0),
+            100
+          );
+          return (
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-text-secondary">{fmtTL(poz.hedef_fiyat)}</span>
+              {/* Progress bar */}
+              <div className="w-16 h-1 rounded-full bg-surface-alt overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${reached ? 'bg-emerald-500' : 'bg-sky-500'}`}
+                  style={{ width: `${reached ? 100 : progress}%` }}
+                />
+              </div>
+              <span className={`font-semibold ${reached ? 'text-emerald-400' : kalan > 0 ? 'text-sky-400' : 'text-red-400'}`}>
+                {reached ? '✓ Hedefe ulaştı' : `Hedefe ${fmt(Math.abs(kalan))}% kaldı`}
+              </span>
+            </div>
+          );
+        })() : poz.hedef_fiyat ? (
+          <span className="text-text-secondary">{fmtTL(poz.hedef_fiyat)}</span>
+        ) : (
+          <span className="text-text-muted">—</span>
         )}
       </td>
 
@@ -352,6 +391,7 @@ function AddModal({
     alis_fiyati: '',
     alis_tarihi: new Date().toISOString().slice(0, 10),
     notlar: '',
+    hedef_fiyat: '',
   });
   const [query, setQuery] = useState(initialSembol);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -445,6 +485,16 @@ function AddModal({
               className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
             />
           </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Hedef Fiyat ₺ (opsiyonel)</label>
+            <input
+              type="number" min="0.01" step="0.01" value={form.hedef_fiyat}
+              onChange={(e) => set('hedef_fiyat', e.target.value)}
+              placeholder="Örn: 58.00"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
+            />
+          </div>
         </div>
 
         {form.miktar && form.alis_fiyati && (
@@ -483,11 +533,12 @@ function EditModal({
 }: {
   poz: PortfolyoPozisyonWithStats;
   onClose: () => void;
-  onSave: (id: string, miktar: number, notlar: string | null) => Promise<void>;
+  onSave: (id: string, miktar: number, notlar: string | null, hedef_fiyat: number | null) => Promise<void>;
   saving: boolean;
 }) {
   const [miktar, setMiktar] = useState(String(poz.miktar));
   const [notlar, setNotlar] = useState(poz.notlar ?? '');
+  const [hedefFiyat, setHedefFiyat] = useState(poz.hedef_fiyat ? String(poz.hedef_fiyat) : '');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -533,6 +584,15 @@ function EditModal({
               className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
             />
           </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-text-secondary">Hedef Fiyat ₺</label>
+            <input
+              type="number" min="0.01" step="0.01" value={hedefFiyat}
+              onChange={(e) => setHedefFiyat(e.target.value)}
+              placeholder="Örn: 58.00"
+              className="w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-primary focus:outline-none"
+            />
+          </div>
         </div>
 
         <div className="mt-6 flex gap-3">
@@ -543,7 +603,7 @@ function EditModal({
             İptal
           </button>
           <button
-            onClick={() => onSave(poz.id, Number(miktar), notlar || null)}
+            onClick={() => onSave(poz.id, Number(miktar), notlar || null, hedefFiyat ? Number(hedefFiyat) : null)}
             disabled={saving || !miktar}
             className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
@@ -627,7 +687,7 @@ export default function PortfolyoPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bistai-portfolyo-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `investableedge-portfolyo-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -704,7 +764,7 @@ export default function PortfolyoPage() {
         const kar_zarar_yuzde =
           kar_zarar !== null && maliyet > 0 ? (kar_zarar / maliyet) * 100 : null;
         return {
-          ...p, user_id: '', notlar: p.notlar ?? null,
+          ...p, user_id: '', notlar: p.notlar ?? null, hedef_fiyat: p.hedef_fiyat ?? null,
           guncel_fiyat: guncel, maliyet, guncel_deger, kar_zarar, kar_zarar_yuzde,
         };
       });
@@ -755,6 +815,7 @@ export default function PortfolyoPage() {
           sembol: form.sembol, miktar: Number(form.miktar),
           alis_fiyati: Number(form.alis_fiyati), alis_tarihi: form.alis_tarihi,
           notlar: form.notlar || null,
+          hedef_fiyat: form.hedef_fiyat ? Number(form.hedef_fiyat) : null,
         }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? 'Kayıt başarısız.'); }
@@ -768,13 +829,13 @@ export default function PortfolyoPage() {
 
   // ── Pozisyon düzenle ──────────────────────────────────────────────────────
 
-  async function handleEdit(id: string, miktar: number, notlar: string | null) {
+  async function handleEdit(id: string, miktar: number, notlar: string | null, hedef_fiyat: number | null) {
     setEditSaving(true);
     try {
       const res = await fetch('/api/portfolyo', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, miktar, notlar }),
+        body: JSON.stringify({ id, miktar, notlar, hedef_fiyat }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -837,6 +898,43 @@ export default function PortfolyoPage() {
   const totalKarZarar   = totalDeger - totalMaliyet;
   const totalKarZararPct = totalMaliyet > 0 ? (totalKarZarar / totalMaliyet) * 100 : 0;
   const profit          = totalKarZarar >= 0;
+
+  // ── Günlük değişim ───────────────────────────────────────────────────────
+  // ohlcvMap'teki son 2 mumu kullanarak her pozisyonun günlük değişimini topla
+  const { gunlukDegisim, gunlukDegisimPct } = useMemo(() => {
+    let bugun = 0;
+    let dun   = 0;
+    for (const poz of pozisyonlar) {
+      const candles = ohlcvMap[poz.sembol];
+      if (!candles || candles.length < 2) continue;
+      const last = candles[candles.length - 1]!.close;
+      const prev = candles[candles.length - 2]!.close;
+      bugun += last * poz.miktar;
+      dun   += prev * poz.miktar;
+    }
+    const degisim = bugun > 0 && dun > 0 ? bugun - dun : null;
+    const degisimPct = dun > 0 && degisim !== null ? (degisim / dun) * 100 : null;
+    return { gunlukDegisim: degisim, gunlukDegisimPct: degisimPct };
+  }, [pozisyonlar, ohlcvMap]);
+
+  // ── Sektör çeşitliliği ───────────────────────────────────────────────────
+  const { sektorSayisi, dominantSektor } = useMemo(() => {
+    const sektorMap = new Map<string, number>(); // sektörAdı → toplam değer
+    for (const poz of pozisyonlar) {
+      const sektor = getSector(poz.sembol);
+      const deger  = poz.guncel_deger ?? poz.maliyet;
+      sektorMap.set(sektor.name, (sektorMap.get(sektor.name) ?? 0) + deger);
+    }
+    const sorted = [...sektorMap.entries()].sort((a, b) => b[1] - a[1]);
+    const dominant = sorted[0];
+    const dominantPct = dominant && totalDeger > 0
+      ? (dominant[1] / totalDeger) * 100
+      : null;
+    return {
+      sektorSayisi: sektorMap.size,
+      dominantSektor: dominant ? { name: dominant[0], pct: dominantPct } : null,
+    };
+  }, [pozisyonlar, totalDeger]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -902,6 +1000,13 @@ export default function PortfolyoPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               Güncelle
             </button>
+            <Link
+              href="/ters-portfolyo"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Compass className="h-4 w-4" />
+              Portföy Dışı Fırsatlar
+            </Link>
             <button
               onClick={() => { setInitialSembol(''); setShowModal(true); }}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
@@ -941,12 +1046,12 @@ export default function PortfolyoPage() {
             ) : (
               <>
                 {/* Özet kartlar */}
-                <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                   {[
                     { label: 'Toplam Maliyet',  value: fmtTL(totalMaliyet),  icon: Briefcase,  color: 'text-text-primary' },
                     { label: 'Güncel Değer',     value: fmtTL(totalDeger),    icon: TrendingUp, color: 'text-text-primary' },
-                    { label: 'Toplam K/Z',       value: fmtTL(Math.abs(totalKarZarar)), icon: profit ? TrendingUp : TrendingDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
-                    { label: 'Getiri',           value: fmtPct(totalKarZararPct), icon: profit ? ChevronUp : ChevronDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
+                    { label: 'Toplam K/Z',       value: `${profit ? '+' : '-'}${fmtTL(Math.abs(totalKarZarar))}`, icon: profit ? TrendingUp : TrendingDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
+                    { label: 'Toplam Getiri',    value: fmtPct(totalKarZararPct), icon: profit ? ChevronUp : ChevronDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
                   ].map(({ label, value, icon: Icon, color }) => (
                     <div key={label} className="rounded-xl border border-border bg-surface p-4">
                       <div className="mb-1 flex items-center gap-1.5 text-xs text-text-muted">
@@ -956,7 +1061,120 @@ export default function PortfolyoPage() {
                       <div className={`text-lg font-bold ${color}`}>{value}</div>
                     </div>
                   ))}
+                  {/* Günlük değişim kartı */}
+                  <div className="rounded-xl border border-border bg-surface p-4">
+                    <div className="mb-1 flex items-center gap-1.5 text-xs text-text-muted">
+                      {gunlukDegisim !== null && gunlukDegisim >= 0
+                        ? <TrendingUp className="h-3.5 w-3.5" />
+                        : <TrendingDown className="h-3.5 w-3.5" />}
+                      Bugün
+                    </div>
+                    {gunlukDegisim !== null ? (
+                      <div className={`text-lg font-bold ${gunlukDegisim >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {gunlukDegisim >= 0 ? '+' : ''}{fmtTL(gunlukDegisim)}
+                      </div>
+                    ) : (
+                      <div className="text-lg font-bold text-text-muted">—</div>
+                    )}
+                    {gunlukDegisimPct !== null && (
+                      <div className={`text-xs mt-0.5 ${gunlukDegisimPct >= 0 ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
+                        {gunlukDegisimPct >= 0 ? '+' : ''}{gunlukDegisimPct.toFixed(2)}%
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {/* Sektör çeşitliliği bilgisi */}
+                {pozisyonlar.length >= 2 && sektorSayisi > 0 && (
+                  <div className="mb-6 flex items-center gap-2 rounded-lg border border-border bg-surface/50 px-4 py-2.5 text-xs text-text-secondary flex-wrap">
+                    <PieChart className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                    <span>
+                      <span className="font-semibold text-text-primary">{sektorSayisi}</span> farklı sektör
+                    </span>
+                    {dominantSektor && dominantSektor.pct !== null && (
+                      <>
+                        <span className="text-text-muted">·</span>
+                        <span>
+                          En yoğun:{' '}
+                          <span className={`font-semibold ${dominantSektor.pct > 50 ? 'text-amber-400' : 'text-text-primary'}`}>
+                            {dominantSektor.name} %{dominantSektor.pct.toFixed(0)}
+                          </span>
+                          {dominantSektor.pct > 50 && (
+                            <span className="ml-1.5 text-amber-400">— çeşitlendirmeyi değerlendirin</span>
+                          )}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* En güçlü sinyal banner */}
+                {(() => {
+                  const entries = Object.entries(sinyalMap);
+                  if (entries.length === 0) return null;
+                  const order = ['güçlü', 'orta', 'zayıf'];
+                  let bestSembol = '';
+                  let bestSig: SinvalInfo | null = null;
+                  for (const [sembol, sinyaller] of entries) {
+                    if (sinyaller.length === 0) continue;
+                    const top = [...sinyaller].sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity))[0]!;
+                    if (!bestSig || order.indexOf(top.severity) < order.indexOf(bestSig.severity)) {
+                      bestSig = top;
+                      bestSembol = sembol;
+                    }
+                  }
+                  if (!bestSig || bestSig.severity === 'zayıf') return null;
+                  const isUp = bestSig.direction === 'yukari';
+                  return (
+                    <Link
+                      href={`/hisse/${bestSembol}`}
+                      className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                        isUp
+                          ? 'border-emerald-500/30 bg-emerald-500/8 hover:bg-emerald-500/12'
+                          : 'border-red-500/30 bg-red-500/8 hover:bg-red-500/12'
+                      }`}
+                    >
+                      <Zap className={`h-4 w-4 shrink-0 ${isUp ? 'text-emerald-400' : 'text-red-400'}`} />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm font-semibold text-text-primary">{bestSembol}</span>
+                        <span className="ml-2 text-sm text-text-secondary">
+                          portföyünde en güçlü sinyal: <span className={`font-medium ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>{isUp ? '↑' : '↓'} {bestSig.type}</span>
+                          {bestSig.severity === 'güçlü' && <span className="ml-1.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">Güçlü</span>}
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-xs text-text-muted">Detay →</span>
+                    </Link>
+                  );
+                })()}
+
+                {/* Risk konsantrasyon uyarısı */}
+                {totalDeger > 0 && (() => {
+                  const risky = pozisyonlar.filter(
+                    (p) => p.guncel_deger !== null && p.guncel_deger / totalDeger > 0.4
+                  );
+                  if (risky.length === 0) return null;
+                  return (
+                    <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                      <div className="text-sm">
+                        <span className="font-semibold text-amber-400">Yüksek Konsantrasyon Riski</span>
+                        <span className="ml-2 text-text-secondary">
+                          {risky.map((p) => (
+                            <span key={p.sembol}>
+                              <span className="font-medium text-text-primary">{p.sembol}</span>
+                              {' '}portföyünün{' '}
+                              <span className="font-semibold text-amber-400">
+                                %{((p.guncel_deger! / totalDeger) * 100).toFixed(0)}
+                              </span>
+                              {' '}ünü oluşturuyor
+                            </span>
+                          )).reduce<React.ReactNode[]>((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`sep-${i}`} className="mx-1 text-text-muted">·</span>, el], [])}
+                          {' '}— çeşitlendirmeyi değerlendirin.
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Performans grafiği + Pasta grafiği */}
                 <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -994,6 +1212,7 @@ export default function PortfolyoPage() {
                         <th className="py-3 px-3 text-right font-medium">Değer</th>
                         <SortTh label="K/Z ₺" field="kar_zarar" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
                         <SortTh label="K/Z %" field="kar_zarar_yuzde" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                        <th className="hidden lg:table-cell py-3 px-3 text-right font-medium">Hedef</th>
                         <th className="py-3 pl-3 pr-4 text-right font-medium"></th>
                       </tr>
                     </thead>

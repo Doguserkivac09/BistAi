@@ -80,11 +80,13 @@ function toCompositeResult(analiz: HisseAnalizResponse): CompositeSignalResult {
 }
 
 // ── Bölüm başlığı bileşeni (Bloomberg/Matriks stili) ─────────────────
-function SectionHeader({ children }: { children: React.ReactNode }) {
+function SectionHeader({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-text-muted">
-      {children}
-    </h2>
+    <div className="mb-3 flex items-center gap-2">
+      {icon && <span className="text-primary">{icon}</span>}
+      <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-widest">{children}</h2>
+      <div className="flex-1 h-px bg-border/60" />
+    </div>
   );
 }
 
@@ -104,8 +106,8 @@ function ChangeBadge({ value }: { value: number }) {
 function MetaCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-wide text-text-muted">{label}</p>
-      <p className="truncate text-sm font-medium text-text-primary">{value}</p>
+      <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted">{label}</p>
+      <p className="mt-0.5 truncate text-sm font-semibold text-text-primary">{value}</p>
     </div>
   );
 }
@@ -130,23 +132,44 @@ function AccordionSignalRow({
   savedSignalTypes: string[];
 }) {
   const [open, setOpen] = useState(false);
+  const isUp = sig.direction === 'yukari';
+  const isDown = sig.direction === 'asagi';
+  const borderColor = isUp ? 'border-l-emerald-500' : isDown ? 'border-l-red-500' : 'border-l-border';
+  const bgOpen = isUp ? 'bg-emerald-500/5' : isDown ? 'bg-red-500/5' : 'bg-surface/30';
+  const sigData = sig.data as unknown as Record<string, number> | undefined;
+
   return (
-    <div className="border-b border-border last:border-0">
+    <div className={`border-b border-border last:border-0`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-surface-alt/50 transition-colors"
+        className={`flex w-full items-center gap-3 border-l-2 ${borderColor} px-3 py-3 text-left transition-colors ${open ? bgOpen : 'hover:bg-surface-alt/30'}`}
       >
         <SignalBadge type={sig.type} direction={sig.direction} severity={sig.severity} />
-        {!open && explanation && (
-          <span className="min-w-0 flex-1 truncate text-xs text-text-muted hidden sm:block">
-            {explanation.replace(/\*\*/g, '')}
+        <div className="min-w-0 flex-1">
+          {!open && explanation && (
+            <p className="truncate text-xs text-text-muted leading-snug hidden sm:block">
+              {explanation.replace(/\*\*/g, '').slice(0, 80)}…
+            </p>
+          )}
+        </div>
+        {sigData?.candlesAgo !== undefined && (
+          <span className="shrink-0 text-[10px] text-text-muted hidden sm:block">
+            {sigData.candlesAgo}g önce
           </span>
         )}
-        <span className="ml-auto shrink-0 text-text-muted text-xs">{open ? '▲' : '▼'}</span>
+        {sigData?.confluenceScore !== undefined && (
+          <span className={`shrink-0 text-[10px] font-mono font-semibold hidden sm:block ${
+            sigData.confluenceScore >= 70 ? 'text-emerald-400' :
+            sigData.confluenceScore >= 40 ? 'text-amber-400' : 'text-text-muted'
+          }`}>
+            %{sigData.confluenceScore}
+          </span>
+        )}
+        <span className={`shrink-0 text-[10px] text-text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-1 space-y-2">
+        <div className={`px-3 pb-4 pt-2 space-y-2 border-l-2 ${borderColor} ${bgOpen}`}>
           <SignalExplanation text={explanation} isLoading={!explanation} />
           <div className="flex justify-end">
             <SaveSignalButton
@@ -160,6 +183,224 @@ function AccordionSignalRow({
         </div>
       )}
     </div>
+  );
+}
+
+// ── Teknik Göstergeler Özeti ───────────────────────────────────────────
+function TeknikGostergelerOzeti({ candles }: { candles: OHLCVCandle[] }) {
+  if (candles.length < 26) return null;
+
+  const closes = candles.map((c) => c.close);
+  const n = closes.length;
+
+  function calcEMA(data: number[], period: number): number[] {
+    const k = 2 / (period + 1);
+    const result: number[] = [data[0]];
+    for (let i = 1; i < data.length; i++) result.push(data[i] * k + result[i - 1] * (1 - k));
+    return result;
+  }
+
+  function calcRSI(data: number[], period = 14): number {
+    if (data.length < period + 1) return 50;
+    let gains = 0, losses = 0;
+    for (let i = data.length - period; i < data.length; i++) {
+      const diff = data[i] - data[i - 1];
+      if (diff > 0) gains += diff; else losses -= diff;
+    }
+    const rs = losses === 0 ? 100 : gains / losses;
+    return 100 - 100 / (1 + rs);
+  }
+
+  const rsi = calcRSI(closes);
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const macdLine = ema12.map((v, i) => v - ema26[i]);
+  const signalLine = calcEMA(macdLine.slice(-9), 9);
+  const macdAboveSignal = macdLine[n - 1] > signalLine[signalLine.length - 1];
+
+  const ema50arr = closes.length >= 50 ? calcEMA(closes, 50) : null;
+  const ema200arr = closes.length >= 200 ? calcEMA(closes, 200) : null;
+  const price = closes[n - 1];
+  const ema50 = ema50arr?.[ema50arr.length - 1] ?? null;
+  const ema200 = ema200arr?.[ema200arr.length - 1] ?? null;
+
+  let bbB: number | null = null;
+  if (closes.length >= 20) {
+    const slice = closes.slice(-20);
+    const mean = slice.reduce((s, v) => s + v, 0) / 20;
+    const std = Math.sqrt(slice.reduce((s, v) => s + (v - mean) ** 2, 0) / 20);
+    bbB = std > 0 ? ((price - (mean - 2 * std)) / (4 * std)) * 100 : 50;
+  }
+
+  let volRatio: number | null = null;
+  if (candles.length >= 21) {
+    const avgVol = candles.slice(-21, -1).reduce((s, c) => s + (c.volume || 0), 0) / 20;
+    volRatio = avgVol > 0 ? (candles[n - 1].volume || 0) / avgVol : null;
+  }
+
+  type S = 'bullish' | 'bearish' | 'neutral';
+  const rows: { label: string; value: string; detail: string; status: S }[] = [
+    {
+      label: 'RSI (14)',
+      value: rsi.toFixed(1),
+      detail: rsi >= 70 ? 'Aşırı Alım' : rsi <= 30 ? 'Aşırı Satım' : rsi >= 55 ? 'Güçlü' : rsi <= 45 ? 'Zayıf' : 'Nötr',
+      status: rsi >= 55 ? 'bullish' : rsi <= 45 ? 'bearish' : 'neutral',
+    },
+    {
+      label: 'MACD',
+      value: macdAboveSignal ? 'Sinyalin Üstü' : 'Sinyalin Altı',
+      detail: macdAboveSignal ? 'Yükseliş mom.' : 'Düşüş mom.',
+      status: macdAboveSignal ? 'bullish' : 'bearish',
+    },
+    ...(ema50 !== null ? [{
+      label: 'EMA50',
+      value: ema50.toFixed(2) + '₺',
+      detail: price > ema50 ? 'Fiyat üstünde' : 'Fiyat altında',
+      status: (price > ema50 ? 'bullish' : 'bearish') as S,
+    }] : []),
+    ...(ema200 !== null ? [{
+      label: 'EMA200',
+      value: ema200.toFixed(2) + '₺',
+      detail: price > ema200 ? 'Uzun vade ↑' : 'Uzun vade ↓',
+      status: (price > ema200 ? 'bullish' : 'bearish') as S,
+    }] : []),
+    ...(ema50 !== null && ema200 !== null ? [{
+      label: 'EMA Çapraz',
+      value: ema50 > ema200 ? 'Altın Çapraz' : 'Ölüm Çaprazı',
+      detail: ema50 > ema200 ? 'EMA50 > EMA200' : 'EMA50 < EMA200',
+      status: (ema50 > ema200 ? 'bullish' : 'bearish') as S,
+    }] : []),
+    ...(bbB !== null ? [{
+      label: 'Bollinger %B',
+      value: '%' + bbB.toFixed(0),
+      detail: bbB >= 80 ? 'Üst banda yakın' : bbB <= 20 ? 'Alt banda yakın' : 'Orta bant',
+      status: (bbB >= 80 ? 'bearish' : bbB <= 20 ? 'bullish' : 'neutral') as S,
+    }] : []),
+    ...(volRatio !== null ? [{
+      label: 'Hacim Oranı',
+      value: volRatio.toFixed(1) + 'x',
+      detail: volRatio >= 1.5 ? 'Yüksek hacim' : volRatio <= 0.5 ? 'Düşük hacim' : 'Normal',
+      status: (volRatio >= 1.5 ? 'bullish' : volRatio <= 0.5 ? 'bearish' : 'neutral') as S,
+    }] : []),
+  ];
+
+  const bull = rows.filter((r) => r.status === 'bullish').length;
+  const bear = rows.filter((r) => r.status === 'bearish').length;
+
+  return (
+    <Card>
+      <CardHeader className="py-2 px-3 pb-0">
+        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+          Teknik Göstergeler Özeti
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-3">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-[11px] text-text-muted">{rows.length} gösterge</span>
+          <span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+            bull > bear ? 'bg-emerald-500/10 text-emerald-400' :
+            bear > bull ? 'bg-red-500/10 text-red-400' :
+            'bg-amber-500/10 text-amber-400'
+          }`}>
+            {bull} Yükseliş · {bear} Düşüş
+          </span>
+        </div>
+        <div className="divide-y divide-border/40">
+          {rows.map((row) => (
+            <div key={row.label} className="flex items-center justify-between py-2">
+              <span className="text-xs text-text-secondary">{row.label}</span>
+              <div className="flex items-center gap-2">
+                <span className="hidden text-[10px] text-text-muted sm:block">{row.detail}</span>
+                <span className={`text-xs font-mono font-semibold ${
+                  row.status === 'bullish' ? 'text-emerald-400' :
+                  row.status === 'bearish' ? 'text-red-400' : 'text-amber-400'
+                }`}>{row.value}</span>
+                <span className={`h-2 w-2 shrink-0 rounded-full ${
+                  row.status === 'bullish' ? 'bg-emerald-400' :
+                  row.status === 'bearish' ? 'bg-red-400' : 'bg-amber-400'
+                }`} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Trend Özeti ────────────────────────────────────────────────────────
+function TrendOzeti({ candles }: { candles: OHLCVCandle[] }) {
+  if (candles.length < 15) return null;
+
+  const lastClose = candles[candles.length - 1].close;
+
+  function getTrend(days: number) {
+    if (candles.length < days + 1) return null;
+    const oldClose = candles[candles.length - 1 - days].close;
+    const pct = ((lastClose - oldClose) / oldClose) * 100;
+    const direction = pct > 1 ? 'yükseliş' : pct < -1 ? 'düşüş' : 'yatay';
+    const absPct = Math.abs(pct);
+    const strength = absPct > 10 ? 'güçlü' : absPct > 3 ? 'orta' : 'zayıf';
+    const color = direction === 'yükseliş' ? 'emerald' : direction === 'düşüş' ? 'red' : 'amber';
+    return { pct, direction, strength, color };
+  }
+
+  const periods = [
+    { label: 'Kısa Vade', sublabel: '15 Gün', days: 15 },
+    { label: 'Orta Vade', sublabel: '45 Gün', days: 45 },
+    { label: 'Uzun Vade', sublabel: '90 Gün', days: 90 },
+  ];
+
+  const items = periods.map((p) => ({ ...p, trend: getTrend(p.days) })).filter((p) => p.trend !== null);
+  if (items.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="py-2 px-3 pb-0">
+        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+          Trend Özeti
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-3 space-y-3">
+        {items.map(({ label, sublabel, trend }) => {
+          if (!trend) return null;
+          const { pct, direction, strength, color } = trend;
+          const icon = direction === 'yükseliş' ? '↗' : direction === 'düşüş' ? '↘' : '→';
+          const barWidth = Math.min(Math.abs(pct) * 3, 100);
+          return (
+            <div key={label} className="flex items-center gap-3">
+              <div className="w-[72px] shrink-0">
+                <p className="text-xs font-medium text-text-primary">{label}</p>
+                <p className="text-[10px] text-text-muted">{sublabel}</p>
+              </div>
+              <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-surface-alt">
+                <div
+                  className={`absolute h-full rounded-full ${
+                    color === 'emerald' ? 'bg-emerald-500' :
+                    color === 'red' ? 'bg-red-500' : 'bg-amber-500'
+                  }`}
+                  style={{
+                    width: `${barWidth}%`,
+                    right: direction === 'düşüş' ? '0' : undefined,
+                    left: direction !== 'düşüş' ? '0' : undefined,
+                  }}
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className={`text-xs font-semibold ${
+                  color === 'emerald' ? 'text-emerald-400' :
+                  color === 'red' ? 'text-red-400' : 'text-amber-400'
+                }`}>{icon} {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%</span>
+                <span className={`hidden text-[10px] capitalize sm:block ${
+                  color === 'emerald' ? 'text-emerald-400/70' :
+                  color === 'red' ? 'text-red-400/70' : 'text-amber-400/70'
+                }`}>{strength}</span>
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -203,8 +444,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
       if (!res.ok) return;
       const data = await res.json();
       setHaberler(data.haberler ?? []);
-    } catch {
-      // sessizce geç
+    } catch (err) {
+      console.error('[Haberler] Yüklenemedi:', err);
     } finally {
       setHaberLoading(false);
     }
@@ -322,70 +563,64 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
         {!loading && candles.length > 0 && (
           <>
             {/* ── HERO BÖLÜMÜ ──────────────────────────────────────────────── */}
-            <div className="mb-6 rounded-xl border border-border bg-surface p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                {/* Sol: Sembol + Fiyat */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-2xl font-bold text-text-primary">{sembol}</h1>
-                    {shortName && (
-                      <span className="text-sm text-text-muted truncate max-w-[200px]">{shortName}</span>
-                    )}
+            <div className="mb-6 rounded-xl border border-border bg-surface overflow-hidden">
+              {/* Üst şerit — renk aksan */}
+              <div className={`h-1 w-full ${changePercent !== undefined && changePercent !== null ? (changePercent >= 0 ? 'bg-emerald-500' : 'bg-red-500') : 'bg-primary'}`} />
+              <div className="p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  {/* Sol: Sembol + Fiyat */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h1 className="text-3xl font-bold tracking-tight text-text-primary">{sembol}</h1>
+                      {shortName && (
+                        <span className="text-sm text-text-muted truncate max-w-[200px]">{shortName}</span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-3 flex-wrap">
+                      {currentPrice && (
+                        <span className="text-3xl font-mono font-bold text-text-primary">
+                          {currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}₺
+                        </span>
+                      )}
+                      {changePercent !== undefined && changePercent !== null && (
+                        <ChangeBadge value={changePercent} />
+                      )}
+                      {/* AI Karar Badge */}
+                      {!analizLoading && analiz && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                          style={{ color: analiz.color, borderColor: analiz.color + '66', backgroundColor: analiz.color + '18' }}
+                        >
+                          {analiz.emoji} {analiz.decisionTr}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-2 flex items-baseline gap-3 flex-wrap">
+
+                  {/* Sağ: Butonlar */}
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    <PortfolyoEkleButton sembol={sembol} defaultFiyat={lastCandle?.close} />
+                    <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
+                    <PriceAlertButton sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
                     {currentPrice && (
-                      <span className="text-2xl font-mono font-bold text-text-primary">
-                        {currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}₺
-                      </span>
-                    )}
-                    {changePercent !== undefined && changePercent !== null && (
-                      <ChangeBadge value={changePercent} />
-                    )}
-                    {/* AI Karar Badge */}
-                    {!analizLoading && analiz && (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                        style={{ color: analiz.color, borderColor: analiz.color + '66', backgroundColor: analiz.color + '18' }}
+                      <Link
+                        href={`/araclar?tab=karZarar&fiyat=${currentPrice.toFixed(2)}`}
+                        className="flex items-center gap-1.5 rounded-lg border border-border bg-surface/50 px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-primary/40 hover:text-primary transition-colors"
+                        title="Bu hisse için kâr/zarar hesapla"
                       >
-                        {analiz.emoji} {analiz.decisionTr}
-                      </span>
+                        🧮 Hesapla
+                      </Link>
                     )}
                   </div>
                 </div>
 
-                {/* Sağ: Butonlar */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <PortfolyoEkleButton
-                    sembol={sembol}
-                    defaultFiyat={lastCandle?.close}
-                  />
-                  <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
+                {/* Meta ızgara */}
+                <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 border-t border-border/40 pt-4">
+                  {volume !== undefined && <MetaCell label="Hacim" value={formatVolume(volume)} />}
+                  {avgVolume20d !== undefined && <MetaCell label="Ort. Hacim (20g)" value={formatVolume(avgVolume20d)} />}
+                  {high90d !== undefined && <MetaCell label="90G Yüksek" value={high90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
+                  {low90d !== undefined && <MetaCell label="90G Düşük" value={low90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
                 </div>
-              </div>
-
-              {/* Meta ızgara */}
-              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 border-t border-border/50 pt-4">
-                {volume !== undefined && (
-                  <MetaCell label="Hacim" value={formatVolume(volume)} />
-                )}
-                {avgVolume20d !== undefined && (
-                  <MetaCell
-                    label="Ort. Hacim (20g)"
-                    value={formatVolume(avgVolume20d)}
-                  />
-                )}
-                {high90d !== undefined && (
-                  <MetaCell
-                    label="90G Yüksek"
-                    value={high90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'}
-                  />
-                )}
-                {low90d !== undefined && (
-                  <MetaCell
-                    label="90G Düşük"
-                    value={low90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'}
-                  />
-                )}
               </div>
             </div>
 
@@ -419,33 +654,33 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </div>
             </div>
 
-            {/* ── 2-KOLON LAYOUT (lg: 2/3 + 1/3) ─────────────────────────── */}
-            <div className="lg:grid lg:grid-cols-3 lg:gap-6">
+            {/* ── 2-KOLON LAYOUT (lg: 3/5 sol + 2/5 sağ) ────────────────── */}
+            <div className="grid gap-6 lg:grid-cols-5">
 
-              {/* ── SOL KOLON: Grafik + S/R + Sinyaller ─────────────────── */}
-              <div className="lg:col-span-2 space-y-4">
+              {/* ── SOL KOLON: Grafik + Sinyaller ──────────────────────────── */}
+              <div className="lg:col-span-3 space-y-4">
 
                 {/* Fiyat grafik + RSI birleşik kart */}
                 <Card className="overflow-hidden">
                   <CardHeader className="py-2 px-3">
                     <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                      Fiyat & EMA
+                      Fiyat Grafiği &amp; Teknik Göstergeler
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <div className="h-[320px] w-full">
+                    <div className="h-[360px] w-full">
                       <Suspense fallback={
-                        <div className="flex h-[320px] w-full items-center justify-center bg-surface/50">
+                        <div className="flex h-[360px] w-full items-center justify-center bg-surface/50">
                           <span className="text-sm text-text-secondary">Grafik yükleniyor...</span>
                         </div>
                       }>
-                        <StockChart candles={candles} height={320} signals={signals} />
+                        <StockChart candles={candles} height={360} signals={signals} />
                       </Suspense>
                     </div>
-                    {/* Sinyal chips — grafik marker'larına karşılık gelen liste */}
+                    {/* Sinyal chips */}
                     {signals.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 border-y border-border/40 px-3 py-1.5">
-                        <span className="text-[10px] text-text-muted mr-1">Aktif:</span>
+                      <div className="flex flex-wrap items-center gap-1.5 border-y border-border/40 px-3 py-2">
+                        <span className="text-[11px] text-text-muted mr-1">Aktif:</span>
                         {signals.map((s) => (
                           <span
                             key={s.type}
@@ -475,20 +710,6 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   </CardContent>
                 </Card>
 
-                {/* Destek & Direnç */}
-                {candles.length >= 20 && (
-                  <Card className="overflow-hidden">
-                    <CardHeader className="py-2 px-3">
-                      <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                        Destek &amp; Direnç
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <SRLevels analysis={calculateSRLevels(candles)} />
-                    </CardContent>
-                  </Card>
-                )}
-
                 {/* Tespit Edilen Sinyaller — accordion */}
                 <Card className="overflow-hidden">
                   <CardHeader className="py-2 px-3">
@@ -516,17 +737,35 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     </div>
                   )}
                 </Card>
+
+                {/* AI Genel Yorumu — sol kolonda, grafikle birlikte okunur */}
+                <Card>
+                  <CardHeader className="py-2 px-3 pb-0">
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                      AI Yorumu
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    <HisseAIYorum analiz={analiz} loading={analizLoading} />
+                  </CardContent>
+                </Card>
+
+                {/* Teknik Göstergeler Özeti */}
+                <TeknikGostergelerOzeti candles={candles} />
+
+                {/* Trend Özeti */}
+                <TrendOzeti candles={candles} />
               </div>
 
-              {/* ── SAĞ KOLON: Kompozit Skor + AI Yorum + Adil Değer + Skor ── */}
-              <div className="mt-4 lg:mt-0 space-y-4">
+              {/* ── SAĞ KOLON: Metrikler & Analiz panelleri ─────────────────── */}
+              <div className="lg:col-span-2 space-y-4">
 
                 {/* Kompozit AI Skor Paneli */}
                 {!analizLoading && analiz && !analiz.noSignal && (
                   <Card>
                     <CardHeader className="py-2 px-3 pb-0">
                       <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                        🎯 Kompozit Karar
+                        Kompozit Karar
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-3">
@@ -535,34 +774,19 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   </Card>
                 )}
 
-                {/* AI Genel Yorumu */}
-                <Card>
-                  <CardHeader className="py-2 px-3 pb-0">
-                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                      🤖 AI Yorumu
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-3">
-                    <HisseAIYorum analiz={analiz} loading={analizLoading} />
-                  </CardContent>
-                </Card>
-
-                {/* Teknik Adil Değer */}
-                {candles.length >= 50 && (() => {
-                  const fairValue = computeTechFairValue(candles);
-                  return (
-                    <Card>
-                      <CardHeader className="py-2 px-3 pb-0">
-                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                          📐 Teknik Adil Değer
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-3">
-                        <AdilDegerMetre result={fairValue} />
-                      </CardContent>
-                    </Card>
-                  );
-                })()}
+                {/* Destek & Direnç — sağ kolonda kompakt */}
+                {candles.length >= 20 && (
+                  <Card className="overflow-hidden">
+                    <CardHeader className="py-2 px-3">
+                      <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                        Destek &amp; Direnç
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <SRLevels analysis={calculateSRLevels(candles)} />
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Hisse Skor Kartı */}
                 {candles.length >= 50 && (() => {
@@ -571,7 +795,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     <Card>
                       <CardHeader className="py-2 px-3 pb-0">
                         <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                          🏆 Hisse Skor Kartı
+                          Hisse Skor Kartı
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="pt-3">
@@ -581,22 +805,31 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   );
                 })()}
 
+                {/* Teknik Adil Değer */}
+                {candles.length >= 50 && (() => {
+                  const fairValue = computeTechFairValue(candles);
+                  return (
+                    <Card>
+                      <CardHeader className="py-2 px-3 pb-0">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                          Teknik Adil Değer
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        <AdilDegerMetre result={fairValue} />
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
                 {/* Temel Analiz */}
                 <TemelAnalizKarti sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
-
-                {/* Fiyat Alarmı */}
-                <div className="flex items-center gap-2 pt-1">
-                  <PriceAlertButton
-                    sembol={sembol}
-                    currentPrice={candles[candles.length - 1]?.close}
-                  />
-                </div>
               </div>
             </div>
 
             {/* ── TAM GENİŞLİK: MTF Sinyal Tablosu ───────────────────────── */}
             <div className="mt-6">
-              <SectionHeader>🕐 Çoklu Zaman Dilimi Analizi</SectionHeader>
+              <SectionHeader>Çoklu Zaman Dilimi Analizi</SectionHeader>
               <Card>
                 <CardContent className="pt-4">
                   <MtfSinyalTablosu sembol={sembol} />
@@ -606,7 +839,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
             {/* ── TAM GENİŞLİK: Sinyal Geçmişi ───────────────────────────── */}
             <div className="mt-6">
-              <SectionHeader>📋 Sinyal Geçmişi</SectionHeader>
+              <SectionHeader>Sinyal Geçmişi</SectionHeader>
               <div className="mb-8">
                 <SinyalGecmisi sembol={sembol} />
               </div>
@@ -616,7 +849,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             {(kapLoading || kapDuyurular.length > 0) && (
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-3">
-                  <SectionHeader>📋 KAP Duyuruları</SectionHeader>
+                  <SectionHeader>KAP Duyuruları</SectionHeader>
                   {!kapLoading && kapDuyurular.length > 0 && (
                     <button
                       onClick={async () => {
@@ -695,7 +928,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
             {/* ── TAM GENİŞLİK: Haberler ──────────────────────────────────── */}
             <div className="mt-2">
-              <SectionHeader>📰 {sembol} Haberleri</SectionHeader>
+              <SectionHeader>{sembol} Haberleri</SectionHeader>
               {haberLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (

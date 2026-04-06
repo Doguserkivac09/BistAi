@@ -111,6 +111,31 @@ const MAGNITUDE_LABELS: Record<SimulationScenario['magnitude'], string> = {
   sert:  'Sert (%20+)',
 };
 
+// ── Canlı makro veri özeti ───────────────────────────────────────────
+
+async function getLiveMacroContext(): Promise<string> {
+  try {
+    const { getMacroFull } = await import('@/lib/macro-service');
+    const { bundle, macroScore } = await getMacroFull();
+    const { yahoo, turkey } = bundle;
+
+    const lines: string[] = [];
+    if (yahoo.usdtry) lines.push(`USD/TRY: ${yahoo.usdtry.price.toFixed(2)} (${yahoo.usdtry.changePercent > 0 ? '+' : ''}${yahoo.usdtry.changePercent.toFixed(2)}% bugün)`);
+    if (yahoo.vix)    lines.push(`VIX: ${yahoo.vix.price.toFixed(1)}`);
+    if (yahoo.brent)  lines.push(`Brent: $${yahoo.brent.price.toFixed(1)}`);
+    if (yahoo.gold)   lines.push(`Altın: $${yahoo.gold.price.toFixed(0)}`);
+    if (yahoo.bist100) lines.push(`BIST100: ${yahoo.bist100.price.toFixed(0)} (${yahoo.bist100.changePercent > 0 ? '+' : ''}${yahoo.bist100.changePercent.toFixed(2)}%)`);
+    if (turkey?.policyRate) lines.push(`TCMB Faizi: %${turkey.policyRate.value}`);
+    if (turkey?.inflation)  lines.push(`TÜFE: %${turkey.inflation.value}`);
+    if (turkey?.cds5y)      lines.push(`Türkiye CDS 5Y: ${turkey.cds5y.value} bps`);
+    lines.push(`Makro Skor: ${macroScore.score > 0 ? '+' : ''}${macroScore.score} (${macroScore.label})`);
+
+    return lines.length > 0 ? `MEVCUT PİYASA KOŞULLARI:\n${lines.join(' | ')}` : '';
+  } catch {
+    return '';
+  }
+}
+
 // ── Portföy özeti ────────────────────────────────────────────────────
 
 async function getPortfolioSummary(userId: string): Promise<string> {
@@ -136,42 +161,41 @@ async function getPortfolioSummary(userId: string): Promise<string> {
 
 // ── System Prompt ────────────────────────────────────────────────────
 
-function buildPrompt(scenario: SimulationScenario, portfolioStr: string): string {
+function buildPrompt(scenario: SimulationScenario, portfolioStr: string, macroContext: string): string {
   const label = SCENARIO_LABELS[scenario.type] ?? scenario.type;
   const mag   = MAGNITUDE_LABELS[scenario.magnitude];
   const now   = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return `Sen Türkiye finansal piyasaları uzmanı bir makroekonomist ve portföy stratejistisin.
 Bugünün tarihi: ${now}
-
-GÖREV: Aşağıdaki makro senaryonun BIST üzerindeki etkisini analiz et.
+${macroContext ? `\n${macroContext}\n` : ''}
+GÖREV: Aşağıdaki makro senaryonun BIST üzerindeki etkisini analiz et. Mevcut piyasa koşullarını dikkate al.
 
 SENARYO: ${label} — ${mag} büyüklükte
 ${scenario.customNote ? `EK NOT: ${scenario.customNote}` : ''}
 ${portfolioStr ? `\nKULLANICININ PORTFÖYÜ: ${portfolioStr}` : ''}
 
-ANALİZİ ŞÖYLE YAPILANDIR (markdown kullan):
+KISA VE ÖPÜZ yaz — her bölüm maksimum 3-4 cümle veya satır. Markdown kullan.
 
 ## 📊 Senaryo Özeti
-Tek paragraf: senaryonun ne anlama geldiği ve neden önemli olduğu.
+2-3 cümle: ne anlama geliyor, mevcut koşullarda önemi ne.
 
 ## 🏭 Sektör Etkileri
-
-| Sektör | Etki | Neden |
-|--------|------|-------|
-Tablo şeklinde: Bankacılık, Sanayi, Enerji, Perakende, Teknoloji, İhracatçılar, Savunma/Defansif sektörler — her biri için 🟢 Olumlu / 🔴 Olumsuz / 🟡 Nötr ve kısa açıklama.
+| Sektör | Etki | Neden (1 cümle) |
+|--------|------|-----------------|
+Bankacılık, Sanayi, Enerji, Perakende, Teknoloji, İhracatçılar, Savunma — 🟢/🔴/🟡
 
 ## 📜 Tarihsel Örnekler
-Türkiye'den 2-3 somut tarihsel örnek (yıl + ne oldu + BIST tepkisi).
+2 örnek — her biri 2 cümle max (yıl + ne oldu + BIST tepkisi).
 
 ## ⚡ Dikkat Edilmesi Gereken Hisseler
 ${portfolioStr
-  ? '**Portföydeki hisseler için özel yorum** + genel olarak bu senaryoda öne çıkabilecek/riskli hisseler.'
-  : 'Bu senaryoda öne çıkabilecek ve riskli olabilecek hisse tipleri (spesifik tavsiye değil, analiz).'
+  ? '**Portföy yorumu** (1-2 cümle) + bu senaryoda öne çıkan/riskli hisse tipleri (3-4 madde).'
+  : 'Bu senaryoda öne çıkan ve riskli hisse tipleri — 3-4 kısa madde.'
 }
 
 ## 🎯 Aksiyon Noktaları
-3-5 madde halinde yatırımcının göz önünde bulundurması gerekenler.
+3 madde — kısa ve somut, zaman ufkuyla.
 
 ---
 *Bu analiz genel bilgi amaçlıdır, yatırım tavsiyesi değildir.*`;
@@ -255,23 +279,36 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const portfolioStr = await getPortfolioSummary(user.id);
+  const [portfolioStr, macroContext] = await Promise.all([
+    getPortfolioSummary(user.id),
+    getLiveMacroContext(),
+  ]);
 
   // Cache kontrolü (customNote yoksa cache'lenebilir)
   const cKey = !scenario.customNote ? simCacheKey(scenario) : null;
   if (cKey) {
     const mem = simCache.get(cKey);
-    if (mem && Date.now() - mem.ts < CACHE_TTL) {
-      return Response.json({ result: mem.result, cached: true });
-    }
-    const db = await getDbCache(cKey);
-    if (db) {
-      simCache.set(cKey, { result: db, ts: Date.now() });
-      return Response.json({ result: db, cached: true });
+    const cached = mem && Date.now() - mem.ts < CACHE_TTL ? mem.result : null;
+    const dbCached = cached ? null : await getDbCache(cKey);
+    const cachedResult = cached ?? dbCached;
+    if (cachedResult) {
+      if (dbCached) simCache.set(cKey, { result: cachedResult, ts: Date.now() });
+      // Cache'den dönerken de SSE formatında dön — frontend her zaman stream okur
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: cachedResult })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      });
     }
   }
 
-  const prompt = buildPrompt(scenario, portfolioStr);
+  const prompt = buildPrompt(scenario, portfolioStr, macroContext);
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();
 
@@ -281,7 +318,7 @@ export async function POST(request: NextRequest) {
         let acc = '';
         const s = client.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 1200,
+          max_tokens: 1800,
           messages: [{ role: 'user', content: prompt }],
         });
 

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Fiyatlandırma',
-  description: 'BistAI Free, Pro ve Premium planlarını karşılaştırın. AI destekli sinyal analizi, sınırsız tarama ve topluluk erişimi.',
+  description: 'Investable Edge Free, Pro ve Premium planlarını karşılaştırın. AI destekli sinyal analizi, sınırsız tarama ve topluluk erişimi.',
   alternates: { canonical: '/fiyatlandirma' },
 };
 

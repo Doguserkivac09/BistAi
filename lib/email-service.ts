@@ -11,8 +11,8 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
 }
 
-const FROM = process.env.RESEND_FROM ?? 'BistAI <bildirim@bistai.app>';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bistai.vercel.app';
+const FROM = process.env.RESEND_FROM ?? 'Investable Edge <bildirim@investableedge.app>';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://investableedge.vercel.app';
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ function buildHtml(stocks: Array<{ sembol: string; signals: StockSignal[] }>) {
           <!-- Footer -->
           <tr>
             <td style="padding:24px 0;text-align:center;font-size:12px;color:#374151;">
-              BistAI · BIST Hisselerinde AI Destekli Analiz<br>
+              Investable Edge · BIST Hisselerinde AI Destekli Analiz<br>
               <a href="${APP_URL}/portfolyo" style="color:#6366f1;text-decoration:none;">Bildirimleri yönet</a>
             </td>
           </tr>

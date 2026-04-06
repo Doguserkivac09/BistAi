@@ -60,6 +60,7 @@ function ConfluenceBadge({ result }: { result: ConfluenceResult }) {
 
 function WinRateBadge({ rate, sampleSize }: { rate: number; sampleSize: number }) {
   const pct = Math.round(rate * 100);
+  const lowSample = sampleSize < 20;
   const cls = pct >= 60
     ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
     : pct >= 45
@@ -67,10 +68,10 @@ function WinRateBadge({ rate, sampleSize }: { rate: number; sampleSize: number }
     : 'text-red-400 bg-red-500/10 border-red-500/30';
   return (
     <span
-      title={`${sampleSize} geçmiş sinyale göre 7 günlük başarı oranı`}
-      className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
+      title={`Backtest: 7 günlük %${pct} başarı oranı · ${sampleSize} geçmiş sinyal${lowSample ? ' (düşük örneklem)' : ''}`}
+      className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls} ${lowSample ? 'opacity-60' : ''}`}
     >
-      7g %{pct}
+      Bt %{pct}{lowSample ? '~' : ''}
     </span>
   );
 }
@@ -101,18 +102,19 @@ function SectorBadge({ momentum }: { momentum: SectorMomentum }) {
       title={`${momentum.name} sektörü 20 günlük ortalama getiri: ${sign}${momentum.score.toFixed(1)}% (${momentum.stockCount} hisse)`}
       className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}
     >
-      {momentum.name} {arrow}
+      {momentum.name} {arrow}{sign}{Math.abs(momentum.score) >= 1 ? momentum.score.toFixed(1) + '%' : ''}
     </span>
   );
 }
 
-function SectorConflictBadge() {
+function SectorConflictBadge({ score }: { score?: number }) {
+  const scoreText = score !== undefined ? ` ${score.toFixed(1)}%` : '';
   return (
     <span
-      title="Sektör geneli düşüş trendinde — bu bullish sinyal daha az güvenilir olabilir"
-      className="inline-flex items-center gap-0.5 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-400"
+      title={`Sektör geneli düşüş trendinde (${scoreText.trim()}) — bu bullish sinyal daha az güvenilir olabilir`}
+      className="inline-flex items-center gap-0.5 rounded-md border border-orange-500/40 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-orange-400"
     >
-      ⚠ Sektör Zayıf
+      ⚠ Sektör{scoreText}
     </span>
   );
 }
@@ -120,17 +122,17 @@ function SectorConflictBadge() {
 function MTFBadge({ aligned }: { aligned: boolean }) {
   return aligned ? (
     <span
-      title="Haftalık trend ile uyumlu — güçlü sinyal"
+      title="Günlük + Haftalık trend aynı yönde — güçlü çok zaman dilimli sinyal"
       className="inline-flex items-center gap-0.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400"
     >
-      W✓
+      D1·W✓
     </span>
   ) : (
     <span
-      title="Haftalık trend ile uyumsuz — zayıf sinyal"
-      className="inline-flex items-center gap-0.5 rounded-md border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-400"
+      title="Günlük sinyal haftalık trend ile çelişiyor — dikkatli ol"
+      className="inline-flex items-center gap-0.5 rounded-md border border-zinc-600/40 bg-zinc-700/20 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500"
     >
-      W✗
+      D1·W✗
     </span>
   );
 }
@@ -180,14 +182,23 @@ function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum
 
   if (!hasBadges) return null;
 
+  // Sektör çelişkisi: sektör düşerken AL sinyali veya sektör çıkarken SAT sinyali
+  const hasSectorConflict =
+    sectorMomentum &&
+    sectorMomentum.stockCount >= 2 &&
+    ((sectorMomentum.direction === 'asagi' && signal.direction === 'yukari') ||
+     (sectorMomentum.direction === 'yukari' && signal.direction === 'asagi'));
+
   return (
     <div className="flex flex-wrap items-center gap-1">
       {compositeResult && <CompositeBadge result={compositeResult} />}
       {!compositeResult && sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
-      {!compositeResult && sectorMomentum && sectorMomentum.direction === 'asagi' && signal.direction === 'yukari' && <SectorConflictBadge />}
       {!compositeResult && macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
+      {/* Sektör çelişkisi: compositeResult olsa bile göster — kritik uyarı */}
+      {hasSectorConflict && <SectorConflictBadge score={sectorMomentum!.score} />}
       {confluence && <ConfluenceBadge result={confluence} />}
-      {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
+      {/* Eşik 20→10: backtesting engine ile tutarlı (sufficientSample >= 10) */}
+      {winRate && winRate.sampleSize >= 10 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
       {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
       {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
     </div>

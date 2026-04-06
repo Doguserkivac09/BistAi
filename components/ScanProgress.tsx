@@ -45,7 +45,7 @@ export function ScanProgress({ current, total, symbol }: ScanProgressProps) {
         <div className="h-3 w-3 rounded-full bg-yellow-500/70" />
         <div className="h-3 w-3 rounded-full bg-green-500/70" />
         <span className="ml-3 font-mono text-[11px] uppercase tracking-widest text-text-secondary">
-          BistAI — Sinyal Tarama Sistemi
+          Investable Edge — Sinyal Tarama Sistemi
         </span>
         <span className="ml-auto font-mono text-xs font-medium text-primary">
           {current}/{total}
@@ -59,7 +59,7 @@ export function ScanProgress({ current, total, symbol }: ScanProgressProps) {
         style={{ scrollBehavior: 'smooth' }}
       >
         <div className="mb-1 text-green-500/50">
-          {'>'} BistAI Sinyal Tarayıcı v2.0 başlatılıyor...
+          {'>'} Investable Edge Sinyal Tarayıcı v2.0 başlatılıyor...
         </div>
         <div className="mb-3 text-green-500/35">
           {'>'} {total} sembol yüklendi — toplu tarama başlıyor (batch_size=5)

@@ -171,6 +171,7 @@ export default function SimulasyonPage() {
   const [streamText, setStreamText] = useState('');
   const [result, setResult]     = useState('');
   const [error, setError]       = useState<string | null>(null);
+  const [upgradeRequired, setUpgradeRequired] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   const resultRef = useRef<HTMLDivElement>(null);
@@ -184,15 +185,17 @@ export default function SimulasyonPage() {
     });
   }, []);
 
+  // Mobil: simülasyon başlayınca sonuç paneline kaydır
   useEffect(() => {
-    if (streamText) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [streamText]);
+    if (loading) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading]);
 
   const runSimulation = async () => {
     if (!selected || loading) return;
     setError(null);
     setResult('');
     setStreamText('');
+    setUpgradeRequired(false);
     setLoading(true);
 
     const scenario: SimulationScenario = {
@@ -213,7 +216,11 @@ export default function SimulasyonPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? 'Bir hata oluştu.');
+        if (data.upgrade) {
+          setUpgradeRequired(true);
+        } else {
+          setError(data.error ?? 'Bir hata oluştu.');
+        }
         setLoading(false);
         return;
       }
@@ -264,7 +271,7 @@ export default function SimulasyonPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto max-w-5xl px-4 py-8">
+      <main className="container mx-auto max-w-7xl px-4 py-8">
 
         {/* Başlık */}
         <div className="mb-6">
@@ -277,7 +284,7 @@ export default function SimulasyonPage() {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
 
           {/* Sol panel — Senaryo seçimi */}
           <div className="space-y-4">
@@ -382,7 +389,7 @@ export default function SimulasyonPage() {
           </div>
 
           {/* Sağ panel — Sonuç */}
-          <div>
+          <div ref={resultRef}>
             {!result && !streamText && !loading && !error && (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface/30 py-20 text-center">
                 <FlaskConical className="h-10 w-10 text-text-muted mb-3" />
@@ -432,6 +439,23 @@ export default function SimulasyonPage() {
               <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
                 <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-red-400">{error}</p>
+              </div>
+            )}
+
+            {upgradeRequired && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
+                <FlaskConical className="h-8 w-8 text-primary mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-text-primary mb-1">Pro veya Premium Gerekli</h3>
+                <p className="text-xs text-text-secondary mb-4">
+                  Makro Simülatör, gerçek zamanlı AI analizi sunan gelişmiş bir özelliktir.<br />
+                  Kullanmak için planınızı yükseltin.
+                </p>
+                <Link
+                  href="/fiyatlandirma"
+                  className="inline-block rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
+                >
+                  Planları Gör
+                </Link>
               </div>
             )}
           </div>

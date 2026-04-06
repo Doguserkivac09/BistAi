@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `${sembol} Hisse Analizi`,
     description: `${sembol} hissesi için teknik analiz, grafik, EMA, RSI ve AI destekli sinyal açıklamaları.`,
     openGraph: {
-      title: `${sembol} — BistAI Hisse Analizi`,
+      title: `${sembol} — Investable Edge Hisse Analizi`,
       description: `${sembol} teknik analiz sinyalleri ve yapay zeka açıklamaları.`,
     },
     alternates: { canonical: `/hisse/${sembol}` },

@@ -12,12 +12,14 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Minus, Compass, RefreshCw, Eye, Info, Sparkles, Bot } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Compass, RefreshCw, Eye, Info, Sparkles, Bot, BarChart2, Layers, Star, Zap } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { SECTORS, getSectorId, getAllSectors } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
 import type { SectorId } from '@/lib/sectors';
+import type { OHLCVCandle } from '@/types';
 import { WatchlistButton } from '@/components/WatchlistButton';
+import { detectAllSignals } from '@/lib/signals';
 
 // ─── Sektör momentum API tipi ─────────────────────────────────────────────────
 
@@ -27,6 +29,7 @@ interface SectorMomentumRow {
   direction: 'yukari' | 'asagi' | 'nötr';
   compositeScore: number;
   momentum20d: number;
+  topPerformers: string[]; // gerçek verisi olan hisseler
 }
 
 // ─── Yardımcılar ─────────────────────────────────────────────────────────────
@@ -51,27 +54,77 @@ function directionBadge(dir: 'yukari' | 'asagi' | 'nötr') {
 
 // ─── Hisse Kartı ─────────────────────────────────────────────────────────────
 
+interface HisseVeri {
+  fiyat: number | null;
+  degisim: number | null; // günlük %
+  sinyalVar: boolean;
+  sinyalAdet: number;
+}
+
 function HisseKart({
   sembol,
   isWatchlisted,
+  onVeriYuklendi,
 }: {
   sembol: string;
   isWatchlisted: boolean;
+  onVeriYuklendi?: (sembol: string, veri: HisseVeri) => void;
 }) {
+  const [veri, setVeri] = useState<HisseVeri | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/ohlcv?symbol=${sembol}&days=60`)
+      .then(r => r.ok ? r.json() : null)
+      .then((d) => {
+        if (cancelled || !d?.candles?.length) return;
+        const candles: OHLCVCandle[] = d.candles;
+        const son = candles[candles.length - 1];
+        const onceki = candles[candles.length - 2];
+        const fiyat = son?.close ?? null;
+        const degisim = (son && onceki && onceki.close > 0)
+          ? ((son.close - onceki.close) / onceki.close) * 100
+          : null;
+        const sinyaller = detectAllSignals(sembol, candles);
+        const sinyalVar = sinyaller.length > 0;
+        const yeniVeri: HisseVeri = { fiyat, degisim, sinyalVar, sinyalAdet: sinyaller.length };
+        setVeri(yeniVeri);
+        onVeriYuklendi?.(sembol, yeniVeri);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sembol, onVeriYuklendi]);
+
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-3 py-2.5 hover:border-primary/30 transition-colors">
-      <Link
-        href={`/hisse/${sembol}`}
-        className="flex items-center gap-2 min-w-0 flex-1"
-      >
-        <span className="text-sm font-bold text-text-primary">{sembol}</span>
-        <Eye className="h-3.5 w-3.5 text-text-muted opacity-0 group-hover:opacity-100" />
+    <div className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-3 py-2.5 hover:border-primary/30 transition-colors group">
+      <Link href={`/hisse/${sembol}`} className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-text-primary">{sembol}</span>
+            {veri?.sinyalVar && (
+              <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/30 bg-amber-500/10 px-1 py-0.5 text-[9px] font-semibold text-amber-400">
+                <Zap className="h-2.5 w-2.5" />{veri.sinyalAdet} SİNYAL
+              </span>
+            )}
+          </div>
+          {veri ? (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xs font-mono text-text-secondary">
+                ₺{veri.fiyat?.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'}
+              </span>
+              {veri.degisim !== null && (
+                <span className={`text-[10px] font-semibold ${veri.degisim >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {veri.degisim >= 0 ? '+' : ''}{veri.degisim.toFixed(2)}%
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="mt-0.5 h-3 w-20 animate-pulse rounded bg-surface-alt" />
+          )}
+        </div>
       </Link>
       <div className="flex items-center gap-2 shrink-0">
-        <Link
-          href={`/hisse/${sembol}`}
-          className="text-[11px] text-primary hover:underline"
-        >
+        <Link href={`/hisse/${sembol}`} className="text-[11px] text-primary hover:underline">
           İncele
         </Link>
         <WatchlistButton sembol={sembol} isInWatchlist={isWatchlisted} />
@@ -88,16 +141,31 @@ function SektorBolum({
   semboller,
   watchlistedSet,
   portfolyoSet,
+  sadeceSinyal,
+  sinyalMap,
+  onVeriYuklendi,
 }: {
   sektorId: SectorId;
   momentum: SectorMomentumRow | undefined;
   semboller: string[];
   watchlistedSet: Set<string>;
   portfolyoSet: Set<string>;
+  sadeceSinyal: boolean;
+  sinyalMap: Map<string, HisseVeri>;
+  onVeriYuklendi: (sembol: string, veri: HisseVeri) => void;
 }) {
   const sektor  = SECTORS[sektorId];
   const disinda = semboller.filter(s => !portfolyoSet.has(s));
   if (disinda.length === 0) return null;
+
+  // Sinyal filtresi: veri yüklenen hisselerden sinyal olanları al
+  const gosterilecek = sadeceSinyal
+    ? disinda.filter(s => sinyalMap.get(s)?.sinyalVar === true)
+    : disinda;
+
+  // Sinyal filtresi açık ama henüz hiç veri yoksa sektörü gizleme (loading durumu)
+  if (sadeceSinyal && disinda.every(s => !sinyalMap.has(s))) return null;
+  if (sadeceSinyal && gosterilecek.length === 0) return null;
 
   const portfoydeVar = semboller.filter(s => portfolyoSet.has(s));
   const dir          = momentum?.direction ?? 'nötr';
@@ -109,11 +177,6 @@ function SektorBolum({
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-text-primary">{sektor.name}</h3>
           {directionBadge(dir)}
-          {momentum && (
-            <span className={`text-xs font-mono ${momentum.compositeScore >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {momentum.compositeScore > 0 ? '+' : ''}{momentum.compositeScore}
-            </span>
-          )}
         </div>
         {portfoydeVar.length > 0 && (
           <span className="text-[11px] text-text-muted">
@@ -122,13 +185,35 @@ function SektorBolum({
         )}
       </div>
 
+      {/* Sektör skor şeridi */}
+      {momentum && (() => {
+        const score = momentum.compositeScore;
+        const absScore = Math.abs(score);
+        const barWidth = Math.min(absScore, 100);
+        const isPos = score >= 0;
+        return (
+          <div className="mb-3 flex items-center gap-2">
+            <div className="relative flex-1 h-1.5 rounded-full bg-surface-alt overflow-hidden">
+              <div
+                className={`absolute h-full rounded-full transition-all ${isPos ? 'bg-emerald-500' : 'bg-red-500'}`}
+                style={{ width: `${barWidth}%`, left: isPos ? '50%' : undefined, right: !isPos ? '50%' : undefined }}
+              />
+              <div className="absolute left-1/2 top-0 h-full w-px bg-border/60" />
+            </div>
+            <span className={`shrink-0 text-xs font-mono font-semibold w-10 text-right ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>
+              {score > 0 ? '+' : ''}{score}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* Hisseler */}
       <div className="grid gap-1.5 sm:grid-cols-2">
-        {disinda.slice(0, 6).map(s => (
-          <HisseKart key={s} sembol={s} isWatchlisted={watchlistedSet.has(s)} />
+        {(sadeceSinyal ? gosterilecek : disinda.slice(0, 6)).map(s => (
+          <HisseKart key={s} sembol={s} isWatchlisted={watchlistedSet.has(s)} onVeriYuklendi={onVeriYuklendi} />
         ))}
       </div>
-      {disinda.length > 6 && (
+      {!sadeceSinyal && disinda.length > 6 && (
         <p className="mt-2 text-[11px] text-text-muted text-right">
           +{disinda.length - 6} hisse daha
         </p>
@@ -146,11 +231,17 @@ export default function TersPortfolyoPage() {
   const [loading,       setLoading]       = useState(true);
   const [sectorLoading, setSectorLoading] = useState(true);
   const [loggedIn,      setLoggedIn]      = useState<boolean | null>(null);
-  const [sadeceCPh,     setSadeceCPh]     = useState(false); // sadece çıkmış potansiyel
+  const [sadeceCPh,     setSadeceCPh]     = useState(false);
+  const [sadeceSinyal,  setSadeceSinyal]  = useState(false);
+  const [sinyalMap,     setSinyalMap]     = useState<Map<string, HisseVeri>>(new Map());
   const [aiAnaliz,      setAiAnaliz]      = useState('');
   const [aiLoading,     setAiLoading]     = useState(false);
   const [aiError,       setAiError]       = useState<string | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
+
+  const handleVeriYuklendi = useMemo(() => (sembol: string, veri: HisseVeri) => {
+    setSinyalMap(prev => new Map(prev).set(sembol, veri));
+  }, []);
 
   // 1. Auth + Portföy + Watchlist
   useEffect(() => {
@@ -182,13 +273,21 @@ export default function TersPortfolyoPage() {
       .then((data) => {
         if (!data?.sectors) return;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setSektorMomentum(data.sectors.map((s: any) => ({
-          id:             s.id,
-          name:           s.name,
-          direction:      s.direction ?? 'nötr',
-          compositeScore: Math.round(s.compositeScore ?? 0),
-          momentum20d:    s.momentum20d ?? 0,
-        })));
+        setSektorMomentum(data.sectors.map((s: any) => {
+          const score = s.compositeScore ?? 0;
+          const direction: 'yukari' | 'asagi' | 'nötr' =
+            s.signal === 'strong_buy' || s.signal === 'buy' ? 'yukari'
+            : s.signal === 'strong_sell' || s.signal === 'sell' ? 'asagi'
+            : 'nötr';
+          return {
+            id:             s.sectorId ?? s.id,
+            name:           s.sectorName ?? s.name ?? s.shortName ?? '—',
+            direction,
+            compositeScore: Math.round(score),
+            momentum20d:    s.perf20d ?? s.momentum20d ?? 0,
+            topPerformers:  (s.topPerformers ?? []).map((p: any) => p.symbol ?? p).filter(Boolean),
+          };
+        }));
       })
       .catch(() => {})
       .finally(() => setSectorLoading(false));
@@ -273,6 +372,101 @@ export default function TersPortfolyoPage() {
             )}
           </p>
         </div>
+
+        {/* ── Özet İstatistik Kartları ── */}
+        {!loading && !sectorLoading && (
+          <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              {
+                icon: Layers,
+                label: 'Portföy Dışı Hisse',
+                value: String(toplamDisinda),
+                sub: `${BIST_SYMBOLS.length} BIST hissesinden`,
+                color: 'text-text-primary',
+              },
+              {
+                icon: TrendingUp,
+                label: 'Yükseliş Sektörü',
+                value: String(sektorMomentum.filter(s => s.direction === 'yukari').length),
+                sub: `${sektorMomentum.length} sektörden`,
+                color: 'text-emerald-400',
+              },
+              {
+                icon: BarChart2,
+                label: 'En Güçlü Sektör',
+                value: (() => {
+                  const top = [...sektorMomentum].sort((a, b) => b.compositeScore - a.compositeScore)[0];
+                  return top?.name ?? '—';
+                })(),
+                sub: (() => {
+                  const top = [...sektorMomentum].sort((a, b) => b.compositeScore - a.compositeScore)[0];
+                  if (!top) return '';
+                  return `Skor: ${top.compositeScore > 0 ? '+' : ''}${top.compositeScore}`;
+                })(),
+                color: 'text-primary',
+              },
+              {
+                icon: Star,
+                label: 'Portföy Kapsamı',
+                value: `%${Math.round((portfolyoSet.size / BIST_SYMBOLS.length) * 100)}`,
+                sub: `${portfolyoSet.size} hisse takipte`,
+                color: 'text-amber-400',
+              },
+            ].map(({ icon: Icon, label, value, sub, color }) => (
+              <div key={label} className="rounded-xl border border-border bg-surface p-4">
+                <div className="mb-1 flex items-center gap-1.5 text-xs text-text-muted">
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </div>
+                <div className={`text-lg font-bold ${color}`}>{value}</div>
+                {sub && <div className="mt-0.5 text-[11px] text-text-muted">{sub}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Bu Haftanın Öne Çıkanı ── */}
+        {!loading && !sectorLoading && sektorMomentum.length > 0 && (() => {
+          const topSektor = [...sektorMomentum]
+            .filter(s => s.direction === 'yukari')
+            .sort((a, b) => b.compositeScore - a.compositeScore)[0];
+          if (!topSektor) return null;
+          const topSektorSemboller = topSektor.topPerformers.length > 0
+            ? topSektor.topPerformers.filter(s => !portfolyoSet.has(s)).slice(0, 3)
+            : (sektorSembolMap.get(topSektor.id) ?? []).filter(s => !portfolyoSet.has(s)).slice(0, 3);
+          if (topSektorSemboller.length === 0) return null;
+          return (
+            <div className="mb-6 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-4 w-4 text-emerald-400" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Bu Haftanın Öne Çıkanı</span>
+              </div>
+              <p className="text-sm text-text-secondary mb-3">
+                <span className="font-semibold text-text-primary">{topSektor.name}</span> sektörü en güçlü momentum&apos;ya sahip
+                {' '}<span className="text-emerald-400 font-semibold">(+{topSektor.compositeScore})</span>.
+                Bu sektörde portföyünde olmayan öne çıkan hisseler:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {topSektorSemboller.map(s => (
+                  <Link
+                    key={s}
+                    href={`/hisse/${s}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                  >
+                    {s}
+                    <Eye className="h-3 w-3 opacity-70" />
+                  </Link>
+                ))}
+                <Link
+                  href={`/sektorler`}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-text-muted hover:border-primary/30 hover:text-text-primary transition-colors"
+                >
+                  Sektörü Gör →
+                </Link>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* AI Analiz Butonu + Panel */}
         {!loading && loggedIn && (
@@ -365,7 +559,24 @@ export default function TersPortfolyoPage() {
             }`}
           >
             <TrendingUp className="h-3.5 w-3.5" />
-            Sadece Yükseliş Trendindeki Sektörler
+            Yükseliş Sektörleri
+          </button>
+
+          <button
+            onClick={() => setSadeceSinyal(v => !v)}
+            className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+              sadeceSinyal
+                ? 'border-amber-500/50 bg-amber-500/10 text-amber-400'
+                : 'border-border text-text-secondary hover:border-primary/30'
+            }`}
+          >
+            <Zap className="h-3.5 w-3.5" />
+            Aktif Sinyalli Hisseler
+            {sadeceSinyal && sinyalMap.size > 0 && (
+              <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+                {[...sinyalMap.values()].filter(v => v.sinyalVar).length}
+              </span>
+            )}
           </button>
 
           {sectorLoading && (
@@ -415,6 +626,9 @@ export default function TersPortfolyoPage() {
                 semboller={s.semboller}
                 watchlistedSet={watchlistedSet}
                 portfolyoSet={portfolyoSet}
+                sadeceSinyal={sadeceSinyal}
+                sinyalMap={sinyalMap}
+                onVeriYuklendi={handleVeriYuklendi}
               />
             ))}
           </div>

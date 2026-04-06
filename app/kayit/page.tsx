@@ -71,7 +71,7 @@ export default function KayitPage() {
         <Card className="w-full max-w-md border-border bg-surface/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle>Ücretsiz Başla</CardTitle>
-            <CardDescription>BistAI hesabı oluşturun.</CardDescription>
+            <CardDescription>Investable Edge hesabı oluşturun.</CardDescription>
           </CardHeader>
           <CardContent>
             {success ? (

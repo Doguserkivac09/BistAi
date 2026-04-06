@@ -14,4 +14,4 @@ Disallow: /profil
 Disallow: /api/
 Disallow: /auth/
 
-Sitemap: https://bistai.vercel.app/sitemap.xml
+Sitemap: https://investableedge.vercel.app/sitemap.xml

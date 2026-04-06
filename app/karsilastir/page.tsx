@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { KarsilastirClient } from './KarsilastirClient';
 
 export const metadata: Metadata = {
-  title: 'Hisse Karşılaştırma | BistAI',
+  title: 'Hisse Karşılaştırma | Investable Edge',
   description: 'BIST hisselerini yan yana karşılaştır. Fiyat, sinyal ve performans metriklerini tek ekranda görüntüle.',
 };
 

@@ -13,6 +13,14 @@
       "schedule": "0 7 * * 1-5"
     },
     {
+      "path": "/api/cron/scan-cache",
+      "schedule": "30 4 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scan-cache",
+      "schedule": "0 16 * * 1-5"
+    },
+    {
       "path": "/api/cron/alerts",
       "schedule": "30 7 * * 1-5"
     },

@@ -113,48 +113,68 @@ export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
  */
 export const BIST_SYMBOLS = [
   // Bankacılık & Finans
-  'AKBNK', 'GARAN', 'HALKB', 'ISCTR', 'VAKBN', 'YKBNK', 'SKBNK', 'ALBRK', 'QNBFB', 'TSKB',
+  'AKBNK', 'GARAN', 'HALKB', 'ISCTR', 'VAKBN', 'YKBNK', 'SKBNK', 'ALBRK', 'TSKB',
+  'ICBCT', 'GEDIK', 'GARFA', 'GSDHO', 'GSDDE', 'VAKFN',
   // Sigorta & Finansal Hizmetler
   'HEKTS', 'ANHYT', 'AGROT', 'ISMEN', 'ANSGR', 'AKGRT', 'RAYSG', 'ISFIN',
-  // Holding
-  'KCHOL', 'SAHOL', 'DOHOL', 'TAVHL', 'TKFEN', 'IHLAS', 'PEHOL',
+  // Holding & Yatırım
+  'KCHOL', 'SAHOL', 'DOHOL', 'TAVHL', 'TKFEN', 'IHLAS', 'GOZDE', 'IEYHO', 'NTHOL', 'POLHO',
   // Havacılık & Savunma
   'THYAO', 'PGSUS', 'ASELS',
   // Enerji & Petrol
   'TUPRS', 'AKSEN', 'AKENR', 'AKSA', 'ENKAI', 'ODAS', 'KONTR', 'ENJSA', 'ORGE', 'NATEN', 'AYDEM',
+  'SASA', 'AYEN', 'AYCES', 'BIOEN', 'EUPWR', 'ZOREN', 'CWENE',
   // Otomotiv & Makine
   'FROTO', 'TOASO', 'OTKAR', 'DOAS', 'TTRAK', 'KATMR', 'JANTS', 'KAREL', 'MAKIM',
+  'ASUZU', 'BFREN', 'DITAS', 'GOODY', 'DMSAS', 'ERBOS', 'EMKEL', 'KAPLM', 'KNFRT',
   // Perakende & Tüketici
   'BIMAS', 'MGROS', 'SOKM', 'ULKER', 'CCOLA', 'TATGD', 'BIZIM', 'MAVI', 'KENT', 'ADEL',
+  'CRFSA', 'ARZUM', 'GRSEL', 'MRSHL', 'VAKKO', 'YATAS',
   // Gıda & İçecek
-  'PENGD', 'PETUN', 'TUKAS',
+  'PENGD', 'PETUN', 'TUKAS', 'BANVT', 'CUSAN', 'ERSU', 'AVOD', 'PINSU', 'ULUUN', 'NUHCM', 'AEFES',
   // Telekomünikasyon & Teknoloji
   'TCELL', 'TTKOM', 'ASTOR', 'LOGO', 'ARDYZ', 'NETAS', 'MARTI', 'TKNSA',
+  'DGATE', 'DIRIT', 'FONET', 'INVEO', 'PKART', 'PLTUR', 'RODRG', 'MOBTL', 'GLBMD',
+  'INDES', 'ISKPL', 'ISYAT',
   // Demir-Çelik & Madencilik
-  'EREGL', 'KRDMD', 'KRDMA', 'KRDMC', 'KOZAL', 'KOZAA', 'IPEKE', 'BRSAN', 'CEMTS', 'PARSN',
+  'EREGL', 'KRDMD', 'KRDMA', 'BRSAN', 'CEMTS', 'PARSN',
+  'DOKTA', 'GMTAS', 'LUKSK', 'LKMNH',
   // Çimento & Yapı Malzemeleri
-  'CIMSA', 'AKCNS', 'AFYON', 'BOLUC', 'BURVA', 'KONYA', 'UNYEC', 'IZOCM',
+  'CIMSA', 'AKCNS', 'AFYON', 'BURVA', 'KONYA', 'BSOKE', 'CMENT', 'BURCE',
   // Cam & Kimya
-  'SISE', 'TRKCM', 'SODA', 'GUBRF', 'PETKM', 'ALKIM', 'PIMAS',
+  'SISE', 'GUBRF', 'PETKM', 'ALKIM', 'COSMO', 'ECZYT', 'KMPUR', 'SAMAT',
   // İnşaat & GYO
-  'EKGYO', 'ENKA', 'KLGYO', 'ALGYO', 'ISGYO', 'TRGYO', 'HLGYO', 'OZGYO', 'RGYAS', 'PAGYO',
+  'EKGYO', 'KLGYO', 'ALGYO', 'ISGYO', 'TRGYO', 'HLGYO', 'OZGYO', 'RGYAS', 'PAGYO',
   'NIBAS', 'OSTIM', 'OYLUM',
+  'AKSGY', 'AKMGY', 'AKFGY', 'MRGYO', 'SNGYO', 'VKGYO', 'RYGYO', 'DGGYO',
+  'NUGYO', 'EYGYO', 'MSGYO', 'DZGYO', 'FZLGY', 'OZKGY', 'IDGYO',
   // Sanayi & Üretim
   'ARCLK', 'VESBE', 'VESTL', 'BRISA', 'OYAKC', 'GESAN', 'EGEEN', 'SANEL', 'GEREL',
+  'PRKAB', 'SKTAS',
   // Tekstil & Hazır Giyim
   'MNDRS', 'SUWEN', 'SONME', 'YUNSA', 'DAGI', 'EDIP',
+  'ATEKS', 'BOSSA', 'DESA', 'HATEK', 'USAK',
   // Ulaştırma & Lojistik
-  'CLEBI', 'RYSAS', 'ULASL',
+  'CLEBI', 'RYSAS', 'AGHOL', 'HRKET', 'ONRYT',
   // Sağlık & İlaç
   'SELEC', 'DEVA', 'ONCSM',
+  // Medya & Yayıncılık
+  'HURGZ', 'IHYAY', 'DNISI',
   // Spor Kulüpleri
   'BJKAS', 'FENER', 'GSRAY', 'TSPOR',
   // Diğer BIST bileşenleri
   'ALFAS', 'BERA', 'BTCIM', 'BUCIM', 'CEMAS', 'ECILC', 'GLYHO',
   'KARSN', 'MPARK', 'PEKGY', 'SARKY', 'SMRTG', 'TMSN', 'TURSG',
-  'ALARK', 'AEFES', 'BAGFS', 'CWENE', 'EUPWR', 'HBCAG',
-  'INDES', 'KORDS', 'MEGAP', 'OBAMS', 'SILVR', 'ZOREN',
+  'ALARK', 'BAGFS', 'KORDS', 'MEGAP', 'OBAMS', 'SILVR',
   'KARTN', 'LIDER', 'METRO', 'INTEM', 'HEDEF', 'TEKTU',
+  'ACSEL', 'AHGAZ', 'ALCTL', 'ALKA', 'BAKAB', 'BARMA', 'BAYRK', 'BNTAS',
+  'BORLS', 'BRMEN', 'BVSAN', 'CANTE', 'CONSE', 'DAPGM', 'DENGE', 'DERIM',
+  'DYOBY', 'EGSER', 'ELITE', 'EMNIS', 'ESEN', 'FADE', 'FLAP', 'FORMT',
+  'GENIL', 'GEDZA', 'GLRYH', 'GOLTS', 'GUNDG', 'HDFGS', 'HTTBT', 'HUNER',
+  'IHEVA', 'IHGZT', 'IHLGM', 'IMASM', 'IZFAS', 'KLMSN', 'KUYAS',
+  'LIDFA', 'MAKTK', 'MEKAG', 'NTGAZ', 'PATEK', 'PRDGS', 'PRKME',
+  'PRZMA', 'PSDTC', 'ROYAL', 'RTALB', 'SAYAS', 'SEYKM', 'SNICA', 'SNPAM',
+  'TRCAS', 'VERTU', 'VKING', 'YEOTK', 'YGYO', 'YKSLN',
 ] as const;
 
 export type BistSymbol = (typeof BIST_SYMBOLS)[number];
@@ -167,6 +187,7 @@ export interface PortfolyoPozisyon {
   alis_fiyati: number;
   alis_tarihi: string;
   notlar?: string | null;
+  hedef_fiyat?: number | null;
   created_at: string;
 }
 
