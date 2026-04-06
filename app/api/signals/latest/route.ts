@@ -131,7 +131,6 @@ function buildTelegramMessage(sig: SocialSignal): string {
   const freshnessTag = sig.candlesAgo === 0 ? '🔥 Bugün oluştu' : `📅 ${sig.candlesAgo} gün önce oluştu`;
   const description = getSignalDescription(sig.signalType, sig.direction);
   const separator = '━━━━━━━━━━━━━━━━━━━━';
-  const chartUrl = `https://bistai.vercel.app/api/chart-image/${sig.symbol}`;
   return (
     `${emoji} *${sig.symbol}* — AI Teknik Sinyal\n` +
     `${separator}\n\n` +
@@ -144,8 +143,7 @@ function buildTelegramMessage(sig: SocialSignal): string {
     `${freshnessTag}\n\n` +
     `💰 Fiyat: *${sig.currentPrice.toFixed(2)} TL* ` +
     `(${changeSign}${sig.changePercent.toFixed(2)}%)\n\n` +
-    `${separator}\n` +
-    `[📊 Grafik](${chartUrl})`
+    `${separator}`
   );
 }
 
