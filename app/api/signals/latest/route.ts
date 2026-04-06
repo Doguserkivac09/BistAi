@@ -57,6 +57,55 @@ export interface SocialSignal {
 
 // ─── Yardımcılar ───────────────────────────────────────────────────────────────
 
+const SIGNAL_DESCRIPTIONS: Record<string, { yukari: string; asagi: string; nötr: string }> = {
+  'RSI Uyumsuzluğu': {
+    yukari: 'Fiyat yeni dip yaparken RSI yükselen dip oluşturdu. Satış baskısı azalıyor, yükseliş dönüşümü yakın.',
+    asagi:  'Fiyat yeni zirve yaparken RSI düşen zirve oluşturdu. Alış gücü zayıflıyor, düşüş riski var.',
+    nötr:   'RSI fiyatla uyumsuz hareket ediyor, yön değişimi sinyali.',
+  },
+  'Hacim Anomalisi': {
+    yukari: 'Ortalamanın çok üzerinde hacimle güçlü alım baskısı tespit edildi. Kurumsal ilgi artıyor olabilir.',
+    asagi:  'Ortalamanın çok üzerinde hacimle güçlü satış baskısı tespit edildi. Çıkış hareketine dikkat.',
+    nötr:   'Olağandışı yüksek hacim, yön baskısı belirsiz.',
+  },
+  'Trend Başlangıcı': {
+    yukari: 'Kısa vadeli ortalama uzun vadeli ortalamanın üzerine geçti. Yeni yükseliş trendi başlıyor olabilir.',
+    asagi:  'Kısa vadeli ortalama uzun vadeli ortalamanın altına geçti. Yeni düşüş trendi başlıyor olabilir.',
+    nötr:   'Hareketli ortalamalar kesişti, trend değişim sinyali.',
+  },
+  'Destek/Direnç Kırılımı': {
+    yukari: 'Önemli direnç seviyesi yukarı kırıldı. Kırılım devam ederse güçlü yükseliş hareketi bekleniyor.',
+    asagi:  'Önemli destek seviyesi aşağı kırıldı. Kırılım devam ederse güçlü düşüş hareketi bekleniyor.',
+    nötr:   'Kritik fiyat seviyesi kırıldı.',
+  },
+  'MACD Kesişimi': {
+    yukari: 'MACD sinyal çizgisini yukarı kesti, histogram pozitife döndü. Momentum yükseliş yönünde güçleniyor.',
+    asagi:  'MACD sinyal çizgisini aşağı kesti, histogram negatife döndü. Momentum düşüş yönünde güçleniyor.',
+    nötr:   'MACD kesişimi gerçekleşti, momentum değişiyor.',
+  },
+  'RSI Seviyesi': {
+    yukari: 'RSI aşırı satım bölgesinden çıktı. Dip bölgesinden toparlanma başlıyor olabilir.',
+    asagi:  'RSI aşırı alım bölgesinde seyrediyor. Zirve bölgesinde düzeltme riski yüksek.',
+    nötr:   'RSI kritik bölgede seyrediyor.',
+  },
+  'Bollinger Sıkışması': {
+    yukari: 'Bollinger Bantları daraldı, sıkışma sona eriyor. Güçlü bir çıkış hareketi yaklaşıyor.',
+    asagi:  'Bollinger Bantları daraldı, sıkışma sona eriyor. Güçlü bir çıkış hareketi yaklaşıyor.',
+    nötr:   'Volatilite sıkışması tespit edildi, büyük hareket bekleniyor.',
+  },
+  'Altın Çapraz': {
+    yukari: '50 günlük ortalama 200 günlük ortalamanın üzerine çıktı (Altın Çapraz). Güçlü uzun vadeli yükseliş sinyali.',
+    asagi:  '50 günlük ortalama 200 günlük ortalamanın altına geçti (Ölüm Çaprazı). Güçlü uzun vadeli düşüş sinyali.',
+    nötr:   'Uzun vadeli hareketli ortalamalar kesişti.',
+  },
+};
+
+function getSignalDescription(signalType: string, direction: string): string {
+  const desc = SIGNAL_DESCRIPTIONS[signalType];
+  if (!desc) return 'Teknik analiz sinyali tespit edildi.';
+  return desc[direction as keyof typeof desc] ?? desc.nötr;
+}
+
 function directionEmoji(dir: string): string {
   if (dir === 'yukari') return '🟢';
   if (dir === 'asagi')  return '🔴';
@@ -77,16 +126,27 @@ function severityLabel(sev: string): string {
 
 function buildTelegramMessage(sig: SocialSignal): string {
   const emoji = directionEmoji(sig.direction);
-  const wTag  = sig.weeklyAligned ? ' • W✓' : '';
+  const wTag  = sig.weeklyAligned ? '✅ Haftalık trend onaylıyor' : '⬜ Haftalık onay yok';
+  const changeSign = sig.changePercent >= 0 ? '+' : '';
+  const freshnessTag = sig.candlesAgo === 0 ? '🔥 Bugün oluştu' : `📅 ${sig.candlesAgo} gün önce oluştu`;
+  const description = getSignalDescription(sig.signalType, sig.direction);
+  const separator = '━━━━━━━━━━━━━━━━━━━━';
+  const chartUrl = `https://bistai.vercel.app/api/chart-image/${sig.symbol}`;
   return (
-    `${emoji} *AI Sinyal* — ${sig.symbol}\n\n` +
-    `📌 ${sig.signalType}\n` +
-    `Yön: ${directionLabel(sig.direction)}${wTag}\n` +
-    `Güç: ${severityLabel(sig.severity)}\n` +
-    `Güven Skoru: *${sig.confluenceScore}/100*\n` +
-    `Fiyat: ${sig.currentPrice.toFixed(2)} TL ` +
-    `(${sig.changePercent >= 0 ? '+' : ''}${sig.changePercent.toFixed(2)}%)\n\n` +
-    `🔗 bistai.vercel.app/hisse/${sig.symbol}`
+    `${emoji} *${sig.symbol}* — AI Teknik Sinyal\n` +
+    `${separator}\n\n` +
+    `📌 *${sig.signalType}*\n` +
+    `_${description}_\n\n` +
+    `📈 Yön: *${directionLabel(sig.direction)}*\n` +
+    `${severityLabel(sig.severity)}\n` +
+    `🎯 Güven Skoru: *${sig.confluenceScore}/100*\n` +
+    `${wTag}\n` +
+    `${freshnessTag}\n\n` +
+    `💰 Fiyat: *${sig.currentPrice.toFixed(2)} TL* ` +
+    `(${changeSign}${sig.changePercent.toFixed(2)}%)\n\n` +
+    `${separator}\n` +
+    `🔗 [Detaylı Analiz](https://bistai.vercel.app/hisse/${sig.symbol}) · ` +
+    `[📊 Grafik](${chartUrl})`
   );
 }
 
