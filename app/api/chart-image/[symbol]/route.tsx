@@ -106,7 +106,6 @@ export async function GET(
           </div>
 
           {/* Chart */}
-          {/* @ts-expect-error satori svg */}
           <svg
             width={W}
             height={CH + CY + 10}
@@ -114,14 +113,11 @@ export async function GET(
           >
             {/* Grid lines + Y labels */}
             {ticks.map((t, i) => (
-              // @ts-expect-error satori svg
               <g key={i}>
-                {/* @ts-expect-error satori svg */}
                 <line
                   x1={CX} y1={t.y} x2={CX + CW} y2={t.y}
                   stroke="#1e293b" strokeWidth={1}
                 />
-                {/* @ts-expect-error satori svg */}
                 <text
                   x={CX - 6} y={t.y + 4}
                   textAnchor="end" fill="#475569" fontSize={12}
@@ -133,7 +129,6 @@ export async function GET(
 
             {/* X labels */}
             {xLabels.map((xl, i) => (
-              // @ts-expect-error satori svg
               <text
                 key={i}
                 x={xl.x} y={CY + CH + 22}
@@ -144,23 +139,17 @@ export async function GET(
             ))}
 
             {/* Gradient def */}
-            {/* @ts-expect-error satori svg */}
             <defs>
-              {/* @ts-expect-error satori svg */}
               <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                {/* @ts-expect-error satori svg */}
                 <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
-                {/* @ts-expect-error satori svg */}
                 <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
               </linearGradient>
             </defs>
 
             {/* Area fill */}
-            {/* @ts-expect-error satori svg */}
             <path d={areaD} fill="url(#areaGrad)" />
 
             {/* Line */}
-            {/* @ts-expect-error satori svg */}
             <polyline
               points={linePoints}
               fill="none"
@@ -170,9 +159,7 @@ export async function GET(
             />
 
             {/* Last price dot */}
-            {/* @ts-expect-error satori svg */}
             <circle cx={lastX} cy={lastY} r={5} fill={lineColor} />
-            {/* @ts-expect-error satori svg */}
             <circle cx={lastX} cy={lastY} r={9} fill={lineColor} fillOpacity={0.25} />
           </svg>
 
