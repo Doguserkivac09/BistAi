@@ -2,7 +2,6 @@ import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import { fetchOHLCV } from '@/lib/yahoo';
 
-export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
