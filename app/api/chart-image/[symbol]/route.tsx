@@ -3,9 +3,10 @@ import { NextRequest } from 'next/server';
 import { fetchOHLCV } from '@/lib/yahoo';
 
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { symbol: string } }
 ) {
   const symbol = params.symbol.trim().toUpperCase();
@@ -18,64 +19,38 @@ export async function GET(
     const { candles, currentPrice, changePercent } = await fetchOHLCV(symbol, 60);
     if (!candles.length) return new Response('Veri yok', { status: 404 });
 
-    const prices = candles.slice(-60).map((c) => c.close);
-    const dates  = candles.slice(-60).map((c) =>
-      typeof c.date === 'string' ? c.date.slice(5) : '' // MM-DD
-    );
-
-    const rawMin = Math.min(...prices);
-    const rawMax = Math.max(...prices);
-    const padding = (rawMax - rawMin) * 0.08 || 1;
-    const minP = rawMin - padding;
-    const maxP = rawMax + padding;
-    const range = maxP - minP;
-
-    const W = 800, H = 420;
-    const CX = 70, CY = 80, CW = 690, CH = 250;
-
-    const toX = (i: number) => CX + (i / Math.max(prices.length - 1, 1)) * CW;
-    const toY = (p: number) => CY + CH - ((p - minP) / range) * CH;
-
-    const linePoints = prices.map((p, i) => `${toX(i).toFixed(1)},${toY(p).toFixed(1)}`).join(' ');
-
-    const areaD = [
-      `M ${toX(0).toFixed(1)},${(CY + CH).toFixed(1)}`,
-      ...prices.map((p, i) => `L ${toX(i).toFixed(1)},${toY(p).toFixed(1)}`),
-      `L ${toX(prices.length - 1).toFixed(1)},${(CY + CH).toFixed(1)}`,
-      'Z',
-    ].join(' ');
+    const prices = candles.slice(-50).map((c) => c.close);
+    const minP = Math.min(...prices) * 0.997;
+    const maxP = Math.max(...prices) * 1.003;
+    const range = maxP - minP || 1;
 
     const isUp      = (changePercent ?? 0) >= 0;
     const lineColor = isUp ? '#22c55e' : '#ef4444';
+    const bgColor   = isUp ? '#052e16' : '#2d0a0a';
     const changeSign = isUp ? '+' : '';
+    const price     = (currentPrice ?? prices[prices.length - 1]!).toFixed(2);
+    const change    = (changePercent ?? 0).toFixed(2);
 
-    // Y-axis price labels (4 ticks)
-    const ticks = [0, 0.33, 0.66, 1].map((r) => ({
-      y: CY + CH * r,
-      label: (maxP - r * range).toFixed(2),
-    }));
+    // Bar chart: each bar = one price point
+    const bars = prices.map((p) => {
+      const heightPct = Math.max(2, Math.round(((p - minP) / range) * 100));
+      return heightPct;
+    });
 
-    // X-axis date labels (first, mid, last)
-    const xLabels = [
-      { x: toX(0), label: dates[0] ?? '' },
-      { x: toX(Math.floor(prices.length / 2)), label: dates[Math.floor(prices.length / 2)] ?? '' },
-      { x: toX(prices.length - 1), label: dates[prices.length - 1] ?? '' },
-    ];
-
-    const lastX = toX(prices.length - 1);
-    const lastY = toY(prices[prices.length - 1]!);
+    // Price range labels
+    const labelMax = maxP.toFixed(2);
+    const labelMin = minP.toFixed(2);
 
     return new ImageResponse(
       (
         <div
           style={{
-            width: W,
-            height: H,
+            width: 800,
+            height: 400,
             background: '#0f172a',
             display: 'flex',
             flexDirection: 'column',
             fontFamily: 'sans-serif',
-            position: 'relative',
           }}
         >
           {/* Header */}
@@ -84,103 +59,107 @@ export async function GET(
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: '18px 30px 0',
+              padding: '20px 28px 12px',
+              borderBottom: '1px solid #1e293b',
             }}
           >
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ color: '#ffffff', fontSize: 30, fontWeight: 'bold', letterSpacing: 1 }}>
+              <span style={{ color: '#ffffff', fontSize: 32, fontWeight: 'bold', letterSpacing: 1 }}>
                 {symbol}
               </span>
               <span style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>
-                Son 60 Gün · BistAI
+                Son 50 İşlem Günü
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span style={{ color: '#ffffff', fontSize: 26, fontWeight: 'bold' }}>
-                {(currentPrice ?? prices[prices.length - 1]!).toFixed(2)} ₺
+              <span style={{ color: '#ffffff', fontSize: 28, fontWeight: 'bold' }}>
+                {price} ₺
               </span>
-              <span style={{ color: lineColor, fontSize: 17, fontWeight: 600, marginTop: 2 }}>
-                {changeSign}{(changePercent ?? 0).toFixed(2)}%
+              <span
+                style={{
+                  color: lineColor,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  marginTop: 2,
+                  background: bgColor,
+                  padding: '2px 10px',
+                  borderRadius: 6,
+                }}
+              >
+                {changeSign}{change}%
               </span>
             </div>
           </div>
 
-          {/* Chart */}
-          <svg
-            width={W}
-            height={CH + CY + 10}
-            style={{ position: 'absolute', top: 70 }}
+          {/* Chart area */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'stretch',
+              padding: '12px 28px 8px',
+              gap: 0,
+            }}
           >
-            {/* Grid lines + Y labels */}
-            {ticks.map((t, i) => (
-              <g key={i}>
-                <line
-                  x1={CX} y1={t.y} x2={CX + CW} y2={t.y}
-                  stroke="#1e293b" strokeWidth={1}
+            {/* Y labels */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'flex-end',
+                marginRight: 10,
+                paddingBottom: 4,
+              }}
+            >
+              <span style={{ color: '#475569', fontSize: 11 }}>{labelMax}</span>
+              <span style={{ color: '#475569', fontSize: 11 }}>{((parseFloat(labelMax) + parseFloat(labelMin)) / 2).toFixed(2)}</span>
+              <span style={{ color: '#475569', fontSize: 11 }}>{labelMin}</span>
+            </div>
+
+            {/* Bars */}
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                gap: 2,
+              }}
+            >
+              {bars.map((h, i) => (
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: `${h}%`,
+                    background: i === bars.length - 1
+                      ? lineColor
+                      : `${lineColor}55`,
+                    borderRadius: '2px 2px 0 0',
+                  }}
                 />
-                <text
-                  x={CX - 6} y={t.y + 4}
-                  textAnchor="end" fill="#475569" fontSize={12}
-                >
-                  {t.label}
-                </text>
-              </g>
-            ))}
-
-            {/* X labels */}
-            {xLabels.map((xl, i) => (
-              <text
-                key={i}
-                x={xl.x} y={CY + CH + 22}
-                textAnchor="middle" fill="#475569" fontSize={11}
-              >
-                {xl.label}
-              </text>
-            ))}
-
-            {/* Gradient def */}
-            <defs>
-              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
-                <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
-
-            {/* Area fill */}
-            <path d={areaD} fill="url(#areaGrad)" />
-
-            {/* Line */}
-            <polyline
-              points={linePoints}
-              fill="none"
-              stroke={lineColor}
-              strokeWidth={2.5}
-              strokeLinejoin="round"
-            />
-
-            {/* Last price dot */}
-            <circle cx={lastX} cy={lastY} r={5} fill={lineColor} />
-            <circle cx={lastX} cy={lastY} r={9} fill={lineColor} fillOpacity={0.25} />
-          </svg>
+              ))}
+            </div>
+          </div>
 
           {/* Footer */}
           <div
             style={{
-              position: 'absolute',
-              bottom: 10,
-              left: 30,
-              right: 30,
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center',
+              padding: '0 28px 12px',
             }}
           >
-            <span style={{ color: '#334155', fontSize: 12 }}>bistai.vercel.app</span>
-            <span style={{ color: '#334155', fontSize: 12 }}>AI Sinyal Botu • {new Date().toLocaleDateString('tr-TR')}</span>
+            <span style={{ color: '#334155', fontSize: 11 }}>bistai.vercel.app</span>
+            <span style={{ color: '#334155', fontSize: 11 }}>
+              AI Sinyal Botu • {new Date().toLocaleDateString('tr-TR')}
+            </span>
           </div>
         </div>
       ),
-      { width: W, height: H }
+      { width: 800, height: 400 }
     );
   } catch (err) {
     console.error('[chart-image]', err);
