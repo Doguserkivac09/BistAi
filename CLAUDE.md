@@ -1,46 +1,36 @@
-# BistAI - Claude Code Proje Hafızası
+# Investable Edge - Claude Code Proje Hafızası
 
 > Bu dosya Claude Code tarafından otomatik okunur. Tüm ekip üyeleri aynı bağlamı paylaşır.
 
 ---
 
-## 🚀 SONRAKİ ADIMLAR — Öncelik Sırasına Göre (2026-03-28 güncellendi)
+## 🚀 SONRAKİ ADIMLAR — (2026-04-09 güncellendi)
 
-### ~~🔴 SİNYAL KALİTESİ & DOĞRULUK~~ ✅ SPRINT TAMAMLANDI
+> Phase 1-13 + Roadmap Step 1-13 + BT1-BT11 + B1-B10 = **Tümü tamamlandı.**
+> Telegram entegrasyonu, 295 sembol, Investable Edge rebranding eklendi.
+> Aşağıdaki maddeler gerçek backlog'u yansıtır.
 
-| # | Görev | Açıklama | Durum |
-|---|-------|----------|-------|
-| Q1 | ~~**Confluence Skoru**~~ | ✅ `computeConfluence()` — 4 kategori, severity+hizalama+çeşitlilik → 0-100. StockCard badge | ✅ |
-| Q2 | ~~**Sinyal Yaşı (Freshness)**~~ | ✅ `candlesAgo` field, "Xg önce" badge StockCard'da gösteriliyor | ✅ |
-| Q3 | ~~**Backtest Başarı Oranı UI**~~ | ✅ `WinRateBadge` — "7g %XX" StockCard'da (sampleSize≥20) | ✅ |
-| Q4 | ~~**Korelasyon Katsayısı**~~ | ✅ `karsilastir/KarsilastirClient.tsx` — korelasyon matrisi eklendi | ✅ |
-| Q5 | ~~**Multi-timeframe Doğrulama**~~ | ✅ `computeWeeklyAlignment()` + `MTFBadge` (W✓/W✗) StockCard'da | ✅ |
-| Q6 | ~~**Sektör Momentum Filtresi**~~ | ✅ `SectorConflictBadge` (⚠ Sektör Zayıf) + taramada "Güçlü Sektör" toggle | ✅ |
+### 🔴 Öncelikli
 
-### 🔴 1. Sinyal Güçlendirmeleri (Kısa Vadeli — Hemen Yapılabilir)
+| # | Görev | Açıklama |
+|---|-------|----------|
+| N1 | **Production backfill (BT-FIX)** | `maxDrawdown` ve `pValue` düzeltmesi main'e geçti ama DB'deki eski kayıtlar hâlâ -100 içeriyor. `DELETE FROM signal_performance` + 164 batch yeniden backfill gerekli. |
+| N2 | **Telegram kanal kurulum** | `/api/signals/latest` + `/api/chart-image/[sembol]` hazır; Telegram bot token + channel ID Vercel env'e girilmeli, otomasyon devreye alınmalı. |
+| N3 | **Sitemap 295 sembol** | Sitemap hâlâ 164 hisse referans ediyor; `BIST_SYMBOLS` 295'e çıktıysa `app/sitemap.ts` güncellenmeli. |
 
-| # | Görev | Neden Önemli |
-|---|-------|--------------|
-| S1 | ~~**Kırılım sinyali güçlendir**~~ | ✅ 50g lookback, %0.3 min kırılım, 0.8x vol, breakoutPct eklendi |
-| S2 | ~~**Altın/Ölüm Çaprazı iyileştir**~~ | ✅ Tarama 252g veri, 10 mum lookback, separationPct eklendi |
-| S3 | ~~**MACD Kesişimi iyileştir**~~ | ✅ 7 mum lookback, histExpanding, aboveZero kontrolü eklendi |
-| S4 | ~~**RSI Seviyesi sinyali güçlendir**~~ | ✅ Bölgeden çıkış tespiti, 32/68 BIST eşiği, rsiMomentum eklendi |
+### 🟠 Orta Vadeli
 
-### ~~🟠 2. Anlık Uyarı Sistemi — Phase 14.2~~ ✅ TAMAMLANDI
-- **Test edildi ve çalışıyor** — Her iş günü 10:30 TRT'de gönderilir
+| # | Görev | Açıklama |
+|---|-------|----------|
+| N4 | **Stripe env key'leri** | Stripe hesabı açılınca `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, price ID'leri Vercel'e girilmeli. |
+| N5 | **BT5 Survivorship bias** | Delistinge giden şirketler backtest'e dahil değil — sonuçlar iyimser. Uzun vadeli fix. |
 
-### ~~🟠 3. Portföy Performans Grafiği — Phase 14.1 ek~~ ✅ TAMAMLANDI
-- `components/PortfolioPerformanceChart.tsx` mevcut ve `app/portfolyo/page.tsx`'e entegre edildi
+### 🟡 Sonra / Opsiyonel
 
-### ~~🟡 4. Backtest Veri Sorunu — Phase 14.3~~ ✅ TAMAMLANDI
-- `app/api/dev/seed-backtest/route.ts` — 120 sentetik kayıt üretir, `POST /api/dev/seed-backtest` ile çalıştır
-
-### ~~🟡 5. Mobil PWA — Phase 14.5~~ ✅ TAMAMLANDI
-- `public/manifest.json` + `public/sw.js` + `public/icons/` → layout.tsx'de `manifest: '/manifest.json'`
-
-### ~~🟡 6. Code Quality — Teknik Borç~~ ✅ TAMAMLANDI
-- `components/VixChart.tsx` silindi (kullanılmıyordu)
-- TypeScript `npx tsc --noEmit` — sıfır hata
+| # | Görev | Açıklama |
+|---|-------|----------|
+| N6 | **2Y Backfill** | `stock 365g` ile tam 2 yıl DB doldurmak için büyük backfill. Mevcut veri 1 yıllık. |
+| N7 | **Python ML Microservice** | FastAPI + XGBoost/RandomForest — Phase 13'te planlandı, opsiyonel. |
 
 ---
 
@@ -111,33 +101,33 @@ Her session başında ekip üyesi kendini tanıtır. Claude, kişiye göre göre
 
 ## Proje Özeti
 
-BIST odaklı AI-destekli yatırım analiz platformu. Teknik sinyaller + makroekonomik bağlam + sektör momentum analizi ile aksiyon odaklı yatırım kararları üretir.
+**Investable Edge** — BIST odaklı AI-destekli yatırım analiz platformu. Teknik sinyaller + makroekonomik bağlam + sektör momentum analizi ile aksiyon odaklı yatırım kararları üretir.
 
 - **Stack**: Next.js 14 App Router, TypeScript, React 18, Tailwind CSS, Supabase (Postgres + Auth)
+- **Hisse evreni**: 295 BIST sembolü (~%95 işlem hacmi kapsamı)
 - **Veri Kaynakları**: Yahoo Finance (OHLCV + VIX/DXY/US10Y/USDTRY), FRED API (makro), TCMB (Türkiye makro), Anthropic Claude AI (açıklamalar)
 - **Repo**: https://github.com/Doguserkivac09/BistAi.git
 - **Vizyon**: Teknik sinyal × Makro rüzgar × Sektör uyumu → Kompozit BUY/HOLD/SELL kararı
 
-## Git Workflow (ZORUNLU)
+## Git Workflow
 
 ```
-# 1. Her zaman develop'tan başla
-git checkout develop
-git pull origin develop
+# Aktif geliştirme main branch üzerinde yapılıyor (2026-04 itibarıyla).
+# develop = main ile eşleştirildi (2026-04-09).
 
-# 2. Feature branch aç
+# Küçük fix/feature: doğrudan main
+git checkout main && git pull origin main
+git add <dosyalar> && git commit -m "fix(scope): ..." && git push
+
+# Büyük özellik: feature branch
 git checkout -b feat/<feature-name>
-
-# 3. Değişiklikleri yap, sonra:
-git add <specific files>
-git commit -m "feat(scope): description"
 git push -u origin feat/<feature-name>
+# → main'e merge
 
-# 4. Merge: feat/* → develop (PR veya local merge)
-# 5. ASLA develop veya main'e direkt commit yapma
+# ASLA --force ile main'e push yapma
 ```
 
-**Commit stilleri**: `feat(scope):`, `fix(scope):`, `refactor(scope):`
+**Commit stilleri**: `feat(scope):`, `fix(scope):`, `refactor(scope):`, `docs:`
 **Push öncesi**: Her zaman kullanıcıya "Push edelim mi?" diye sor.
 
 ## Kritik Dosyalar
@@ -532,7 +522,12 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
     - `STRIPE_PRICE_PREMIUM=price_...` → Stripe → Products → Premium plan price ID
     - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...` → Stripe → API Keys
     - `NEXT_PUBLIC_SITE_URL=http://localhost:3000` (prod'da gerçek URL)
-15. ⬜ **Sıradaki: Phase 13 — Ek Veri Kaynakları & ML Temeli (opsiyonel)**
+15. ✅ Phase 13 tamamlandı (2026-03-28): Ek Veri & ML Temeli
+16. ✅ Rebranding tamamlandı (2026-04): BistAI → **Investable Edge**, 164 → **295 BIST sembolü** (~%95 işlem hacmi), tarama DB cache sistemi (cron tarar, kullanıcı anında yükler)
+17. ✅ Telegram entegrasyonu tamamlandı (2026-04, Doğuş): `/api/signals/latest` sinyal feed + `/api/chart-image/[sembol]` grafik görsel, bot mesaj formatı
+18. ✅ Branch senkronizasyonu (2026-04-09): `develop` → `main`'e fast-forward edildi; artık aktif geliştirme `main` üzerinde
+19. ⬜ **N1: Production backfill** — BT-FIX (maxDrawdown daily grouping) DB'ye yansıtılmalı
+20. ⬜ **N2: Telegram kanal kurulum** — Bot token + channel ID Vercel env'e girilmeli
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
@@ -643,18 +638,18 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 - ✅ `app/araclar/page.tsx`: 4 sekme — Pozisyon Büyüklüğü, Risk/Ödül, Hedef Fiyat, Portföy Risk
 - ✅ Navbar'a `Araçlar` linki eklendi (Piyasa dropdown)
 
-### Step 3 — Ekonomi Takvimi 🔵✅ 🔴⬜
+### Step 3 — Ekonomi Takvimi ✅ TAMAMLANDI
 - ✅ `lib/ekonomi-takvimi.ts`: TR/US/EU olayları, tipler, yardımcı fonksiyonlar
 - ✅ `app/ekonomi-takvimi/page.tsx`: countdown, filtre, tarih gruplama, okunabilir UI
-- ⬜ 🔴 AI makro yorum entegrasyonu (Claude prompt) — **Opus bekliyor**
+- ✅ `/api/ekonomi-takvimi` SSE streaming, takvim olayları → sektör etki + BIST yorumu (AI)
 
-### Step 4 — Explainable AI Skor 🔵✅ 🔴⬜
+### Step 4 — Explainable AI Skor ✅ TAMAMLANDI
 - ✅ `components/ScoreBreakdown.tsx`: STRONG_BUY/SELL ring + banner, kompozit karar paneli
-- ✅ `app/hisse/[sembol]/HisseDetailClient.tsx`: toCompositeResult() adaptörü + sağ kolona entegre
-- ⬜ 🔴 `lib/composite-signal.ts` faktör katkı algoritması genişletmesi — **Opus bekliyor**
+- ✅ `lib/composite-signal.ts` `buildKeyFactors` genişletildi: sinyal tazeliği, haftalık hizalama, makro bileşen, sektör perf20d
 
-### Step 5 — AI Sohbet 🔴⬜
-- ⬜ Streaming API + context builder + prompt mühendisliği + chat UI — **Tamamı Opus bekliyor**
+### Step 5 — AI Sohbet ✅ TAMAMLANDI
+- ✅ `app/api/chat/route.ts`: streaming, claude-opus-4-6, portföy bağlamı, günlük limit, tier gating
+- ✅ `app/sohbet/page.tsx`: chat UI
 
 ### Step 6 — Fiyat Alert 🔵 ✅ TAMAMLANDI (2026-03-28)
 - ✅ `supabase/migrations/20260328_price_alerts.sql`: price_alerts tablosu + RLS
@@ -665,32 +660,32 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 - ✅ `vercel.json`: 10:00 TRT cron eklendi
 - ✅ Entegrasyon: watchlist, hisse detay, navbar Portföy dropdown
 
-### Step 7 — Portföy P&L 🔵 ⬜ BEKLIYOR
-- ⬜ DB şema + lot hesaplama + tab UI + grafik + CSV export — **Sonnet görevi**
+### Step 7 — Portföy P&L ✅ TAMAMLANDI
+- ✅ `app/portfolyo/page.tsx`: lot takibi, günlük değişim, sektör çeşitlilik, CSV export, GÜÇLÜ SAT badge
+- ✅ `components/PortfolioPerformanceChart.tsx`: performans grafiği
 
-### Step 8 — KAP + Sinyal 🔴🔵 ⬜ BEKLIYOR
-- ⬜ 🔴 KAP feed parsing + AI özetleme/sinyal bağlantı prompt
-- ⬜ 🔵 DB + cron + bildirim UI
+### Step 8 — KAP + Sinyal ✅ TAMAMLANDI
+- ✅ `lib/kap.ts`, `app/api/kap/route.ts`, `app/kap/page.tsx`: KAP duyuruları sayfası
+- ✅ `/api/kap/summarize`: claude-opus-4-6 ile AI özetleme, HisseDetail'e "AI ile Özetle" butonu
 
 ### Step 9 — Gelişmiş Screener 🔵 ✅ TAMAMLANDI (2026-03-28)
 - ✅ `app/tarama/page.tsx`: 15 sektör dropdown filtresi (selectedSector state + URL param)
 - ✅ Q6 sektör momentum filtresi de eklendi (sektör düşerken bullish = zayıf)
 
-### Step 10 — AI Bülten 🔴🔵 ⬜ BEKLIYOR
-- ⬜ 🔴 Kişiselleştirilmiş bülten prompt
-- ⬜ 🔵 Cron + email template + profil toggle
+### Step 10 — AI Bülten ✅ TAMAMLANDI
+- ✅ `app/api/cron/bulten/route.ts`: haftalık AI bülten cron, kişisel piyasa yorumu (claude-opus-4-6)
+- ✅ `app/profil/page.tsx`: bülten e-posta tercihi toggle
 
 ### Step 11 — Temel Analiz Veri 🔵 ✅ TAMAMLANDI (2026-03-28)
 - ✅ `app/api/fundamentals/route.ts`: AlphaVantage F/K, EPS, piyasa değeri endpoint
 - ✅ `components/TemelAnalizKarti.tsx`: F/K, EPS, piyasa değeri, 52 hafta bant UI
 - ✅ `app/hisse/[sembol]/HisseDetailClient.tsx`: hisse detay sayfasına entegre
 
-### Step 12 — Ters Portföy 🔴🔵 ⬜ BEKLIYOR
-- ⬜ 🔴 Analiz motoru + AI öneri prompt
-- ⬜ 🔵 "Kaçırdıklarınız" UI component
+### Step 12 — Ters Portföy ✅ TAMAMLANDI
+- ✅ `app/ters-portfolyo/page.tsx`: portföy dışı fırsatlar, sektör bazlı, momentum sıralı
 
-### Step 13 — Makro Simülatör 🔴 ⬜ BEKLIYOR
-- ⬜ Senaryo prompt + tarihsel analiz + karmaşık UI state — **Tamamı Opus bekliyor**
+### Step 13 — Makro Simülatör ✅ TAMAMLANDI
+- ✅ `app/api/simulasyon/route.ts` + `app/simulasyon/page.tsx`: 12 senaryo (kur/faiz/global/emtia), sektör etki tablosu, tarihsel analiz, portföy yorumu
 
 ---
 
@@ -749,19 +744,21 @@ Her görev tamamlandığında bu dosyadaki ilgili satırın yanına durum yazıl
 | BT10 | **İstatistiksel anlamlılık testi yok** — %50.6 win rate p-value olmadan anlamsız | Bilimsel doğruluk | 🟡 Sonra |
 | BT11 | **Veri geçmişi 1 yıl** — sektör standardı 5+ yıl; Yahoo 10 yıla kadar destekliyor | Güvenilirlik | 🟡 Sonra |
 
-### Rakip Karşılaştırması (Eksikler)
+### Rakip Karşılaştırması (Güncel Durum)
 
-| Özellik | BistAI | TradingView | Matriks |
+| Özellik | Investable Edge | TradingView | Matriks |
 |---------|--------|-------------|---------|
-| Komisyon modeli | ❌ | ✅ | ✅ |
-| Equity curve | ❌ | ✅ | ✅ |
-| Max Drawdown | ❌ | ✅ | ✅ |
-| Sharpe Ratio | ❌ | ✅ | ✅ |
-| Benchmark (BIST100) | ❌ | ❌ | ✅ |
-| Giriş zamanlaması doğru | ❌ | ✅ | ✅ |
+| Komisyon modeli | ✅ (BT3) | ✅ | ✅ |
+| Equity curve | ✅ (BT7) | ✅ | ✅ |
+| Max Drawdown | ✅ (BT6) | ✅ | ✅ |
+| Sharpe Ratio | ✅ (BT8) | ✅ | ✅ |
+| Benchmark (BIST100) | ✅ (BT9) | ❌ | ✅ |
+| p-value istatistik testi | ✅ (BT10) | ❌ | ❌ |
+| Giriş zamanlaması doğru | ✅ (BT2) | ✅ | ✅ |
 | Signal×Regime matrisi | ✅ | ❌ | ❌ |
-| Makro bağlam | ✅ | ❌ | ❌ |
+| Makro bağlam + simülatör | ✅ | ❌ | ❌ |
 | Türkçe/BIST odaklı | ✅ | ❌ | ✅ |
+| Telegram sinyal botu | ✅ | ❌ | ❌ |
 
 ### Düzeltme Planı
 
