@@ -1127,7 +1127,7 @@ export default function BacktestingPage() {
               <HelpCircle className="h-4 w-4 shrink-0 text-text-muted" />
               <span className="text-text-muted">İstatistiksel Anlamlılık:</span>
               <span className={`font-semibold ${data.summary.pValue < 0.05 ? 'text-green-400' : data.summary.pValue < 0.1 ? 'text-yellow-400' : 'text-red-400'}`}>
-                p = {data.summary.pValue.toFixed(4)}
+                p = {data.summary.pValue < 0.0001 ? '< 0.0001' : data.summary.pValue.toFixed(4)}
               </span>
               <span className="text-text-muted">·</span>
               <span className={`text-xs ${data.summary.pValue < 0.05 ? 'text-green-400' : 'text-text-muted'}`}>
