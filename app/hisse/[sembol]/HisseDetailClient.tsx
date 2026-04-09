@@ -424,6 +424,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [kapLoading, setKapLoading]     = useState(true);
   const [kapSummary, setKapSummary]     = useState<string | null>(null);
   const [kapSumLoading, setKapSumLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
 
   // Hisse analizi (AI + fiyat hedefleri + hero meta)
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
@@ -632,6 +633,32 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </div>
             </div>
 
+            {/* ── Tab Bar ── */}
+            <div className="mt-5 flex overflow-x-auto border-b border-border scrollbar-none">
+              {([
+                { key: 'teknik',   label: 'Teknik Analiz', icon: '📊' },
+                { key: 'analiz',   label: 'AI Analiz',      icon: '🤖' },
+                { key: 'temel',    label: 'Temel Veriler',  icon: '📋' },
+                { key: 'haberler', label: 'Haberler',       icon: '📰' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 pb-3 pt-1 text-sm font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* ── Teknik Tab ── */}
+            {activeTab === 'teknik' && <>
+
             {/* ── Zaman dilimi seçici ──────────────────────────────────────── */}
             <div className="mb-4 flex items-center">
               <div className="overflow-x-auto">
@@ -746,18 +773,6 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   )}
                 </Card>
 
-                {/* AI Genel Yorumu — sol kolonda, grafikle birlikte okunur */}
-                <Card>
-                  <CardHeader className="py-2 px-3 pb-0">
-                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                      AI Yorumu
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-3">
-                    <HisseAIYorum analiz={analiz} loading={analizLoading} />
-                  </CardContent>
-                </Card>
-
                 {/* Teknik Göstergeler Özeti */}
                 <TeknikGostergelerOzeti candles={candles} />
 
@@ -767,20 +782,6 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
               {/* ── SAĞ KOLON: Metrikler & Analiz panelleri ─────────────────── */}
               <div className="lg:col-span-2 space-y-4">
-
-                {/* Kompozit AI Skor Paneli */}
-                {!analizLoading && analiz && !analiz.noSignal && (
-                  <Card>
-                    <CardHeader className="py-2 px-3 pb-0">
-                      <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                        Kompozit Karar
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-3">
-                      <ScoreBreakdown result={toCompositeResult(analiz)} />
-                    </CardContent>
-                  </Card>
-                )}
 
                 {/* Destek & Direnç — sağ kolonda kompakt */}
                 {candles.length >= 20 && (
@@ -812,26 +813,6 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     </Card>
                   );
                 })()}
-
-                {/* Teknik Adil Değer */}
-                {candles.length >= 50 && (() => {
-                  const fairValue = computeTechFairValue(candles);
-                  return (
-                    <Card>
-                      <CardHeader className="py-2 px-3 pb-0">
-                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                          Teknik Adil Değer
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-3">
-                        <AdilDegerMetre result={fairValue} />
-                      </CardContent>
-                    </Card>
-                  );
-                })()}
-
-                {/* Temel Analiz */}
-                <TemelAnalizKarti sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
               </div>
             </div>
 
@@ -858,7 +839,61 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </div>
             </div>
 
-            {/* ── TAM GENİŞLİK: KAP Duyuruları ────────────────────────────── */}
+            </> /* end activeTab === 'teknik' */}
+
+            {/* ── AI Analiz Tab ── */}
+            {activeTab === 'analiz' && (
+              <div className="mt-6 space-y-4">
+                {/* AI Yorumu — full width prominent */}
+                <Card>
+                  <CardHeader className="py-2 px-3 pb-0">
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">AI Yorumu</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    <HisseAIYorum analiz={analiz} loading={analizLoading} />
+                  </CardContent>
+                </Card>
+                {/* 2-kolon: Kompozit + Adil Değer */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {!analizLoading && analiz && !analiz.noSignal && (
+                    <Card>
+                      <CardHeader className="py-2 px-3 pb-0">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">Kompozit Karar</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        <ScoreBreakdown result={toCompositeResult(analiz)} />
+                      </CardContent>
+                    </Card>
+                  )}
+                  {candles.length >= 50 && (() => {
+                    const fairValue = computeTechFairValue(candles);
+                    return (
+                      <Card>
+                        <CardHeader className="py-2 px-3 pb-0">
+                          <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">Teknik Adil Değer</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-3">
+                          <AdilDegerMetre result={fairValue} />
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* ── Temel Tab ── */}
+            {activeTab === 'temel' && (
+              <div className="mt-6">
+                <TemelAnalizKarti sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
+              </div>
+            )}
+
+            {/* ── Haberler Tab ── */}
+            {activeTab === 'haberler' && (
+              <div className="mt-6 space-y-6">
+
+            {/* ── KAP Duyuruları ────────────────────────────── */}
             {(kapLoading || kapDuyurular.length > 0) && (
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-3">
@@ -939,7 +974,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </div>
             )}
 
-            {/* ── TAM GENİŞLİK: Haberler ──────────────────────────────────── */}
+            {/* ── Haberler ──────────────────────────────────── */}
             <div className="mt-2">
               <SectionHeader>{sembol} Haberleri</SectionHeader>
               {haberLoading ? (
@@ -997,6 +1032,10 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 </div>
               )}
             </div>
+
+              </div>
+            )}
+
           </>
         )}
       </main>
