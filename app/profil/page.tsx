@@ -12,6 +12,7 @@ import {
   ChevronRight, Settings, TrendingUp, Star, BarChart2, Pencil, X,
   Upload, ImageIcon, Trash2, TrendingDown,
 } from 'lucide-react';
+import PushNotificationButton from '@/components/PushNotificationButton';
 
 const DEFAULT_AVATARS = [
   '/avatars/avatar-1.svg',
@@ -805,6 +806,13 @@ export default function ProfilPage() {
                 </div>
               )}
             </div>
+          </Section>
+        </div>
+
+        {/* ── Browser (Web Push) Bildirimleri ── */}
+        <div className="mt-4">
+          <Section icon={Bell} title="Browser Bildirimleri">
+            <PushNotificationButton />
           </Section>
         </div>
 

@@ -1,5 +1,5 @@
 // Investable Edge Service Worker
-const CACHE_NAME = 'investableedge-v1';
+const CACHE_NAME = 'investableedge-v2';
 
 // Offline'da gösterilecek sayfalar
 const STATIC_CACHE = [
@@ -52,5 +52,42 @@ self.addEventListener('fetch', (event) => {
         return res;
       })
       .catch(() => caches.match(event.request))
+  );
+});
+
+// ── Push Bildirimleri ─────────────────────────────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data?.json() ?? {}; } catch { data = { body: event.data?.text() ?? '' }; }
+
+  const title   = data.title ?? 'Investable Edge';
+  const options = {
+    body:              data.body ?? '',
+    icon:              '/icons/icon-192.png',
+    badge:             '/icons/icon-192.png',
+    data:              { url: data.url ?? '/tarama' },
+    tag:               data.tag  ?? 'signal-alert',
+    requireInteraction: false,
+    silent:            false,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? '/tarama';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
   );
 });

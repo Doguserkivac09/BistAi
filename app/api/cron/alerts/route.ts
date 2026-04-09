@@ -17,6 +17,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
 import { sendSignalAlert } from '@/lib/email-service';
+import { sendPush } from '@/lib/push';
 import type { StockSignal } from '@/types';
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -108,8 +109,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, message: 'Gönderilecek sinyal yok', sent: 0 });
   }
 
-  // ── 5. Batch: tüm tercihleri + geçmişi tek sorguda çek ────────────────────
-  const [{ data: allPrefs }, { data: allHistory }] = await Promise.all([
+  // ── 5. Batch: tüm tercihleri + geçmişi + push aboneliklerini çek ──────────
+  const [{ data: allPrefs }, { data: allHistory }, { data: allPushSubs }] = await Promise.all([
     admin
       .from('alert_subscriptions')
       .select('user_id, email_enabled, min_severity, signal_types')
@@ -119,7 +120,18 @@ export async function GET(req: NextRequest) {
       .select('user_id, sembol, signal_type')
       .in('user_id', userIds)
       .gte('sent_at', today + 'T00:00:00Z'),
+    admin
+      .from('push_subscriptions')
+      .select('user_id, endpoint, p256dh, auth')
+      .in('user_id', userIds),
   ]);
+
+  // user_id → push abonelikleri map
+  const pushSubsMap = new Map<string, Array<{ endpoint: string; p256dh: string; auth: string }>>();
+  for (const sub of allPushSubs ?? []) {
+    if (!pushSubsMap.has(sub.user_id)) pushSubsMap.set(sub.user_id, []);
+    pushSubsMap.get(sub.user_id)!.push({ endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
+  }
 
   const prefsMap = new Map((allPrefs ?? []).map((p) => [p.user_id, p]));
 
@@ -150,10 +162,9 @@ export async function GET(req: NextRequest) {
     const prefs        = prefsMap.get(userId);
     const emailEnabled = prefs?.email_enabled ?? true;
     const minSeverity  = prefs?.min_severity  ?? 'orta';
-    const allowedTypes: string[] = prefs?.signal_types ?? []; // boş = tüm tipler
-    if (!emailEnabled) continue;
+    const allowedTypes: string[] = prefs?.signal_types ?? [];
 
-    const sentSet = historyMap.get(userId) ?? new Set<string>();
+    const sentSet  = historyMap.get(userId) ?? new Set<string>();
     const semboller = userSymbols[userId] ?? [];
 
     const stocksToSend: Array<{ sembol: string; signals: StockSignal[] }> = [];
@@ -176,17 +187,60 @@ export async function GET(req: NextRequest) {
 
     if (!stocksToSend.length) continue;
 
-    const email = emailMap.get(userId);
-    if (!email) continue;
+    let notified = false;
 
-    try {
-      const result = await sendSignalAlert({ to: email, stocks: stocksToSend });
-      if (result?.success) {
-        await admin.from('alert_history').insert(newHistoryRows);
-        sentCount++;
+    // ── Email ────────────────────────────────────────────────────────────────
+    if (emailEnabled) {
+      const email = emailMap.get(userId);
+      if (email) {
+        try {
+          const result = await sendSignalAlert({ to: email, stocks: stocksToSend });
+          if (result?.success) notified = true;
+        } catch (emailErr) {
+          console.error(`[cron/alerts] E-posta gönderilemedi (${userId}):`, emailErr);
+        }
       }
-    } catch (emailErr) {
-      console.error(`[cron/alerts] E-posta gönderilemedi (${userId}):`, emailErr);
+    }
+
+    // ── Web Push ─────────────────────────────────────────────────────────────
+    const pushSubs = pushSubsMap.get(userId) ?? [];
+    if (pushSubs.length > 0) {
+      const firstSembol  = stocksToSend[0]!.sembol;
+      const totalCount   = stocksToSend.reduce((s, x) => s + x.signals.length, 0);
+      const pushTitle    = stocksToSend.length === 1
+        ? `${firstSembol} — Yeni Sinyal`
+        : `${stocksToSend.length} hissede ${totalCount} yeni sinyal`;
+      const firstSig     = stocksToSend[0]!.signals[0]!;
+      const pushBody     = stocksToSend.length === 1
+        ? `${firstSig.type} · ${firstSig.severity}`
+        : stocksToSend.map((s) => s.sembol).join(', ');
+
+      const expiredEndpoints: string[] = [];
+      await Promise.allSettled(
+        pushSubs.map(async (sub) => {
+          const result = await sendPush(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            { title: pushTitle, body: pushBody, url: '/tarama', tag: 'signal-alert' }
+          );
+          if (result === 'sent') notified = true;
+          if (result === 'expired') expiredEndpoints.push(sub.endpoint);
+        })
+      );
+
+      // Süresi dolan abonelikleri temizle
+      if (expiredEndpoints.length > 0) {
+        await admin
+          .from('push_subscriptions')
+          .delete()
+          .eq('user_id', userId)
+          .in('endpoint', expiredEndpoints);
+      }
+    }
+
+    // ── Geçmişe kaydet ───────────────────────────────────────────────────────
+    if (notified) {
+      await admin.from('alert_history').insert(newHistoryRows);
+      sentCount++;
     }
   }
 
