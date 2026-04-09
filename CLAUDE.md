@@ -14,7 +14,7 @@
 
 | # | Görev | Açıklama |
 |---|-------|----------|
-| N1 | **Production backfill (BT-FIX)** | `maxDrawdown` ve `pValue` düzeltmesi main'e geçti ama DB'deki eski kayıtlar hâlâ -100 içeriyor. `DELETE FROM signal_performance` + 164 batch yeniden backfill gerekli. |
+| ~~N1~~ | ~~**Production backfill (BT-FIX)**~~ | ✅ Tamamlandı (2026-04-09): DELETE + 295 batch × 365g. ~125.000 kayıt. Doğru entry (ertesi açılış), doğru regime (XU100.IS), komisyon dahil, her mum örnekleniyor. |
 | N2 | **Telegram kanal kurulum** | `/api/signals/latest` + `/api/chart-image/[sembol]` hazır; Telegram bot token + channel ID Vercel env'e girilmeli, otomasyon devreye alınmalı. |
 | N3 | **Sitemap 295 sembol** | Sitemap hâlâ 164 hisse referans ediyor; `BIST_SYMBOLS` 295'e çıktıysa `app/sitemap.ts` güncellenmeli. |
 
