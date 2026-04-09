@@ -525,9 +525,9 @@ function TaramaPageInner() {
         ageMinutes: number | null;
       } | null) => {
         if (cancelled || !data?.fromCache || !data.results?.length) return;
-        // DB'de veri var ve 12 saatten taze ise kullan
+        // DB'de veri var ve 48 saatten taze ise kullan (client-side otomatik tarama engellenir)
         const ageMs = data.scannedAt ? Date.now() - new Date(data.scannedAt).getTime() : Infinity;
-        if (ageMs > 12 * 60 * 60 * 1000) return;
+        if (ageMs > 48 * 60 * 60 * 1000) return;
         const mapped: ScanResult[] = data.results.map(r => ({
           sembol: r.sembol,
           signals: r.signals,

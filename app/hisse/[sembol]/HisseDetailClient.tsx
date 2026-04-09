@@ -202,13 +202,21 @@ function TeknikGostergelerOzeti({ candles }: { candles: OHLCVCandle[] }) {
 
   function calcRSI(data: number[], period = 14): number {
     if (data.length < period + 1) return 50;
-    let gains = 0, losses = 0;
-    for (let i = data.length - period; i < data.length; i++) {
-      const diff = data[i] - data[i - 1];
-      if (diff > 0) gains += diff; else losses -= diff;
+    // Wilder's smoothed RSI — TradingView ile aynı metot
+    let avgGain = 0, avgLoss = 0;
+    for (let i = 1; i <= period; i++) {
+      const d = data[i] - data[i - 1];
+      if (d >= 0) avgGain += d; else avgLoss -= d;
     }
-    const rs = losses === 0 ? 100 : gains / losses;
-    return 100 - 100 / (1 + rs);
+    avgGain /= period;
+    avgLoss /= period;
+    for (let i = period + 1; i < data.length; i++) {
+      const d = data[i] - data[i - 1];
+      avgGain = (avgGain * (period - 1) + Math.max(0, d))  / period;
+      avgLoss = (avgLoss * (period - 1) + Math.max(0, -d)) / period;
+    }
+    if (avgLoss === 0) return 100;
+    return Math.round((100 - 100 / (1 + avgGain / avgLoss)) * 100) / 100;
   }
 
   const rsi = calcRSI(closes);
@@ -241,7 +249,7 @@ function TeknikGostergelerOzeti({ candles }: { candles: OHLCVCandle[] }) {
   type S = 'bullish' | 'bearish' | 'neutral';
   const rows: { label: string; value: string; detail: string; status: S }[] = [
     {
-      label: 'RSI (14)',
+      label: 'RSI (14) Günlük',
       value: rsi.toFixed(1),
       detail: rsi >= 70 ? 'Aşırı Alım' : rsi <= 30 ? 'Aşırı Satım' : rsi >= 55 ? 'Güçlü' : rsi <= 45 ? 'Zayıf' : 'Nötr',
       status: rsi >= 55 ? 'bullish' : rsi <= 45 ? 'bearish' : 'neutral',
@@ -832,6 +840,11 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               <SectionHeader>Çoklu Zaman Dilimi Analizi</SectionHeader>
               <Card>
                 <CardContent className="pt-4">
+                  <p className="mb-3 text-xs text-text-muted rounded-lg border border-border/60 bg-surface/60 px-3 py-2">
+                    Her zaman diliminde tespit edilen teknik sinyallerin sayısına göre AL/SAT/TUT kararı verilir.
+                    Üstteki bütünsel karar (makro + sektör + teknik) ile farklılık gösterebilir.
+                    RSI değerleri her zaman diliminin kendi mumlarından hesaplanır.
+                  </p>
                   <MtfSinyalTablosu sembol={sembol} />
                 </CardContent>
               </Card>
