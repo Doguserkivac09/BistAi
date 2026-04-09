@@ -13,7 +13,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
+import { getSectorId } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
+import type { OHLCVCandle } from '@/types';
+
+/** RSI(14) — son değeri döndürür */
+function calcLastRSI(candles: OHLCVCandle[], period = 14): number | null {
+  if (candles.length < period + 1) return null;
+  const closes = candles.map((c) => c.close);
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i]! - closes[i - 1]!;
+    if (d >= 0) avgGain += d; else avgLoss -= d;
+  }
+  avgGain /= period;
+  avgLoss /= period;
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i]! - closes[i - 1]!;
+    avgGain = (avgGain * (period - 1) + Math.max(0, d))  / period;
+    avgLoss = (avgLoss * (period - 1) + Math.max(0, -d)) / period;
+  }
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return Math.round((100 - 100 / (1 + rs)) * 100) / 100;
+}
 
 const CRON_SECRET  = process.env.CRON_SECRET;
 const BATCH_SIZE   = 10;
@@ -49,6 +72,9 @@ export async function GET(request: NextRequest) {
     signals_json: object;
     candles_json: object;
     change_percent: number | null;
+    rsi: number | null;
+    last_volume: number | null;
+    sector: string;
     scanned_at: string;
   }> = [];
 
@@ -104,7 +130,10 @@ export async function GET(request: NextRequest) {
         signals_json: signals,
         candles_json: last60,
         change_percent: changePercent ?? null,
-        scanned_at: scannedAt,
+        rsi:         calcLastRSI(candles),
+        last_volume: candles[candles.length - 1]?.volume ?? null,
+        sector:      getSectorId(sembol),
+        scanned_at:  scannedAt,
       });
 
       // signal_performance kayıtları — entry_price = son kapanış
