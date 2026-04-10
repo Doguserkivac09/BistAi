@@ -4,10 +4,13 @@
  * Portföy performans grafiği
  * Her pozisyonun alış tarihi + miktar + günlük kapanış fiyatından
  * toplam portföy değerini zaman içinde hesaplar ve çizer.
+ *
+ * Hisse seçici dropdown ile tek hisse görüntüleme desteklenir.
  */
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { createChart, ColorType, LineStyle } from 'lightweight-charts';
+import { ChevronDown } from 'lucide-react';
 import type { PortfolyoPozisyonWithStats } from '@/types';
 
 interface Candle {
@@ -26,14 +29,22 @@ function fmt(n: number) {
 
 export default function PortfolioPerformanceChart({ pozisyonlar, ohlcvMap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedSembol, setSelectedSembol] = useState<string>('__all__');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Günlük portföy değerini hesapla
+  // Seçime göre filtrelenmiş pozisyonlar
+  const filteredPozisyonlar = useMemo(() => {
+    if (selectedSembol === '__all__') return pozisyonlar;
+    return pozisyonlar.filter(p => p.sembol === selectedSembol);
+  }, [pozisyonlar, selectedSembol]);
+
   const { seriesData, totalCost, latestValue, pctChange } = useMemo(() => {
-    if (!pozisyonlar.length) return { seriesData: [], totalCost: 0, latestValue: 0, pctChange: 0 };
+    if (!filteredPozisyonlar.length) return { seriesData: [], totalCost: 0, latestValue: 0, pctChange: 0 };
 
-    // Tüm tarihleri birleştir (tüm sembollerin ortak iş günleri)
+    // Tüm tarihleri birleştir
     const dateSet = new Set<string>();
-    for (const sembol of Object.keys(ohlcvMap)) {
+    const relevantSymbols = filteredPozisyonlar.map(p => p.sembol);
+    for (const sembol of relevantSymbols) {
       for (const c of ohlcvMap[sembol] ?? []) {
         dateSet.add(c.date);
       }
@@ -41,26 +52,24 @@ export default function PortfolioPerformanceChart({ pozisyonlar, ohlcvMap }: Pro
     const allDates = Array.from(dateSet).sort();
     if (!allDates.length) return { seriesData: [], totalCost: 0, latestValue: 0, pctChange: 0 };
 
-    // Her tarih için fiyat map'i oluştur
+    // Her tarih için fiyat map'i
     const priceByDate: Record<string, Record<string, number>> = {};
-    for (const [sembol, candles] of Object.entries(ohlcvMap)) {
-      for (const c of candles) {
+    for (const sembol of relevantSymbols) {
+      for (const c of ohlcvMap[sembol] ?? []) {
         if (!priceByDate[c.date]) priceByDate[c.date] = {};
         priceByDate[c.date]![sembol] = c.close;
       }
     }
 
-    // Her tarihte toplam portföy değerini hesapla
+    // Her tarihte toplam değeri hesapla
     const points: { time: string; value: number }[] = [];
     let lastKnownPrices: Record<string, number> = {};
 
     for (const date of allDates) {
-      // Fiyatları güncelle (forward-fill)
       lastKnownPrices = { ...lastKnownPrices, ...(priceByDate[date] ?? {}) };
 
       let total = 0;
-      for (const poz of pozisyonlar) {
-        // Sadece alış tarihinden sonraki günleri say
+      for (const poz of filteredPozisyonlar) {
         if (date < poz.alis_tarihi) continue;
         const price = lastKnownPrices[poz.sembol];
         if (price) total += poz.miktar * price;
@@ -68,12 +77,12 @@ export default function PortfolioPerformanceChart({ pozisyonlar, ohlcvMap }: Pro
       if (total > 0) points.push({ time: date, value: total });
     }
 
-    const totalCost = pozisyonlar.reduce((s, p) => s + p.maliyet, 0);
+    const totalCost = filteredPozisyonlar.reduce((s, p) => s + p.maliyet, 0);
     const latestValue = points[points.length - 1]?.value ?? totalCost;
     const pctChange = totalCost > 0 ? ((latestValue - totalCost) / totalCost) * 100 : 0;
 
     return { seriesData: points, totalCost, latestValue, pctChange };
-  }, [pozisyonlar, ohlcvMap]);
+  }, [filteredPozisyonlar, ohlcvMap]);
 
   useEffect(() => {
     if (!containerRef.current || !seriesData.length) return;
@@ -109,7 +118,6 @@ export default function PortfolioPerformanceChart({ pozisyonlar, ohlcvMap }: Pro
       height: 220,
     });
 
-    // Alan serisi
     const areaSeries = chart.addAreaSeries({
       lineColor,
       topColor: areaTop,
@@ -122,7 +130,6 @@ export default function PortfolioPerformanceChart({ pozisyonlar, ohlcvMap }: Pro
     });
     areaSeries.setData(seriesData);
 
-    // Maliyet (baseline) çizgisi
     areaSeries.createPriceLine({
       price: totalCost,
       color: 'rgba(148,163,184,0.5)',
@@ -150,16 +157,59 @@ export default function PortfolioPerformanceChart({ pozisyonlar, ohlcvMap }: Pro
   if (!seriesData.length) return null;
 
   const profit = pctChange >= 0;
+  const selectedPoz = selectedSembol !== '__all__'
+    ? pozisyonlar.find(p => p.sembol === selectedSembol)
+    : null;
+
+  const baslikLabel = selectedPoz ? `${selectedPoz.sembol} Değeri` : 'Portföy Değeri';
+  const alisLabel   = selectedPoz
+    ? `${selectedPoz.miktar} lot · alış ₺${selectedPoz.alis_fiyati}`
+    : null;
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4 mb-6">
-      {/* Başlık */}
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-xs text-text-muted mb-0.5">Portföy Değeri</p>
+      {/* Başlık satırı */}
+      <div className="flex items-start justify-between mb-3 gap-3">
+        <div className="min-w-0">
+          {/* Hisse seçici */}
+          <div className="relative mb-2">
+            <button
+              onClick={() => setDropdownOpen(v => !v)}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-white/5 px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-white/10 transition-colors"
+            >
+              <span>{selectedSembol === '__all__' ? 'Tüm Portföy' : selectedSembol}</span>
+              <ChevronDown className={`h-3 w-3 text-text-muted transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute left-0 top-full z-20 mt-1 min-w-[140px] rounded-lg border border-border bg-[#1e2130] shadow-xl">
+                <button
+                  onClick={() => { setSelectedSembol('__all__'); setDropdownOpen(false); }}
+                  className={`w-full px-3 py-2 text-left text-xs hover:bg-white/5 transition-colors first:rounded-t-lg ${selectedSembol === '__all__' ? 'text-indigo-400 font-semibold' : 'text-text-secondary'}`}
+                >
+                  Tüm Portföy
+                </button>
+                {pozisyonlar.map(p => (
+                  <button
+                    key={p.sembol}
+                    onClick={() => { setSelectedSembol(p.sembol); setDropdownOpen(false); }}
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-white/5 transition-colors last:rounded-b-lg ${selectedSembol === p.sembol ? 'text-indigo-400 font-semibold' : 'text-text-secondary'}`}
+                  >
+                    {p.sembol}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <p className="text-xs text-text-muted mb-0.5">{baslikLabel}</p>
           <p className="text-xl font-bold text-text-primary">{fmt(latestValue)}</p>
+          {alisLabel && (
+            <p className="text-[11px] text-text-muted mt-0.5">{alisLabel}</p>
+          )}
         </div>
-        <div className="text-right">
+
+        <div className="text-right shrink-0">
           <p className="text-xs text-text-muted mb-0.5">Toplam Getiri</p>
           <p className={`text-lg font-semibold ${profit ? 'text-emerald-400' : 'text-red-400'}`}>
             {profit ? '+' : ''}{pctChange.toFixed(2)}%
@@ -174,7 +224,7 @@ export default function PortfolioPerformanceChart({ pozisyonlar, ohlcvMap }: Pro
       <div ref={containerRef} />
 
       <p className="text-[10px] text-text-muted mt-2">
-        Kesik çizgi = toplam maliyet · Fiyatlar Yahoo Finance&apos;tan çekilir
+        Kesik çizgi = {selectedPoz ? 'alış maliyeti' : 'toplam maliyet'} · Fiyatlar Yahoo Finance&apos;tan çekilir
       </p>
     </div>
   );
