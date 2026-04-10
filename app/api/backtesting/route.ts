@@ -76,36 +76,44 @@ export async function GET(request: NextRequest) {
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
+    const cutoffIso = cutoff.toISOString();
 
-    // Supabase PostgREST 1000 satır limiti — pagination ile tüm veriyi çek
     const PAGE_SIZE = 1000;
-    let allData: SignalPerformanceRecord[] = [];
-    let page = 0;
-    while (true) {
-      const { data, error } = await supabase
+
+    // Önce toplam kayıt sayısını çek (1 istek)
+    const { count, error: countError } = await supabase
+      .from('signal_performance')
+      .select('*', { count: 'exact', head: true })
+      .eq('evaluated', true)
+      .gte('entry_time', cutoffIso);
+
+    if (countError) {
+      return NextResponse.json({ error: `signal_performance sayılamadı: ${countError.message}` }, { status: 500 });
+    }
+
+    const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
+
+    // Tüm sayfaları paralel olarak çek
+    const pagePromises = Array.from({ length: totalPages }, (_, i) => {
+      let q = supabase
         .from('signal_performance')
         .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, mfe, mae, evaluated, regime, created_at')
         .eq('evaluated', true)
-        .gte('entry_time', cutoff.toISOString())
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .gte('entry_time', cutoffIso)
+        .range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1);
+      if (direction) q = q.eq('direction', direction);
+      return q;
+    });
 
+    const pageResults = await Promise.all(pagePromises);
+
+    for (const { error } of pageResults) {
       if (error) {
-        return NextResponse.json(
-          { error: `signal_performance okunamadı: ${error.message}` },
-          { status: 500 }
-        );
+        return NextResponse.json({ error: `signal_performance okunamadı: ${error.message}` }, { status: 500 });
       }
-      allData = allData.concat((data as SignalPerformanceRecord[]) ?? []);
-      if (!data || data.length < PAGE_SIZE) break;
-      page++;
     }
 
-    let records = allData;
-
-    // Yön filtresi
-    if (direction) {
-      records = records.filter((r) => r.direction === direction);
-    }
+    const records = pageResults.flatMap((r) => (r.data as SignalPerformanceRecord[]) ?? []);
 
     if (records.length === 0) {
       return NextResponse.json<BacktestingResponse>({
