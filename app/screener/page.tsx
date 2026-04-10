@@ -403,9 +403,10 @@ export default function ScreenerPage() {
 function ScreenerRow({ result }: { result: ScreenerResult }) {
   const { sembol, signals, changePercent, rsi, lastVolume, sectorName } = result;
 
-  const changePct = changePercent ?? 0;
-  const changeColor = changePct > 0 ? 'text-emerald-400' : changePct < 0 ? 'text-red-400' : 'text-text-muted';
-  const ChangeIcon = changePct > 0 ? TrendingUp : changePct < 0 ? TrendingDown : Minus;
+  const changePct = changePercent; // null korunur — 0 ile null ayrıştırılır
+  const effectivePct = changePct ?? 0;
+  const changeColor = effectivePct > 0 ? 'text-emerald-400' : effectivePct < 0 ? 'text-red-400' : 'text-text-muted';
+  const ChangeIcon = effectivePct > 0 ? TrendingUp : effectivePct < 0 ? TrendingDown : Minus;
 
   // En güçlü sinyali öne çıkar
   const topSignal = signals.sort((a, b) => {
@@ -428,8 +429,8 @@ function ScreenerRow({ result }: { result: ScreenerResult }) {
 
       {/* Değişim */}
       <div className={`flex w-16 shrink-0 items-center gap-1 text-sm font-medium ${changeColor}`}>
-        <ChangeIcon className="h-3.5 w-3.5" />
-        {changePct !== 0 ? `${changePct > 0 ? '+' : ''}${changePct.toFixed(2)}%` : '—'}
+        {changePct !== null && <ChangeIcon className="h-3.5 w-3.5" />}
+        {changePct !== null ? `${changePct > 0 ? '+' : ''}${changePct.toFixed(2)}%` : '—'}
       </div>
 
       {/* RSI */}
