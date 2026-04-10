@@ -15,7 +15,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bell, BellOff, BellRing, Loader2, Smartphone } from 'lucide-react';
 
-type PushState = 'unsupported' | 'ios-pwa-required' | 'loading' | 'denied' | 'subscribed' | 'unsubscribed';
+type PushState = 'unsupported' | 'ios-pwa-required' | 'loading' | 'denied' | 'subscribed' | 'unsubscribed' | 'config-error';
 
 function isIos() {
   if (typeof navigator === 'undefined') return false;
@@ -48,6 +48,12 @@ export default function PushNotificationButton({ className = '' }: { className?:
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // VAPID key yoksa yapılandırma hatası
+    if (!VAPID_PUBLIC) {
+      setState('config-error');
+      return;
+    }
+
     // iOS: push sadece PWA (Ana Ekrana Ekle) modunda çalışır
     if (isIos() && !isInStandaloneMode()) {
       setState('ios-pwa-required');
@@ -72,10 +78,6 @@ export default function PushNotificationButton({ className = '' }: { className?:
 
   // ── Abone ol ─────────────────────────────────────────────────────────────
   const subscribe = useCallback(async () => {
-    if (!VAPID_PUBLIC) {
-      console.error('[push] NEXT_PUBLIC_VAPID_PUBLIC_KEY eksik');
-      return;
-    }
     setBusy(true);
     try {
       const permission = await Notification.requestPermission();
@@ -133,6 +135,15 @@ export default function PushNotificationButton({ className = '' }: { className?:
   }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  if (state === 'config-error') {
+    return (
+      <div className={`flex items-center gap-2 text-xs text-text-muted ${className}`}>
+        <BellOff className="h-3.5 w-3.5 shrink-0 text-yellow-500" />
+        <span>Push bildirimleri şu an yapılandırılmamış.</span>
+      </div>
+    );
+  }
 
   if (state === 'ios-pwa-required') {
     return (
