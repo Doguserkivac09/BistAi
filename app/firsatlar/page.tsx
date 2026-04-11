@@ -147,16 +147,54 @@ function MakroBar({ score, regime }: { score: number | null; regime: string | nu
           </div>
         </>
       )}
-      <div className="ml-auto hidden sm:flex items-center gap-x-4 flex-wrap text-[10px] text-text-muted">
-        <span className="opacity-50">Sinyal:</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-400" /> Güçlü</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-400" /> Orta</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-400" /> Destekleyici</span>
-        <span className="w-px h-3 bg-border mx-1" />
-        <span className="opacity-50">Sektör:</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-purple-400" /> 3+ hisse</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-400" /> 2 hisse</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-zinc-500" /> Tek hisse</span>
+    </div>
+  );
+}
+
+// ── Renk Açıklaması ─────────────────────────────────────────────────
+
+function RenkLegend() {
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-surface/30 px-4 py-3">
+      {/* Sinyal grubu */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-semibold text-text-secondary">Sinyal Gücü:</span>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-full bg-green-500/15 border border-green-500/25 px-2.5 py-1 text-xs font-medium text-green-400">
+            <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" />
+            Güçlü
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/15 border border-yellow-500/25 px-2.5 py-1 text-xs font-medium text-yellow-400">
+            <span className="h-2 w-2 rounded-full bg-yellow-400 shrink-0" />
+            Orta
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full bg-blue-500/15 border border-blue-500/25 px-2.5 py-1 text-xs font-medium text-blue-400">
+            <span className="h-2 w-2 rounded-full bg-blue-400 shrink-0" />
+            Destekleyici
+          </span>
+        </div>
+      </div>
+
+      {/* Ayırıcı */}
+      <div className="hidden sm:block w-px h-5 bg-border" />
+
+      {/* Sektör grubu */}
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-semibold text-text-secondary">Sektör Yoğunluğu:</span>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 rounded-full bg-purple-500/15 border border-purple-500/25 px-2.5 py-1 text-xs font-medium text-purple-400">
+            <Users className="h-3 w-3 shrink-0" />
+            3+ hisse
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/25 px-2.5 py-1 text-xs font-medium text-indigo-400">
+            <Users className="h-3 w-3 shrink-0" />
+            2 hisse
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full bg-white/5 border border-border px-2.5 py-1 text-xs font-medium text-text-muted">
+            <Users className="h-3 w-3 shrink-0" />
+            Tek hisse
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -447,6 +485,9 @@ export default function FirsatlarPage() {
 
       {/* Makro bar */}
       {data && <MakroBar score={data.makroScore} regime={data.regime} />}
+
+      {/* Renk açıklaması */}
+      {!loading && !error && data && <RenkLegend />}
 
       {/* Filtreler */}
       {!loading && !error && data && (
