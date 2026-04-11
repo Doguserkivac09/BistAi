@@ -134,16 +134,28 @@ function MakroBar({ score, regime }: { score: number | null; regime: string | nu
         </>
       )}
 
-      {/* Sinyal güç açıklaması */}
-      <div className="ml-auto hidden sm:flex items-center gap-2 text-[10px] text-text-muted">
+      {/* Açıklamalar */}
+      <div className="ml-auto hidden sm:flex items-center gap-x-4 gap-y-1 flex-wrap text-[10px] text-text-muted">
+        <span className="text-text-muted opacity-50">Sinyal:</span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-green-400" /> Güçlü sinyal
+          <span className="h-2 w-2 rounded-full bg-green-400" /> Güçlü
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-yellow-400" /> Orta sinyal
+          <span className="h-2 w-2 rounded-full bg-yellow-400" /> Orta
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full bg-blue-400" /> Destekleyici
+        </span>
+        <span className="w-px h-3 bg-border mx-1" />
+        <span className="text-text-muted opacity-50">Sektör:</span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-purple-400" /> 3+ hisse
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-indigo-400" /> 2 hisse
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-zinc-500" /> Tek hisse
         </span>
       </div>
     </div>
