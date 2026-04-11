@@ -55,6 +55,10 @@ export interface YahooFundamentals {
   currentRatio: number | null;
   totalDebt: number | null;
   totalCash: number | null;
+  // Sahiplik yapısı (defaultKeyStatistics modülü)
+  institutionsPercentHeld: number | null;  // 0-1 arası (örn: 0.45 = %45)
+  insidersPercentHeld: number | null;      // 0-1 arası
+  shortRatio: number | null;               // açığa satış oranı (float üzerinden)
   reportedDate: string;
   source: 'yahoo';
 }
@@ -110,6 +114,9 @@ export async function fetchYahooFundamentals(symbol: string): Promise<YahooFunda
     currentRatio: n(fd.currentRatio),
     totalDebt:    n(fd.totalDebt),
     totalCash:    n(fd.totalCash),
+    institutionsPercentHeld: n(ks.heldPercentInstitutions),
+    insidersPercentHeld:     n(ks.heldPercentInsiders),
+    shortRatio:              n(ks.shortRatio),
     reportedDate: '',
     source: 'yahoo',
   };

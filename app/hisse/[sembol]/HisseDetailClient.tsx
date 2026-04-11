@@ -22,12 +22,11 @@ import { SinyalGecmisi } from '@/components/SinyalGecmisi';
 import { MtfSinyalTablosu } from '@/components/MtfSinyalTablosu';
 import { computeTechFairValue } from '@/lib/tech-fair-value';
 import { computeStockScore } from '@/lib/stock-score';
-import { createClient } from '@/lib/supabase';
 import type { OHLCVCandle, StockSignal } from '@/types';
-import { saveSignalPerformance } from '@/lib/performance';
 import { toast } from 'sonner';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
+import { TakasKarti } from '@/components/TakasKarti';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { ScoreBreakdown } from '@/components/ScoreBreakdown';
 import type { CompositeSignalResult } from '@/lib/composite-signal';
@@ -187,7 +186,7 @@ function AccordionSignalRow({
 }
 
 // ── Teknik Göstergeler Özeti ───────────────────────────────────────────
-function TeknikGostergelerOzeti({ candles }: { candles: OHLCVCandle[] }) {
+function TeknikGostergelerOzeti({ candles, timeframe }: { candles: OHLCVCandle[]; timeframe: TimeframeKey }) {
   if (candles.length < 26) return null;
 
   const closes = candles.map((c) => c.close);
@@ -249,7 +248,7 @@ function TeknikGostergelerOzeti({ candles }: { candles: OHLCVCandle[] }) {
   type S = 'bullish' | 'bearish' | 'neutral';
   const rows: { label: string; value: string; detail: string; status: S }[] = [
     {
-      label: 'RSI (14) Günlük',
+      label: RSI_LABEL[timeframe] ?? 'RSI (14)',
       value: rsi.toFixed(1),
       detail: rsi >= 70 ? 'Aşırı Alım' : rsi <= 30 ? 'Aşırı Satım' : rsi >= 55 ? 'Güçlü' : rsi <= 45 ? 'Zayıf' : 'Nötr',
       status: rsi >= 55 ? 'bullish' : rsi <= 45 ? 'bearish' : 'neutral',
@@ -336,15 +335,60 @@ function TeknikGostergelerOzeti({ candles }: { candles: OHLCVCandle[] }) {
   );
 }
 
+// ── Zaman dilimine göre periyot tablosu ───────────────────────────────
+const TREND_PERIODS: Record<TimeframeKey, { label: string; sublabel: string; bars: number }[]> = {
+  '15m': [
+    { label: 'Kısa Vade', sublabel: '4 Saat',  bars: 16  },
+    { label: 'Orta Vade', sublabel: '1 Gün',   bars: 96  },
+    { label: 'Uzun Vade', sublabel: '3 Gün',   bars: 288 },
+  ],
+  '30m': [
+    { label: 'Kısa Vade', sublabel: '4 Saat',  bars: 8   },
+    { label: 'Orta Vade', sublabel: '1 Gün',   bars: 48  },
+    { label: 'Uzun Vade', sublabel: '3 Gün',   bars: 144 },
+  ],
+  '1h': [
+    { label: 'Kısa Vade', sublabel: '1 Gün',   bars: 24  },
+    { label: 'Orta Vade', sublabel: '3 Gün',   bars: 72  },
+    { label: 'Uzun Vade', sublabel: '1 Hafta', bars: 120 },
+  ],
+  '1d': [
+    { label: 'Kısa Vade', sublabel: '15 Gün',  bars: 15  },
+    { label: 'Orta Vade', sublabel: '45 Gün',  bars: 45  },
+    { label: 'Uzun Vade', sublabel: '90 Gün',  bars: 90  },
+  ],
+  '1wk': [
+    { label: 'Kısa Vade', sublabel: '4 Hafta',  bars: 4  },
+    { label: 'Orta Vade', sublabel: '12 Hafta', bars: 12 },
+    { label: 'Uzun Vade', sublabel: '26 Hafta', bars: 26 },
+  ],
+  '1mo': [
+    { label: 'Kısa Vade', sublabel: '3 Ay',  bars: 3  },
+    { label: 'Orta Vade', sublabel: '6 Ay',  bars: 6  },
+    { label: 'Uzun Vade', sublabel: '12 Ay', bars: 12 },
+  ],
+};
+
+const RSI_LABEL: Record<TimeframeKey, string> = {
+  '15m': 'RSI (14) 15dk',
+  '30m': 'RSI (14) 30dk',
+  '1h':  'RSI (14) 1 Saatlik',
+  '1d':  'RSI (14) Günlük',
+  '1wk': 'RSI (14) Haftalık',
+  '1mo': 'RSI (14) Aylık',
+};
+
 // ── Trend Özeti ────────────────────────────────────────────────────────
-function TrendOzeti({ candles }: { candles: OHLCVCandle[] }) {
-  if (candles.length < 15) return null;
+function TrendOzeti({ candles, timeframe }: { candles: OHLCVCandle[]; timeframe: TimeframeKey }) {
+  const periods = TREND_PERIODS[timeframe] ?? TREND_PERIODS['1d'];
+  const minBars = periods[0].bars;
+  if (candles.length < minBars + 1) return null;
 
   const lastClose = candles[candles.length - 1].close;
 
-  function getTrend(days: number) {
-    if (candles.length < days + 1) return null;
-    const oldClose = candles[candles.length - 1 - days].close;
+  function getTrend(bars: number) {
+    if (candles.length < bars + 1) return null;
+    const oldClose = candles[candles.length - 1 - bars].close;
     const pct = ((lastClose - oldClose) / oldClose) * 100;
     const direction = pct > 1 ? 'yükseliş' : pct < -1 ? 'düşüş' : 'yatay';
     const absPct = Math.abs(pct);
@@ -353,13 +397,7 @@ function TrendOzeti({ candles }: { candles: OHLCVCandle[] }) {
     return { pct, direction, strength, color };
   }
 
-  const periods = [
-    { label: 'Kısa Vade', sublabel: '15 Gün', days: 15 },
-    { label: 'Orta Vade', sublabel: '45 Gün', days: 45 },
-    { label: 'Uzun Vade', sublabel: '90 Gün', days: 90 },
-  ];
-
-  const items = periods.map((p) => ({ ...p, trend: getTrend(p.days) })).filter((p) => p.trend !== null);
+  const items = periods.map((p) => ({ ...p, trend: getTrend(p.bars) })).filter((p) => p.trend !== null);
   if (items.length === 0) return null;
 
   return (
@@ -420,6 +458,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [timeframe, setTimeframe]       = useState<TimeframeKey>('1d');
   const [haberler, setHaberler]         = useState<HaberItem[]>([]);
   const [haberLoading, setHaberLoading] = useState(true);
+  const [bugunHaberSayi, setBugunHaberSayi] = useState(0);
   const [kapDuyurular, setKapDuyurular] = useState<KapDuyuru[]>([]);
   const [kapLoading, setKapLoading]     = useState(true);
   const [kapSummary, setKapSummary]     = useState<string | null>(null);
@@ -453,6 +492,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
       if (!res.ok) return;
       const data = await res.json();
       setHaberler(data.haberler ?? []);
+      setBugunHaberSayi(data.bugunSayi ?? 0);
     } catch (err) {
       console.error('[Haberler] Yüklenemedi:', err);
     } finally {
@@ -487,10 +527,6 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
         const sigs = detectAllSignals(sembol, data);
         setSignals(sigs);
 
-        const supabase = createClient();
-        const { data: authData } = await supabase.auth.getUser();
-        const userId = authData.user?.id ?? null;
-
         const res = await Promise.allSettled(
           sigs.map(async (sig) => {
             const r = await fetch('/api/explain', {
@@ -499,14 +535,6 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               body: JSON.stringify({ signal: sig }),
             });
             const j = await r.json();
-
-            if (!cancelled) {
-              try {
-                await saveSignalPerformance({ userId, signal: sig, candles: data });
-              } catch {
-                // ignore
-              }
-            }
 
             return { key: `${sig.type}`, text: r.ok ? j.explanation : j.error };
           })
@@ -636,10 +664,10 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             {/* ── Tab Bar ── */}
             <div className="mt-5 flex overflow-x-auto border-b border-border scrollbar-none">
               {([
-                { key: 'teknik',   label: 'Teknik Analiz', icon: '📊' },
-                { key: 'analiz',   label: 'AI Analiz',      icon: '🤖' },
-                { key: 'temel',    label: 'Temel Veriler',  icon: '📋' },
-                { key: 'haberler', label: 'Haberler',       icon: '📰' },
+                { key: 'teknik',   label: 'Teknik Analiz', icon: '📊', badge: 0 },
+                { key: 'analiz',   label: 'AI Analiz',      icon: '🤖', badge: 0 },
+                { key: 'temel',    label: 'Temel Veriler',  icon: '📋', badge: 0 },
+                { key: 'haberler', label: 'Haberler',       icon: '📰', badge: bugunHaberSayi },
               ] as const).map((tab) => (
                 <button
                   key={tab.key}
@@ -652,6 +680,11 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 >
                   <span>{tab.icon}</span>
                   <span>{tab.label}</span>
+                  {tab.badge > 0 && (
+                    <span className="inline-flex items-center justify-center h-4 min-w-[16px] rounded-full bg-primary/20 text-primary text-[10px] font-bold px-1">
+                      {tab.badge}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -660,7 +693,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             {activeTab === 'teknik' && <>
 
             {/* ── Zaman dilimi seçici ──────────────────────────────────────── */}
-            <div className="mb-4 flex items-center">
+            <div className="mt-4 mb-4 flex items-center">
               <div className="overflow-x-auto">
                 <div className="inline-flex items-center rounded-lg border border-border bg-surface/80 p-1 text-xs text-text-secondary whitespace-nowrap">
                   {TIMEFRAMES.map((tf, i) => {
@@ -773,17 +806,12 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   )}
                 </Card>
 
-                {/* Teknik Göstergeler Özeti */}
-                <TeknikGostergelerOzeti candles={candles} />
-
-                {/* Trend Özeti */}
-                <TrendOzeti candles={candles} />
               </div>
 
-              {/* ── SAĞ KOLON: Metrikler & Analiz panelleri ─────────────────── */}
+              {/* ── SAĞ KOLON: Destek/Direnç + Skor + Göstergeler + Trend ──── */}
               <div className="lg:col-span-2 space-y-4">
 
-                {/* Destek & Direnç — sağ kolonda kompakt */}
+                {/* Destek & Direnç */}
                 {candles.length >= 20 && (
                   <Card className="overflow-hidden">
                     <CardHeader className="py-2 px-3">
@@ -813,6 +841,12 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     </Card>
                   );
                 })()}
+
+                {/* Teknik Göstergeler Özeti */}
+                <TeknikGostergelerOzeti candles={candles} timeframe={timeframe} />
+
+                {/* Trend Özeti */}
+                <TrendOzeti candles={candles} timeframe={timeframe} />
               </div>
             </div>
 
@@ -839,6 +873,69 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </div>
             </div>
 
+            {/* ── Teknik Tab — Mini Haber Widget ── */}
+            {!haberLoading && haberler.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                      Güncel Haberler
+                    </p>
+                    {bugunHaberSayi > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        📰 Bugün {bugunHaberSayi} haber
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('haberler')}
+                    className="text-[11px] text-primary hover:underline"
+                  >
+                    Tümünü gör →
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {haberler.slice(0, 3).map((h, i) => {
+                    const tarihStr = h.tarih
+                      ? (() => {
+                          const diff = Date.now() - new Date(h.tarih).getTime();
+                          const saat = Math.floor(diff / (1000 * 60 * 60));
+                          if (saat < 1) return 'Az önce';
+                          if (saat < 24) return `${saat} saat önce`;
+                          return new Date(h.tarih).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+                        })()
+                      : '';
+                    return (
+                      <a
+                        key={i}
+                        href={h.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-3 rounded-xl border border-border bg-surface/60 p-3 hover:border-primary/30 hover:bg-surface transition-colors group"
+                      >
+                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px]">📰</div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-text-primary group-hover:text-primary transition-colors line-clamp-2 leading-snug">
+                            {h.baslik}
+                          </p>
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="text-[10px] text-text-muted">{h.kaynak}</span>
+                            {tarihStr && (
+                              <>
+                                <span className="text-text-muted/40">·</span>
+                                <span className="text-[10px] text-text-muted">{tarihStr}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-text-muted group-hover:text-primary transition-colors text-xs">↗</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             </> /* end activeTab === 'teknik' */}
 
             {/* ── AI Analiz Tab ── */}
@@ -847,14 +944,15 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 {/* AI Yorumu — full width prominent */}
                 <Card>
                   <CardHeader className="py-2 px-3 pb-0">
-                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">AI Yorumu</CardTitle>
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">🤖 AI Yorumu</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-3">
                     <HisseAIYorum analiz={analiz} loading={analizLoading} />
                   </CardContent>
                 </Card>
-                {/* 2-kolon: Kompozit + Adil Değer */}
-                <div className="grid gap-4 lg:grid-cols-2">
+
+                {/* 3-kolon: Kompozit + Adil Değer + Skor */}
+                <div className="grid gap-4 lg:grid-cols-3">
                   {!analizLoading && analiz && !analiz.noSignal && (
                     <Card>
                       <CardHeader className="py-2 px-3 pb-0">
@@ -878,14 +976,64 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                       </Card>
                     );
                   })()}
+                  {candles.length >= 50 && (() => {
+                    const stockScore = computeStockScore(candles, signals);
+                    return (
+                      <Card>
+                        <CardHeader className="py-2 px-3 pb-0">
+                          <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">Hisse Skor Kartı</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-3">
+                          <HisseSkorKarti result={stockScore} />
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
                 </div>
+
+                {/* Analizi etkileyen sinyaller */}
+                {signals.length > 0 && (
+                  <Card className="overflow-hidden">
+                    <CardHeader className="py-2 px-3">
+                      <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                        Analizi Etkileyen Sinyaller
+                      </CardTitle>
+                    </CardHeader>
+                    <div className="divide-y divide-border">
+                      {signals.map((sig) => (
+                        <AccordionSignalRow
+                          key={sig.type}
+                          sig={sig}
+                          explanation={explanations[sig.type] ?? null}
+                          sembol={sembol}
+                          savedSignalTypes={savedSignalTypes}
+                        />
+                      ))}
+                    </div>
+                  </Card>
+                )}
+                {signals.length === 0 && !loading && (
+                  <div className="rounded-xl border border-border bg-surface p-4 text-center">
+                    <p className="text-sm text-text-secondary">
+                      Bu zaman diliminde tespit edilen sinyal yok. AI analizi genel piyasa koşullarına göre üretildi.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* ── Temel Tab ── */}
             {activeTab === 'temel' && (
-              <div className="mt-6">
+              <div className="mt-6 space-y-6">
                 <TemelAnalizKarti sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
+                {/* Yabancı Takas Verisi */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-3 flex items-center gap-2">
+                    Yabancı Yatırımcı Analizi
+                    <span className="flex-1 h-px bg-border/50" />
+                  </p>
+                  <TakasKarti sembol={sembol} />
+                </div>
               </div>
             )}
 

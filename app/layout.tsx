@@ -5,6 +5,7 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Toaster } from 'sonner';
 import { PwaRegister } from '@/components/PwaRegister';
+import { PwaInstallBanner } from '@/components/PwaInstallBanner';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -84,6 +85,7 @@ export default function RootLayout({
           }}
         />
         <PwaRegister />
+        <PwaInstallBanner />
         <Navbar />
         <div className="flex-1">
           {children}

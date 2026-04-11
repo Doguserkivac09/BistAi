@@ -12,9 +12,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
-import { detectAllSignals } from '@/lib/signals';
+import { detectAllSignals, computeConfluence } from '@/lib/signals';
 import type { StockSignal } from '@/types';
 import { getMarketRegime } from '@/lib/regime-engine';
+
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -92,18 +93,22 @@ export async function GET(request: NextRequest) {
       const lastCandle = candles[candles.length - 1];
       if (!lastCandle) continue;
 
+      // Confluence skoru hesapla — her sinyal grubuyla birlikte kaydet
+      const confluence = computeConfluence(signals);
+
       totalSignals += signals.length;
 
-      // Her sinyal için DB'ye kaydet
+      // Her sinyal için DB'ye kaydet (confluence_score ile birlikte)
       const rows = signals.map((sig: StockSignal) => ({
-        user_id:     null,
+        user_id:          null,
         sembol,
-        signal_type: sig.type,
-        direction:   sig.direction,
-        entry_price: lastCandle.close,
-        entry_time:  lastCandle.date,
-        evaluated:   false,
+        signal_type:      sig.type,
+        direction:        sig.direction,
+        entry_price:      lastCandle.close,
+        entry_time:       lastCandle.date,
+        evaluated:        false,
         regime,
+        confluence_score: confluence.score,
       }));
 
       const { error, data } = await supabase

@@ -41,6 +41,14 @@ function parseDirectionParam(
   return undefined;
 }
 
+function parseMinConfluenceParam(request: NextRequest): number | undefined {
+  const param = request.nextUrl.searchParams.get('minConfluence');
+  if (!param) return undefined;
+  const parsed = Number.parseInt(param, 10);
+  if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) return undefined;
+  return parsed;
+}
+
 // ── GET /api/backtesting ────────────────────────────────────────────
 
 export interface BenchmarkData {
@@ -72,6 +80,7 @@ export async function GET(request: NextRequest) {
 
     const days = parseDaysParam(request);
     const direction = parseDirectionParam(request);
+    const minConfluence = parseMinConfluenceParam(request);
     const supabase = createAdminClient();
 
     const cutoff = new Date();
@@ -97,7 +106,7 @@ export async function GET(request: NextRequest) {
     const pagePromises = Array.from({ length: totalPages }, (_, i) => {
       let q = supabase
         .from('signal_performance')
-        .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, mfe, mae, evaluated, regime, created_at')
+        .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, mfe, mae, evaluated, regime, confluence_score, created_at')
         .eq('evaluated', true)
         .gte('entry_time', cutoffIso)
         .range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1);
@@ -114,6 +123,11 @@ export async function GET(request: NextRequest) {
     }
 
     const records = pageResults.flatMap((r) => (r.data as SignalPerformanceRecord[]) ?? []);
+
+    // Confluence filtresi
+    if (minConfluence !== undefined) {
+      records = records.filter((r) => (r.confluence_score ?? 0) >= minConfluence);
+    }
 
     if (records.length === 0) {
       return NextResponse.json<BacktestingResponse>({

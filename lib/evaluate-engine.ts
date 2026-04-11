@@ -24,7 +24,7 @@ import type { SignalPerformanceRecord } from '@/lib/performance-types';
 const MAX_BATCH = 200;
 
 /** Değerlendirme için gerekli min takvim günü */
-const MIN_AGE_DAYS = 14;
+const MIN_AGE_DAYS = 5;
 
 /** Semboller arası bekleme süresi (Yahoo rate limit) */
 const SYMBOL_DELAY_MS = 300;

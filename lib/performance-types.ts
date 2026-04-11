@@ -13,6 +13,7 @@ export interface SignalPerformanceRecord {
   mae: number | null;
   evaluated: boolean;
   regime?: string | null;
+  confluence_score?: number | null;
   created_at: string;
 }
 

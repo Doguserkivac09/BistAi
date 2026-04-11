@@ -15,7 +15,6 @@ import {
   Search, RefreshCw, Zap, TrendingUp, TrendingDown, Activity,
   Settings, LayoutGrid, List, X, ChevronDown, BarChart2,
 } from 'lucide-react';
-import { saveSignalPerformance } from '@/lib/performance';
 import { ScanProgress } from '@/components/ScanProgress';
 import { toast } from 'sonner';
 
@@ -634,7 +633,6 @@ function TaramaPageInner() {
             setScanProgress({ current: completed, total: symbols.length, symbol: sembol });
             allScanned.push({ sembol, candles });
             if (signals.length > 0) {
-              for (const signal of signals) saveSignalPerformance({ userId: null, signal, candles }).catch(() => {});
               const idx = all.findIndex(r => r.sembol === sembol);
               if (idx >= 0) all[idx] = { sembol, signals, candles };
               else all.push({ sembol, signals, candles });

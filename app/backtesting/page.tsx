@@ -391,8 +391,6 @@ function RiskRewardBar({
 
 function EmptyStateImproved() {
   const [showHelp, setShowHelp] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [seedMsg, setSeedMsg] = useState<string | null>(null);
 
   return (
     <div className="mx-auto max-w-lg">
@@ -400,20 +398,21 @@ function EmptyStateImproved() {
         <div className="mb-4 mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
           <BarChart3 className="h-8 w-8 text-primary" />
         </div>
-        <h2 className="mb-2 text-xl font-bold text-text-primary">Henüz Yeterli Backtest Verisi Yok</h2>
+        <h2 className="mb-2 text-xl font-bold text-text-primary">Backtest Verisi Biriktirilyor</h2>
         <p className="mb-6 text-sm text-text-secondary leading-relaxed">
-          Sinyal performansını analiz etmek için geçmişte tarama yapılmış ve değerlendirilmiş
-          sinyaller gerekiyor. En az 10 sinyal birikmelidir.
+          Sistem her sabah BIST hisselerini tarayarak sinyalleri kaydediyor.
+          5 gün geçtikten sonra her sinyal otomatik olarak değerlendiriliyor.
+          İlk sonuçlar yakında burada görünecek.
         </p>
 
         <div className="mb-6 rounded-xl border border-border bg-surface/50 p-4 text-left">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Nasıl Başlanır?
+            Süreç Nasıl İşliyor?
           </p>
           {[
-            'Sinyal Tarama sayfasından bir tarama başlat',
-            '7–14 gün sonra fiyat verisi değerlendirilir',
-            'Bu sayfa otomatik olarak dolmaya başlar',
+            'Her iş günü sabah 10:00\'da otomatik tarama çalışır',
+            'Tespit edilen sinyaller veritabanına kaydedilir',
+            '5 gün sonra fiyat hareketi değerlendirilerek başarı oranı hesaplanır',
           ].map((step, i) => (
             <div key={i} className="mb-2 flex items-start gap-3 last:mb-0">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
@@ -433,28 +432,6 @@ function EmptyStateImproved() {
             Taramaya Git
           </Link>
           <button
-            onClick={async () => {
-              setSeeding(true);
-              setSeedMsg(null);
-              try {
-                const res = await fetch('/api/dev/seed-backtest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ count: 300 }) });
-                const d = await res.json();
-                if (!res.ok) { setSeedMsg(d.error ?? 'Hata oluştu.'); return; }
-                setSeedMsg(d.message ?? `${d.inserted} kayıt eklendi.`);
-                setTimeout(() => window.location.reload(), 1500);
-              } catch {
-                setSeedMsg('Bağlantı hatası.');
-              } finally {
-                setSeeding(false);
-              }
-            }}
-            disabled={seeding}
-            className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
-          >
-            {seeding ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5" />}
-            {seeding ? 'Yükleniyor…' : 'Demo Veri Yükle'}
-          </button>
-          <button
             onClick={() => setShowHelp(v => !v)}
             className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm text-text-secondary transition-colors hover:border-primary/40 hover:text-text-primary"
           >
@@ -462,9 +439,6 @@ function EmptyStateImproved() {
             Nasıl Çalışır?
           </button>
         </div>
-        {seedMsg && (
-          <p className="mt-3 text-xs text-center text-emerald-400">{seedMsg}</p>
-        )}
 
         <AnimatePresence>
           {showHelp && (
@@ -497,11 +471,13 @@ function FilterBar({
   direction, setDirection,
   regime, setRegime,
   signalTypeFilter, setSignalTypeFilter,
+  minConfluence, setMinConfluence,
 }: {
   days: number;              setDays: (d: number) => void;
   direction: '' | 'yukari' | 'asagi'; setDirection: (d: '' | 'yukari' | 'asagi') => void;
   regime: string;            setRegime: (r: string) => void;
   signalTypeFilter: string;  setSignalTypeFilter: (s: string) => void;
+  minConfluence: number;     setMinConfluence: (v: number) => void;
 }) {
   const dayOptions = [
     { value: 30,  label: '30G'  },
@@ -522,7 +498,14 @@ function FilterBar({
     { value: 'sideways',   label: '→ Yatay' },
   ];
 
-  const activeCount = [direction !== '', regime !== '', signalTypeFilter !== ''].filter(Boolean).length;
+  const confluenceOptions = [
+    { value: 0,  label: 'Tümü' },
+    { value: 40, label: '>40'  },
+    { value: 55, label: '>55'  },
+    { value: 70, label: '>70'  },
+  ];
+
+  const activeCount = [direction !== '', regime !== '', signalTypeFilter !== '', minConfluence > 0].filter(Boolean).length;
 
   return (
     <div className="mb-6 rounded-xl border border-border bg-surface p-4">
@@ -600,6 +583,26 @@ function FilterBar({
             <option value="">Tümü</option>
             {SIGNAL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
+        </div>
+
+        {/* Confluence (Sinyal Kalitesi) */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-muted whitespace-nowrap">Kalite:</span>
+          <div className="flex overflow-hidden rounded-lg border border-border">
+            {confluenceOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setMinConfluence(opt.value)}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  minConfluence === opt.value
+                    ? 'bg-primary text-white'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Aktif filtre sayısı */}
@@ -1007,6 +1010,7 @@ export default function BacktestingPage() {
   const [direction,        setDirection]        = useState<'' | 'yukari' | 'asagi'>('');
   const [regime,           setRegime]           = useState('');
   const [signalTypeFilter, setSignalTypeFilter] = useState('');
+  const [minConfluence,    setMinConfluence]    = useState(0);
 
   // UI state
   const [horizon,     setHorizon]     = useState<Horizon>('7d');
@@ -1017,8 +1021,9 @@ export default function BacktestingPage() {
     setError(null);
     try {
       const params = new URLSearchParams({ days: String(days) });
-      if (direction) params.set('direction', direction);
-      if (regime)    params.set('regime', regime);
+      if (direction)         params.set('direction', direction);
+      if (regime)            params.set('regime', regime);
+      if (minConfluence > 0) params.set('minConfluence', String(minConfluence));
       const res = await fetch(`/api/backtesting?${params.toString()}`);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({})) as { error?: string };
@@ -1032,7 +1037,7 @@ export default function BacktestingPage() {
     } finally {
       setLoading(false);
     }
-  }, [days, direction, regime]);
+  }, [days, direction, regime, minConfluence]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
@@ -1072,6 +1077,7 @@ export default function BacktestingPage() {
         direction={direction}    setDirection={setDirection}
         regime={regime}          setRegime={setRegime}
         signalTypeFilter={signalTypeFilter} setSignalTypeFilter={setSignalTypeFilter}
+        minConfluence={minConfluence}       setMinConfluence={setMinConfluence}
       />
 
       {/* Loading */}
