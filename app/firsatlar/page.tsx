@@ -101,31 +101,50 @@ function SektorBadge({ sektorAdi, sektorSinyalSayisi }: { sektorAdi: string; sek
 // ── Makro Bar ────────────────────────────────────────────────────────
 
 function MakroBar({ score, regime }: { score: number | null; regime: string | null }) {
+  // Makro skor etiketi — ekonomik ortam
+  const makroLabel = score === null ? null
+    : score >= 30  ? { text: 'Pozitif',  cls: 'text-green-400 bg-green-500/10 border-green-500/25' }
+    : score >= -30 ? { text: 'Nötr',     cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/25' }
+    :                { text: 'Negatif',  cls: 'text-red-400 bg-red-500/10 border-red-500/25' };
+
   const scoreColor = score === null ? 'text-text-muted'
-    : score >= 30 ? 'text-green-400'
+    : score >= 30  ? 'text-green-400'
     : score >= -30 ? 'text-yellow-400'
     : 'text-red-400';
 
+  // XU100 teknik trendi — fiyat momentumu
   const regimeMap: Record<string, { label: string; cls: string }> = {
-    bull_trend: { label: 'Boğa Piyasası', cls: 'text-green-400 bg-green-500/10 border-green-500/25' },
-    bear_trend: { label: 'Ayı Piyasası',  cls: 'text-red-400 bg-red-500/10 border-red-500/25' },
-    sideways:   { label: 'Yatay Piyasa',  cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/25' },
+    bull_trend: { label: '↑ XU100 Yükseliş', cls: 'text-green-400 bg-green-500/10 border-green-500/25' },
+    bear_trend: { label: '↓ XU100 Düşüş',    cls: 'text-red-400 bg-red-500/10 border-red-500/25' },
+    sideways:   { label: '→ XU100 Yatay',    cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/25' },
   };
-  const r = regime ? (regimeMap[regime] ?? { label: regime, cls: 'text-text-muted bg-white/5 border-border' }) : null;
+  const r = regime ? (regimeMap[regime] ?? null) : null;
 
   return (
     <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/50 px-4 py-3">
       <Activity className="h-4 w-4 shrink-0 text-text-muted" />
+
+      {/* Makro skor — ekonomik ortam */}
       <div className="flex items-center gap-1.5">
         <span className="text-xs text-text-muted">Makro:</span>
         <span className={`text-sm font-bold ${scoreColor}`}>
           {score !== null ? `${score > 0 ? '+' : ''}${score}` : '—'}
         </span>
+        {makroLabel && (
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${makroLabel.cls}`}>
+            {makroLabel.text}
+          </span>
+        )}
       </div>
+
+      {/* XU100 teknik trendi — ayrı gösterge */}
       {r && (
         <>
           <span className="text-text-muted">·</span>
-          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${r.cls}`}>{r.label}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-text-muted">Teknik Trend:</span>
+            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${r.cls}`}>{r.label}</span>
+          </div>
         </>
       )}
       <div className="ml-auto hidden sm:flex items-center gap-x-4 flex-wrap text-[10px] text-text-muted">
