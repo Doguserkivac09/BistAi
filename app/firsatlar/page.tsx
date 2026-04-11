@@ -3,90 +3,154 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Sparkles, TrendingUp, TrendingDown, RefreshCw,
-  ArrowUpRight, AlertTriangle, CheckCircle2, Info,
-  ChevronRight, Activity, Zap,
+  TrendingUp, TrendingDown, RefreshCw,
+  AlertTriangle, ChevronRight, Activity, Zap, Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 
-// ── Yardımcılar ─────────────────────────────────────────────────────
+// ── Sinyal güç seviyeleri ────────────────────────────────────────────
 
-function confluenceColor(score: number): string {
+const SINYAL_GUC: Record<string, 'guclu' | 'orta' | 'destekleyici'> = {
+  'Altın Çapraz':            'guclu',
+  'Trend Başlangıcı':        'guclu',
+  'Destek/Direnç Kırılımı':  'guclu',
+  'RSI Uyumsuzluğu':         'orta',
+  'MACD Kesişimi':           'orta',
+  'RSI Seviyesi':            'orta',
+  'Hacim Anomalisi':         'destekleyici',
+  'Bollinger Sıkışması':     'destekleyici',
+};
+
+const SINYAL_KISALT: Record<string, string> = {
+  'RSI Uyumsuzluğu':        'RSI Div.',
+  'Hacim Anomalisi':         'Hacim',
+  'Trend Başlangıcı':        'Trend',
+  'Destek/Direnç Kırılımı': 'D/D Kır.',
+  'MACD Kesişimi':           'MACD',
+  'RSI Seviyesi':            'RSI',
+  'Altın Çapraz':            'Altın Çpz.',
+  'Bollinger Sıkışması':     'BB Sık.',
+};
+
+function sinyalEtiket(sinyal: string) {
+  const guc = SINYAL_GUC[sinyal] ?? 'destekleyici';
+  const kisalt = SINYAL_KISALT[sinyal] ?? sinyal;
+
+  const stil = {
+    guclu:        'bg-green-500/15 border-green-500/30 text-green-400',
+    orta:         'bg-yellow-500/15 border-yellow-500/30 text-yellow-400',
+    destekleyici: 'bg-blue-500/15 border-blue-500/30 text-blue-400',
+  }[guc];
+
+  return (
+    <span
+      key={sinyal}
+      title={sinyal}
+      className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${stil}`}
+    >
+      {kisalt}
+    </span>
+  );
+}
+
+// ── Sektör badge ─────────────────────────────────────────────────────
+
+function SektorBadge({ sektorAdi, sektorSinyalSayisi }: { sektorAdi: string; sektorSinyalSayisi: number }) {
+  if (sektorSinyalSayisi >= 3) {
+    return (
+      <span className="flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-500/25">
+        <Users className="h-2.5 w-2.5" />
+        {sektorAdi}: {sektorSinyalSayisi} hisse
+      </span>
+    );
+  }
+  if (sektorSinyalSayisi === 2) {
+    return (
+      <span className="flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-semibold text-indigo-400 border border-indigo-500/25">
+        <Users className="h-2.5 w-2.5" />
+        {sektorAdi}: 2 hisse
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-text-muted border border-border">
+      {sektorAdi}
+    </span>
+  );
+}
+
+// ── Confluence ────────────────────────────────────────────────────────
+
+function confluenceColor(score: number) {
   if (score >= 70) return 'text-green-400';
   if (score >= 55) return 'text-yellow-400';
   return 'text-orange-400';
 }
 
-function confluenceBg(score: number): string {
+function confluenceBg(score: number) {
   if (score >= 70) return 'bg-green-500/15 border-green-500/30';
   if (score >= 55) return 'bg-yellow-500/15 border-yellow-500/30';
   return 'bg-orange-500/15 border-orange-500/30';
 }
 
-function confluenceLabel(score: number): string {
+function confluenceLabel(score: number) {
   if (score >= 70) return 'Güçlü';
   if (score >= 55) return 'Orta';
   return 'Zayıf';
 }
 
-function makroUyumBadge(uyum: FirsatItem['makroUyum']) {
-  if (uyum === 'guclu') return (
-    <span className="flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold text-green-400 border border-green-500/25">
-      <CheckCircle2 className="h-2.5 w-2.5" /> Makro Uyumlu
-    </span>
-  );
-  if (uyum === 'dikkat') return (
-    <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/25">
-      <AlertTriangle className="h-2.5 w-2.5" /> Makroya Dikkat
-    </span>
-  );
+// ── Makro Bar ────────────────────────────────────────────────────────
+
+function MakroBar({ score, regime }: { score: number | null; regime: string | null }) {
+  const scoreColor = score === null ? 'text-text-muted'
+    : score >= 30 ? 'text-green-400'
+    : score >= -30 ? 'text-yellow-400'
+    : 'text-red-400';
+
+  const regimeMap: Record<string, { label: string; cls: string }> = {
+    bull_trend: { label: 'Boğa Piyasası', cls: 'text-green-400 bg-green-500/10 border-green-500/25' },
+    bear_trend: { label: 'Ayı Piyasası',  cls: 'text-red-400 bg-red-500/10 border-red-500/25' },
+    sideways:   { label: 'Yatay Piyasa',  cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/25' },
+  };
+  const r = regime ? (regimeMap[regime] ?? { label: regime, cls: 'text-text-muted bg-white/5 border-border' }) : null;
+
   return (
-    <span className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-text-muted border border-border">
-      <Info className="h-2.5 w-2.5" /> Nötr
-    </span>
+    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/50 px-4 py-3">
+      <Activity className="h-4 w-4 shrink-0 text-text-muted" />
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-text-muted">Makro:</span>
+        <span className={`text-sm font-bold ${scoreColor}`}>
+          {score !== null ? `${score > 0 ? '+' : ''}${score}` : '—'}
+        </span>
+      </div>
+      {r && (
+        <>
+          <span className="text-text-muted">·</span>
+          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${r.cls}`}>
+            {r.label}
+          </span>
+        </>
+      )}
+
+      {/* Sinyal güç açıklaması */}
+      <div className="ml-auto hidden sm:flex items-center gap-2 text-[10px] text-text-muted">
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-green-400" /> Güçlü sinyal
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-yellow-400" /> Orta sinyal
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-blue-400" /> Destekleyici
+        </span>
+      </div>
+    </div>
   );
 }
 
-function regimeLabel(r: string | null): string {
-  if (!r) return 'Bilinmiyor';
-  return { bull_trend: 'Boğa Piyasası', bear_trend: 'Ayı Piyasası', sideways: 'Yatay Piyasa' }[r] ?? r;
-}
-
-function regimeColor(r: string | null): string {
-  if (r === 'bull_trend') return 'text-green-400 bg-green-500/10 border-green-500/25';
-  if (r === 'bear_trend') return 'text-red-400 bg-red-500/10 border-red-500/25';
-  return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/25';
-}
-
-function makroScoreLabel(score: number | null): string {
-  if (score === null) return '—';
-  if (score >= 30) return 'Pozitif';
-  if (score >= -30) return 'Nötr';
-  return 'Negatif';
-}
-
-function makroScoreColor(score: number | null): string {
-  if (score === null) return 'text-text-muted';
-  if (score >= 30) return 'text-green-400';
-  if (score >= -30) return 'text-yellow-400';
-  return 'text-red-400';
-}
-
-// ── Sinyal etiketi kısaltma ──────────────────────────────────────────
-const SINYAL_KISALT: Record<string, string> = {
-  'RSI Uyumsuzluğu':         'RSI Div.',
-  'Hacim Anomalisi':          'Hacim',
-  'Trend Başlangıcı':         'Trend',
-  'Destek/Direnç Kırılımı':  'D/D Kır.',
-  'MACD Kesişimi':            'MACD',
-  'RSI Seviyesi':             'RSI',
-  'Altın Çapraz':             'Altın Çpz.',
-  'Bollinger Sıkışması':      'BB Sık.',
-};
-
-// ── Fırsat Kartı ─────────────────────────────────────────────────────
+// ── Fırsat Kartı ──────────────────────────────────────────────────────
 
 function FirsatKarti({ firsat, index }: { firsat: FirsatItem; index: number }) {
   const isAl  = firsat.direction === 'yukari';
@@ -102,12 +166,11 @@ function FirsatKarti({ firsat, index }: { firsat: FirsatItem; index: number }) {
         href={`/hisse/${firsat.sembol}`}
         className="block rounded-xl border border-border bg-surface p-4 transition-all hover:border-primary/40 hover:bg-white/5 hover:shadow-lg hover:shadow-primary/5"
       >
-        {/* Üst satır: sembol + yön + confluence */}
+        {/* Üst: sembol + yön + confluence */}
         <div className="mb-3 flex items-start justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold text-text-primary">{firsat.sembol}</span>
-              {/* Yön badge */}
               {isAl && (
                 <span className="flex items-center gap-0.5 rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-bold text-green-400 border border-green-500/25">
                   <TrendingUp className="h-3 w-3" /> AL
@@ -119,7 +182,6 @@ function FirsatKarti({ firsat, index }: { firsat: FirsatItem; index: number }) {
                 </span>
               )}
             </div>
-            <span className="text-xs text-text-muted">{firsat.sektorAdi}</span>
           </div>
 
           {/* Confluence skoru */}
@@ -133,24 +195,20 @@ function FirsatKarti({ firsat, index }: { firsat: FirsatItem; index: number }) {
           </div>
         </div>
 
-        {/* Sinyal etiketleri */}
+        {/* Sinyal etiketleri — renkli */}
         <div className="mb-3 flex flex-wrap gap-1.5">
-          {firsat.sinyaller.map((s) => (
-            <span
-              key={s}
-              className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary border border-primary/20"
-            >
-              {SINYAL_KISALT[s] ?? s}
-            </span>
-          ))}
+          {firsat.sinyaller.map((s) => sinyalEtiket(s))}
         </div>
 
-        {/* Alt satır: makro uyum + fiyat + detay ok */}
+        {/* Alt: sektör badge + fiyat + ok */}
         <div className="flex items-center justify-between gap-2">
-          {makroUyumBadge(firsat.makroUyum)}
+          <SektorBadge
+            sektorAdi={firsat.sektorAdi}
+            sektorSinyalSayisi={firsat.sektorSinyalSayisi}
+          />
           <div className="flex items-center gap-2 text-xs text-text-muted">
             <span>
-              Giriş: <span className="font-semibold text-text-secondary">
+              <span className="font-semibold text-text-secondary">
                 {firsat.entryPrice.toFixed(2)} ₺
               </span>
             </span>
@@ -162,35 +220,12 @@ function FirsatKarti({ firsat, index }: { firsat: FirsatItem; index: number }) {
   );
 }
 
-// ── Makro Özet Bar ───────────────────────────────────────────────────
-
-function MakroBar({ score, regime }: { score: number | null; regime: string | null }) {
-  return (
-    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/50 px-4 py-3">
-      <Activity className="h-4 w-4 shrink-0 text-text-muted" />
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-text-muted">Makro:</span>
-        <span className={`text-sm font-bold ${makroScoreColor(score)}`}>
-          {score !== null ? `${score > 0 ? '+' : ''}${score}` : '—'}
-        </span>
-        <span className={`text-xs ${makroScoreColor(score)}`}>
-          ({makroScoreLabel(score)})
-        </span>
-      </div>
-      <span className="text-text-muted">·</span>
-      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${regimeColor(regime)}`}>
-        {regimeLabel(regime)}
-      </span>
-    </div>
-  );
-}
-
-// ── Boş Durum ────────────────────────────────────────────────────────
+// ── Boş ekran ────────────────────────────────────────────────────────
 
 function BosEkran() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <Sparkles className="mx-auto mb-4 h-12 w-12 text-text-muted opacity-30" />
+      <Zap className="mx-auto mb-4 h-12 w-12 text-text-muted opacity-30" />
       <h2 className="mb-2 text-xl font-bold text-text-primary">Henüz Fırsat Yok</h2>
       <p className="max-w-sm text-sm text-text-secondary leading-relaxed">
         Sistem her iş günü sabah sinyalleri tarar. Yüksek kaliteli sinyaller burada otomatik görünür.
@@ -202,12 +237,11 @@ function BosEkran() {
 // ── Ana Sayfa ────────────────────────────────────────────────────────
 
 export default function FirsatlarPage() {
-  const [data,    setData]    = useState<FirsatlarResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const [data,      setData]      = useState<FirsatlarResponse | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
 
-  // Filtreler
   const [dirFilter, setDirFilter] = useState<'tumu' | 'yukari' | 'asagi'>('tumu');
   const [minScore,  setMinScore]  = useState<number>(0);
 
@@ -229,7 +263,6 @@ export default function FirsatlarPage() {
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
-  // Client-side filtrele
   const filtered = (data?.firsatlar ?? []).filter((f) => {
     if (dirFilter !== 'tumu' && f.direction !== dirFilter) return false;
     if (minScore > 0 && f.confluenceScore < minScore) return false;
@@ -248,12 +281,9 @@ export default function FirsatlarPage() {
           <Zap className="h-8 w-8 text-yellow-400" />
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Fırsatlar</h1>
-            <p className="text-sm text-text-secondary">
-              Yüksek kaliteli, makro uyumlu sinyaller
-            </p>
+            <p className="text-sm text-text-secondary">Yüksek kaliteli, güncel sinyaller</p>
           </div>
         </div>
-
         <div className="flex items-center gap-3">
           {lastFetch && (
             <span className="text-xs text-text-muted">
@@ -271,26 +301,23 @@ export default function FirsatlarPage() {
         </div>
       </div>
 
-      {/* Makro Bar */}
+      {/* Makro + sinyal açıklama barı */}
       {data && <MakroBar score={data.makroScore} regime={data.regime} />}
 
       {/* Filtreler */}
       {!loading && !error && data && (
         <div className="mb-5 flex flex-wrap items-center gap-3">
-          {/* Yön filtresi */}
           <div className="flex overflow-hidden rounded-lg border border-border">
             {([
-              { val: 'tumu',  label: `Tümü (${data.firsatlar.length})`  },
-              { val: 'yukari', label: `↑ AL (${alSayisi})`  },
-              { val: 'asagi',  label: `↓ SAT (${satSayisi})` },
+              { val: 'tumu',   label: `Tümü (${data.firsatlar.length})` },
+              { val: 'yukari', label: `↑ AL (${alSayisi})`              },
+              { val: 'asagi',  label: `↓ SAT (${satSayisi})`            },
             ] as const).map((opt) => (
               <button
                 key={opt.val}
                 onClick={() => setDirFilter(opt.val)}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                  dirFilter === opt.val
-                    ? 'bg-primary text-white'
-                    : 'text-text-secondary hover:text-text-primary'
+                  dirFilter === opt.val ? 'bg-primary text-white' : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
                 {opt.label}
@@ -298,7 +325,6 @@ export default function FirsatlarPage() {
             ))}
           </div>
 
-          {/* Min confluence */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-muted">Min Kalite:</span>
             <div className="flex overflow-hidden rounded-lg border border-border">
@@ -311,9 +337,7 @@ export default function FirsatlarPage() {
                   key={opt.val}
                   onClick={() => setMinScore(opt.val)}
                   className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    minScore === opt.val
-                      ? 'bg-primary text-white'
-                      : 'text-text-secondary hover:text-text-primary'
+                    minScore === opt.val ? 'bg-primary text-white' : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   {opt.label}
@@ -323,7 +347,7 @@ export default function FirsatlarPage() {
           </div>
 
           <span className="ml-auto text-xs text-text-muted">
-            {filtered.length} fırsat gösteriliyor
+            {filtered.length} fırsat
           </span>
         </div>
       )}
@@ -342,10 +366,7 @@ export default function FirsatlarPage() {
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
           <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-red-400" />
           <p className="mb-4 text-red-300">{error}</p>
-          <button
-            onClick={() => void fetchData()}
-            className="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/80"
-          >
+          <button onClick={() => void fetchData()} className="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/80">
             Tekrar Dene
           </button>
         </div>
@@ -354,9 +375,7 @@ export default function FirsatlarPage() {
       {/* İçerik */}
       {!loading && !error && (
         <>
-          {filtered.length === 0 ? (
-            <BosEkran />
-          ) : (
+          {filtered.length === 0 ? <BosEkran /> : (
             <div className="grid gap-3 sm:grid-cols-2">
               <AnimatePresence mode="popLayout">
                 {filtered.map((f, i) => (
@@ -365,8 +384,6 @@ export default function FirsatlarPage() {
               </AnimatePresence>
             </div>
           )}
-
-          {/* Info notu */}
           {filtered.length > 0 && (
             <p className="mt-6 text-center text-xs text-text-muted">
               Son 3 günlük tarama verisi · Confluence ≥ 45 · Yatırım tavsiyesi değildir

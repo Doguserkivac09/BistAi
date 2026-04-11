@@ -1,13 +1,13 @@
 /**
  * GET /api/firsatlar
  * Son 3 günlük yüksek kaliteli sinyalleri sembol bazında gruplar,
- * confluence skoruna göre sıralar, makro uyum ekler.
+ * confluence skoruna göre sıralar, sektör momentum bilgisi ekler.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
-import { getSector } from '@/lib/sectors';
+import { getSector, getSectorId } from '@/lib/sectors';
 
 const MIN_CONFLUENCE = 45;
 const LOOKBACK_DAYS  = 3;
@@ -19,32 +19,33 @@ function createAdminClient() {
 }
 
 export interface FirsatItem {
-  sembol:          string;
-  sektorAdi:       string;
-  sinyaller:       string[];   // ['RSI Uyumsuzluğu', 'MACD Kesişimi']
-  direction:       'yukari' | 'asagi' | 'notr';
-  confluenceScore: number;
-  entryPrice:      number;
-  entryTime:       string;
-  regime:          string | null;
-  makroUyum:       'guclu' | 'notr' | 'dikkat'; // AL+boğa=güçlü, SAT+ayı=güçlü, tersler=dikkat
+  sembol:              string;
+  sektorAdi:           string;
+  sektorId:            string;
+  sinyaller:           string[];
+  direction:           'yukari' | 'asagi' | 'notr';
+  confluenceScore:     number;
+  entryPrice:          number;
+  entryTime:           string;
+  regime:              string | null;
+  /** Bu sektörden kaç farklı hisse sinyal verdi */
+  sektorSinyalSayisi:  number;
 }
 
 export interface FirsatlarResponse {
-  firsatlar: FirsatItem[];
-  makroScore: number | null;
-  regime:     string | null;
+  firsatlar:    FirsatItem[];
+  makroScore:   number | null;
+  regime:       string | null;
   toplamSinyal: number;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = createAdminClient();
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - LOOKBACK_DAYS);
 
-    // Son LOOKBACK_DAYS günlük, değerlendirilmemiş, yüksek confluenceli sinyaller
     const { data, error } = await supabase
       .from('signal_performance')
       .select('sembol, signal_type, direction, entry_price, entry_time, confluence_score, regime')
@@ -67,14 +68,12 @@ export async function GET(request: NextRequest) {
       regime: string | null;
     }[];
 
-    // Makro skor — opsiyonel, hata olursa null
+    // Makro skor — opsiyonel
     let makroScore: number | null = null;
-    let regime: string | null = null;
+    let regime: string | null = rows[0]?.regime ?? null;
     try {
       const macro = await getMacroFull();
       makroScore = macro.macroScore.score;
-      // Regime en son sinyalden al (cron'dan geliyor)
-      regime = rows[0]?.regime ?? null;
     } catch { /* makro opsiyonel */ }
 
     // Sembol bazında grupla
@@ -85,52 +84,47 @@ export async function GET(request: NextRequest) {
       gruplar.set(row.sembol, mevcut);
     }
 
-    // Her sembol için en iyi temsili sinyal + tüm sinyal tipleri
+    // Sektör → sinyal veren hisse sayısı haritası
+    const sektorSayaci = new Map<string, Set<string>>();
+    for (const sembol of gruplar.keys()) {
+      const sektorId = getSectorId(sembol);
+      if (!sektorSayaci.has(sektorId)) sektorSayaci.set(sektorId, new Set());
+      sektorSayaci.get(sektorId)!.add(sembol);
+    }
+
     const firsatlar: FirsatItem[] = [];
 
     for (const [sembol, sinyaller] of gruplar) {
-      // En yüksek confluenceli satır
       const best = sinyaller.reduce((a, b) =>
         (b.confluence_score ?? 0) > (a.confluence_score ?? 0) ? b : a
       );
 
       const uniqueSinyaller = [...new Set(sinyaller.map((s) => s.signal_type))];
 
-      // Dominant yön — çoğunluk
       const yukariSayisi = sinyaller.filter((s) => s.direction === 'yukari').length;
       const asagiSayisi  = sinyaller.filter((s) => s.direction === 'asagi').length;
       const direction: FirsatItem['direction'] =
         yukariSayisi > asagiSayisi ? 'yukari' :
         asagiSayisi > yukariSayisi ? 'asagi' : 'notr';
 
-      // Makro uyum hesapla
-      let makroUyum: FirsatItem['makroUyum'] = 'notr';
-      if (makroScore !== null) {
-        const isBull = regime === 'bull_trend' || makroScore > 20;
-        const isBear = regime === 'bear_trend' || makroScore < -20;
-        if ((direction === 'yukari' && isBull) || (direction === 'asagi' && isBear)) {
-          makroUyum = 'guclu';
-        } else if ((direction === 'yukari' && isBear) || (direction === 'asagi' && isBull)) {
-          makroUyum = 'dikkat';
-        }
-      }
-
-      const sektorBilgi = getSector(sembol);
+      const sektorBilgi  = getSector(sembol);
+      const sektorId     = getSectorId(sembol);
+      const sektorSinyalSayisi = sektorSayaci.get(sektorId)?.size ?? 1;
 
       firsatlar.push({
         sembol,
-        sektorAdi:       sektorBilgi.shortName,
-        sinyaller:       uniqueSinyaller,
+        sektorAdi:          sektorBilgi.shortName,
+        sektorId,
+        sinyaller:          uniqueSinyaller,
         direction,
-        confluenceScore: Math.round(best.confluence_score ?? 0),
-        entryPrice:      best.entry_price,
-        entryTime:       best.entry_time,
-        regime:          best.regime,
-        makroUyum,
+        confluenceScore:    Math.round(best.confluence_score ?? 0),
+        entryPrice:         best.entry_price,
+        entryTime:          best.entry_time,
+        regime:             best.regime,
+        sektorSinyalSayisi,
       });
     }
 
-    // Confluence'a göre sırala (en yüksek başta)
     firsatlar.sort((a, b) => b.confluenceScore - a.confluenceScore);
 
     return NextResponse.json<FirsatlarResponse>({
@@ -139,9 +133,7 @@ export async function GET(request: NextRequest) {
       regime,
       toplamSinyal: rows.length,
     }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-      },
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
