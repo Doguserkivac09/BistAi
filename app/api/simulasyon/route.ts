@@ -31,9 +31,13 @@ const CACHE_TTL  = 6 * 60 * 60 * 1000; // 6 saat
 
 const simCache = new Map<string, { result: string; ts: number }>();
 
-function simCacheKey(scenario: { type: string; magnitude: string }): string {
+function simCacheKey(scenario: { type: string; magnitude: string; customNote?: string }): string {
   const date = new Date().toISOString().slice(0, 10);
-  return `sim:${date}:${scenario.type}:${scenario.magnitude}`;
+  // customNote varsa cache'e dahil et — farklı bağlam = farklı yanıt
+  const noteHash = scenario.customNote
+    ? `:${scenario.customNote.trim().slice(0, 40).replace(/\s+/g, '_')}`
+    : '';
+  return `sim:${date}:${scenario.type}:${scenario.magnitude}${noteHash}`;
 }
 
 async function getDbCache(key: string): Promise<string | null> {
