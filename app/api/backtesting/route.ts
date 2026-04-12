@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const records = pageResults.flatMap((r) => (r.data as SignalPerformanceRecord[]) ?? []);
+    let records = pageResults.flatMap((r) => (r.data as SignalPerformanceRecord[]) ?? []);
 
     // Confluence filtresi
     if (minConfluence !== undefined) {

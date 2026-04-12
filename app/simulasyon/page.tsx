@@ -161,6 +161,14 @@ function renderMarkdown(text: string): React.ReactNode {
 
 // ── Ana Bileşen ───────────────────────────────────────────────────────
 
+interface MacroSnapshot {
+  usdtry: string | null;
+  vix: string | null;
+  bist100: string | null;
+  policyRate: string | null;
+  makroSkor: string | null;
+}
+
 export default function SimulasyonPage() {
   const [selected, setSelected]     = useState<ScenarioDef | null>(null);
   const [magnitude, setMagnitude]   = useState<SimulationScenario['magnitude']>('orta');
@@ -173,6 +181,7 @@ export default function SimulasyonPage() {
   const [error, setError]       = useState<string | null>(null);
   const [upgradeRequired, setUpgradeRequired] = useState(false);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+  const [makro, setMakro]       = useState<MacroSnapshot | null>(null);
 
   const resultRef = useRef<HTMLDivElement>(null);
   const abortRef  = useRef<AbortController | null>(null);
@@ -183,6 +192,23 @@ export default function SimulasyonPage() {
         setLoggedIn(!!user);
       });
     });
+  }, []);
+
+  // Güncel makro verileri çek
+  useEffect(() => {
+    fetch('/api/macro')
+      .then(r => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d) return;
+        setMakro({
+          usdtry:     d.indicators?.usdtry?.price != null ? `${d.indicators.usdtry.price.toFixed(2)} ₺` : null,
+          vix:        d.indicators?.vix?.price != null ? `${d.indicators.vix.price.toFixed(1)}` : null,
+          bist100:    d.indicators?.bist100?.price != null ? `${Math.round(d.indicators.bist100.price).toLocaleString('tr-TR')}` : null,
+          policyRate: d.turkey?.policyRate?.value != null ? `%${d.turkey.policyRate.value}` : null,
+          makroSkor:  d.score?.score != null ? `${d.score.score > 0 ? '+' : ''}${d.score.score}` : null,
+        });
+      })
+      .catch(() => {});
   }, []);
 
   // Mobil: simülasyon başlayınca sonuç paneline kaydır
@@ -333,22 +359,56 @@ export default function SimulasyonPage() {
               })}
             </div>
 
+            {/* Güncel Makro Panel */}
+            {makro && (
+              <div className="rounded-xl border border-border bg-surface/50 p-4">
+                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Güncel Piyasa</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'USD/TRY', val: makro.usdtry },
+                    { label: 'VIX',     val: makro.vix },
+                    { label: 'BIST100', val: makro.bist100 },
+                    { label: 'TCMB',    val: makro.policyRate },
+                  ].map(({ label, val }) => val ? (
+                    <div key={label} className="rounded-lg bg-white/5 border border-border px-3 py-2">
+                      <p className="text-[10px] text-text-muted">{label}</p>
+                      <p className="text-sm font-bold text-text-primary">{val}</p>
+                    </div>
+                  ) : null)}
+                </div>
+                {makro.makroSkor && (
+                  <div className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
+                    <span>Makro Skor:</span>
+                    <span className={`font-bold ${
+                      makro.makroSkor.startsWith('+') ? 'text-green-400' :
+                      makro.makroSkor.startsWith('-') ? 'text-red-400' : 'text-yellow-400'
+                    }`}>{makro.makroSkor}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Büyüklük seçimi */}
             {selected && (
               <div className="rounded-xl border border-border bg-surface p-4 space-y-3">
                 <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Büyüklük</p>
                 <div className="flex gap-2">
-                  {(['hafif', 'orta', 'sert'] as const).map(m => (
+                  {([
+                    { val: 'hafif', label: 'Hafif', aciklama: '%5-10' },
+                    { val: 'orta',  label: 'Orta',  aciklama: '%10-20' },
+                    { val: 'sert',  label: 'Sert',  aciklama: '%20+'   },
+                  ] as const).map(m => (
                     <button
-                      key={m}
-                      onClick={() => setMagnitude(m)}
-                      className={`flex-1 rounded-lg border py-2 text-xs font-medium capitalize transition-colors ${
-                        magnitude === m
+                      key={m.val}
+                      onClick={() => setMagnitude(m.val)}
+                      className={`flex-1 rounded-lg border py-2.5 text-xs font-medium transition-colors ${
+                        magnitude === m.val
                           ? 'border-primary/50 bg-primary/10 text-primary'
                           : 'border-border text-text-secondary hover:border-primary/30'
                       }`}
                     >
-                      {m}
+                      <div>{m.label}</div>
+                      <div className="text-[10px] opacity-60 mt-0.5">{m.aciklama}</div>
                     </button>
                   ))}
                 </div>

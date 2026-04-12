@@ -19,14 +19,20 @@ import { getMarketRegime } from '@/lib/regime-engine';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
-// En likit top 30 BIST hissesi
+// En likit top 50 BIST hissesi
 const TOP30_SYMBOLS = [
+  // Orijinal TOP30
   'THYAO', 'GARAN', 'ASELS', 'KCHOL', 'EREGL',
   'BIMAS', 'AKBNK', 'SISE',  'TUPRS', 'FROTO',
   'TOASO', 'SAHOL', 'YKBNK', 'HALKB', 'VAKBN',
   'TCELL', 'ARCLK', 'EKGYO', 'PGSUS', 'TTKOM',
   'PETKM', 'DOHOL', 'KOZAL', 'MGROS', 'SASA',
   'ISCTR', 'ENKAI', 'BRISA', 'AGHOL', 'OYAKC',
+  // Ek 20 likit hisse
+  'CCOLA', 'ULKER', 'OTKAR', 'TTRAK', 'CLEBI',
+  'AKCNS', 'CIMSA', 'KRDMD', 'LOGO',  'AKSEN',
+  'SKBNK', 'TSKB',  'VESBE', 'VESTL', 'GUBRF',
+  'TAVHL', 'TKFEN', 'SOKM',  'MAVI',  'ARDYZ',
 ];
 
 const BATCH_SIZE = 5;
