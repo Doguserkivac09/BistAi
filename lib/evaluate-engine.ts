@@ -23,11 +23,31 @@ import type { SignalPerformanceRecord } from '@/lib/performance-types';
 /** Her cron çalışmasında işlenecek max kayıt (timeout koruması) */
 const MAX_BATCH = 200;
 
-/** Değerlendirme için gerekli min takvim günü */
+/** Değerlendirme için gerekli min takvim günü (en kısa canonical horizon) */
 const MIN_AGE_DAYS = 3;
 
 /** Semboller arası bekleme süresi (Yahoo rate limit) */
 const SYMBOL_DELAY_MS = 300;
+
+/**
+ * Her sinyal tipinin canonical horizon'u için gereken minimum gün sayısı.
+ * Bu süre geçmeden sinyal evaluated=true yapılmaz — veri eksik kalmasın.
+ */
+const SIGNAL_MIN_DAYS: Record<string, number> = {
+  'Altın Çapraz':            30,
+  'Ölüm Çaprazı':            30,
+  'Trend Başlangıcı':        14,
+  'Destek/Direnç Kırılımı':  14,
+  'MACD Kesişimi':            7,
+  'RSI Uyumsuzluğu':          7,
+  'Bollinger Sıkışması':      7,
+  'RSI Seviyesi':              3,
+  'Hacim Anomalisi':           3,
+};
+
+function getMinDays(signalType: string): number {
+  return SIGNAL_MIN_DAYS[signalType] ?? 7;
+}
 
 // ── Admin Client ──────────────────────────────────────────────────────
 
@@ -140,7 +160,7 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
 
     const { data, error } = await supabase
       .from('signal_performance')
-      .select('id, sembol, direction, entry_price, entry_time')
+      .select('id, sembol, signal_type, direction, entry_price, entry_time')
       .eq('evaluated', false)
       .lte('entry_time', cutoff.toISOString())
       .order('entry_time', { ascending: true })
@@ -148,7 +168,7 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
 
     if (error) return { updated: 0, error: `signal_performance okunamadı: ${error.message}` };
 
-    const records = (data as Pick<SignalPerformanceRecord, 'id' | 'sembol' | 'direction' | 'entry_price' | 'entry_time'>[] | null) ?? [];
+    const records = (data as Pick<SignalPerformanceRecord, 'id' | 'sembol' | 'signal_type' | 'direction' | 'entry_price' | 'entry_time'>[] | null) ?? [];
     if (records.length === 0) return { updated: 0 };
 
     // Sembole göre grupla — her sembol için tek OHLCV çağrısı
@@ -171,7 +191,7 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
 
       let candles: OHLCVCandle[] = [];
       try {
-        const result = await fetchOHLCV(sembol.trim(), 60);
+        const result = await fetchOHLCV(sembol.trim(), 70);
         candles = result.candles as OHLCVCandle[];
       } catch (err) {
         console.error(`[evaluate-engine] ${sembol} OHLCV hatası:`, err instanceof Error ? err.message : err);
@@ -190,7 +210,11 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
 
           const direction = rec.direction ?? 'yukari';
 
-          // 3, 7, 14 takvim günü sonraki kapanışlar
+          // Sinyal tipinin canonical horizon'u için yeterli gün geçti mi?
+          const minDays = getMinDays(rec.signal_type ?? '');
+          if (daysBetween(rec.entry_time, now) < minDays) continue;
+
+          // 3, 7, 14, 30 takvim günü sonraki kapanışlar
           const price3d  = closeAfterDays(candles, entryDate, 3);
           const price7d  = closeAfterDays(candles, entryDate, 7);
           const price14d = closeAfterDays(candles, entryDate, 14);
