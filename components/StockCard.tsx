@@ -26,7 +26,7 @@ interface StockCardProps {
   candleData: OHLCVCandle[];
   allSignals?: StockSignal[];
   macroScore?: { score: number; wind: string } | null;
-  winRate?: { rate: number; sampleSize: number } | null;
+  winRate?: { rate: number; sampleSize: number; horizon?: string } | null;
   sectorMomentum?: SectorMomentum | null;
   delay?: number;
   cachedExplanation?: string | null;
@@ -58,9 +58,10 @@ function ConfluenceBadge({ result }: { result: ConfluenceResult }) {
   );
 }
 
-function WinRateBadge({ rate, sampleSize }: { rate: number; sampleSize: number }) {
+function WinRateBadge({ rate, sampleSize, horizon }: { rate: number; sampleSize: number; horizon?: string }) {
   const pct = Math.round(rate * 100);
-  const lowSample = sampleSize < 20;
+  const lowSample = sampleSize < 10;
+  const horizonLabel = horizon ?? '7g';
   const cls = pct >= 60
     ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
     : pct >= 45
@@ -68,7 +69,7 @@ function WinRateBadge({ rate, sampleSize }: { rate: number; sampleSize: number }
     : 'text-red-400 bg-red-500/10 border-red-500/30';
   return (
     <span
-      title={`Backtest: 7 günlük %${pct} başarı oranı · ${sampleSize} geçmiş sinyal${lowSample ? ' (düşük örneklem)' : ''}`}
+      title={`Backtest (${horizonLabel}): %${pct} başarı oranı · ${sampleSize} geçmiş sinyal${lowSample ? ' (düşük örneklem)' : ''}`}
       className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls} ${lowSample ? 'opacity-60' : ''}`}
     >
       Bt %{pct}{lowSample ? '~' : ''}
@@ -164,7 +165,7 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
 interface ContextBadgesProps {
   signal: StockSignal;
   confluence: ConfluenceResult | null;
-  winRate?: { rate: number; sampleSize: number } | null;
+  winRate?: { rate: number; sampleSize: number; horizon?: string } | null;
   macroScore?: { score: number; wind: string } | null;
   sectorMomentum?: SectorMomentum | null;
   compositeResult?: CompositeSignalResult | null;
@@ -198,7 +199,7 @@ function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum
       {hasSectorConflict && <SectorConflictBadge score={sectorMomentum!.score} />}
       {confluence && <ConfluenceBadge result={confluence} />}
       {/* Eşik 20→10: backtesting engine ile tutarlı (sufficientSample >= 10) */}
-      {winRate && winRate.sampleSize >= 10 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
+      {winRate && winRate.sampleSize >= 5 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} horizon={winRate.horizon} />}
       {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
       {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
     </div>

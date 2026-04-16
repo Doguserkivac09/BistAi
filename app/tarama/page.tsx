@@ -466,7 +466,7 @@ function TaramaPageInner() {
 
   // Data state
   const [macroScore,           setMacroScore]           = useState<{ score: number; wind: string } | null>(null);
-  const [winRateMap,           setWinRateMap]           = useState<Map<string, { rate: number; sampleSize: number }>>(new Map());
+  const [winRateMap,           setWinRateMap]           = useState<Map<string, { rate: number; sampleSize: number; horizon?: string }>>(new Map());
   const [macroBannerDismissed, setMacroBannerDismissed] = useState(false);
   const [onlyKapToday,         setOnlyKapToday]         = useState(false);
   const [kapTodaySet,          setKapTodaySet]          = useState<Set<string>>(new Set());
@@ -573,21 +573,18 @@ function TaramaPageInner() {
       .catch(() => {});
   }, []);
 
-  // Fetch win rates
+  // Fetch win rates (canonical horizon per signal type)
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/signal-stats')
-      .then(r => r.ok ? r.json() : [])
-      .then((stats: Array<{ signal_type: string; sufficient_sample: boolean; total_signals: number; horizon_7d: { win_rate: number | null } | null }>) => {
-        if (cancelled || !Array.isArray(stats)) return;
-        const agg = new Map<string, { totalWR: number; totalN: number }>();
+    fetch('/api/signal-stats-summary')
+      .then(r => r.ok ? r.json() : { stats: [] })
+      .then((res: { stats: Array<{ signal_type: string; win_rate: number; n: number; horizon: string }> }) => {
+        if (cancelled) return;
+        const stats = res.stats ?? [];
+        const result = new Map<string, { rate: number; sampleSize: number; horizon: string }>();
         for (const s of stats) {
-          if (!s.sufficient_sample || !s.horizon_7d?.win_rate) continue;
-          const cur = agg.get(s.signal_type) ?? { totalWR: 0, totalN: 0 };
-          agg.set(s.signal_type, { totalWR: cur.totalWR + s.horizon_7d.win_rate * s.total_signals, totalN: cur.totalN + s.total_signals });
+          result.set(s.signal_type, { rate: s.win_rate, sampleSize: s.n, horizon: s.horizon });
         }
-        const result = new Map<string, { rate: number; sampleSize: number }>();
-        agg.forEach(({ totalWR, totalN }, type) => { result.set(type, { rate: totalWR / totalN, sampleSize: totalN }); });
         setWinRateMap(result);
       })
       .catch(() => {});

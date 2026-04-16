@@ -118,6 +118,13 @@ function formatVolume(v: number): string {
   return String(v);
 }
 
+// ── Backtest win rate tipi ────────────────────────────────────────────
+interface SignalWinRate {
+  rate: number;      // 0-1
+  n: number;
+  horizon: string;   // '3g' | '7g' | '14g' | '30g'
+}
+
 // ── Sinyal doğal vadesi ───────────────────────────────────────────────
 const SIGNAL_VADE: Record<string, { label: string; color: string }> = {
   'Altın Çapraz':            { label: '30g vade', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
@@ -137,11 +144,13 @@ function AccordionSignalRow({
   explanation,
   sembol,
   savedSignalTypes,
+  winRate,
 }: {
   sig: StockSignal;
   explanation: string | null;
   sembol: string;
   savedSignalTypes: string[];
+  winRate?: SignalWinRate | null;
 }) {
   const [open, setOpen] = useState(false);
   const isUp = sig.direction === 'yukari';
@@ -171,6 +180,21 @@ function AccordionSignalRow({
             {SIGNAL_VADE[sig.type]!.label}
           </span>
         )}
+        {/* Backtest win rate badge */}
+        {winRate && winRate.n >= 5 && (() => {
+          const pct = Math.round(winRate.rate * 100);
+          const cls = pct >= 60 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                    : pct >= 45 ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10'
+                    :             'text-red-400 border-red-500/30 bg-red-500/10';
+          return (
+            <span
+              title={`Backtest (${winRate.horizon}): %${pct} başarı oranı · ${winRate.n} geçmiş sinyal`}
+              className={`shrink-0 hidden sm:inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
+            >
+              %{pct} başarılı
+            </span>
+          );
+        })()}
         {sigData?.candlesAgo !== undefined && (
           <span className="shrink-0 text-[10px] text-text-muted hidden sm:block">
             {sigData.candlesAgo}g önce
@@ -483,6 +507,21 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [kapSummary, setKapSummary]     = useState<string | null>(null);
   const [kapSumLoading, setKapSumLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
+  const [signalStatsMap, setSignalStatsMap] = useState<Map<string, SignalWinRate>>(new Map());
+
+  // Backtest win rate — sinyal tipleri için canonical horizon başarı oranı
+  useEffect(() => {
+    fetch('/api/signal-stats-summary')
+      .then(r => r.ok ? r.json() : { stats: [] })
+      .then((res: { stats: Array<{ signal_type: string; win_rate: number; n: number; horizon: string }> }) => {
+        const map = new Map<string, SignalWinRate>();
+        for (const s of (res.stats ?? [])) {
+          map.set(s.signal_type, { rate: s.win_rate, n: s.n, horizon: s.horizon });
+        }
+        setSignalStatsMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   // Hisse analizi (AI + fiyat hedefleri + hero meta)
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
@@ -819,6 +858,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                           explanation={explanations[sig.type] ?? null}
                           sembol={sembol}
                           savedSignalTypes={savedSignalTypes}
+                          winRate={signalStatsMap.get(sig.type) ?? null}
                         />
                       ))}
                     </div>
@@ -1026,6 +1066,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                           explanation={explanations[sig.type] ?? null}
                           sembol={sembol}
                           savedSignalTypes={savedSignalTypes}
+                          winRate={signalStatsMap.get(sig.type) ?? null}
                         />
                       ))}
                     </div>
