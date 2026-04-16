@@ -24,7 +24,7 @@ import type { SignalPerformanceRecord } from '@/lib/performance-types';
 const MAX_BATCH = 200;
 
 /** Değerlendirme için gerekli min takvim günü */
-const MIN_AGE_DAYS = 5;
+const MIN_AGE_DAYS = 3;
 
 /** Semboller arası bekleme süresi (Yahoo rate limit) */
 const SYMBOL_DELAY_MS = 300;
@@ -195,8 +195,8 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
           const price7d  = closeAfterDays(candles, entryDate, 7);
           const price14d = closeAfterDays(candles, entryDate, 14);
 
-          // Henüz 14 günlük fiyat yoksa atla (çok erken)
-          if (price14d == null) continue;
+          // En az 3 günlük fiyat yoksa atla — 7d/14d null kalabilir
+          if (price3d == null) continue;
 
           const return_3d  = calcReturn(entryPrice, price3d,  direction);
           const return_7d  = calcReturn(entryPrice, price7d,  direction);
