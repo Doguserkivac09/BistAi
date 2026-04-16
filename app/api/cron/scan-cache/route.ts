@@ -129,7 +129,11 @@ export async function GET(request: NextRequest) {
         sembol,
         signals_json: signals,
         candles_json: last60,
-        change_percent: changePercent ?? null,
+        change_percent: changePercent
+          ?? (candles.length >= 2
+            ? ((candles[candles.length - 1]!.close - candles[candles.length - 2]!.close)
+               / candles[candles.length - 2]!.close) * 100
+            : null),
         rsi:         calcLastRSI(candles),
         last_volume: candles[candles.length - 1]?.volume ?? null,
         sector:      getSectorId(sembol),
