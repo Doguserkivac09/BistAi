@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Star, BookMarked, Clock, Search, BarChart2, TrendingUp, Users,
-  Briefcase, Newspaper, PieChart, MessageSquare,
+  Briefcase, Newspaper, PieChart, MessageSquare, Zap,
+  TrendingDown, Minus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BeamsBackground } from '@/components/ui/beams-background';
@@ -161,6 +162,15 @@ const TIER_CONFIG: Record<string, { label: string; color: string; border: string
 
 const DAILY_LIMITS: Record<string, number> = { free: 7, pro: 20, premium: 50 };
 
+interface MiniFireat {
+  sembol: string;
+  sinyaller: string[];
+  direction: 'yukari' | 'asagi' | 'notr';
+  confluenceScore: number;
+  entryPrice: number;
+  sektorAdi: string;
+}
+
 interface Props {
   email: string;
   displayName: string;
@@ -189,6 +199,8 @@ export function DashboardClient({
   macroScore,
 }: Props) {
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
+  const [firsatlar, setFirsatlar] = useState<MiniFireat[]>([]);
+  const [firsatlarLoading, setFirsatlarLoading] = useState(true);
 
   // Listen for avatar changes from profile page
   useEffect(() => {
@@ -197,6 +209,18 @@ export function DashboardClient({
     }
     window.addEventListener('avatar-changed', onAvatarChange);
     return () => window.removeEventListener('avatar-changed', onAvatarChange);
+  }, []);
+
+  // Bugünün fırsatlarını çek
+  useEffect(() => {
+    fetch('/api/firsatlar?minScore=45')
+      .then(r => r.json())
+      .then(d => {
+        const list: MiniFireat[] = (d.firsatlar ?? []).slice(0, 4);
+        setFirsatlar(list);
+      })
+      .catch(() => {})
+      .finally(() => setFirsatlarLoading(false));
   }, []);
 
   const STAT_CARDS = [
@@ -382,6 +406,107 @@ export function DashboardClient({
                 <MacroWindGauge result={macroScore} compact />
               </div>
             )}
+
+            {/* Bugünün Fırsatları */}
+            <div className="animate-fade-in-up stagger-8">
+              <div className="flex items-center justify-between mb-2 px-1">
+                <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-yellow-400" />
+                  Bugünün Fırsatları
+                </h2>
+                <Link
+                  href="/firsatlar"
+                  className="text-xs text-primary/70 hover:text-primary transition-colors"
+                >
+                  Tümünü Gör →
+                </Link>
+              </div>
+
+              <div className="rounded-2xl border border-white/8 bg-black/35 backdrop-blur-md overflow-hidden">
+                {firsatlarLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="h-5 w-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                  </div>
+                ) : firsatlar.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center px-6">
+                    <Zap className="h-8 w-8 text-white/10 mb-3" />
+                    <p className="text-sm text-white/35">Bugün için henüz fırsat yok</p>
+                    <p className="text-xs text-white/20 mt-1">Cron her iş günü sabah çalışır</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/5">
+                    {firsatlar.map((f) => {
+                      const isUp   = f.direction === 'yukari';
+                      const isDown = f.direction === 'asagi';
+                      const score  = f.confluenceScore;
+                      const scoreColor =
+                        score >= 70 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' :
+                        score >= 55 ? 'text-blue-400 border-blue-500/30 bg-blue-500/10' :
+                                      'text-white/50 border-white/10 bg-white/5';
+                      return (
+                        <Link
+                          key={f.sembol}
+                          href={`/hisse/${f.sembol}`}
+                          className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/4 transition-colors group"
+                        >
+                          {/* Yön ikonu */}
+                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
+                            isUp   ? 'border-emerald-500/30 bg-emerald-500/10' :
+                            isDown ? 'border-red-500/30 bg-red-500/10' :
+                                     'border-white/10 bg-white/5'
+                          }`}>
+                            {isUp   ? <TrendingUp   className="h-4 w-4 text-emerald-400" /> :
+                             isDown ? <TrendingDown className="h-4 w-4 text-red-400" /> :
+                                      <Minus        className="h-4 w-4 text-white/30" />}
+                          </div>
+
+                          {/* Sembol + sektör + sinyaller */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">
+                                {f.sembol}
+                              </span>
+                              <span className="text-[11px] text-white/35 truncate">{f.sektorAdi}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {f.sinyaller.slice(0, 2).map(s => (
+                                <span
+                                  key={s}
+                                  className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-white/45"
+                                >
+                                  {s}
+                                </span>
+                              ))}
+                              {f.sinyaller.length > 2 && (
+                                <span className="text-[10px] text-white/25">+{f.sinyaller.length - 2}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Fiyat + confluence */}
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-semibold text-white tabular-nums">
+                              {f.entryPrice > 0 ? `₺${f.entryPrice.toFixed(2)}` : '—'}
+                            </p>
+                            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${scoreColor}`}>
+                              {score}
+                            </span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                    <div className="px-5 py-2.5 border-t border-white/5">
+                      <Link
+                        href="/firsatlar"
+                        className="text-xs text-primary/60 hover:text-primary transition-colors"
+                      >
+                        Tüm fırsatları gör →
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Sinyal Dağılımı */}
             {savedSignals.length > 0 && (
