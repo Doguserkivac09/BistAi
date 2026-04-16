@@ -118,6 +118,19 @@ function formatVolume(v: number): string {
   return String(v);
 }
 
+// ── Sinyal doğal vadesi ───────────────────────────────────────────────
+const SIGNAL_VADE: Record<string, { label: string; color: string }> = {
+  'Altın Çapraz':            { label: '30g vade', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
+  'Ölüm Çaprazı':            { label: '30g vade', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
+  'Trend Başlangıcı':        { label: '14g vade', color: 'text-blue-400   border-blue-500/30   bg-blue-500/10'   },
+  'Destek/Direnç Kırılımı':  { label: '14g vade', color: 'text-blue-400   border-blue-500/30   bg-blue-500/10'   },
+  'MACD Kesişimi':            { label: '7g vade',  color: 'text-cyan-400   border-cyan-500/30   bg-cyan-500/10'   },
+  'RSI Uyumsuzluğu':          { label: '7g vade',  color: 'text-cyan-400   border-cyan-500/30   bg-cyan-500/10'   },
+  'Bollinger Sıkışması':      { label: '7g vade',  color: 'text-cyan-400   border-cyan-500/30   bg-cyan-500/10'   },
+  'RSI Seviyesi':              { label: '3g vade',  color: 'text-amber-400  border-amber-500/30  bg-amber-500/10'  },
+  'Hacim Anomalisi':           { label: '3g vade',  color: 'text-amber-400  border-amber-500/30  bg-amber-500/10'  },
+};
+
 // ── Accordion sinyal satırı ────────────────────────────────────────────
 function AccordionSignalRow({
   sig,
@@ -152,6 +165,12 @@ function AccordionSignalRow({
             </p>
           )}
         </div>
+        {/* Vade badge */}
+        {SIGNAL_VADE[sig.type] && (
+          <span className={`shrink-0 hidden sm:inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${SIGNAL_VADE[sig.type]!.color}`}>
+            {SIGNAL_VADE[sig.type]!.label}
+          </span>
+        )}
         {sigData?.candlesAgo !== undefined && (
           <span className="shrink-0 text-[10px] text-text-muted hidden sm:block">
             {sigData.candlesAgo}g önce
