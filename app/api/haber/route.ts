@@ -26,20 +26,29 @@ const FETCH_TIMEOUT_MS = 5_000;
 // ── Yahoo Finance news ──────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const YahooFinanceClass = require('yahoo-finance2').default;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const yahooFinance: any = new YahooFinanceClass({ suppressNotices: ['yahooSurvey'] });
+
+interface YahooNewsItem {
+  title?: string;
+  link?: string;
+  providerPublishTime?: number;
+  publisher?: string;
+  summary?: string;
+  thumbnail?: { resolutions?: Array<{ url?: string }> };
+}
+interface YahooFinanceInstance {
+  search(ticker: string, options: { newsCount: number; quotesCount: number }): Promise<{ news?: YahooNewsItem[] }>;
+}
+const yahooFinance = new YahooFinanceClass({ suppressNotices: ['yahooSurvey'] }) as YahooFinanceInstance;
 
 async function fetchYahooNews(sembol: string): Promise<HaberItem[]> {
   try {
     const ticker = `${sembol.replace(/\.IS$/i, '').toUpperCase()}.IS`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result: any = await yahooFinance.search(ticker, {
+    const result = await yahooFinance.search(ticker, {
       newsCount: 8,
       quotesCount: 0,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const news: any[] = result?.news ?? [];
+    const news: YahooNewsItem[] = result?.news ?? [];
 
     return news
       .filter((n) => n?.title && n?.link)

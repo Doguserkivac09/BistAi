@@ -272,8 +272,19 @@ export default function TersPortfolyoPage() {
       .then(r => r.ok ? r.json() : null)
       .then((data) => {
         if (!data?.sectors) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setSektorMomentum(data.sectors.map((s: any) => {
+        interface SectorApiItem {
+          compositeScore?: number;
+          signal?: string;
+          sectorId?: string;
+          id?: string;
+          sectorName?: string;
+          name?: string;
+          shortName?: string;
+          perf20d?: number;
+          momentum20d?: number;
+          topPerformers?: Array<{ symbol?: string } | string>;
+        }
+        setSektorMomentum(data.sectors.map((s: SectorApiItem) => {
           const score = s.compositeScore ?? 0;
           const direction: 'yukari' | 'asagi' | 'nötr' =
             s.signal === 'strong_buy' || s.signal === 'buy' ? 'yukari'
@@ -285,7 +296,7 @@ export default function TersPortfolyoPage() {
             direction,
             compositeScore: Math.round(score),
             momentum20d:    s.perf20d ?? s.momentum20d ?? 0,
-            topPerformers:  (s.topPerformers ?? []).map((p: any) => p.symbol ?? p).filter(Boolean),
+            topPerformers:  (s.topPerformers ?? []).map((p) => (typeof p === 'string' ? p : p.symbol ?? '')).filter(Boolean),
           };
         }));
       })

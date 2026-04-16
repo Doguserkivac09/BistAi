@@ -248,8 +248,7 @@ export async function fetchAllMacroQuotes(): Promise<MacroSnapshot> {
     const result = results[i];
     if (result.status === 'fulfilled' && result.value) {
       const key = keys[i].toLowerCase() as keyof Omit<MacroSnapshot, 'fetchedAt'>;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (snapshot as any)[key] = result.value;
+      Object.assign(snapshot, { [key]: result.value });
     }
   }
 

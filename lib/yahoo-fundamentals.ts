@@ -8,8 +8,11 @@
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const YahooFinanceClass = require('yahoo-finance2').default;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const yahooFinance: any = new YahooFinanceClass({ suppressNotices: ['yahooSurvey'] });
+
+interface YahooFinanceInstance {
+  quoteSummary(ticker: string, options: { modules: string[] }): Promise<Record<string, Record<string, unknown>>>;
+}
+const yahooFinance = new YahooFinanceClass({ suppressNotices: ['yahooSurvey'] }) as YahooFinanceInstance;
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -85,8 +88,7 @@ export async function fetchYahooFundamentals(symbol: string): Promise<YahooFunda
   const cached = getCached<YahooFundamentals>(cacheKey);
   if (cached) return cached;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yahooFinance.quoteSummary(ticker, {
+  const result = await yahooFinance.quoteSummary(ticker, {
     modules: ['summaryDetail', 'defaultKeyStatistics', 'financialData', 'price'],
   });
 

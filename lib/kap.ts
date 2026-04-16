@@ -12,6 +12,21 @@ const CACHE_TTL = 15 * 60 * 1000; // 15 dakika
 
 // ─── Tipler ───────────────────────────────────────────────────────────────────
 
+interface KapRawItem {
+  disclosureIndex?: number;
+  id?: number;
+  memberTitle?: string;
+  companyName?: string;
+  stockCodes?: string[];
+  symbols?: string[];
+  title?: string;
+  subject?: string;
+  disclosureType?: string;
+  category?: string;
+  publishDate?: string;
+  date?: string;
+}
+
 export interface KapDuyuru {
   id: number;
   sirket: string;       // Şirket adı
@@ -70,8 +85,7 @@ export async function fetchKapDuyurular(limit = 50): Promise<KapDuyuru[]> {
 
     if (!res.ok) throw new Error(`KAP API ${res.status}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw: any[] = await res.json();
+    const raw: KapRawItem[] = await res.json();
 
     const duyurular: KapDuyuru[] = raw.map((item) => ({
       id:          item.disclosureIndex ?? item.id ?? 0,
@@ -125,8 +139,7 @@ export async function fetchKapBySembol(sembol: string, limit = 20): Promise<KapD
 
     if (!res.ok) return filtered;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw: any[] = await res.json();
+    const raw: KapRawItem[] = await res.json();
     const duyurular: KapDuyuru[] = raw.map((item) => ({
       id:          item.disclosureIndex ?? 0,
       sirket:      item.memberTitle ?? '',

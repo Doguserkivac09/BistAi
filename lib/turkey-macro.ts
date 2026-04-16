@@ -105,7 +105,6 @@ async function fetchEvdsSeries(
   // Doğru: /service/evds/series=X&startDate=Y&endDate=Z&type=json&key=K
   const url = `${EVDS_BASE_URL}/series=${encodeURIComponent(seriesCode)}&startDate=${startDate}&endDate=${endDate}&type=json&key=${apiKey}`;
 
-  console.log(`[TCMB] İstek URL: ${url.replace(apiKey, 'KEY_HIDDEN')}`);
 
   try {
     const res = await fetch(url, {
