@@ -9,6 +9,7 @@ export interface SignalPerformanceRecord {
   return_3d: number | null;
   return_7d: number | null;
   return_14d: number | null;
+  return_30d?: number | null;
   mfe: number | null;
   mae: number | null;
   evaluated: boolean;

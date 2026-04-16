@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     const pagePromises = Array.from({ length: totalPages }, (_, i) => {
       let q = supabase
         .from('signal_performance')
-        .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, mfe, mae, evaluated, regime, confluence_score, created_at')
+        .select('id, sembol, signal_type, direction, entry_price, entry_time, return_3d, return_7d, return_14d, return_30d, mfe, mae, evaluated, regime, confluence_score, created_at')
         .eq('evaluated', true)
         .gte('entry_time', cutoffIso)
         .range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1);
@@ -135,8 +135,8 @@ export async function GET(request: NextRequest) {
           filterDescription: 'Tüm sinyaller',
           totalSignals: 0,
           sufficientSample: false,
-          winRates: { '3d': null, '7d': null, '14d': null },
-          avgReturns: { '3d': null, '7d': null, '14d': null },
+          winRates: { '3d': null, '7d': null, '14d': null, '30d': null },
+          avgReturns: { '3d': null, '7d': null, '14d': null, '30d': null },
           avgMfe: null,
           avgMae: null,
           expectancy: null,
@@ -145,6 +145,9 @@ export async function GET(request: NextRequest) {
           sharpeRatio: null,
           tStat: null,
           pValue: null,
+          canonicalHorizon: '7d',
+          canonicalWinRate: null,
+          canonicalAvgReturn: null,
         },
         matrix: [],
         comparisons: [],

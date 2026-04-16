@@ -194,19 +194,22 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
           const price3d  = closeAfterDays(candles, entryDate, 3);
           const price7d  = closeAfterDays(candles, entryDate, 7);
           const price14d = closeAfterDays(candles, entryDate, 14);
+          const price30d = closeAfterDays(candles, entryDate, 30);
 
-          // En az 3 günlük fiyat yoksa atla — 7d/14d null kalabilir
+          // En az 3 günlük fiyat yoksa atla — 7d/14d/30d null kalabilir
           if (price3d == null) continue;
 
           const return_3d  = calcReturn(entryPrice, price3d,  direction);
           const return_7d  = calcReturn(entryPrice, price7d,  direction);
           const return_14d = calcReturn(entryPrice, price14d, direction);
+          // 30 gün geçmediyse null — normal durum, DB'ye null yazılır
+          const return_30d = calcReturn(entryPrice, price30d, direction);
 
           const { mfe, mae } = computeMfeMae(candles, entryDate, entryPrice, direction);
 
           const { error: updateError } = await supabase
             .from('signal_performance')
-            .update({ return_3d, return_7d, return_14d, mfe, mae, evaluated: true })
+            .update({ return_3d, return_7d, return_14d, return_30d, mfe, mae, evaluated: true })
             .eq('id', rec.id);
 
           if (updateError) {

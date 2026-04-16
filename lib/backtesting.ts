@@ -21,6 +21,27 @@ import type { SignalPerformanceRecord } from './performance-types';
  */
 const COMMISSION_ROUNDTRIP = 0.004;
 
+/**
+ * Her sinyal tipinin "doğal vadesi" — o sinyalin anlamlı sonuç verdiği ufuk.
+ * Örn: Altın Çapraz bir trend değişim sinyali → 30 gün beklenir.
+ * Hacim Anomalisi kısa vadeli momentum → 3 gün yeterli.
+ */
+export const SIGNAL_HORIZONS: Record<string, '3d' | '7d' | '14d' | '30d'> = {
+  'Altın Çapraz':             '30d',
+  'Ölüm Çaprazı':             '30d',
+  'Trend Başlangıcı':         '14d',
+  'Destek/Direnç Kırılımı':  '14d',
+  'MACD Kesişimi':            '7d',
+  'RSI Uyumsuzluğu':          '7d',
+  'Bollinger Sıkışması':      '7d',
+  'RSI Seviyesi':              '3d',
+  'Hacim Anomalisi':           '3d',
+};
+
+export function getCanonicalHorizon(signalType: string): '3d' | '7d' | '14d' | '30d' {
+  return SIGNAL_HORIZONS[signalType] ?? '7d';
+}
+
 // ── Türler ──────────────────────────────────────────────────────────
 
 /** Equity curve veri noktası */
@@ -43,13 +64,19 @@ export interface BacktestResult {
     '3d': number | null;
     '7d': number | null;
     '14d': number | null;
+    '30d': number | null;
   };
   /** Ortalama getiri (%) */
   avgReturns: {
     '3d': number | null;
     '7d': number | null;
     '14d': number | null;
+    '30d': number | null;
   };
+  /** Sinyal tipine özgü "doğal vade" ve o vadenin metrikleri */
+  canonicalHorizon: '3d' | '7d' | '14d' | '30d';
+  canonicalWinRate: number | null;
+  canonicalAvgReturn: number | null;
   /** Maksimum olumlu hareket (MFE) ortalaması */
   avgMfe: number | null;
   /** Maksimum olumsuz hareket (MAE) ortalaması */
@@ -118,57 +145,50 @@ export function runBacktest(
   const filtered = applyFilter(records, filter);
   const filterDesc = describeFilter(filter);
 
-  if (filtered.length < 10) {
-    return {
-      filterDescription: filterDesc,
-      totalSignals: filtered.length,
-      sufficientSample: false,
-      winRates: { '3d': null, '7d': null, '14d': null },
-      avgReturns: { '3d': null, '7d': null, '14d': null },
-      avgMfe: null,
-      avgMae: null,
-      expectancy: null,
-      profitFactor: null,
-      maxDrawdown: null,
-      sharpeRatio: null,
-      tStat: null,
-      pValue: null,
-    };
-  }
+  const canonicalHorizon = getCanonicalHorizon(filter?.signalType ?? '');
+
+  const emptyResult = (count: number): BacktestResult => ({
+    filterDescription: filterDesc,
+    totalSignals: count,
+    sufficientSample: false,
+    winRates: { '3d': null, '7d': null, '14d': null, '30d': null },
+    avgReturns: { '3d': null, '7d': null, '14d': null, '30d': null },
+    avgMfe: null,
+    avgMae: null,
+    expectancy: null,
+    profitFactor: null,
+    maxDrawdown: null,
+    sharpeRatio: null,
+    tStat: null,
+    pValue: null,
+    canonicalHorizon,
+    canonicalWinRate: null,
+    canonicalAvgReturn: null,
+  });
+
+  if (filtered.length < 10) return emptyResult(filtered.length);
 
   // Sadece değerlendirilmiş sinyalleri al
   const evaluated = filtered.filter((r) => r.evaluated);
-  if (evaluated.length < 10) {
-    return {
-      filterDescription: filterDesc,
-      totalSignals: evaluated.length,
-      sufficientSample: false,
-      winRates: { '3d': null, '7d': null, '14d': null },
-      avgReturns: { '3d': null, '7d': null, '14d': null },
-      avgMfe: null,
-      avgMae: null,
-      expectancy: null,
-      profitFactor: null,
-      maxDrawdown: null,
-      sharpeRatio: null,
-      tStat: null,
-      pValue: null,
-    };
-  }
+  if (evaluated.length < 10) return emptyResult(evaluated.length);
+
+  const canonicalField = `return_${canonicalHorizon}` as 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d';
 
   return {
     filterDescription: filterDesc,
     totalSignals: evaluated.length,
     sufficientSample: true,
     winRates: {
-      '3d': calculateWinRate(evaluated, 'return_3d'),
-      '7d': calculateWinRate(evaluated, 'return_7d'),
+      '3d':  calculateWinRate(evaluated, 'return_3d'),
+      '7d':  calculateWinRate(evaluated, 'return_7d'),
       '14d': calculateWinRate(evaluated, 'return_14d'),
+      '30d': calculateWinRate(evaluated, 'return_30d'),
     },
     avgReturns: {
-      '3d': calculateAvgReturn(evaluated, 'return_3d'),
-      '7d': calculateAvgReturn(evaluated, 'return_7d'),
+      '3d':  calculateAvgReturn(evaluated, 'return_3d'),
+      '7d':  calculateAvgReturn(evaluated, 'return_7d'),
       '14d': calculateAvgReturn(evaluated, 'return_14d'),
+      '30d': calculateAvgReturn(evaluated, 'return_30d'),
     },
     avgMfe: calculateAvg(evaluated, 'mfe'),
     avgMae: calculateAvg(evaluated, 'mae'),
@@ -177,6 +197,9 @@ export function runBacktest(
     maxDrawdown: calculateMaxDrawdown(evaluated),
     sharpeRatio: calculateSharpeRatio(evaluated),
     ...calculateTTest(evaluated),
+    canonicalHorizon,
+    canonicalWinRate: calculateWinRate(evaluated, canonicalField),
+    canonicalAvgReturn: calculateAvgReturn(evaluated, canonicalField),
   };
 }
 
@@ -339,7 +362,7 @@ function describeFilter(filter?: BacktestFilter): string {
 
 function calculateWinRate(
   records: SignalPerformanceRecord[],
-  field: 'return_3d' | 'return_7d' | 'return_14d'
+  field: 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'
 ): number | null {
   const valid = records.filter((r) => r[field] != null);
   if (valid.length === 0) return null;
@@ -356,7 +379,7 @@ function calculateWinRate(
 
 function calculateAvgReturn(
   records: SignalPerformanceRecord[],
-  field: 'return_3d' | 'return_7d' | 'return_14d'
+  field: 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'
 ): number | null {
   const valid = records.filter((r) => r[field] != null);
   if (valid.length === 0) return null;

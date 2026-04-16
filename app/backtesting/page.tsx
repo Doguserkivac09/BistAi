@@ -18,7 +18,7 @@ import type {
 
 // ── Türler ──────────────────────────────────────────────────────────
 
-type Horizon = '3d' | '7d' | '14d';
+type Horizon = '3d' | '7d' | '14d' | '30d';
 
 interface BenchmarkData {
   xu100Return: number | null;
@@ -41,6 +41,20 @@ const HORIZON_LABELS: Record<Horizon, string> = {
   '3d':  '3 Günlük',
   '7d':  '7 Günlük',
   '14d': '14 Günlük',
+  '30d': '30 Günlük',
+};
+
+// Sinyal tipinin doğal vadesi (lib/backtesting.ts ile senkronize)
+const SIGNAL_NATURAL_HORIZON: Record<string, Horizon> = {
+  'Altın Çapraz':            '30d',
+  'Ölüm Çaprazı':            '30d',
+  'Trend Başlangıcı':        '14d',
+  'Destek/Direnç Kırılımı':  '14d',
+  'MACD Kesişimi':           '7d',
+  'RSI Uyumsuzluğu':         '7d',
+  'Bollinger Sıkışması':     '7d',
+  'RSI Seviyesi':             '3d',
+  'Hacim Anomalisi':          '3d',
 };
 
 const REGIME_LABELS: Record<string, string> = {
@@ -123,7 +137,7 @@ function exportCSV(matrix: PerformanceMatrixRow[], regimeKeys: string[], horizon
 function HorizonTabs({ horizon, setHorizon }: { horizon: Horizon; setHorizon: (h: Horizon) => void }) {
   return (
     <div className="flex items-center rounded-xl border border-border bg-surface/50 p-1 gap-0.5">
-      {(['3d', '7d', '14d'] as Horizon[]).map((h) => (
+      {(['3d', '7d', '14d', '30d'] as Horizon[]).map((h) => (
         <button
           key={h}
           onClick={() => setHorizon(h)}
@@ -401,7 +415,7 @@ function EmptyStateImproved() {
         <h2 className="mb-2 text-xl font-bold text-text-primary">Backtest Verisi Biriktirilyor</h2>
         <p className="mb-6 text-sm text-text-secondary leading-relaxed">
           Sistem her sabah BIST hisselerini tarayarak sinyalleri kaydediyor.
-          5 gün geçtikten sonra her sinyal otomatik olarak değerlendiriliyor.
+          3 gün geçtikten sonra her sinyal otomatik olarak değerlendiriliyor.
           İlk sonuçlar yakında burada görünecek.
         </p>
 
@@ -412,7 +426,7 @@ function EmptyStateImproved() {
           {[
             'Her iş günü sabah 10:00\'da otomatik tarama çalışır',
             'Tespit edilen sinyaller veritabanına kaydedilir',
-            '5 gün sonra fiyat hareketi değerlendirilerek başarı oranı hesaplanır',
+            '3 gün sonra fiyat hareketi değerlendirilerek başarı oranı hesaplanır',
           ].map((step, i) => (
             <div key={i} className="mb-2 flex items-start gap-3 last:mb-0">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
@@ -619,10 +633,13 @@ function FilterBar({
 // ── Summary Cards ───────────────────────────────────────────────────
 
 function SummaryCards({
-  summary, total, horizon,
-}: { summary: BacktestResult; total: number; horizon: Horizon }) {
-  const wr  = summary.winRates[horizon];
-  const ret = summary.avgReturns[horizon];
+  summary, total, horizon, signalTypeFilter,
+}: { summary: BacktestResult; total: number; horizon: Horizon; signalTypeFilter: string }) {
+  // Belirli bir sinyal tipi seçiliyse canonical (doğal vade) değerleri öne çıkar
+  const hasCanonical = !!signalTypeFilter && summary.canonicalWinRate !== null;
+  const wr  = hasCanonical ? summary.canonicalWinRate  : summary.winRates[horizon];
+  const ret = hasCanonical ? summary.canonicalAvgReturn : summary.avgReturns[horizon];
+  const displayHorizon: Horizon = hasCanonical ? summary.canonicalHorizon : horizon;
 
   const cards = [
     {
@@ -633,7 +650,7 @@ function SummaryCards({
       bg: 'bg-blue-500/10 border-blue-500/25',
     },
     {
-      label: `Win Rate (${HORIZON_LABELS[horizon]})`,
+      label: `Win Rate (${HORIZON_LABELS[displayHorizon]})${hasCanonical ? ' ★' : ''}`,
       value: fmtPct(wr),
       icon: Target,
       color: winRateColor(wr),
@@ -642,7 +659,7 @@ function SummaryCards({
         : 'bg-red-500/10 border-red-500/25',
     },
     {
-      label: `Ort. Getiri (${HORIZON_LABELS[horizon]})`,
+      label: `Ort. Getiri (${HORIZON_LABELS[displayHorizon]})${hasCanonical ? ' ★' : ''}`,
       value: fmtPct(ret, true),
       icon: TrendingUp,
       color: ret !== null && ret > 0 ? 'text-green-400' : 'text-red-400',
@@ -747,25 +764,32 @@ function ExpandedRowPanel({ row }: { row: PerformanceMatrixRow }) {
           <thead>
             <tr>
               <th className="pr-6 pb-2 text-left text-xs font-medium text-text-muted" />
-              {(['3d', '7d', '14d'] as Horizon[]).map((h) => (
-                <th key={h} className="px-4 pb-2 text-center text-xs font-semibold text-text-primary">
-                  {HORIZON_LABELS[h]}
-                </th>
-              ))}
+              {(['3d', '7d', '14d', '30d'] as Horizon[]).map((h) => {
+                const isNatural = SIGNAL_NATURAL_HORIZON[row.signalType] === h;
+                return (
+                  <th key={h} className={`px-4 pb-2 text-center text-xs font-semibold ${isNatural ? 'text-primary' : 'text-text-primary'}`}>
+                    {HORIZON_LABELS[h]}
+                    {isNatural && <span className="ml-1 text-[9px] text-primary">★</span>}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             <tr>
               <td className="pr-6 py-1 text-xs text-text-muted">Win Rate</td>
-              {(['3d', '7d', '14d'] as Horizon[]).map((h) => (
-                <td key={h} className={`px-4 py-1 text-center text-sm font-bold ${winRateColor(overall.winRates[h])}`}>
-                  {fmtPct(overall.winRates[h])}
-                </td>
-              ))}
+              {(['3d', '7d', '14d', '30d'] as Horizon[]).map((h) => {
+                const isNatural = SIGNAL_NATURAL_HORIZON[row.signalType] === h;
+                return (
+                  <td key={h} className={`px-4 py-1 text-center text-sm font-bold ${winRateColor(overall.winRates[h])} ${isNatural ? 'ring-1 ring-inset ring-primary/30 rounded' : ''}`}>
+                    {fmtPct(overall.winRates[h])}
+                  </td>
+                );
+              })}
             </tr>
             <tr>
               <td className="pr-6 py-1 text-xs text-text-muted">Ort. Getiri</td>
-              {(['3d', '7d', '14d'] as Horizon[]).map((h) => {
+              {(['3d', '7d', '14d', '30d'] as Horizon[]).map((h) => {
                 const v = overall.avgReturns[h];
                 return (
                   <td key={h} className={`px-4 py-1 text-center text-sm font-semibold ${v !== null && v > 0 ? 'text-green-400' : v !== null && v < 0 ? 'text-red-400' : 'text-text-secondary'}`}>
@@ -891,7 +915,12 @@ function PerformanceMatrix({
                           ? <ChevronDown className="h-3.5 w-3.5 text-primary shrink-0" />
                           : <ChevronRight className="h-3.5 w-3.5 text-text-muted shrink-0" />
                         }
-                        {row.signalType}
+                        <span>{row.signalType}</span>
+                        {SIGNAL_NATURAL_HORIZON[row.signalType] && (
+                          <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                            {SIGNAL_NATURAL_HORIZON[row.signalType]}
+                          </span>
+                        )}
                       </div>
                     </td>
                     {regimeKeys.map((regime) => (
@@ -1125,7 +1154,7 @@ export default function BacktestingPage() {
           <InfoRow total={data.totalRecords} days={days} lastFetch={lastFetch} />
 
           {/* Özet kartlar */}
-          <SummaryCards summary={data.summary} total={data.totalRecords} horizon={horizon} />
+          <SummaryCards summary={data.summary} total={data.totalRecords} horizon={horizon} signalTypeFilter={signalTypeFilter} />
 
           {/* İstatistiksel Anlamlılık */}
           {data.summary.pValue !== null && (
