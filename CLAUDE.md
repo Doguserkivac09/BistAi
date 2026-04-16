@@ -15,8 +15,8 @@
 | # | Görev | Açıklama |
 |---|-------|----------|
 | ~~N1~~ | ~~**Production backfill (BT-FIX)**~~ | ✅ Tamamlandı (2026-04-09): DELETE + 295 batch × 365g. ~125.000 kayıt. Doğru entry (ertesi açılış), doğru regime (XU100.IS), komisyon dahil, her mum örnekleniyor. |
-| N2 | **Telegram kanal kurulum** | `/api/signals/latest` + `/api/chart-image/[sembol]` hazır; Telegram bot token + channel ID Vercel env'e girilmeli, otomasyon devreye alınmalı. |
-| N3 | **Sitemap 295 sembol** | Sitemap hâlâ 164 hisse referans ediyor; `BIST_SYMBOLS` 295'e çıktıysa `app/sitemap.ts` güncellenmeli. |
+| ~~N2~~ | ~~**Telegram kanal kurulum**~~ | ✅ Tamamlandı: Make.com üzerinden tam otomasyon kuruldu — günlük sinyal paylaşımı, yeni üye karşılama, hafta sonu pazartesi hazırlık, haftalık eğitim içeriği + özet. |
+| ~~N3~~ | ~~**Sitemap 295 sembol**~~ | ✅ Otomatik çözüldü — `app/sitemap.ts` zaten `BIST_SYMBOLS` dinamik kullanıyor (295 sembol). |
 
 ### 🟠 Orta Vadeli
 
@@ -527,7 +527,7 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 17. ✅ Telegram entegrasyonu tamamlandı (2026-04, Doğuş): `/api/signals/latest` sinyal feed + `/api/chart-image/[sembol]` grafik görsel, bot mesaj formatı
 18. ✅ Branch senkronizasyonu (2026-04-09): `develop` → `main`'e fast-forward edildi; artık aktif geliştirme `main` üzerinde
 19. ⬜ **N1: Production backfill** — BT-FIX (maxDrawdown daily grouping) DB'ye yansıtılmalı
-20. ⬜ **N2: Telegram kanal kurulum** — Bot token + channel ID Vercel env'e girilmeli
+20. ✅ **N2: Telegram tam otomasyon** — Make.com: günlük sinyal, karşılama, haftalık özet/eğitim, pazartesi hazırlık (2026-04)
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
