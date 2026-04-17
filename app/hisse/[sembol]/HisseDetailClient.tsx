@@ -230,7 +230,61 @@ function AccordionSignalRow({
         <span className={`shrink-0 text-[10px] text-text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
       {open && (
-        <div className={`px-3 pb-4 pt-2 space-y-2 border-l-2 ${borderColor} ${bgOpen}`}>
+        <div className={`px-3 pb-4 pt-2 space-y-3 border-l-2 ${borderColor} ${bgOpen}`}>
+          {/* ── Risk Yönetimi Seviyeleri ───────────────────────────── */}
+          {sig.stopLoss && sig.targetPrice && sig.entryPrice && (
+            <div className="rounded-lg border border-border/60 bg-surface/50 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-2">
+                Risk Yönetimi
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {/* Zarar Kes */}
+                <div className="rounded-md border border-red-500/25 bg-red-500/8 px-2 py-2">
+                  <p className="text-[9px] uppercase tracking-wider text-red-400/70 mb-0.5">Zarar Kes</p>
+                  <p className="text-sm font-bold text-red-400">
+                    {sig.stopLoss.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-[9px] text-red-400/60 mt-0.5">
+                    {(((sig.stopLoss - sig.entryPrice) / sig.entryPrice) * 100).toFixed(1)}%
+                  </p>
+                </div>
+                {/* Giriş */}
+                <div className="rounded-md border border-border/40 bg-surface/40 px-2 py-2">
+                  <p className="text-[9px] uppercase tracking-wider text-text-muted mb-0.5">Giriş</p>
+                  <p className="text-sm font-bold text-text-primary">
+                    {sig.entryPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-[9px] text-text-muted mt-0.5">
+                    ATR {sig.atr?.toFixed(2)}
+                  </p>
+                </div>
+                {/* Hedef */}
+                <div className="rounded-md border border-emerald-500/25 bg-emerald-500/8 px-2 py-2">
+                  <p className="text-[9px] uppercase tracking-wider text-emerald-400/70 mb-0.5">Hedef</p>
+                  <p className="text-sm font-bold text-emerald-400">
+                    {sig.targetPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-[9px] text-emerald-400/60 mt-0.5">
+                    +{(((sig.targetPrice - sig.entryPrice) / sig.entryPrice) * 100).toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+              {sig.riskRewardRatio && (
+                <p className="mt-2 text-center text-[10px] text-text-muted">
+                  Risk/Ödül:&nbsp;
+                  <span className={`font-semibold ${sig.riskRewardRatio >= 2 ? 'text-emerald-400' : sig.riskRewardRatio >= 1.5 ? 'text-amber-400' : 'text-red-400'}`}>
+                    1 : {sig.riskRewardRatio.toFixed(1)}
+                  </span>
+                  <span className="ml-2 text-text-muted/60">
+                    ({sig.riskRewardRatio >= 2 ? 'İyi' : sig.riskRewardRatio >= 1.5 ? 'Kabul edilebilir' : 'Düşük'})
+                  </span>
+                </p>
+              )}
+              <p className="mt-2 text-[9px] text-text-muted/50 text-center">
+                * ATR bazlı teorik seviyeler. Yatırım tavsiyesi değildir.
+              </p>
+            </div>
+          )}
           <SignalExplanation text={explanation} isLoading={!explanation} />
           <div className="flex justify-end">
             <SaveSignalButton
@@ -525,6 +579,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [kapLoading, setKapLoading]     = useState(true);
   const [kapSummary, setKapSummary]     = useState<string | null>(null);
   const [kapSumLoading, setKapSumLoading] = useState(false);
+  const [kapUyariMesaj, setKapUyariMesaj] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
   const [signalStatsMap, setSignalStatsMap] = useState<Map<string, SignalWinRate>>(new Map());
 
@@ -585,7 +640,26 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     setKapLoading(true);
     fetch(`/api/kap?sembol=${encodeURIComponent(sembol)}`)
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (!cancelled) setKapDuyurular(data?.duyurular ?? []); })
+      .then(data => {
+        if (!cancelled) {
+          const duyurular: KapDuyuru[] = data?.duyurular ?? [];
+          setKapDuyurular(duyurular);
+          // Son 7 gün kritik KAP duyurusu varsa uyarı göster
+          const KRITIK = ['financ', 'mali', 'bilan', 'temett', 'genel kurul', 'fr', 'fn', 'gk'];
+          const sinir = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const kritikler = duyurular.filter((d) => {
+            const tarih = new Date(d.tarih);
+            if (isNaN(tarih.getTime()) || tarih < sinir) return false;
+            const text = (d.kategori + ' ' + d.baslik).toLowerCase();
+            return KRITIK.some((k) => text.includes(k));
+          });
+          if (kritikler[0]) {
+            setKapUyariMesaj(
+              `⚠️ Son 7 gün KAP: ${kritikler[0].kategoriAdi} — "${kritikler[0].baslik.slice(0, 60)}" — Finansal açıklama döneminde sinyaller daha az güvenilir olabilir.`
+            );
+          }
+        }
+      })
       .catch(() => {})
       .finally(() => { if (!cancelled) setKapLoading(false); });
     return () => { cancelled = true; };
@@ -649,10 +723,19 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
         {/* Breadcrumb */}
-        <div className="mb-4 flex items-center gap-2 text-text-secondary">
+        <div className="mb-3 flex items-center gap-2 text-text-secondary">
           <Link href="/tarama" className="hover:text-primary">Tarama</Link>
           <span>/</span>
           <span className="text-text-primary">{sembol}</span>
+        </div>
+
+        {/* Veri gecikme uyarısı */}
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
+          <span className="shrink-0">⚠️</span>
+          <span>
+            <strong>Fiyat ve sinyaller ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
+            Teknik analiz için uygundur; anlık al/sat kararları için broker platformunuzu kullanın.
+          </span>
         </div>
 
         {loading && (
@@ -854,6 +937,26 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* KAP kritik duyuru uyarısı */}
+                {kapUyariMesaj && (
+                  <div className="flex items-start gap-2 rounded-lg border border-orange-500/25 bg-orange-500/8 px-3 py-2.5 text-xs text-orange-300">
+                    <span className="shrink-0 mt-0.5">🔔</span>
+                    <span>{kapUyariMesaj}</span>
+                  </div>
+                )}
+
+                {/* Düşük likidite uyarısı */}
+                {signals.length > 0 && signals[0]?.lowLiquidity && (
+                  <div className="flex items-start gap-2 rounded-lg border border-orange-500/25 bg-orange-500/8 px-3 py-2.5 text-xs text-orange-300">
+                    <span className="shrink-0 mt-0.5">⚠️</span>
+                    <span>
+                      <strong>Düşük Likidite</strong> — 20g ort. işlem hacmi{' '}
+                      ₺{((signals[0].avgDailyVolumeTL ?? 0) / 1000).toFixed(0)}K/gün.
+                      Seyreltik piyasada sinyaller manipülasyona açık olabilir; emirleriniz fiyatı etkileyebilir.
+                    </span>
+                  </div>
+                )}
 
                 {/* Tespit Edilen Sinyaller — accordion */}
                 <Card className="overflow-hidden">

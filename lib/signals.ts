@@ -64,6 +64,106 @@ function averageVolume(candles: OHLCVCandle[], n: number): number {
   return sum / slice.length;
 }
 
+// ─── ATR (Average True Range) ────────────────────────────────────────────────
+
+/**
+ * 14 periyotluk ATR hesaplar.
+ * True Range = max(H-L, |H-prevC|, |L-prevC|)
+ */
+function calculateATR(candles: OHLCVCandle[], period: number = 14): number {
+  if (candles.length < period + 1) return 0;
+
+  const trueRanges: number[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    const cur  = candles[i]!;
+    const prev = candles[i - 1]!;
+    const tr = Math.max(
+      cur.high  - cur.low,
+      Math.abs(cur.high  - prev.close),
+      Math.abs(cur.low   - prev.close),
+    );
+    trueRanges.push(tr);
+  }
+
+  // Son `period` adet true range'in ortalaması
+  const slice = trueRanges.slice(-period);
+  return slice.reduce((a, b) => a + b, 0) / slice.length;
+}
+
+// ATR çarpanları — her sinyal tipi için stop ve hedef mesafeleri
+const SIGNAL_ATR_PARAMS: Record<string, { stopMult: number; targetMult: number }> = {
+  'RSI Seviyesi':              { stopMult: 1.2, targetMult: 1.8 },  // 3g vade — kısa/sıkı
+  'Hacim Anomalisi':           { stopMult: 1.2, targetMult: 1.8 },  // 3g vade — kısa/sıkı
+  'MACD Kesişimi':             { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
+  'RSI Uyumsuzluğu':           { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
+  'Bollinger Sıkışması':       { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
+  'Destek/Direnç Kırılımı':    { stopMult: 1.5, targetMult: 3.0 },  // 14g vade — geniş hedef
+  'Trend Başlangıcı':          { stopMult: 1.8, targetMult: 3.0 },  // 14g vade — geniş
+  'Altın Çapraz':              { stopMult: 2.0, targetMult: 4.0 },  // 30g vade — çok geniş
+};
+
+/**
+ * ATR bazlı stop-loss ve hedef fiyat hesaplar.
+ *
+ * Destek/Direnç Kırılımı özel mantık:
+ *  - Kırılan seviyenin %0.5 içine stop yerleştirilir (teknik seviye geçersizleşme noktası)
+ *
+ * Nötr sinyaller için null döner.
+ */
+function computeRiskLevels(
+  signal: StockSignal,
+  candles: OHLCVCandle[],
+): { stopLoss: number; targetPrice: number; riskRewardRatio: number; atr: number; entryPrice: number } | null {
+  const entry = candles[candles.length - 1]?.close;
+  if (!entry || entry <= 0) return null;
+  if (signal.direction === 'nötr') return null;
+
+  const atr = calculateATR(candles, 14);
+  if (atr <= 0) return null;
+
+  const params = SIGNAL_ATR_PARAMS[signal.type] ?? { stopMult: 1.5, targetMult: 2.5 };
+
+  let stopLoss: number;
+  let targetPrice: number;
+
+  if (signal.direction === 'yukari') {
+    stopLoss    = entry - params.stopMult  * atr;
+    targetPrice = entry + params.targetMult * atr;
+  } else {
+    stopLoss    = entry + params.stopMult  * atr;
+    targetPrice = entry - params.targetMult * atr;
+  }
+
+  // Destek/Direnç Kırılımı: stop'u kırılan teknik seviyenin biraz içine yerleştir
+  if (signal.type === 'Destek/Direnç Kırılımı') {
+    const level = signal.data.level as number | undefined;
+    if (level && level > 0) {
+      if (signal.direction === 'yukari') {
+        // Direnç kırılımı → stop, kırılan direncin %0.5 altında
+        stopLoss = level * 0.995;
+      } else {
+        // Destek kırılımı → stop, kırılan desteğin %0.5 üstünde
+        stopLoss = level * 1.005;
+      }
+    }
+  }
+
+  // Stop fiyatı sıfırın altına düşmemeli
+  if (stopLoss <= 0) return null;
+
+  const stopDistance   = Math.abs(entry - stopLoss);
+  const targetDistance = Math.abs(targetPrice - entry);
+  const riskRewardRatio = stopDistance > 0 ? targetDistance / stopDistance : 0;
+
+  return {
+    stopLoss:         parseFloat(stopLoss.toFixed(2)),
+    targetPrice:      parseFloat(targetPrice.toFixed(2)),
+    riskRewardRatio:  parseFloat(riskRewardRatio.toFixed(2)),
+    atr:              parseFloat(atr.toFixed(2)),
+    entryPrice:       parseFloat(entry.toFixed(2)),
+  };
+}
+
 export function detectRsiDivergence(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
   if (candles.length < 20) return null;
   const closes = candles.map((c) => c.close);
@@ -678,16 +778,31 @@ export function detectAllSignals(
   if (want('Altın Çapraz'))           { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
   if (want('Bollinger Sıkışması'))    { const s = detectBollingerSqueeze(sembol, candles);        if (s) signals.push(s); }
 
-  // candlesAgo + weeklyAligned hesapla
-  return signals.map((s) => ({
-    ...s,
-    candlesAgo: (
-      (s.data.crossoverCandlesAgo as number | undefined) ??
-      (s.data.candlesAgo as number | undefined) ??
-      0
-    ),
-    weeklyAligned: computeWeeklyAlignment(candles, s.direction) ?? undefined,
-  }));
+  // ── Likidite kontrolü ────────────────────────────────────────────────────────
+  // Ortalama TL hacim: son 20 günlük (close × volume ortalaması)
+  const last20 = candles.slice(-20);
+  const avgDailyVolumeTL = last20.length > 0
+    ? last20.reduce((sum, c) => sum + c.close * c.volume, 0) / last20.length
+    : 0;
+  // 100K TL altı = seyrek işlem, manipülasyon riski yüksek
+  const lowLiquidity = avgDailyVolumeTL > 0 && avgDailyVolumeTL < 100_000;
+
+  // candlesAgo + weeklyAligned + risk seviyeleri + likidite hesapla
+  return signals.map((s) => {
+    const riskLevels = computeRiskLevels(s, candles);
+    return {
+      ...s,
+      candlesAgo: (
+        (s.data.crossoverCandlesAgo as number | undefined) ??
+        (s.data.candlesAgo as number | undefined) ??
+        0
+      ),
+      weeklyAligned: computeWeeklyAlignment(candles, s.direction) ?? undefined,
+      ...(riskLevels ?? {}),
+      lowLiquidity,
+      avgDailyVolumeTL: parseFloat(avgDailyVolumeTL.toFixed(0)),
+    };
+  });
 }
 
 // ─── Confluence (Güven Skoru) ──────────────────────────────────────────────────

@@ -157,3 +157,62 @@ export async function fetchKapBySembol(sembol: string, limit = 20): Promise<KapD
     return symbolCache.get(key)?.data ?? [];
   }
 }
+
+// ─── KAP Sinyal Uyarısı ───────────────────────────────────────────────────────
+
+/**
+ * Kritik KAP kategorileri — sinyal güvenilirliğini etkileyen duyuru tipleri.
+ * Finansal tablo / bilanço / temettü / genel kurul dönemi → sinyal yanıltıcı olabilir.
+ */
+const KRITIK_KATEGORILER = ['FR', 'FN', 'GK', 'KAP', 'FINANC', 'TEMETT', 'BILANCO', 'MALÎ'];
+
+function isKritikDuyuru(duyuru: KapDuyuru): boolean {
+  const kat = (duyuru.kategori ?? '').toUpperCase();
+  const bas = (duyuru.baslik ?? '').toUpperCase();
+  return (
+    KRITIK_KATEGORILER.some((k) => kat.includes(k) || bas.includes(k)) ||
+    bas.includes('FİNANSAL SONUÇ') ||
+    bas.includes('MALİ TABLO') ||
+    bas.includes('TEMETTÜ') ||
+    bas.includes('KÂR PAYI') ||
+    bas.includes('BILANÇO') ||
+    bas.includes('GENEL KURUL')
+  );
+}
+
+export interface KapUyari {
+  var: boolean;
+  mesaj: string;
+  duyuruUrl?: string;
+  duyuruTarih?: string;
+  duyuruBaslik?: string;
+}
+
+/**
+ * Belirtilen sembol için son 7 gün içinde kritik KAP duyurusu var mı kontrol eder.
+ * Sinyal kartlarında uyarı göstermek için kullanılır.
+ */
+export async function getKapUyari(sembol: string): Promise<KapUyari> {
+  try {
+    const duyurular = await fetchKapBySembol(sembol, 30);
+    const sinirTarih = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const kritikler = duyurular.filter((d) => {
+      const tarih = new Date(d.tarih);
+      return !isNaN(tarih.getTime()) && tarih >= sinirTarih && isKritikDuyuru(d);
+    });
+
+    if (kritikler.length === 0) return { var: false, mesaj: '' };
+
+    const en_son = kritikler[0]!;
+    return {
+      var: true,
+      mesaj: `Son 7 günde kritik KAP duyurusu: ${en_son.kategoriAdi} — ${en_son.baslik.slice(0, 60)}`,
+      duyuruUrl:   en_son.url,
+      duyuruTarih: en_son.tarih,
+      duyuruBaslik: en_son.baslik,
+    };
+  } catch {
+    return { var: false, mesaj: '' };
+  }
+}

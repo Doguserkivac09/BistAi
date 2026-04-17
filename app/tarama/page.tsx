@@ -763,6 +763,15 @@ function TaramaPageInner() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
 
+        {/* ── Veri gecikme uyarısı ── */}
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
+          <span className="shrink-0">⚠️</span>
+          <span>
+            <strong>Veri ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
+            Sinyaller teknik analiz için uygundur; anlık işlem kararları için broker platformunuzu kullanın.
+          </span>
+        </div>
+
         {/* ── Row 1: Title + view/sort/scan controls ── */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-text-primary">Sinyal Tarama</h1>

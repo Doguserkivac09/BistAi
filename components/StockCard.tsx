@@ -138,6 +138,20 @@ function MTFBadge({ aligned }: { aligned: boolean }) {
   );
 }
 
+function LowLiquidityBadge({ avgTL }: { avgTL: number }) {
+  const fmt = avgTL >= 1_000_000
+    ? `${(avgTL / 1_000_000).toFixed(1)}M`
+    : `${(avgTL / 1_000).toFixed(0)}K`;
+  return (
+    <span
+      title={`Düşük Likidite Uyarısı — 20g ort. işlem hacmi: ₺${fmt}/gün. Manipülasyon riski yüksek, büyük emirlerle fiyat hareket edebilir.`}
+      className="inline-flex items-center gap-0.5 rounded-md border border-orange-500/40 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-orange-400"
+    >
+      ⚠ Seyreltik
+    </span>
+  );
+}
+
 function MacroBadge({ score, wind }: { score: number; wind: string }) {
   const color = score >= 30 ? 'text-green-400 bg-green-500/10 border-green-500/30'
     : score >= 0 ? 'text-green-300 bg-green-500/5 border-green-500/20'
@@ -202,6 +216,9 @@ function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum
       {winRate && winRate.sampleSize >= 5 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} horizon={winRate.horizon} />}
       {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
       {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
+      {signal.lowLiquidity && signal.avgDailyVolumeTL !== undefined && (
+        <LowLiquidityBadge avgTL={signal.avgDailyVolumeTL} />
+      )}
     </div>
   );
 }
@@ -432,6 +449,39 @@ export function StockCard({
                 {s.direction === 'yukari' ? '↑' : s.direction === 'asagi' ? '↓' : '→'} {s.type}
               </span>
             ))}
+          </div>
+        )}
+        {/* Stop / Hedef Fiyat — sadece AL/SAT (nötr değil) */}
+        {signal.stopLoss && signal.targetPrice && signal.entryPrice && signal.direction !== 'nötr' && (
+          <div className="rounded-md border border-border/50 bg-surface/40 px-2 py-1.5">
+            <div className="grid grid-cols-3 text-center gap-1">
+              <div>
+                <p className="text-[8px] uppercase tracking-wider text-red-400/60">Zarar Kes</p>
+                <p className="text-[11px] font-bold text-red-400">
+                  {signal.stopLoss.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div>
+                <p className="text-[8px] uppercase tracking-wider text-text-muted/60">Giriş</p>
+                <p className="text-[11px] font-semibold text-text-secondary">
+                  {signal.entryPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div>
+                <p className="text-[8px] uppercase tracking-wider text-emerald-400/60">Hedef</p>
+                <p className="text-[11px] font-bold text-emerald-400">
+                  {signal.targetPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+            {signal.riskRewardRatio && (
+              <p className="mt-0.5 text-center text-[9px] text-text-muted/50">
+                R/Ö&nbsp;
+                <span className={`font-semibold ${signal.riskRewardRatio >= 2 ? 'text-emerald-400' : signal.riskRewardRatio >= 1.5 ? 'text-amber-400' : 'text-red-400'}`}>
+                  1:{signal.riskRewardRatio.toFixed(1)}
+                </span>
+              </p>
+            )}
           </div>
         )}
         <SRLevels analysis={calculateSRLevels(candleData)} compact />

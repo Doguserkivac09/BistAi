@@ -57,8 +57,17 @@ export type SignalData = RsiDivergenceData | VolumeAnomalyData | TrendStartData 
 
 export interface StockSignal extends BaseSignal {
   data: Record<string, unknown>;
-  candlesAgo?: number;     // kaç mum önce tetiklendi (0 = son mum)
-  weeklyAligned?: boolean; // haftalık trend ile uyumlu mu? (null = yetersiz veri)
+  candlesAgo?: number;          // kaç mum önce tetiklendi (0 = son mum)
+  weeklyAligned?: boolean;      // haftalık trend ile uyumlu mu? (null = yetersiz veri)
+  // Risk yönetimi seviyeleri (ATR bazlı)
+  stopLoss?: number;            // önerilen zarar kes fiyatı
+  targetPrice?: number;         // önerilen hedef fiyat
+  riskRewardRatio?: number;     // risk/ödül oranı (target/stop mesafesi)
+  atr?: number;                 // sinyal anındaki ATR değeri (14 periyot)
+  entryPrice?: number;          // sinyal anındaki son kapanış fiyatı
+  // Likidite uyarısı
+  lowLiquidity?: boolean;       // 20g ort. hacim < 100K TL işlem hacmi → manipülasyon riski
+  avgDailyVolumeTL?: number;    // 20g ortalama TL bazlı işlem hacmi
 }
 
 /** Çoklu sinyal güven analizi */
