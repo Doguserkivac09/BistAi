@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase-server';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { fetchOHLCV } from '@/lib/yahoo';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 import {
@@ -74,6 +75,16 @@ export interface BacktestingResponse {
 export async function GET(request: NextRequest) {
   try {
     // ── Auth kontrolü ────────────────────────────────────────────────
+    // Rate limit: 10 istek/dakika per IP (DB'den 1000+ kayıt çekiyor)
+    const ip = getClientIP(request.headers);
+    const rl = checkRateLimit(`${ip}:backtesting`, 10, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Çok fazla istek. Lütfen bekleyin.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) } }
+      );
+    }
+
     const authClient = await createServerClient();
     const { data: { user } } = await authClient.auth.getUser();
     if (!user) {

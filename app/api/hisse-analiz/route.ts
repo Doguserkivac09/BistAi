@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { fetchOHLCV, fetchOHLCVByTimeframe, type YahooTimeframe } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
 import { calculateSRLevels } from '@/lib/support-resistance';
@@ -85,6 +86,16 @@ export interface HisseAnalizResponse {
 const INTRADAY_TFS = new Set<YahooTimeframe>(['15m', '30m', '1h']);
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  // Rate limit: 30 istek/dakika per IP (AI + Yahoo kullanıyor, pahalı)
+  const ip = getClientIP(request.headers);
+  const rl = checkRateLimit(`${ip}:hisse-analiz`, 30, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Çok fazla istek. Lütfen bekleyin.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
   const symbol = request.nextUrl.searchParams.get('symbol')?.trim().toUpperCase();
   if (!symbol) {
     return NextResponse.json({ error: 'symbol parametresi gerekli.' }, { status: 400 });

@@ -620,6 +620,136 @@ export function SektorlerClient() {
           </div>
         )}
 
+        {/* ── Sektör Rotasyon Paneli ────────────────────────────────── */}
+        {!loadingSectors && allSectors.length > 0 && (() => {
+          // rotasyonDelta = avg5g − avg20g: pozitif → kısa vade > orta vade (ivme kazanıyor)
+          const withDelta = allSectors
+            .map((s) => ({
+              id:        s.id,
+              name:      s.shortName,
+              delta:     (s.avgByPeriod[5] !== null && s.avgByPeriod[20] !== null)
+                           ? s.avgByPeriod[5]! - s.avgByPeriod[20]!
+                           : null,
+              perf5:     s.avgByPeriod[5],
+              perf20:    s.avgByPeriod[20],
+            }))
+            .filter((s) => s.delta !== null)
+            .sort((a, b) => b.delta! - a.delta!);
+
+          const inflow  = withDelta.slice(0, 3);   // En yüksek delta (para giriyor)
+          const outflow = withDelta.slice(-3).reverse(); // En düşük delta (para çıkıyor)
+          const maxAbs  = Math.max(...withDelta.map((s) => Math.abs(s.delta!)), 0.01);
+
+          if (withDelta.length < 4) return null;
+
+          return (
+            <section className="mb-8">
+              <h2 className="mb-3 text-sm font-semibold text-text-secondary uppercase tracking-wide flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Sektör Rotasyonu
+                <span className="text-[10px] normal-case font-normal text-text-muted">
+                  — Para akışı: kısa vade (1H) vs orta vade (1A) ivme farkı
+                </span>
+              </h2>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {/* Sol: Para Girişi */}
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <p className="text-xs font-semibold text-emerald-400 mb-3 flex items-center gap-1.5">
+                    <ChevronsUp className="h-3.5 w-3.5" />
+                    Para Girişi — Ivme Kazananlar
+                  </p>
+                  <div className="space-y-2.5">
+                    {inflow.map((s) => (
+                      <div key={s.id} className="flex items-center gap-2">
+                        <span className="w-20 shrink-0 text-xs font-medium text-text-primary truncate">{s.name}</span>
+                        <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-500/70 transition-all duration-700"
+                            style={{ width: `${(s.delta! / maxAbs) * 100}%` }}
+                          />
+                        </div>
+                        <span className="shrink-0 text-[11px] font-bold text-emerald-400 tabular-nums w-14 text-right">
+                          +{s.delta!.toFixed(1)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[10px] text-emerald-400/50">
+                    Kısa vade ivmesi orta vadeyi geçiyor — kurumsal ilgi artıyor olabilir
+                  </p>
+                </div>
+
+                {/* Orta: Tüm Sektörler Sıralama Barı */}
+                <div className="rounded-xl border border-border bg-surface/40 p-4">
+                  <p className="text-xs font-semibold text-text-secondary mb-3 flex items-center gap-1.5">
+                    <BarChart2 className="h-3.5 w-3.5" />
+                    Tüm Sektörler — Ivme Farkı
+                  </p>
+                  <div className="space-y-1.5">
+                    {withDelta.map((s) => {
+                      const pct = (s.delta! / maxAbs) * 100;
+                      const isPos = s.delta! >= 0;
+                      return (
+                        <div key={s.id} className="flex items-center gap-1.5">
+                          <span className="w-16 shrink-0 text-[10px] text-text-muted truncate">{s.name}</span>
+                          <div className="flex-1 relative h-1 rounded-full bg-white/5">
+                            <div
+                              className={cn(
+                                'absolute top-0 h-full rounded-full transition-all duration-700',
+                                isPos ? 'left-1/2 bg-emerald-500/60' : 'right-1/2 bg-red-500/60',
+                              )}
+                              style={{ width: `${Math.abs(pct) / 2}%` }}
+                            />
+                            <div className="absolute top-1/2 left-1/2 w-px h-2 -translate-y-1/2 bg-white/15" />
+                          </div>
+                          <span className={cn(
+                            'shrink-0 text-[10px] tabular-nums w-10 text-right font-semibold',
+                            isPos ? 'text-emerald-400' : 'text-red-400',
+                          )}>
+                            {isPos ? '+' : ''}{s.delta!.toFixed(1)}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Sağ: Para Çıkışı */}
+                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                  <p className="text-xs font-semibold text-red-400 mb-3 flex items-center gap-1.5">
+                    <ChevronsDown className="h-3.5 w-3.5" />
+                    Para Çıkışı — Ivme Kaybedenler
+                  </p>
+                  <div className="space-y-2.5">
+                    {outflow.map((s) => (
+                      <div key={s.id} className="flex items-center gap-2">
+                        <span className="w-20 shrink-0 text-xs font-medium text-text-primary truncate">{s.name}</span>
+                        <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-red-500/60 transition-all duration-700"
+                            style={{ width: `${(Math.abs(s.delta!) / maxAbs) * 100}%` }}
+                          />
+                        </div>
+                        <span className="shrink-0 text-[11px] font-bold text-red-400 tabular-nums w-14 text-right">
+                          {s.delta!.toFixed(1)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[10px] text-red-400/50">
+                    Kısa vade zayıfladı — pozisyon azaltılıyor olabilir
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-2 text-[10px] text-text-muted/50 text-center">
+                Ivme farkı = 1H ort. getiri − 1A ort. getiri. Pozitif = kısa vadede ivme kazanıyor. Yahoo Finance ~15dk gecikmeli.
+              </p>
+            </section>
+          );
+        })()}
+
         {/* Sektör Grid */}
         <section>
           {/* Toolbar */}

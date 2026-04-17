@@ -12,7 +12,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
-import { detectAllSignals } from '@/lib/signals';
+import { detectAllSignals, computeConfluence } from '@/lib/signals';
+import { getMarketRegime } from '@/lib/regime-engine';
 import { getSectorId } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
 import type { OHLCVCandle } from '@/types';
@@ -64,6 +65,13 @@ export async function GET(request: NextRequest) {
   const startedAt = Date.now();
   const symbols = [...BIST_SYMBOLS];
 
+  // Piyasa rejimini bir kez çek
+  let regime = 'sideways';
+  try {
+    const { candles: xu100 } = await fetchOHLCV('XU100', 365);
+    regime = getMarketRegime(xu100);
+  } catch { /* başarısız olursa sideways */ }
+
   let scanned = 0;
   let signalsFound = 0;
   const failed: string[] = [];
@@ -87,7 +95,8 @@ export async function GET(request: NextRequest) {
     entry_price: number;
     entry_time: string;
     evaluated: boolean;
-    regime: null;
+    regime: string;
+    confluence_score: number | null;
   }> = [];
 
   const scannedAt = new Date().toISOString();
@@ -142,17 +151,19 @@ export async function GET(request: NextRequest) {
 
       // signal_performance kayıtları — entry_price = son kapanış
       const lastClose = candles[candles.length - 1]?.close;
-      if (lastClose && lastClose > 0) {
+      if (lastClose && lastClose > 0 && signals.length > 0) {
+        const confluence = computeConfluence(signals);
         for (const sig of signals) {
           perfRows.push({
-            user_id: null,
+            user_id:         null,
             sembol,
-            signal_type: sig.type,
-            direction: sig.direction,
-            entry_price: lastClose,
-            entry_time: entryTime,
-            evaluated: false,
-            regime: null,
+            signal_type:     sig.type,
+            direction:       sig.direction,
+            entry_price:     lastClose,
+            entry_time:      entryTime,
+            evaluated:       false,
+            regime,
+            confluence_score: confluence.score,
           });
         }
       }

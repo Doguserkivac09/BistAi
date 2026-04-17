@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 
 export interface HaberItem {
   baslik: string;
@@ -212,6 +213,16 @@ function dedupe(items: HaberItem[]): HaberItem[] {
 
 // ── Ana handler ────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  // Rate limit: 20 istek/dakika per IP (Yahoo scraping, harici istek)
+  const ip = getClientIP(req.headers);
+  const rl = checkRateLimit(`${ip}:haber`, 20, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Çok fazla istek.', haberler: [], bugunSayi: 0 },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
   const sembol = req.nextUrl.searchParams.get('sembol')?.toUpperCase() ?? '';
 
   if (!sembol) {
