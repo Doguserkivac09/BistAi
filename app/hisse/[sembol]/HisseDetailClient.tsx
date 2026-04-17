@@ -196,6 +196,24 @@ function AccordionSignalRow({
             </span>
           );
         })()}
+        {/* MTF badge */}
+        {sig.weeklyAligned !== undefined && (
+          sig.weeklyAligned ? (
+            <span
+              title="Günlük + Haftalık trend aynı yönde — güçlü çok zaman dilimli sinyal"
+              className="shrink-0 hidden sm:inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400"
+            >
+              D1·W✓
+            </span>
+          ) : (
+            <span
+              title="Günlük sinyal haftalık trend ile çelişiyor — dikkatli ol"
+              className="shrink-0 hidden sm:inline-flex items-center rounded-full border border-zinc-600/40 bg-zinc-700/20 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500"
+            >
+              D1·W✗
+            </span>
+          )
+        )}
         {sigData?.candlesAgo !== undefined && (
           <span className="shrink-0 text-[10px] text-text-muted hidden sm:block">
             {sigData.candlesAgo}g önce
