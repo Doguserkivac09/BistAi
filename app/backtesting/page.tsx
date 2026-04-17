@@ -26,6 +26,11 @@ interface BenchmarkData {
   xu100End: number | null;
 }
 
+interface RandomBaseline {
+  randomWinRate: number | null;
+  signalEdge: number | null;
+}
+
 interface BacktestingData {
   summary: BacktestResult;
   matrix: PerformanceMatrixRow[];
@@ -33,6 +38,7 @@ interface BacktestingData {
   totalRecords: number;
   equityCurve: EquityPoint[];
   benchmark: BenchmarkData;
+  randomBaseline: RandomBaseline;
 }
 
 // ── Sabitler ────────────────────────────────────────────────────────
@@ -741,6 +747,53 @@ function SummaryCards({
   );
 }
 
+// ── Random Baseline Bar ─────────────────────────────────────────────
+
+function RandomBaselineBar({ baseline, signalWinRate }: { baseline: RandomBaseline; signalWinRate: number | null }) {
+  if (baseline.randomWinRate === null || signalWinRate === null) return null;
+
+  const random = Math.round(baseline.randomWinRate * 100);
+  const signal = Math.round(signalWinRate);
+  const edge   = baseline.signalEdge !== null ? (baseline.signalEdge * 100).toFixed(1) : null;
+  const hasEdge = (baseline.signalEdge ?? 0) > 0.03; // >3% edge = anlamlı
+
+  return (
+    <div className="mb-6 rounded-xl border border-border bg-surface/50 p-4">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-text-muted flex items-center gap-2">
+        <Scale className="h-3.5 w-3.5" />
+        Rastgele Giriş Karşılaştırması (7G Horizon)
+      </p>
+      <div className="grid grid-cols-3 gap-4 text-center">
+        {/* Rastgele baseline */}
+        <div className="rounded-lg border border-border/50 bg-surface/60 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Rastgele Giriş</p>
+          <p className="text-2xl font-bold text-text-secondary">%{random}</p>
+          <p className="text-[10px] text-text-muted mt-1">coin atışı beklentisi</p>
+        </div>
+        {/* Sinyal win rate */}
+        <div className={`rounded-lg border p-3 ${hasEdge ? 'border-emerald-500/30 bg-emerald-500/8' : 'border-red-500/30 bg-red-500/8'}`}>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Sinyal Win Rate</p>
+          <p className={`text-2xl font-bold ${hasEdge ? 'text-emerald-400' : 'text-red-400'}`}>%{signal}</p>
+          <p className="text-[10px] text-text-muted mt-1">BistAI sinyalleri</p>
+        </div>
+        {/* Edge */}
+        <div className={`rounded-lg border p-3 ${hasEdge ? 'border-emerald-500/30 bg-emerald-500/8' : 'border-zinc-600/30 bg-zinc-700/10'}`}>
+          <p className="text-[10px] uppercase tracking-wider text-text-muted mb-1">Avantaj (Edge)</p>
+          <p className={`text-2xl font-bold ${hasEdge ? 'text-emerald-400' : 'text-zinc-400'}`}>
+            {edge !== null ? `+%${edge}` : '—'}
+          </p>
+          <p className={`text-[10px] mt-1 ${hasEdge ? 'text-emerald-400/70' : 'text-zinc-500'}`}>
+            {hasEdge ? '✓ Anlamlı edge var' : 'Yetersiz edge'}
+          </p>
+        </div>
+      </div>
+      <p className="mt-3 text-[10px] text-text-muted/50 text-center">
+        Edge = sinyal win rate − rastgele giriş win rate. &gt;3% fark istatistiksel olarak anlamlı kabul edilir.
+      </p>
+    </div>
+  );
+}
+
 // ── Expanded Row Panel ──────────────────────────────────────────────
 
 function ExpandedRowPanel({ row }: { row: PerformanceMatrixRow }) {
@@ -1155,6 +1208,12 @@ export default function BacktestingPage() {
 
           {/* Özet kartlar */}
           <SummaryCards summary={data.summary} total={data.totalRecords} horizon={horizon} signalTypeFilter={signalTypeFilter} />
+
+          {/* Random Baseline Karşılaştırması */}
+          <RandomBaselineBar
+            baseline={data.randomBaseline}
+            signalWinRate={data.summary.winRates['7d']}
+          />
 
           {/* İstatistiksel Anlamlılık */}
           {data.summary.pValue !== null && (

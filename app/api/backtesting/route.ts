@@ -8,6 +8,7 @@ import {
   generatePerformanceMatrix,
   generateStandardComparisons,
   calculateEquityCurve,
+  computeRandomBaseline,
   type BacktestResult,
   type BacktestComparison,
   type PerformanceMatrixRow,
@@ -67,6 +68,7 @@ export interface BacktestingResponse {
   totalRecords: number;
   equityCurve: EquityPoint[];
   benchmark: BenchmarkData;
+  randomBaseline: { randomWinRate: number | null; signalEdge: number | null };
 }
 
 export async function GET(request: NextRequest) {
@@ -154,6 +156,7 @@ export async function GET(request: NextRequest) {
         totalRecords: 0,
         equityCurve: [],
         benchmark: { xu100Return: null, xu100Start: null, xu100End: null },
+        randomBaseline: { randomWinRate: null, signalEdge: null },
       });
     }
 
@@ -188,6 +191,9 @@ export async function GET(request: NextRequest) {
       }
     } catch { /* benchmark opsiyonel */ }
 
+    // Random baseline — sinyal edge'ini ölç
+    const randomBaseline = computeRandomBaseline(records, '7d');
+
     return NextResponse.json<BacktestingResponse>({
       summary,
       matrix,
@@ -195,6 +201,7 @@ export async function GET(request: NextRequest) {
       totalRecords: records.length,
       equityCurve,
       benchmark,
+      randomBaseline,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';

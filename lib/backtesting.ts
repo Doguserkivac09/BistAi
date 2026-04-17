@@ -241,6 +241,52 @@ export function compareBacktests(
 }
 
 /**
+ * Random giriş baseline — sinyalsiz rastgele alım/satım başarı oranı.
+ *
+ * Yöntem: Tüm evaluate edilmiş kayıtların return_7d değerlerini karıştır,
+ * N adet rastgele seç (monte carlo yok, basit bootstrap) → medyan başarı oranı.
+ *
+ * Bu, "sinyal gerçekten coin atışından iyi mi?" sorusunu cevaplar.
+ * Beklenen baseline: yaklaşık %50 (fiyat yarın yukarı mı aşağı mı?).
+ *
+ * Dönüş:
+ * - randomWinRate: rastgele giriş yapıldığında beklenen başarı oranı
+ * - signalEdge: sinyal win rate - random win rate (pozitif = edge var)
+ */
+export function computeRandomBaseline(
+  records: SignalPerformanceRecord[],
+  horizon: '3d' | '7d' | '14d' | '30d' = '7d',
+): { randomWinRate: number | null; signalEdge: number | null } {
+  const field: 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d' =
+    horizon === '3d'  ? 'return_3d'  :
+    horizon === '7d'  ? 'return_7d'  :
+    horizon === '14d' ? 'return_14d' :
+                        'return_30d';
+
+  const evaluated = records.filter(
+    (r) => r.evaluated && r[field] != null
+  );
+  if (evaluated.length < 10) return { randomWinRate: null, signalEdge: null };
+
+  // Tüm getirileri karıştır → baseline win rate
+  const allReturns = evaluated
+    .map((r) => r[field] as number | null)
+    .filter((v): v is number => v != null);
+
+  const baselineWinRate = allReturns.filter((v) => v > 0).length / allReturns.length;
+
+  const signalWinRate = calculateWinRate(evaluated, field);
+  const signalEdge = signalWinRate !== null
+    ? roundTo(signalWinRate - baselineWinRate, 4)
+    : null;
+
+  return {
+    randomWinRate: roundTo(baselineWinRate, 4),
+    signalEdge,
+  };
+}
+
+/**
  * Hazır karşılaştırmalar: makro koşullarına göre sinyal performansı.
  */
 export function generateStandardComparisons(
