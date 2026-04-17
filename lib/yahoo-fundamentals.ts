@@ -62,6 +62,21 @@ export interface YahooFundamentals {
   institutionsPercentHeld: number | null;  // 0-1 arası (örn: 0.45 = %45)
   insidersPercentHeld: number | null;      // 0-1 arası
   shortRatio: number | null;               // açığa satış oranı (float üzerinden)
+  // ── Investment Score için ek metrikler (2026-04-16) ───────────────────
+  // Valuation
+  pegRatio: number | null;            // ks.pegRatio — büyümeye göre F/K
+  enterpriseToEbitda: number | null;  // ks.enterpriseToEbitda — EV/FAVÖK
+  // Growth (0-1 arası oranlar, UI %'ye çevirir)
+  revenueGrowth: number | null;       // fd.revenueGrowth — YoY gelir büyümesi
+  earningsGrowth: number | null;      // fd.earningsGrowth — YoY kâr büyümesi
+  // Profitability (0-1 arası oranlar)
+  returnOnEquity: number | null;      // fd.returnOnEquity — ROE
+  returnOnAssets: number | null;      // fd.returnOnAssets — ROA
+  operatingMargins: number | null;    // fd.operatingMargins — Faaliyet marjı
+  // Risk
+  debtToEquity: number | null;        // fd.debtToEquity — Borç/Özsermaye (Yahoo %'de döndürebilir)
+  beta: number | null;                // sd.beta — piyasaya göre volatilite
+  freeCashflow: number | null;        // fd.freeCashflow — Serbest nakit akışı (TL)
   reportedDate: string;
   source: 'yahoo';
 }
@@ -119,6 +134,17 @@ export async function fetchYahooFundamentals(symbol: string): Promise<YahooFunda
     institutionsPercentHeld: n(ks.heldPercentInstitutions),
     insidersPercentHeld:     n(ks.heldPercentInsiders),
     shortRatio:              n(ks.shortRatio),
+    // Investment Score için ek metrikler
+    pegRatio:           n(ks.pegRatio),
+    enterpriseToEbitda: n(ks.enterpriseToEbitda),
+    revenueGrowth:      n(fd.revenueGrowth),
+    earningsGrowth:     n(fd.earningsGrowth),
+    returnOnEquity:     n(fd.returnOnEquity),
+    returnOnAssets:     n(fd.returnOnAssets),
+    operatingMargins:   n(fd.operatingMargins),
+    debtToEquity:       n(fd.debtToEquity),
+    beta:               n(sd.beta),
+    freeCashflow:       n(fd.freeCashflow),
     reportedDate: '',
     source: 'yahoo',
   };

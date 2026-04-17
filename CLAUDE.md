@@ -4,10 +4,11 @@
 
 ---
 
-## 🚀 SONRAKİ ADIMLAR — (2026-04-09 güncellendi)
+## 🚀 SONRAKİ ADIMLAR — (2026-04-17 güncellendi)
 
-> Phase 1-13 + Roadmap Step 1-13 + BT1-BT11 + B1-B10 = **Tümü tamamlandı.**
+> Phase 1-13 + Roadmap Step 1-13 + BT1-BT11 + B1-B10 + **Investment Score** = **Tümü tamamlandı.**
 > Telegram entegrasyonu, 295 sembol, Investable Edge rebranding eklendi.
+> **2026-04-17:** Investable Edge Investment Score sistemi (hibrit deterministik + AI yorum) eklendi.
 > Aşağıdaki maddeler gerçek backlog'u yansıtır.
 
 ### 🔴 Öncelikli
@@ -528,6 +529,8 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 18. ✅ Branch senkronizasyonu (2026-04-09): `develop` → `main`'e fast-forward edildi; artık aktif geliştirme `main` üzerinde
 19. ⬜ **N1: Production backfill** — BT-FIX (maxDrawdown daily grouping) DB'ye yansıtılmalı
 20. ✅ **N2: Telegram tam otomasyon** — Make.com: günlük sinyal, karşılama, haftalık özet/eğitim, pazartesi hazırlık (2026-04)
+21. ✅ **Investable Edge Investment Score** (2026-04-17): Hibrit deterministik skor + AI yorum katmanı — hisse Temel tab ve Teknik tab'a entegre
+22. ⬜ **v2 Enflasyon düzeltmesi** (R5): Türkiye F/K'ları yüksek enflasyondan çarpık (THYAO 335, EREGL 393) — reel F/K = F/K × (1 − enflasyon) düzeltmesi yapılmalı
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
@@ -599,6 +602,86 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 | Backtest verisi | `evaluated` kayıt birikmiyor | Cron job düzeltmesi + seed |
 | Mobil | Responsive ama uygulama değil | PWA |
 | Stripe | Key'ler girilmedi | Girince aktif |
+
+---
+
+## 💎 Investable Edge Investment Score (2026-04-17)
+
+**Hibrit mimari:** Deterministik skor motoru + AI açıklama katmanı.
+Kural: **AI asla skor hesaplamaz, sadece yorum üretir.**
+
+### Mimari
+
+```
+Yahoo quoteSummary (24h cache)
+    ↓
+lib/investment-score.ts → 0-100 skor (saf TypeScript, null-tolerant)
+    ↓ skor + ham veri →
+Claude Haiku (24h ai_cache)
+    ↓ Zod validate + 1 retry + fallback →
+UI: InvestableScoreCard (ring + alt-skor barları + AI accordion)
+```
+
+### Formül
+
+| Boyut | Ağırlık | Metrikler |
+|-------|---------|-----------|
+| Değerleme | %30 | F/K, PEG, F/DD, EV/FAVÖK (düşük = iyi) |
+| Büyüme | %25 | Gelir büyümesi, Kâr büyümesi |
+| Kârlılık | %20 | ROE, ROA, OpMargin, NetMargin |
+| Risk | %25 | Borç/Özsermaye, Cari Oran, FCF, Beta |
+
+**Rating:** 80+ Güçlü Al · 65-79 Al · 45-64 Tut · 30-44 Sat · <30 Güçlü Sat
+**Confidence:** 12+ metrik = high · 7-11 = medium · <7 = low (UI sarı banner)
+
+### Kritik Özellikler
+
+- **Null-tolerance:** Bir boyut hiç metrik içermiyorsa ağırlığı kalan boyutlara orantılı dağıtılır (`appliedWeights` gerçek kullanılanı döner; UI'da `*` işareti şeffaflık sağlar)
+- **D/E normalizasyonu:** Yahoo bazen yüzde (150), bazen oran (1.5) döndürüyor — `if (val > 10) val/=100` guard
+- **Cache anahtarı:** `invscore:{sembol}:{YYYY-MM-DD}:{score}` — skor değişirse AI yorum otomatik yeniden üretilir
+- **Fallback:** Claude JSON bozuk → 1 retry → FALLBACK_YORUM. Skor her zaman görünür, AI başarısız olsa bile
+- **Budget guard:** `checkAndRecordAiBudget()` — günlük AI bütçesi dolunca skor + "bütçe doldu" fallback mesajı
+- **Rate limit:** IP başına 30 req/dk
+- **Prompt injection koruması:** `sanitizeTicker` + `sanitizeKapField` ile sektör/industry/name geçirilir; kullanıcıdan gelen tek alan `sembol` ve o da 1-10 büyük harf/rakamla sınırlı
+
+### Dosyalar
+
+| Dosya | Rol |
+|-------|-----|
+| `lib/yahoo-fundamentals.ts` | **Genişletildi** — 10 yeni metrik (PEG, EV/EBITDA, ROE, ROA, OpMargin, D/E, Beta, FCF, revenueGrowth, earningsGrowth) |
+| `lib/investment-score.ts` | Deterministik 0-100 skor motoru (saf TS, null-tolerant weight redistribution) |
+| `lib/investment-score-schema.ts` | Zod schema + FALLBACK_YORUM + safeExtractJson (```json fence soyma) |
+| `lib/investment-score-prompt.ts` | Claude Haiku prompt — skoru değiştirme yasağı, JSON disiplini, sanitize |
+| `app/api/investment-score/route.ts` | Auth + rate limit + fundamentals + skor + AI + cache + fallback |
+| `components/InvestableScoreCard.tsx` | Full + compact varyantlar — ring gauge, alt-skor barları, AI accordion |
+| `app/hisse/[sembol]/HisseDetailClient.tsx` | Temel tab (full kart) + Teknik tab sağ sütun (compact badge, tıkla→Temel) |
+| `scripts/test-investment-score.mjs` | Smoke test — canlı Yahoo verisiyle 5 hissede skor hesaplar |
+
+### Canlı Smoke Test Sonuçları (2026-04-17)
+
+| Hisse | Skor | Rating | Güven | Not |
+|-------|------|--------|-------|-----|
+| THYAO | 44 | Sat | 14/14 | F/K 335 (enflasyon çarpıtması), beta 0.06 |
+| EREGL | 53 | Tut | 13/14 | F/DD 0.64 ucuz, ROE %0.3 çok düşük |
+| ASELS | 50 | Tut | 13/14 | Büyüme %54 harika, F/DD 7.47 pahalı |
+| SASA | 23 | **Güçlü Sat** | 11/14 (medium) | Eksi ROE, eksi büyüme, zayıf likidite → doğru sinyal |
+| BIMAS | 50 | Tut | 14/14 | Makul F/K 24, FCF pozitif 9B |
+
+### Mevcut Sistemle İlişki
+
+`lib/composite-signal.ts` (Teknik Sinyal, kısa vade) ile **ortogonal**:
+
+| | Teknik Sinyal | Investment Score |
+|---|---------------|------------------|
+| Vade | Gün-hafta | Ay-yıl |
+| Girdi | Fiyat/hacim (RSI, MACD) | Temeller (F/K, ROE, borç) |
+| Soru | "Şu an AL mı?" | "Bu şirket yatırımlık mı?" |
+
+### Açık Konular (v2)
+
+- **Enflasyon düzeltmesi (R5):** BIST F/K'ları yüksek enflasyondan şişiyor — reel F/K = F/K × (1 − enflasyon oranı)
+- **Cron pre-compute (Faz 5):** Top-50 hisse için günde bir kez pre-compute; ilk sürümde lazy yeterli
+- **Global genişleme:** Kod exchange-agnostic, provider katmanında ticker format'ı ayrımı yapılacak (US/EU/JP)
 
 ---
 

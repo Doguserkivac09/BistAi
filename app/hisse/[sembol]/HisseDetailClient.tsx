@@ -26,6 +26,7 @@ import type { OHLCVCandle, StockSignal } from '@/types';
 import { toast } from 'sonner';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
+import { InvestableScoreCard } from '@/components/InvestableScoreCard';
 import { TakasKarti } from '@/components/TakasKarti';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { ScoreBreakdown } from '@/components/ScoreBreakdown';
@@ -884,6 +885,22 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   </Card>
                 )}
 
+                {/* Investable Edge Yatırım Skoru (kompakt) — tıkla: Temel tab */}
+                <Card>
+                  <CardHeader className="py-2 px-3 pb-0">
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                      Yatırım Skoru
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    <InvestableScoreCard
+                      sembol={sembol}
+                      compact
+                      onCompactClick={() => setActiveTab('temel')}
+                    />
+                  </CardContent>
+                </Card>
+
                 {/* Hisse Skor Kartı */}
                 {candles.length >= 50 && (() => {
                   const stockScore = computeStockScore(candles, signals);
@@ -1085,6 +1102,14 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             {/* ── Temel Tab ── */}
             {activeTab === 'temel' && (
               <div className="mt-6 space-y-6">
+                {/* Investable Edge Yatırım Skoru — deterministik + AI yorum */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-3 flex items-center gap-2">
+                    Yatırım Skoru
+                    <span className="flex-1 h-px bg-border/50" />
+                  </p>
+                  <InvestableScoreCard sembol={sembol} />
+                </div>
                 <TemelAnalizKarti sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
                 {/* Yabancı Takas Verisi */}
                 <div>
