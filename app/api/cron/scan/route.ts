@@ -67,7 +67,8 @@ export async function GET(request: NextRequest) {
 
     const results = await Promise.allSettled(
       batch.map(async (sembol) => {
-        const { candles } = await fetchOHLCV(sembol, 90);
+        // 252 gün — Altın Çapraz (200-gün MA) ve trend sinyalleri için yeterli tarih
+        const { candles } = await fetchOHLCV(sembol, 252);
         if (candles.length === 0) throw new Error('Veri yok');
         const signals = detectAllSignals(sembol, candles);
         return { sembol, signals, candles };
@@ -89,6 +90,10 @@ export async function GET(request: NextRequest) {
 
       totalSignals += signals.length;
 
+      // entry_time UTC günün başına normalize edilir → scan-cache ile deduplicate edilir
+      // Yahoo zaten YYYY-MM-DD formatında döndürüyor → bit-level uyum
+      const entryTime = `${lastCandle.date}T00:00:00.000Z`;
+
       // Her sinyal için DB'ye kaydet
       const rows = signals.map((sig: StockSignal) => ({
         user_id:     null,
@@ -96,7 +101,7 @@ export async function GET(request: NextRequest) {
         signal_type: sig.type,
         direction:   sig.direction,
         entry_price: lastCandle.close,
-        entry_time:  lastCandle.date,
+        entry_time:  entryTime,
         evaluated:   false,
         regime,
       }));

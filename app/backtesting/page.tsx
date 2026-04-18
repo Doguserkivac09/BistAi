@@ -17,7 +17,7 @@ import type {
 
 // ── Türler ──────────────────────────────────────────────────────────
 
-type Horizon = '3d' | '7d' | '14d';
+type Horizon = '3d' | '7d' | '14d' | '30d';
 
 interface BacktestingData {
   summary: BacktestResult;
@@ -32,6 +32,7 @@ const HORIZON_LABELS: Record<Horizon, string> = {
   '3d':  '3 Günlük',
   '7d':  '7 Günlük',
   '14d': '14 Günlük',
+  '30d': '30 Günlük',
 };
 
 const REGIME_LABELS: Record<string, string> = {
@@ -107,7 +108,7 @@ function exportCSV(matrix: PerformanceMatrixRow[], regimeKeys: string[], horizon
 function HorizonTabs({ horizon, setHorizon }: { horizon: Horizon; setHorizon: (h: Horizon) => void }) {
   return (
     <div className="flex items-center rounded-xl border border-border bg-surface/50 p-1 gap-0.5">
-      {(['3d', '7d', '14d'] as Horizon[]).map((h) => (
+      {(['3d', '7d', '14d', '30d'] as Horizon[]).map((h) => (
         <button
           key={h}
           onClick={() => setHorizon(h)}
@@ -275,7 +276,7 @@ function EmptyStateImproved() {
         <h2 className="mb-2 text-xl font-bold text-text-primary">Henüz Yeterli Backtest Verisi Yok</h2>
         <p className="mb-6 text-sm text-text-secondary leading-relaxed">
           Sinyal performansını analiz etmek için geçmişte tarama yapılmış ve değerlendirilmiş
-          sinyaller gerekiyor. En az 10 sinyal birikmelidir.
+          sinyaller gerekiyor. En az 30 sinyal birikmelidir.
         </p>
 
         <div className="mb-6 rounded-xl border border-border bg-surface/50 p-4 text-left">
@@ -355,6 +356,7 @@ function FilterBar({
     { value: 90,  label: '90G'  },
     { value: 180, label: '180G' },
     { value: 365, label: '1Y'   },
+    { value: 730, label: '2Y'   },
   ];
   const dirOptions = [
     { value: '',       label: 'Tümü'    },
@@ -467,7 +469,35 @@ function SummaryCards({
   const wr  = summary.winRates[horizon];
   const ret = summary.avgReturns[horizon];
 
-  const cards = [
+  // Wilson 95% CI sadece 7g için hesaplanıyor (lib/backtesting.ts)
+  const ciSub = horizon === '7d' && summary.winRateCI
+    ? `[%${summary.winRateCI.lower}–${summary.winRateCI.upper}]`
+    : null;
+
+  // p-değeri gösterimi: n<50 ise tStat; yeterliyse p değeri
+  let sigValue = '—';
+  let sigColor = 'text-zinc-400';
+  let sigBg    = 'bg-zinc-500/8 border-zinc-500/20';
+  if (summary.pValue !== null) {
+    sigValue = `p=${summary.pValue.toFixed(3)}${summary.pValue < 0.05 ? ' ✓' : ''}`;
+    if (summary.pValue < 0.05) {
+      sigColor = 'text-green-400';
+      sigBg    = 'bg-green-500/8 border-green-500/20';
+    }
+  } else if (summary.tStat !== null) {
+    sigValue = `t=${summary.tStat.toFixed(2)}`;
+  }
+
+  type Card = {
+    label: string;
+    value: string;
+    subValue?: string | null;
+    icon: typeof Activity;
+    color: string;
+    bg: string;
+  };
+
+  const cards: Card[] = [
     {
       label: 'Toplam Sinyal',
       value: String(total),
@@ -478,6 +508,7 @@ function SummaryCards({
     {
       label: `Win Rate (${HORIZON_LABELS[horizon]})`,
       value: fmtPct(wr),
+      subValue: ciSub,
       icon: Target,
       color: winRateColor(wr),
       bg: wr !== null && wr >= 55 ? 'bg-green-500/10 border-green-500/25'
@@ -519,29 +550,57 @@ function SummaryCards({
       color: 'text-red-400',
       bg: 'bg-red-500/8 border-red-500/20',
     },
+    {
+      label: 'İst. Anlamlılık (7g)',
+      value: sigValue,
+      icon: Scale,
+      color: sigColor,
+      bg:    sigBg,
+    },
   ];
 
   return (
-    <motion.div
-      key={horizon}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7"
-    >
-      {cards.map((card) => (
-        <div
-          key={card.label}
-          className={`rounded-xl border p-3.5 ${card.bg}`}
-        >
-          <div className="mb-2 flex items-center gap-1.5">
-            <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
-            <span className="text-[10px] leading-tight text-text-secondary">{card.label}</span>
-          </div>
-          <p className={`text-xl font-bold tabular-nums ${card.color}`}>{card.value}</p>
+    <>
+      {/* Yetersiz örneklem banner */}
+      {!summary.sufficientSample && summary.totalSignals > 0 && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            Yetersiz örneklem ({summary.totalSignals}/30 sinyal) — istatistiksel sonuçlar güvenilmez.
+            Daha fazla veri birikmesini bekleyin.
+          </span>
         </div>
-      ))}
-    </motion.div>
+      )}
+
+      <motion.div
+        key={horizon}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8"
+      >
+        {cards.map((card) => (
+          <div
+            key={card.label}
+            className={`rounded-xl border p-3.5 ${card.bg}`}
+          >
+            <div className="mb-2 flex items-center gap-1.5">
+              <card.icon className={`h-3.5 w-3.5 ${card.color}`} />
+              <span className="text-[10px] leading-tight text-text-secondary">{card.label}</span>
+            </div>
+            <p className={`text-xl font-bold tabular-nums ${card.color}`}>{card.value}</p>
+            {card.subValue && (
+              <p
+                className="text-[10px] text-text-muted mt-0.5 tabular-nums"
+                title="Wilson 95% güven aralığı"
+              >
+                {card.subValue}
+              </p>
+            )}
+          </div>
+        ))}
+      </motion.div>
+    </>
   );
 }
 
@@ -568,7 +627,7 @@ function ExpandedRowPanel({ row }: { row: PerformanceMatrixRow }) {
           <thead>
             <tr>
               <th className="pr-6 pb-2 text-left text-xs font-medium text-text-muted" />
-              {(['3d', '7d', '14d'] as Horizon[]).map((h) => (
+              {(['3d', '7d', '14d', '30d'] as Horizon[]).map((h) => (
                 <th key={h} className="px-4 pb-2 text-center text-xs font-semibold text-text-primary">
                   {HORIZON_LABELS[h]}
                 </th>
@@ -578,7 +637,7 @@ function ExpandedRowPanel({ row }: { row: PerformanceMatrixRow }) {
           <tbody>
             <tr>
               <td className="pr-6 py-1 text-xs text-text-muted">Win Rate</td>
-              {(['3d', '7d', '14d'] as Horizon[]).map((h) => (
+              {(['3d', '7d', '14d', '30d'] as Horizon[]).map((h) => (
                 <td key={h} className={`px-4 py-1 text-center text-sm font-bold ${winRateColor(overall.winRates[h])}`}>
                   {fmtPct(overall.winRates[h])}
                 </td>
@@ -586,7 +645,7 @@ function ExpandedRowPanel({ row }: { row: PerformanceMatrixRow }) {
             </tr>
             <tr>
               <td className="pr-6 py-1 text-xs text-text-muted">Ort. Getiri</td>
-              {(['3d', '7d', '14d'] as Horizon[]).map((h) => {
+              {(['3d', '7d', '14d', '30d'] as Horizon[]).map((h) => {
                 const v = overall.avgReturns[h];
                 return (
                   <td key={h} className={`px-4 py-1 text-center text-sm font-semibold ${v !== null && v > 0 ? 'text-green-400' : v !== null && v < 0 ? 'text-red-400' : 'text-text-secondary'}`}>
@@ -903,8 +962,8 @@ export default function BacktestingPage() {
       {loading && (
         <div className="space-y-6">
           <Skeleton className="h-10 w-full rounded-xl" />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-            {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
           </div>
           <Skeleton className="h-8 w-full rounded-xl" />
           <Skeleton className="h-10 w-full rounded-xl" />

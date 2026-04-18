@@ -2,45 +2,88 @@
  * Backtesting Engine — Geçmiş sinyallerin performans analizi.
  * Makro koşullarına göre sinyal başarısını ölçer.
  *
- * Phase 7.1
- *
- * Sorular cevaplar:
- * - "Makro pozitifken teknik sinyaller ne kadar başarılı?"
- * - "Hangi sinyal tipi hangi piyasa koşulunda en iyi çalışıyor?"
- * - "Risk yüksekken AL sinyalleri tuttu mu?"
+ * Phase 7.1 — Temel engine
+ * v2 (2026-04-18): Canonical horizon, Wilson 95% CI, t-test, return_30d, n=30 eşik
  */
 
 import type { SignalPerformanceRecord } from './performance-types';
 
+// ── Sabitler ────────────────────────────────────────────────────────
+
+/** BIST retail komisyon tahmini (round-trip): alış + satış ≈ %0.4 */
+const COMMISSION_ROUNDTRIP = 0.004;
+
+/** Yeterli örneklem alt sınırı — merkezi limit teoremi için min 30 */
+const MIN_SAMPLE = 30;
+
+/** Sinyal tipinin "ömrü" — hangi horizon için değerlendirilmeli */
+export const SIGNAL_HORIZONS: Record<string, Horizon> = {
+  'RSI Seviyesi':           '3d',
+  'Hacim Anomalisi':        '3d',
+  'MACD Kesişimi':          '7d',
+  'RSI Uyumsuzluğu':        '7d',
+  'Bollinger Sıkışması':    '7d',
+  'Trend Başlangıcı':       '14d',
+  'Destek/Direnç Kırılımı': '14d',
+  'Altın Çapraz':           '30d',
+  'Ölüm Çaprazı':           '30d',
+};
+
+export function getCanonicalHorizon(signalType: string | undefined): Horizon {
+  if (!signalType) return '7d';
+  return SIGNAL_HORIZONS[signalType] ?? '7d';
+}
+
 // ── Türler ──────────────────────────────────────────────────────────
+
+export type Horizon = '3d' | '7d' | '14d' | '30d';
+
+type ReturnField = 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d';
+
+function horizonField(h: Horizon): ReturnField {
+  switch (h) {
+    case '3d':  return 'return_3d';
+    case '7d':  return 'return_7d';
+    case '14d': return 'return_14d';
+    case '30d': return 'return_30d';
+  }
+}
 
 export interface BacktestResult {
   /** Test edilen filtre açıklaması */
   filterDescription: string;
   /** Toplam sinyal sayısı */
   totalSignals: number;
-  /** Yeterli örneklem var mı? (min 10) */
+  /** Yeterli örneklem var mı? (min 30 — merkezi limit teoremi) */
   sufficientSample: boolean;
-  /** Kazanma oranları (horizonlara göre) */
+  /** Kazanma oranları (horizonlara göre, %) */
   winRates: {
-    '3d': number | null;
-    '7d': number | null;
+    '3d':  number | null;
+    '7d':  number | null;
     '14d': number | null;
+    '30d': number | null;
   };
   /** Ortalama getiri (%) */
   avgReturns: {
-    '3d': number | null;
-    '7d': number | null;
+    '3d':  number | null;
+    '7d':  number | null;
     '14d': number | null;
+    '30d': number | null;
   };
   /** Maksimum olumlu hareket (MFE) ortalaması */
   avgMfe: number | null;
   /** Maksimum olumsuz hareket (MAE) ortalaması */
   avgMae: number | null;
-  /** Beklenen getiri (expectancy) */
+  /** Beklenen getiri (expectancy, 7g) */
   expectancy: number | null;
-  /** Profit factor */
+  /** Profit factor (7g) */
   profitFactor: number | null;
+  /** Wilson 95% güven aralığı — 7g win rate için (yüzde) */
+  winRateCI: { lower: number; upper: number } | null;
+  /** t-istatistiği — 7g net getiri (komisyon sonrası) */
+  tStat: number | null;
+  /** p-değeri (iki-yanlı). n<50 ise null (güvenilmez) */
+  pValue: number | null;
 }
 
 export interface BacktestComparison {
@@ -70,6 +113,25 @@ export interface BacktestFilter {
   sembol?: string;
 }
 
+// ── Boş sonuç helper ────────────────────────────────────────────────
+
+function emptyResult(filterDesc: string, n: number): BacktestResult {
+  return {
+    filterDescription: filterDesc,
+    totalSignals: n,
+    sufficientSample: false,
+    winRates:   { '3d': null, '7d': null, '14d': null, '30d': null },
+    avgReturns: { '3d': null, '7d': null, '14d': null, '30d': null },
+    avgMfe: null,
+    avgMae: null,
+    expectancy: null,
+    profitFactor: null,
+    winRateCI: null,
+    tStat: null,
+    pValue: null,
+  };
+}
+
 // ── Ana Backtest Fonksiyonları ───────────────────────────────────────
 
 /**
@@ -83,54 +145,43 @@ export function runBacktest(
   const filtered = applyFilter(records, filter);
   const filterDesc = describeFilter(filter);
 
-  if (filtered.length < 10) {
-    return {
-      filterDescription: filterDesc,
-      totalSignals: filtered.length,
-      sufficientSample: false,
-      winRates: { '3d': null, '7d': null, '14d': null },
-      avgReturns: { '3d': null, '7d': null, '14d': null },
-      avgMfe: null,
-      avgMae: null,
-      expectancy: null,
-      profitFactor: null,
-    };
+  if (filtered.length < MIN_SAMPLE) {
+    return emptyResult(filterDesc, filtered.length);
   }
 
   // Sadece değerlendirilmiş sinyalleri al
   const evaluated = filtered.filter((r) => r.evaluated);
-  if (evaluated.length < 10) {
-    return {
-      filterDescription: filterDesc,
-      totalSignals: evaluated.length,
-      sufficientSample: false,
-      winRates: { '3d': null, '7d': null, '14d': null },
-      avgReturns: { '3d': null, '7d': null, '14d': null },
-      avgMfe: null,
-      avgMae: null,
-      expectancy: null,
-      profitFactor: null,
-    };
+  if (evaluated.length < MIN_SAMPLE) {
+    return emptyResult(filterDesc, evaluated.length);
   }
+
+  const wr7 = calculateWinRate(evaluated, 'return_7d');
+  const ci  = wr7 !== null ? wilsonCI(wr7 / 100, evaluated.filter((r) => r.return_7d != null).length) : null;
+  const tt  = calculateTTest(evaluated, 'return_7d');
 
   return {
     filterDescription: filterDesc,
     totalSignals: evaluated.length,
     sufficientSample: true,
     winRates: {
-      '3d': calculateWinRate(evaluated, 'return_3d'),
-      '7d': calculateWinRate(evaluated, 'return_7d'),
+      '3d':  calculateWinRate(evaluated, 'return_3d'),
+      '7d':  wr7,
       '14d': calculateWinRate(evaluated, 'return_14d'),
+      '30d': calculateWinRate(evaluated, 'return_30d'),
     },
     avgReturns: {
-      '3d': calculateAvgReturn(evaluated, 'return_3d'),
-      '7d': calculateAvgReturn(evaluated, 'return_7d'),
+      '3d':  calculateAvgReturn(evaluated, 'return_3d'),
+      '7d':  calculateAvgReturn(evaluated, 'return_7d'),
       '14d': calculateAvgReturn(evaluated, 'return_14d'),
+      '30d': calculateAvgReturn(evaluated, 'return_30d'),
     },
     avgMfe: calculateAvg(evaluated, 'mfe'),
     avgMae: calculateAvg(evaluated, 'mae'),
     expectancy: calculateExpectancy(evaluated),
     profitFactor: calculateProfitFactor(evaluated),
+    winRateCI: ci,
+    tStat: tt.tStat,
+    pValue: tt.pValue,
   };
 }
 
@@ -190,10 +241,10 @@ export function generateStandardComparisons(
   );
 
   // 2. Sinyal tiplerine göre karşılaştırma
-  const signalTypes = ['RSI Uyumsuzluğu', 'Hacim Anomalisi', 'Trend Başlangıcı', 'Kırılım'];
+  const signalTypes = ['RSI Uyumsuzluğu', 'Hacim Anomalisi', 'Trend Başlangıcı', 'Destek/Direnç Kırılımı'];
   for (const type of signalTypes) {
     const typeRecords = records.filter((r) => r.signal_type === type);
-    if (typeRecords.length >= 20) {
+    if (typeRecords.length >= MIN_SAMPLE) {
       comparisons.push(
         compareBacktests(
           typeRecords,
@@ -293,7 +344,7 @@ function describeFilter(filter?: BacktestFilter): string {
 
 function calculateWinRate(
   records: SignalPerformanceRecord[],
-  field: 'return_3d' | 'return_7d' | 'return_14d'
+  field: ReturnField
 ): number | null {
   const valid = records.filter((r) => r[field] != null);
   if (valid.length === 0) return null;
@@ -308,7 +359,7 @@ function calculateWinRate(
 
 function calculateAvgReturn(
   records: SignalPerformanceRecord[],
-  field: 'return_3d' | 'return_7d' | 'return_14d'
+  field: ReturnField
 ): number | null {
   const valid = records.filter((r) => r[field] != null);
   if (valid.length === 0) return null;
@@ -367,6 +418,78 @@ function calculateProfitFactor(records: SignalPerformanceRecord[]): number | nul
 
   if (grossLoss === 0) return grossProfit > 0 ? 999 : null;
   return roundTo(grossProfit / grossLoss, 2);
+}
+
+// ── İstatistiksel Testler ────────────────────────────────────────────
+
+/**
+ * Wilson 95% güven aralığı — küçük örneklemlerde normal CI'den daha iyi.
+ * p: oran (0-1), n: örneklem büyüklüğü.
+ * Dönüş: { lower, upper } yüzde cinsinden.
+ */
+function wilsonCI(p: number, n: number): { lower: number; upper: number } | null {
+  if (n < 10) return null;
+  const z = 1.96; // 95%
+  const denom  = 1 + (z * z) / n;
+  const center = (p + (z * z) / (2 * n)) / denom;
+  const margin = (z * Math.sqrt(p * (1 - p) / n + (z * z) / (4 * n * n))) / denom;
+  return {
+    lower: roundTo((center - margin) * 100, 1),
+    upper: roundTo((center + margin) * 100, 1),
+  };
+}
+
+/**
+ * Normal CDF — Abramowitz & Stegun 26.2.17 yaklaşımı.
+ * |z| ≥ 1 için güvenilir, küçük z için de makul.
+ */
+function normalCDF(z: number): number {
+  const b1 =  0.319381530;
+  const b2 = -0.356563782;
+  const b3 =  1.781477937;
+  const b4 = -1.821255978;
+  const b5 =  1.330274429;
+  const p  =  0.2316419;
+  const c  =  0.39894228; // 1/√(2π)
+  if (z === 0) return 0.5;
+  const absZ = Math.abs(z);
+  const t = 1 / (1 + p * absZ);
+  const cdf = 1 - c * Math.exp(-absZ * absZ / 2) *
+    (t * (b1 + t * (b2 + t * (b3 + t * (b4 + t * b5)))));
+  return z > 0 ? cdf : 1 - cdf;
+}
+
+/**
+ * Tek-örneklem t-testi — net getirinin (komisyon sonrası) sıfırdan anlamlı farklı olup olmadığı.
+ * n<30'da null. n<50'de pValue güvenilmez (tStat döner, pValue null).
+ */
+function calculateTTest(
+  records: SignalPerformanceRecord[],
+  field: ReturnField
+): { tStat: number | null; pValue: number | null } {
+  const valid = records.filter((r) => r[field] != null);
+  const n = valid.length;
+  if (n < MIN_SAMPLE) return { tStat: null, pValue: null };
+
+  // Yöne göre net getiri: yukari→ret, asagi→-ret; sonra komisyon düş
+  const nets = valid.map((r) => {
+    const raw = r[field] as number;
+    const adjusted = r.direction === 'asagi' ? -raw : raw;
+    return adjusted - COMMISSION_ROUNDTRIP;
+  });
+
+  const mean = nets.reduce((s, v) => s + v, 0) / n;
+  const variance = nets.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1);
+  const se = Math.sqrt(variance / n);
+  if (se === 0 || !Number.isFinite(se)) return { tStat: null, pValue: null };
+
+  const t = mean / se;
+
+  // n<50'de normal CDF yaklaşımı güvenilmez — tStat göster, pValue null
+  if (n < 50) return { tStat: roundTo(t, 3), pValue: null };
+
+  const pValue = 2 * (1 - normalCDF(Math.abs(t)));
+  return { tStat: roundTo(t, 3), pValue: roundTo(pValue, 6) };
 }
 
 function roundTo(num: number, decimals: number): number {

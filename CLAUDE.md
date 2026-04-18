@@ -4,6 +4,27 @@
 
 ---
 
+## 📌 BEKLEYEN MANUEL ADIMLAR (2026-04-19)
+
+### Backtest Engine v2 — Supabase Migration
+Migration dosyası oluşturuldu ama Supabase'e uygulanmadı:
+**`supabase/migrations/20260418_signal_performance_unique.sql`**
+→ Supabase SQL Editor'a yapıştırıp çalıştır (idempotent, varsa no-op)
+
+### Backtest Doğrulama Checklist (2026-05-19'dan sonra kontrol et)
+Backtest v2 değişiklikleri canlıda, veri birikince doğrula:
+- [ ] `/backtesting?days=60` aç — Win Rate kartı altında Wilson CI `[%X–%Y]` görünmeli
+- [ ] İst. Anlamlılık kartında `t=X (n<50)` veya `p=0.xxx` görünmeli
+- [ ] RSI Seviyesi sinyali MFE'si (3g pencere) Altın Çapraz MFE'sinden (30g pencere) sistematik düşük olmalı
+- [ ] `return_7d`, `return_14d`, `return_30d` alanları dolmaya başlamış olmalı (şu an 135 kayıt var ama hepsi sadece return_3d dolu)
+
+### Mevcut Durum (2026-04-19 itibarıyla)
+- `evaluated=true`: 135 kayıt — tümü return_3d dolu, return_7d/14d/30d null (henüz 7 gün dolmadı)
+- `pending`: 4072 kayıt — 30 gün geçince evaluate olacak
+- `evalRate`: %3 — normal, sistem 2 haftalıktan genç
+
+---
+
 ## 🚀 SONRAKİ ADIMLAR — Öncelik Sırasına Göre (2026-03-22 güncellendi)
 
 ### 🔴 SİNYAL KALİTESİ & DOĞRULUK (Aktif Sprint)

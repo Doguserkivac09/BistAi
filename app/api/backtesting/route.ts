@@ -27,7 +27,7 @@ function parseDaysParam(request: NextRequest): number {
   if (!param) return 90;
   const parsed = Number.parseInt(param, 10);
   if (Number.isNaN(parsed) || parsed <= 0) return 90;
-  return Math.min(parsed, 365);
+  return Math.min(parsed, 730);
 }
 
 function parseDirectionParam(
@@ -89,12 +89,15 @@ export async function GET(request: NextRequest) {
           filterDescription: 'Tüm sinyaller',
           totalSignals: 0,
           sufficientSample: false,
-          winRates: { '3d': null, '7d': null, '14d': null },
-          avgReturns: { '3d': null, '7d': null, '14d': null },
+          winRates:   { '3d': null, '7d': null, '14d': null, '30d': null },
+          avgReturns: { '3d': null, '7d': null, '14d': null, '30d': null },
           avgMfe: null,
           avgMae: null,
           expectancy: null,
           profitFactor: null,
+          winRateCI: null,
+          tStat: null,
+          pValue: null,
         },
         matrix: [],
         comparisons: [],

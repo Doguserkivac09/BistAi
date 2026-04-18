@@ -56,29 +56,51 @@ function closeReturnOnOrAfter(
   return Number.isFinite(ret) ? ret : null;
 }
 
-/** return_3d, return_7d, return_14d from close on or after entry + X days (direction-aware) */
+/** return_3d, return_7d, return_14d, return_30d from close on or after entry + X days (direction-aware) */
 function computeReturns(
   entryPrice: number,
   afterEntry: OHLCVCandle[],
   entryDateIso: string,
   direction: Direction
-): { return_3d: number | null; return_7d: number | null; return_14d: number | null } {
+): {
+  return_3d: number | null;
+  return_7d: number | null;
+  return_14d: number | null;
+  return_30d: number | null;
+} {
   const entryDate = new Date(entryDateIso);
   if (Number.isNaN(entryDate.getTime())) {
-    return { return_3d: null, return_7d: null, return_14d: null };
+    return { return_3d: null, return_7d: null, return_14d: null, return_30d: null };
   }
   return {
-    return_3d: closeReturnOnOrAfter(entryPrice, afterEntry, entryDate, 3, direction),
-    return_7d: closeReturnOnOrAfter(entryPrice, afterEntry, entryDate, 7, direction),
+    return_3d:  closeReturnOnOrAfter(entryPrice, afterEntry, entryDate,  3, direction),
+    return_7d:  closeReturnOnOrAfter(entryPrice, afterEntry, entryDate,  7, direction),
     return_14d: closeReturnOnOrAfter(entryPrice, afterEntry, entryDate, 14, direction),
+    return_30d: closeReturnOnOrAfter(entryPrice, afterEntry, entryDate, 30, direction),
   };
 }
+
+// Sinyal tipine göre MFE/MAE değerlendirme penceresi (gün).
+// Sinyalin "ömrü" ile uyumlu — RSI aşırı alım 3g, Altın Çapraz 30g sürer.
+const MFE_MAE_WINDOW: Record<string, number> = {
+  'RSI Seviyesi':             3,
+  'Hacim Anomalisi':          3,
+  'MACD Kesişimi':            7,
+  'RSI Uyumsuzluğu':          7,
+  'Bollinger Sıkışması':      7,
+  'Trend Başlangıcı':        14,
+  'Destek/Direnç Kırılımı':  14,
+  'Altın Çapraz':            30,
+  'Ölüm Çaprazı':            30,
+};
 
 /** yukari: mfe=max((high-entry)/entry), mae=min((low-entry)/entry). asagi: mfe=max((entry-low)/entry), mae=min((entry-high)/entry) */
 function computeMfeMae(
   entryPrice: number,
   afterEntry: OHLCVCandle[],
-  direction: Direction
+  entryDateIso: string,
+  direction: Direction,
+  signalType: string
 ): { mfe: number | null; mae: number | null } {
   if (
     entryPrice <= 0 ||
@@ -89,10 +111,22 @@ function computeMfeMae(
     return { mfe: null, mae: null };
   }
 
+  const entryDate = new Date(entryDateIso);
+  if (Number.isNaN(entryDate.getTime())) {
+    return { mfe: null, mae: null };
+  }
+
+  // Pencere bitişi — sinyal tipine özgü (varsayılan 14)
+  const mfeMaeDays = MFE_MAE_WINDOW[signalType] ?? 14;
+  const windowEnd = new Date(entryDate);
+  windowEnd.setDate(windowEnd.getDate() + mfeMaeDays);
+
   let mfe: number | null = null;
   let mae: number | null = null;
 
   for (const c of afterEntry) {
+    // Pencere dışındaki mumları atla — sinyalin ömrüyle sınırla
+    if (c?.date != null && new Date(c.date) > windowEnd) continue;
     if (
       c?.high == null ||
       c?.low == null ||
@@ -180,8 +214,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const ageDays = daysBetween(String(rec.entry_time), now);
       // 3 günden kısa → veri yok, atla
-      // 3-14 gün → kısmi değerlendirme (return_3d/7d hesapla, evaluated=false kal)
-      // 14+ gün → tam değerlendirme, evaluated=true
+      // 3-30 gün → kısmi değerlendirme (return_3d/7d/14d hesapla, evaluated=false kal)
+      // 30+ gün → tam değerlendirme (return_30d dahil), evaluated=true
       if (ageDays < 3) {
         continue;
       }
@@ -215,10 +249,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           String(rec.entry_time),
           direction
         );
-        const { mfe, mae } = computeMfeMae(entryPrice, afterEntry, direction);
+        const { mfe, mae } = computeMfeMae(
+          entryPrice,
+          afterEntry,
+          String(rec.entry_time),
+          direction,
+          rec.signal_type ?? ''
+        );
 
-        // 14+ gün geçmişse tam değerlendirme tamamlandı
-        const isFullyEvaluated = ageDays >= 14;
+        // 30+ gün geçmişse tam değerlendirme tamamlandı (return_30d dahil)
+        const isFullyEvaluated = ageDays >= 30;
 
         const { error: updateError } = await supabase
           .from('signal_performance')
@@ -226,6 +266,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             return_3d: returns.return_3d,
             return_7d: returns.return_7d,
             return_14d: returns.return_14d,
+            return_30d: returns.return_30d,
             mfe,
             mae,
             evaluated: isFullyEvaluated,
