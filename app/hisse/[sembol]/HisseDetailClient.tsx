@@ -89,6 +89,30 @@ function formatVolume(v: number): string {
   return String(v);
 }
 
+// ── RSI14 hesabı (Wilder, basit — StockCard ile aynı) ─────────────────
+function calcRSI14(closes: number[]): number | null {
+  if (closes.length < 15) return null;
+  const slice = closes.slice(-15);
+  let gains = 0, losses = 0;
+  for (let i = 1; i < slice.length; i++) {
+    const diff = (slice[i] ?? 0) - (slice[i - 1] ?? 0);
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const avgLoss = losses / 14;
+  if (avgLoss === 0) return 100;
+  return 100 - 100 / (1 + gains / 14 / avgLoss);
+}
+
+/** rVol5: bugünkü hacim / son 5 günün ortalaması */
+function calcRelVol5(candles: OHLCVCandle[]): number | null {
+  if (candles.length < 6) return null;
+  const today = candles[candles.length - 1]!.volume;
+  const prev5 = candles.slice(-6, -1).map(c => c.volume);
+  const avg = prev5.reduce((s, v) => s + v, 0) / prev5.length;
+  if (avg === 0) return null;
+  return today / avg;
+}
+
 // ── ADV (Ortalama Günlük İşlem Hacmi) TL formatı ──────────────────────
 // Borsacı perspektifi: BIST'te 10M TL/gün altı = düşük likit (slipaj riski)
 const ADV_LIQUID_THRESHOLD = 10_000_000; // 10M TL
@@ -311,10 +335,11 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const avgVolume20d  = analiz?.avgVolume20d;
   const high90d       = analiz?.high90d;
   const low90d        = analiz?.low90d;
-  // ADV (Ortalama Günlük İşlem — TL) — son 20 günün close×volume ortalaması.
-  // Sadece günlük timeframe'de anlamlı. Intraday seçilirse candles dakika bazlı olur → gösterme.
+  // ADV / RSI14 / rVol5 — sadece günlük timeframe'de anlamlı (intraday'de dakika bazlı olur → gösterme)
   const isDailyFrame  = timeframe === '1d' || timeframe === '1wk' || timeframe === '1mo';
-  const adv20d        = isDailyFrame && candles.length >= 5 ? computeADV(candles, 20) : null;
+  const adv20d        = isDailyFrame && candles.length >= 5  ? computeADV(candles, 20)                      : null;
+  const rsi14         = isDailyFrame && candles.length >= 15 ? calcRSI14(candles.map(c => c.close))         : null;
+  const rVol5         = isDailyFrame && candles.length >= 6  ? calcRelVol5(candles)                         : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -415,6 +440,38 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     label="90G Düşük"
                     value={low90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'}
                   />
+                )}
+                {rsi14 !== null && (
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-text-muted">RSI (14)</p>
+                    <p
+                      title={rsi14 >= 70 ? 'Aşırı alım bölgesi (≥70) — kısa vadeli düzeltme riski.' : rsi14 <= 30 ? 'Aşırı satım bölgesi (≤30) — dip arayışı olabilir.' : 'Nötr bölge (30–70).'}
+                      className={`truncate text-sm font-semibold tabular-nums ${
+                        rsi14 >= 70 ? 'text-red-400' : rsi14 <= 30 ? 'text-emerald-400' : 'text-text-primary'
+                      }`}
+                    >
+                      {rsi14.toFixed(1)}
+                      <span className="ml-1 text-[10px] font-normal text-text-muted">
+                        {rsi14 >= 70 ? 'OB' : rsi14 <= 30 ? 'OS' : ''}
+                      </span>
+                    </p>
+                  </div>
+                )}
+                {rVol5 !== null && (
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-text-muted">rVol (5g)</p>
+                    <p
+                      title={`Bugünkü hacim, son 5 günün ${rVol5.toFixed(2)}×'i. ${rVol5 >= 2 ? 'Olağandışı yüksek hacim — dikkat.' : rVol5 >= 1.5 ? 'Yüksek hacim.' : rVol5 < 0.7 ? 'Düşük hacim — zayıf katılım.' : 'Normal hacim.'}`}
+                      className={`truncate text-sm font-semibold tabular-nums ${
+                        rVol5 >= 2   ? 'text-amber-400'   :
+                        rVol5 >= 1.5 ? 'text-emerald-400' :
+                        rVol5 < 0.7  ? 'text-text-muted'  :
+                                       'text-text-primary'
+                      }`}
+                    >
+                      {rVol5.toFixed(2)}×
+                    </p>
+                  </div>
                 )}
               </div>
             </div>

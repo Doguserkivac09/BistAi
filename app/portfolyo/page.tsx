@@ -50,6 +50,20 @@ function fmt(n: number, decimals = 2) {
 function fmtTL(n: number) { return '₺' + fmt(n); }
 function fmtPct(n: number) { return (n >= 0 ? '+' : '') + fmt(n) + '%'; }
 
+/**
+ * BIST'te 2 yıldan uzun süre elde tutulan hisse senetleri
+ * stopaj vergisinden muaftır (GVK Geç. Md. 67/4).
+ * Alış tarihinden itibaren 730 gün geçmişse "✓ Vergi Muaf" rozeti göster.
+ */
+function vergiMuafMi(alisTarihi: string): boolean {
+  const gun = (Date.now() - new Date(alisTarihi).getTime()) / (1000 * 60 * 60 * 24);
+  return gun >= 730;
+}
+function kalanVergiGun(alisTarihi: string): number {
+  const gun = (Date.now() - new Date(alisTarihi).getTime()) / (1000 * 60 * 60 * 24);
+  return Math.max(0, Math.ceil(730 - gun));
+}
+
 // ─── Sparkline (inline SVG) ───────────────────────────────────────────────────
 
 function Sparkline({ closes }: { closes: number[] }) {
@@ -244,7 +258,24 @@ function PozisyonRow({
             {poz.sembol.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-text-primary text-sm">{poz.sembol}</div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-text-primary text-sm">{poz.sembol}</span>
+              {vergiMuafMi(poz.alis_tarihi) ? (
+                <span
+                  title={`Bu hisseyi ${new Date(poz.alis_tarihi).toLocaleDateString('tr-TR')} tarihinde aldınız. 2 yılı geçtiği için hisse senedi geliri vergiden muaf (GVK Geç. Md. 67/4).`}
+                  className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-[1px] text-[9px] font-semibold text-emerald-400"
+                >
+                  ✓ Vergi Muaf
+                </span>
+              ) : kalanVergiGun(poz.alis_tarihi) <= 60 ? (
+                <span
+                  title={`Vergi muafiyetine ${kalanVergiGun(poz.alis_tarihi)} gün kaldı. 2 yılı doldurunca (${new Date(new Date(poz.alis_tarihi).getTime() + 730*86400000).toLocaleDateString('tr-TR')}) satıştaki stopaj kalkar.`}
+                  className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1 py-[1px] text-[9px] font-semibold text-amber-400"
+                >
+                  ⏳ {kalanVergiGun(poz.alis_tarihi)}g
+                </span>
+              ) : null}
+            </div>
             <SinyalBadge sinyaller={sinyaller} sembol={poz.sembol} />
           </div>
           <Sparkline closes={sparkline} />

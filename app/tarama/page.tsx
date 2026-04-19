@@ -458,6 +458,7 @@ function TaramaPageInner() {
   const [onlyStrong,         setOnlyStrong]         = useState(false);
   const [onlyHighConfluence, setOnlyHighConfluence] = useState(false);
   const [onlyLiquid,         setOnlyLiquid]         = useState(false);
+  const [sectorFilter,       setSectorFilter]       = useState<string | null>(sektorParam ?? null);
   const [sortBy,             setSortBy]             = useState<SortBy>('confluence');
   const [viewMode,           setViewMode]           = useState<'grid' | 'list'>('grid');
 
@@ -658,11 +659,12 @@ function TaramaPageInner() {
 
   const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyLiquid };
   const rawDisplayList = loading ? [] : filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
-  // Sektör URL param filtresi
-  const displayList = sektorParam
-    ? rawDisplayList.filter(r => getSectorId(r.sembol) === sektorParam)
+  // Sektör filtresi — URL param veya interaktif chip'ten
+  const activeSector = sectorFilter ?? sektorParam ?? null;
+  const displayList = activeSector
+    ? rawDisplayList.filter(r => getSectorId(r.sembol) === activeSector)
     : rawDisplayList;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyLiquid].filter(Boolean).length;
+  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyLiquid, activeSector !== null].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -744,19 +746,43 @@ function TaramaPageInner() {
               <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
               <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)}>Yüksek Güven</Chip>
               <Chip active={onlyLiquid}          onClick={() => setOnlyLiquid(v => !v)}>≥10M Likit</Chip>
+              <div className="h-5 w-px bg-border" />
+              {/* Sektör filtresi — en yaygın 7 sektör hızlı chip */}
+              {[
+                { id: 'banka',             label: '🏦 Banka'    },
+                { id: 'holding',           label: '🏢 Holding'  },
+                { id: 'havacilik_savunma', label: '✈ Havacılık' },
+                { id: 'otomotiv',          label: '🚗 Otomotiv' },
+                { id: 'perakende',         label: '🛒 Perakende'},
+                { id: 'enerji',            label: '⚡ Enerji'   },
+                { id: 'sanayi',            label: '🏭 Sanayi'   },
+              ].map(s => (
+                <Chip
+                  key={s.id}
+                  active={sectorFilter === s.id}
+                  onClick={() => setSectorFilter(v => v === s.id ? null : s.id)}
+                >
+                  {s.label}
+                </Chip>
+              ))}
             </>
           )}
         </div>
 
         {/* Sektör filtre bandı */}
-        {sektorParam && (
+        {activeSector && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-primary/30 bg-primary/8 px-4 py-2.5 text-sm text-primary">
             <span>
               <BarChart2 className="inline h-3.5 w-3.5 mr-1.5 align-text-bottom" />
-              Sektör filtresi aktif: <span className="font-semibold uppercase">{sektorParam}</span>
-              {' '}· Sadece bu sektördeki hisseler gösteriliyor
+              Sektör filtresi: <span className="font-semibold">{activeSector.replace(/_/g, ' ')}</span>
+              {' '}· Sadece bu sektördeki hisseler gösteriliyor ({displayList.length} sonuç)
             </span>
-            <a href="/tarama" className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity">Tüm hisseler →</a>
+            <button
+              onClick={() => setSectorFilter(null)}
+              className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity flex items-center gap-1"
+            >
+              <X className="h-3 w-3" /> Temizle
+            </button>
           </div>
         )}
 
