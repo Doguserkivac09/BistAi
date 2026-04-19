@@ -33,11 +33,7 @@ interface ScanResult {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// Pivot-based RSI Divergence hesaplaması yapılana kadar taramada gizlenen sinyaller.
-// Mevcut detectRsiDivergence basit slope karşılaştırması kullanıyor — false positive oranı yüksek.
-// Backtest ve sinyal geçmişi için üretim devam eder (DB'ye yazılır), sadece tarama UI'ından çıkar.
-const HIDDEN_SCAN_SIGNALS = new Set(['RSI Uyumsuzluğu']);
-
+// (2026-04-19) RSI Uyumsuzluğu pivot-based swing detection'a geçirildi → taramaya geri eklendi.
 const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
   { value: 'Tümü',              label: 'Tümü'      },
   { value: 'Hacim Anomalisi',   label: 'Hacim'     },
@@ -45,6 +41,7 @@ const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
   { value: 'Kırılım',           label: 'Kırılım'   },
   { value: 'MACD Kesişimi',     label: 'MACD'      },
   { value: 'RSI Seviyesi',      label: 'RSI OB/OS' },
+  { value: 'RSI Uyumsuzluğu',   label: 'RSI Div'   },
   { value: 'Altın Çapraz',      label: 'Çapraz'    },
   { value: 'Bollinger Sıkışması', label: 'Bollinger' },
 ];
@@ -55,6 +52,7 @@ const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeCol
   { type: 'Destek/Direnç Kırılımı', label: 'Kırılım',   color: 'text-sky-400 border-sky-500/40 bg-sky-500/10',            activeColor: 'text-sky-300 border-sky-400 bg-sky-500/25 ring-1 ring-sky-500/50'             },
   { type: 'MACD Kesişimi',          label: 'MACD',      color: 'text-blue-400 border-blue-500/40 bg-blue-500/10',         activeColor: 'text-blue-300 border-blue-400 bg-blue-500/25 ring-1 ring-blue-500/50'         },
   { type: 'RSI Seviyesi',           label: 'RSI OB/OS', color: 'text-rose-400 border-rose-500/40 bg-rose-500/10',         activeColor: 'text-rose-300 border-rose-400 bg-rose-500/25 ring-1 ring-rose-500/50'         },
+  { type: 'RSI Uyumsuzluğu',        label: 'RSI Div',   color: 'text-fuchsia-400 border-fuchsia-500/40 bg-fuchsia-500/10', activeColor: 'text-fuchsia-300 border-fuchsia-400 bg-fuchsia-500/25 ring-1 ring-fuchsia-500/50' },
   { type: 'Altın Çapraz',           label: 'Çapraz',    color: 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10',   activeColor: 'text-yellow-300 border-yellow-400 bg-yellow-500/25 ring-1 ring-yellow-500/50'   },
   { type: 'Bollinger Sıkışması',    label: 'Bollinger', color: 'text-cyan-400 border-cyan-500/40 bg-cyan-500/10',         activeColor: 'text-cyan-300 border-cyan-400 bg-cyan-500/25 ring-1 ring-cyan-500/50'         },
 ];
@@ -136,8 +134,7 @@ function filterAndSortResults(
 ): ScanResult[] {
   let out = results
     .map((r) => {
-      // HIDDEN_SCAN_SIGNALS — tarama UI'ından gizlenen sinyal tipleri (ör. pivot-based olmayan RSI Div).
-      let signals = r.signals.filter(s => !HIDDEN_SCAN_SIGNALS.has(s.type));
+      let signals = r.signals;
       if (signalFilter !== 'Tümü') {
         const typeLabel = TYPE_LABEL_MAP[signalFilter] ?? signalFilter;
         signals = signals.filter(s => s.type === typeLabel);

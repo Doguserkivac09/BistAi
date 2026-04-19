@@ -148,6 +148,47 @@ function ADVCell({ adv }: { adv: number }) {
   );
 }
 
+// ── Haftalık uyum rozeti (multi-timeframe) ─────────────────────────────
+function MTFBadge({ aligned }: { aligned: boolean }) {
+  return aligned ? (
+    <span
+      title="Haftalık trend ile uyumlu — güçlü sinyal"
+      className="inline-flex items-center gap-0.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400"
+    >
+      W✓
+    </span>
+  ) : (
+    <span
+      title="Haftalık trend ile uyumsuz — zayıf sinyal"
+      className="inline-flex items-center gap-0.5 rounded-md border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-400"
+    >
+      W✗
+    </span>
+  );
+}
+
+// ── Sinyal tazeliği rozeti ─────────────────────────────────────────────
+function FreshnessBadge({ candlesAgo }: { candlesAgo: number }) {
+  const label = candlesAgo === 0 ? 'Bugün' : `${candlesAgo}g önce`;
+  const isStale = candlesAgo >= 5;
+  return (
+    <span
+      title={
+        candlesAgo === 0
+          ? 'Sinyal bugün tetiklendi — en taze'
+          : `Sinyal ${candlesAgo} mum önce tetiklendi${isStale ? ' — güncelliği düşmüş olabilir' : ''}`
+      }
+      className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
+        isStale
+          ? 'border-zinc-500/40 bg-zinc-500/10 text-zinc-400'
+          : 'border-sky-500/40 bg-sky-500/10 text-sky-300'
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
 // ── Accordion sinyal satırı ────────────────────────────────────────────
 function AccordionSignalRow({
   sig,
@@ -163,6 +204,7 @@ function AccordionSignalRow({
   winRate: WinRateStat | null;
 }) {
   const [open, setOpen] = useState(false);
+  const candlesAgo = sig.candlesAgo ?? 0;
   return (
     <div className="border-b border-border last:border-0">
       <button
@@ -172,6 +214,8 @@ function AccordionSignalRow({
       >
         <SignalBadge type={sig.type} direction={sig.direction} severity={sig.severity} />
         <WinRateBadge stat={winRate} horizon="7g" showInsufficient />
+        {sig.weeklyAligned !== undefined && <MTFBadge aligned={sig.weeklyAligned} />}
+        {candlesAgo > 0 && <FreshnessBadge candlesAgo={candlesAgo} />}
         {!open && explanation && (
           <span className="min-w-0 flex-1 truncate text-xs text-text-muted hidden sm:block">
             {explanation}
@@ -182,6 +226,27 @@ function AccordionSignalRow({
       {open && (
         <div className="px-3 pb-3 pt-1 space-y-2">
           <SignalExplanation text={explanation} isLoading={!explanation} />
+
+          {/* Multi-timeframe context panel */}
+          {sig.weeklyAligned !== undefined && (
+            <div
+              className={`rounded-md border px-2.5 py-2 text-[11px] ${
+                sig.weeklyAligned
+                  ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-200'
+                  : 'border-red-500/30 bg-red-500/5 text-red-200'
+              }`}
+            >
+              <p className="font-semibold">
+                {sig.weeklyAligned ? '✦ Haftalık trend uyumlu' : '⚠ Haftalık trend uyumsuz'}
+              </p>
+              <p className="mt-0.5 text-[10px] opacity-80">
+                {sig.weeklyAligned
+                  ? 'Günlük sinyal yönü haftalık EMA8 trendiyle hizalı — ana trende karşı değil, yanında. Güç çarpanı +.'
+                  : 'Günlük sinyal haftalık trende ters yönde tetiklendi — counter-trend işlem riski. Stop sıkı tutulmalı.'}
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-end">
             <SaveSignalButton
               sembol={sembol}
