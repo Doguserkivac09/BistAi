@@ -181,21 +181,29 @@ function EmptyPortfolio({ onAdd }: { onAdd: () => void }) {
 
 interface SinvalInfo { type: string; direction: string; severity: string }
 
-function SinyalBadge({ sinyaller }: { sinyaller: SinvalInfo[] }) {
+function SinyalBadge({ sinyaller, sembol }: { sinyaller: SinvalInfo[]; sembol: string }) {
   if (sinyaller.length === 0) return null;
   const order = ['güçlü', 'orta', 'zayıf'];
   const best = [...sinyaller].sort(
     (a, b) => order.indexOf(a.severity) - order.indexOf(b.severity)
   )[0]!;
   const isUp = best.direction === 'yukari';
-  const color = isUp ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                     : 'bg-red-500/15 text-red-400 border-red-500/30';
+  const color = isUp ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
+                     : 'bg-red-500/15 text-red-400 border-red-500/30 hover:bg-red-500/25';
   const arrow = isUp ? '↑' : '↓';
+  // Badge'i hisse detayına götür — kullanıcı sinyali tıklayarak inceleyebilsin.
+  const tooltip = sinyaller.length > 1
+    ? `${sinyaller.length} aktif sinyal (en güçlü: ${best.severity} ${best.type}). Detay için tıkla.`
+    : `${best.severity} ${best.type}. Detay için tıkla.`;
   return (
     <div className="mt-0.5 flex items-center gap-1">
-      <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${color}`}>
+      <Link
+        href={`/hisse/${sembol}`}
+        title={tooltip}
+        className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${color}`}
+      >
         {arrow} {best.type}
-      </span>
+      </Link>
       {sinyaller.length > 1 && (
         <span className="text-[10px] text-text-muted">+{sinyaller.length - 1}</span>
       )}
@@ -237,7 +245,7 @@ function PozisyonRow({
           </div>
           <div className="min-w-0">
             <div className="font-semibold text-text-primary text-sm">{poz.sembol}</div>
-            <SinyalBadge sinyaller={sinyaller} />
+            <SinyalBadge sinyaller={sinyaller} sembol={poz.sembol} />
           </div>
           <Sparkline closes={sparkline} />
         </div>
@@ -814,6 +822,18 @@ export default function PortfolyoPage() {
   const totalKarZararPct = totalMaliyet > 0 ? (totalKarZarar / totalMaliyet) * 100 : 0;
   const profit          = totalKarZarar >= 0;
 
+  // Aktif sinyal sayısı — kaç pozisyonda teknik sinyal var + güçlü sinyal detayı
+  const signalsAgg = pozisyonlar.reduce(
+    (acc, p) => {
+      const sigs = sinyalMap[p.sembol] ?? [];
+      if (sigs.length === 0) return acc;
+      acc.posWithSignal += 1;
+      if (sigs.some((s) => s.severity === 'güçlü')) acc.posWithStrong += 1;
+      return acc;
+    },
+    { posWithSignal: 0, posWithStrong: 0 },
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -907,19 +927,34 @@ export default function PortfolyoPage() {
             ) : (
               <>
                 {/* Özet kartlar */}
-                <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
                   {[
-                    { label: 'Toplam Maliyet',  value: fmtTL(totalMaliyet),  icon: Briefcase,  color: 'text-text-primary' },
-                    { label: 'Güncel Değer',     value: fmtTL(totalDeger),    icon: TrendingUp, color: 'text-text-primary' },
-                    { label: 'Toplam K/Z',       value: fmtTL(Math.abs(totalKarZarar)), icon: profit ? TrendingUp : TrendingDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
-                    { label: 'Getiri',           value: fmtPct(totalKarZararPct), icon: profit ? ChevronUp : ChevronDown, color: profit ? 'text-emerald-400' : 'text-red-400' },
-                  ].map(({ label, value, icon: Icon, color }) => (
-                    <div key={label} className="rounded-xl border border-border bg-surface p-4">
+                    { label: 'Toplam Maliyet',  value: fmtTL(totalMaliyet),  icon: Briefcase,  color: 'text-text-primary', sub: null as string | null, title: null as string | null },
+                    { label: 'Güncel Değer',     value: fmtTL(totalDeger),    icon: TrendingUp, color: 'text-text-primary', sub: null, title: null },
+                    { label: 'Toplam K/Z',       value: fmtTL(Math.abs(totalKarZarar)), icon: profit ? TrendingUp : TrendingDown, color: profit ? 'text-emerald-400' : 'text-red-400', sub: null, title: null },
+                    { label: 'Getiri',           value: fmtPct(totalKarZararPct), icon: profit ? ChevronUp : ChevronDown, color: profit ? 'text-emerald-400' : 'text-red-400', sub: null, title: null },
+                    {
+                      label: 'Aktif Sinyal',
+                      value: `${signalsAgg.posWithSignal}/${pozisyonlar.length}`,
+                      icon: Bell,
+                      color: signalsAgg.posWithStrong > 0 ? 'text-amber-400' : signalsAgg.posWithSignal > 0 ? 'text-sky-400' : 'text-text-muted',
+                      sub: signalsAgg.posWithStrong > 0 ? `${signalsAgg.posWithStrong} güçlü` : null,
+                      title: signalsAgg.posWithSignal === 0
+                        ? 'Portföyünüzdeki hisselerde şu anda aktif teknik sinyal yok.'
+                        : `${signalsAgg.posWithSignal} pozisyonda aktif sinyal${signalsAgg.posWithStrong > 0 ? `, bunlardan ${signalsAgg.posWithStrong} tanesi güçlü.` : '.'} Satırındaki etikete tıklayarak detaya gidebilirsiniz.`,
+                    },
+                  ].map(({ label, value, icon: Icon, color, sub, title }) => (
+                    <div
+                      key={label}
+                      title={title ?? undefined}
+                      className="rounded-xl border border-border bg-surface p-4"
+                    >
                       <div className="mb-1 flex items-center gap-1.5 text-xs text-text-muted">
                         <Icon className="h-3.5 w-3.5" />
                         {label}
                       </div>
                       <div className={`text-lg font-bold ${color}`}>{value}</div>
+                      {sub && <div className="mt-0.5 text-[10px] font-medium text-amber-400/80">{sub}</div>}
                     </div>
                   ))}
                 </div>

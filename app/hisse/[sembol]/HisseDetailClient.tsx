@@ -10,6 +10,7 @@ import { SignalExplanation } from '@/components/SignalExplanation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WatchlistButton } from '@/components/WatchlistButton';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
+import { BrokerLinkButton } from '@/components/BrokerLinkButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
 import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
 import { computeADV } from '@/lib/yahoo';
@@ -380,6 +381,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
                 {/* Sağ: Butonlar */}
                 <div className="flex items-center gap-2 shrink-0">
+                  <BrokerLinkButton sembol={sembol} />
                   <PortfolyoEkleButton
                     sembol={sembol}
                     defaultFiyat={lastCandle?.close}
