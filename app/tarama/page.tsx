@@ -520,21 +520,19 @@ function TaramaPageInner() {
     return () => { cancelled = true; controller.abort(); };
   }, []);
 
-  // Fetch win rates
+  // Fetch win rates — n≥30 eşiği (CLT/backtest v2 ile tutarlı)
   useEffect(() => {
     let cancelled = false;
     fetch('/api/signal-stats')
       .then(r => r.ok ? r.json() : [])
-      .then((stats: Array<{ signal_type: string; sufficient_sample: boolean; total_signals: number; horizon_7d: { win_rate: number | null } | null }>) => {
+      .then((stats: Array<{ signal_type: string; total_signals: number; horizon_7d: { win_rate: number | null } | null }>) => {
         if (cancelled || !Array.isArray(stats)) return;
-        const agg = new Map<string, { totalWR: number; totalN: number }>();
-        for (const s of stats) {
-          if (!s.sufficient_sample || !s.horizon_7d?.win_rate) continue;
-          const cur = agg.get(s.signal_type) ?? { totalWR: 0, totalN: 0 };
-          agg.set(s.signal_type, { totalWR: cur.totalWR + s.horizon_7d.win_rate * s.total_signals, totalN: cur.totalN + s.total_signals });
-        }
         const result = new Map<string, { rate: number; sampleSize: number }>();
-        agg.forEach(({ totalWR, totalN }, type) => { result.set(type, { rate: totalWR / totalN, sampleSize: totalN }); });
+        for (const s of stats) {
+          const rate = s.horizon_7d?.win_rate;
+          if (rate == null || s.total_signals < 30) continue;
+          result.set(s.signal_type, { rate, sampleSize: s.total_signals });
+        }
         setWinRateMap(result);
       })
       .catch(() => {});
@@ -648,7 +646,7 @@ function TaramaPageInner() {
     for (const r of results) {
       for (const s of r.signals) {
         const wr = winRateMap.get(s.type);
-        if (wr && wr.sampleSize >= 20) { totalWR += wr.rate * wr.sampleSize; totalN += wr.sampleSize; }
+        if (wr && wr.sampleSize >= 30) { totalWR += wr.rate * wr.sampleSize; totalN += wr.sampleSize; }
       }
     }
     if (totalN > 0) avgWinRate = totalWR / totalN;

@@ -15,6 +15,7 @@ import { SignalExplanation } from '@/components/SignalExplanation';
 import type { StockSignal, OHLCVCandle, ConfluenceResult } from '@/types';
 import { computeConfluence } from '@/lib/signals';
 import { computeADV } from '@/lib/yahoo';
+import { WinRateBadge, type WinRateStat } from '@/components/WinRateBadge';
 import type { SectorMomentum } from '@/lib/sectors';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SRLevels } from '@/components/SRLevels';
@@ -25,7 +26,7 @@ interface StockCardProps {
   candleData: OHLCVCandle[];
   allSignals?: StockSignal[];
   macroScore?: { score: number; wind: string } | null;
-  winRate?: { rate: number; sampleSize: number } | null;
+  winRate?: WinRateStat | null;
   sectorMomentum?: SectorMomentum | null;
   delay?: number;
   cachedExplanation?: string | null;
@@ -78,23 +79,6 @@ function ConfluenceBadge({ result }: { result: ConfluenceResult }) {
       className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
     >
       <span className="opacity-70">Güven</span> {result.score}
-    </span>
-  );
-}
-
-function WinRateBadge({ rate, sampleSize }: { rate: number; sampleSize: number }) {
-  const pct = Math.round(rate * 100);
-  const cls = pct >= 60
-    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-    : pct >= 45
-    ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30'
-    : 'text-red-400 bg-red-500/10 border-red-500/30';
-  return (
-    <span
-      title={`${sampleSize} geçmiş sinyale göre 7 günlük başarı oranı`}
-      className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
-    >
-      7g %{pct}
     </span>
   );
 }
@@ -188,7 +172,7 @@ function LiquidityBadge({ adv }: { adv: number }) {
 interface ContextBadgesProps {
   signal: StockSignal;
   confluence: ConfluenceResult | null;
-  winRate?: { rate: number; sampleSize: number } | null;
+  winRate?: WinRateStat | null;
   macroScore?: { score: number; wind: string } | null;
   sectorMomentum?: SectorMomentum | null;
   adv?: number | null;
@@ -196,11 +180,12 @@ interface ContextBadgesProps {
 
 function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum, adv }: ContextBadgesProps) {
   const showLiquidity = adv !== null && adv !== undefined && adv < 10_000_000;
+  const showWinRate   = winRate && winRate.sampleSize >= 30;
   const hasBadges =
     macroScore ||
     sectorMomentum ||
     confluence ||
-    winRate ||
+    showWinRate ||
     signal.weeklyAligned !== undefined ||
     (signal.candlesAgo ?? 0) > 0 ||
     showLiquidity;
@@ -212,7 +197,7 @@ function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum
       {sectorMomentum && sectorMomentum.stockCount >= 2 && <SectorBadge momentum={sectorMomentum} />}
       {macroScore && <MacroBadge score={macroScore.score} wind={macroScore.wind} />}
       {confluence && <ConfluenceBadge result={confluence} />}
-      {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
+      <WinRateBadge stat={winRate ?? null} horizon="7g" />
       {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
       {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
       {adv != null && <LiquidityBadge adv={adv} />}

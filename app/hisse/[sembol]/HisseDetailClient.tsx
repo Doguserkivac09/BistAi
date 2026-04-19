@@ -20,6 +20,7 @@ import { AdilDegerMetre } from '@/components/AdilDegerMetre';
 import { HisseSkorKarti } from '@/components/HisseSkorKarti';
 import { SinyalGecmisi } from '@/components/SinyalGecmisi';
 import { TradeTargetsCard } from '@/components/TradeTargetsCard';
+import { WinRateBadge, type WinRateStat } from '@/components/WinRateBadge';
 import { computeTechFairValue } from '@/lib/tech-fair-value';
 import { computeStockScore } from '@/lib/stock-score';
 import { createClient } from '@/lib/supabase';
@@ -92,11 +93,13 @@ function AccordionSignalRow({
   explanation,
   sembol,
   savedSignalTypes,
+  winRate,
 }: {
   sig: StockSignal;
   explanation: string | null;
   sembol: string;
   savedSignalTypes: string[];
+  winRate: WinRateStat | null;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -107,6 +110,7 @@ function AccordionSignalRow({
         className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-surface-alt/50 transition-colors"
       >
         <SignalBadge type={sig.type} direction={sig.direction} severity={sig.severity} />
+        <WinRateBadge stat={winRate} horizon="7g" showInsufficient />
         {!open && explanation && (
           <span className="min-w-0 flex-1 truncate text-xs text-text-muted hidden sm:block">
             {explanation}
@@ -144,6 +148,34 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   // Hisse analizi (AI + fiyat hedefleri + hero meta)
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
   const [analizLoading, setAnalizLoading] = useState(true);
+
+  // Sinyal tipi başına tarihsel başarı oranı
+  const [winRateMap, setWinRateMap]     = useState<Map<string, WinRateStat>>(new Map());
+
+  // ── Sinyal İstatistikleri (win-rate per signal_type) ─────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/signal-stats')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((stats: Array<{ signal_type: string; total_signals: number; horizon_7d: { win_rate: number | null } | null }>) => {
+        if (cancelled || !Array.isArray(stats)) return;
+        const map = new Map<string, WinRateStat>();
+        for (const s of stats) {
+          const rate = s.horizon_7d?.win_rate;
+          if (rate == null) {
+            // Yetersiz örneklem de kaydedilsin (badge 'n=X/30' gösterecek)
+            map.set(s.signal_type, { rate: 0, sampleSize: s.total_signals });
+          } else {
+            map.set(s.signal_type, { rate, sampleSize: s.total_signals });
+          }
+        }
+        setWinRateMap(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ── Hisse Analizi (AI, Fiyat Hedefleri, Hero Meta) ───────────────────────
   useEffect(() => {
@@ -472,6 +504,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                           explanation={explanations[sig.type] ?? null}
                           sembol={sembol}
                           savedSignalTypes={savedSignalTypes}
+                          winRate={winRateMap.get(sig.type) ?? null}
                         />
                       ))}
                     </div>
