@@ -12,6 +12,7 @@ import { WatchlistButton } from '@/components/WatchlistButton';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
 import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
+import { computeADV } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
 import { calculateSRLevels } from '@/lib/support-resistance';
 import { SRLevels } from '@/components/SRLevels';
@@ -85,6 +86,41 @@ function formatVolume(v: number): string {
   if (v >= 1_000_000)     return (v / 1_000_000).toFixed(1) + 'M';
   if (v >= 1_000)         return (v / 1_000).toFixed(0) + 'K';
   return String(v);
+}
+
+// ── ADV (Ortalama Günlük İşlem Hacmi) TL formatı ──────────────────────
+// Borsacı perspektifi: BIST'te 10M TL/gün altı = düşük likit (slipaj riski)
+const ADV_LIQUID_THRESHOLD = 10_000_000; // 10M TL
+function formatADV(tl: number): string {
+  if (tl >= 1_000_000_000) return '₺' + (tl / 1_000_000_000).toFixed(2) + 'B';
+  if (tl >= 1_000_000)     return '₺' + (tl / 1_000_000).toFixed(1) + 'M';
+  if (tl >= 1_000)         return '₺' + (tl / 1_000).toFixed(0) + 'K';
+  return '₺' + Math.round(tl);
+}
+
+// ── Hero meta: ADV hücresi (likidite badge'li) ────────────────────────
+function ADVCell({ adv }: { adv: number }) {
+  const liquid = adv >= ADV_LIQUID_THRESHOLD;
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wide text-text-muted">Günlük İşlem (20g)</p>
+      <p className="truncate text-sm font-medium text-text-primary tabular-nums">
+        {formatADV(adv)}{' '}
+        <span
+          title={liquid
+            ? 'Likit — günlük işlem hacmi 10M ₺ üzerinde, slipaj riski düşük.'
+            : 'Düşük likidite — 10M ₺ altı günlük hacim. Alım/satımda geniş spread ve slipaj riski.'}
+          className={`ml-1 inline-flex items-center rounded px-1 py-[1px] text-[9px] font-semibold ${
+            liquid
+              ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+              : 'border border-amber-500/30 bg-amber-500/10 text-amber-400'
+          }`}
+        >
+          {liquid ? '✓ Likit' : '⚠ Düşük'}
+        </span>
+      </p>
+    </div>
+  );
 }
 
 // ── Accordion sinyal satırı ────────────────────────────────────────────
@@ -274,6 +310,10 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const avgVolume20d  = analiz?.avgVolume20d;
   const high90d       = analiz?.high90d;
   const low90d        = analiz?.low90d;
+  // ADV (Ortalama Günlük İşlem — TL) — son 20 günün close×volume ortalaması.
+  // Sadece günlük timeframe'de anlamlı. Intraday seçilirse candles dakika bazlı olur → gösterme.
+  const isDailyFrame  = timeframe === '1d' || timeframe === '1wk' || timeframe === '1mo';
+  const adv20d        = isDailyFrame && candles.length >= 5 ? computeADV(candles, 20) : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -349,7 +389,10 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </div>
 
               {/* Meta ızgara */}
-              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 border-t border-border/50 pt-4">
+              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-5 border-t border-border/50 pt-4">
+                {adv20d !== null && adv20d > 0 && (
+                  <ADVCell adv={adv20d} />
+                )}
                 {volume !== undefined && (
                   <MetaCell label="Hacim" value={formatVolume(volume)} />
                 )}

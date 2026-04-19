@@ -33,9 +33,13 @@ interface ScanResult {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// Pivot-based RSI Divergence hesaplaması yapılana kadar taramada gizlenen sinyaller.
+// Mevcut detectRsiDivergence basit slope karşılaştırması kullanıyor — false positive oranı yüksek.
+// Backtest ve sinyal geçmişi için üretim devam eder (DB'ye yazılır), sadece tarama UI'ından çıkar.
+const HIDDEN_SCAN_SIGNALS = new Set(['RSI Uyumsuzluğu']);
+
 const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
   { value: 'Tümü',              label: 'Tümü'      },
-  { value: 'RSI Uyumsuzluğu',   label: 'RSI Div'   },
   { value: 'Hacim Anomalisi',   label: 'Hacim'     },
   { value: 'Trend Başlangıcı',  label: 'Trend'     },
   { value: 'Kırılım',           label: 'Kırılım'   },
@@ -46,7 +50,6 @@ const SIGNAL_TYPE_OPTIONS: { value: SignalTypeFilter; label: string }[] = [
 ];
 
 const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeColor: string }[] = [
-  { type: 'RSI Uyumsuzluğu',       label: 'RSI Div',   color: 'text-violet-400 border-violet-500/40 bg-violet-500/10',    activeColor: 'text-violet-300 border-violet-400 bg-violet-500/25 ring-1 ring-violet-500/50'   },
   { type: 'Hacim Anomalisi',        label: 'Hacim',     color: 'text-amber-400 border-amber-500/40 bg-amber-500/10',      activeColor: 'text-amber-300 border-amber-400 bg-amber-500/25 ring-1 ring-amber-500/50'     },
   { type: 'Trend Başlangıcı',       label: 'Trend',     color: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10', activeColor: 'text-emerald-300 border-emerald-400 bg-emerald-500/25 ring-1 ring-emerald-500/50' },
   { type: 'Destek/Direnç Kırılımı', label: 'Kırılım',   color: 'text-sky-400 border-sky-500/40 bg-sky-500/10',            activeColor: 'text-sky-300 border-sky-400 bg-sky-500/25 ring-1 ring-sky-500/50'             },
@@ -82,8 +85,8 @@ const TYPE_LABEL_MAP: Partial<Record<SignalTypeFilter, string>> = {
 const MAX_SIGNALS_PER_STOCK = 3;
 
 const PRESETS: { label: string; types: string[] }[] = [
-  { label: '⚡ Güçlü AL',   types: ['RSI Uyumsuzluğu', 'MACD Kesişimi', 'Trend Başlangıcı', 'Altın Çapraz'] },
-  { label: '📊 RSI + MACD', types: ['RSI Uyumsuzluğu', 'MACD Kesişimi'] },
+  { label: '⚡ Güçlü AL',   types: ['MACD Kesişimi', 'Trend Başlangıcı', 'Altın Çapraz'] },
+  { label: '📊 MACD + Trend', types: ['MACD Kesişimi', 'Trend Başlangıcı'] },
   { label: '🔥 Tümü',       types: ALL_SIGNAL_TYPES },
 ];
 
@@ -133,7 +136,8 @@ function filterAndSortResults(
 ): ScanResult[] {
   let out = results
     .map((r) => {
-      let signals = r.signals;
+      // HIDDEN_SCAN_SIGNALS — tarama UI'ından gizlenen sinyal tipleri (ör. pivot-based olmayan RSI Div).
+      let signals = r.signals.filter(s => !HIDDEN_SCAN_SIGNALS.has(s.type));
       if (signalFilter !== 'Tümü') {
         const typeLabel = TYPE_LABEL_MAP[signalFilter] ?? signalFilter;
         signals = signals.filter(s => s.type === typeLabel);

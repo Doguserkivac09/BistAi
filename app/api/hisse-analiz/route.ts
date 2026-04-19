@@ -113,7 +113,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (!signals.length) {
       // Sinyal yok: minimal yanıt
       const srAnalysis = calculateSRLevels(candles);
-      const priceTargets = computePriceTargets(currentPrice, srAnalysis, 'nötr');
+      const priceTargets = computePriceTargets(currentPrice, srAnalysis, 'nötr', candles);
       const noSignalResponse: HisseAnalizResponse = {
         sembol: symbol,
         decision: 'HOLD',
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // 3. S/R analizi + fiyat hedefleri
     const srAnalysis = calculateSRLevels(candles);
-    const priceTargets = computePriceTargets(currentPrice, srAnalysis, dominantSignal.direction);
+    const priceTargets = computePriceTargets(currentPrice, srAnalysis, dominantSignal.direction, candles);
 
     // 4. Makro + Risk + Sektör (paralel)
     const sectorId = getSectorId(symbol);

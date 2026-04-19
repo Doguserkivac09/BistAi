@@ -1,5 +1,12 @@
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 
+/**
+ * BIST retail komisyon tahmini — alış + satış round-trip ≈ %0.4.
+ * `lib/backtesting.ts`'deki COMMISSION_ROUNDTRIP ile aynı değer tutulmalı.
+ * Win rate burada komisyon-düzeltmeli hesaplanır — kullanıcının gerçekte cebinden çıkan tutar.
+ */
+const COMMISSION_ROUNDTRIP = 0.004;
+
 export interface HorizonEdgeStats {
   win_rate: number | null;
   avg_win: number | null;
@@ -24,10 +31,20 @@ export interface SignalEdgeStats {
 type Direction = 'yukari' | 'asagi';
 
 function isWin(direction: Direction, returnVal: number): boolean {
+  // returnVal burada komisyon-düzeltmeli (net) değer — sign preserving tanh sonrası.
   return (
     (direction === 'yukari' && returnVal > 0) ||
     (direction === 'asagi' && returnVal < 0)
   );
+}
+
+/**
+ * Raw getiriden round-trip komisyonu düşer.
+ * - Long  (yukari): profit = raw; komisyon profiti eritir → raw − 0.004
+ * - Short (asagi):  profit = −raw (raw negatif olması beklenir); komisyon yine profiti eritir → raw + 0.004
+ */
+function netOfCommission(direction: Direction, raw: number): number {
+  return direction === 'yukari' ? raw - COMMISSION_ROUNDTRIP : raw + COMMISSION_ROUNDTRIP;
 }
 
 function round4(value: number): number {
@@ -50,7 +67,9 @@ function computeHorizonStats(
     const raw = getReturn(rec);
     if (raw == null || !Number.isFinite(raw)) continue;
 
-    const value = normalize(raw);
+    // Komisyon-düzeltmeli net getiri → sonra tanh normalize
+    const net = netOfCommission(dir as Direction, raw);
+    const value = normalize(net);
     if (!Number.isFinite(value)) continue;
     returns.push({ direction: dir as Direction, value });
   }
