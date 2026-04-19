@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { BIST_SYMBOLS } from '@/types';
 import type { SignalTypeFilter, DirectionFilter, StockSignal, OHLCVCandle, SignalSeverity } from '@/types';
 import { fetchOHLCVClient } from '@/lib/api-client';
+import { computeADV } from '@/lib/yahoo';
 import { detectAllSignals, computeConfluence } from '@/lib/signals';
 import { computeSectorMomentum, getSector, getSectorId } from '@/lib/sectors';
 import type { SectorMomentum } from '@/lib/sectors';
@@ -120,11 +121,13 @@ function getSortScore(
   }
 }
 
+const ADV_LIQUID_THRESHOLD = 10_000_000; // 10M TL
+
 function filterAndSortResults(
   results: ScanResult[],
   signalFilter: SignalTypeFilter,
   directionFilter: DirectionFilter,
-  smartFilters: { onlyWeeklyAligned: boolean; onlyStrong: boolean; onlyHighConfluence: boolean },
+  smartFilters: { onlyWeeklyAligned: boolean; onlyStrong: boolean; onlyHighConfluence: boolean; onlyLiquid: boolean },
   sortBy: SortBy,
   winRateMap: Map<string, { rate: number; sampleSize: number }>,
 ): ScanResult[] {
@@ -159,6 +162,10 @@ function filterAndSortResults(
 
   if (smartFilters.onlyHighConfluence) {
     out = out.filter(r => r.signals.length >= 2 && computeConfluence(r.signals).score >= 65);
+  }
+
+  if (smartFilters.onlyLiquid) {
+    out = out.filter(r => computeADV(r.candles, 20) >= ADV_LIQUID_THRESHOLD);
   }
 
   if (sortBy === 'alpha') {
@@ -446,6 +453,7 @@ function TaramaPageInner() {
   const [onlyWeeklyAligned,  setOnlyWeeklyAligned]  = useState(false);
   const [onlyStrong,         setOnlyStrong]         = useState(false);
   const [onlyHighConfluence, setOnlyHighConfluence] = useState(false);
+  const [onlyLiquid,         setOnlyLiquid]         = useState(false);
   const [sortBy,             setSortBy]             = useState<SortBy>('confluence');
   const [viewMode,           setViewMode]           = useState<'grid' | 'list'>('grid');
 
@@ -614,7 +622,7 @@ function TaramaPageInner() {
 
   const clearFilters = useCallback(() => {
     setSignalType('Tümü'); setDirection('Tümü');
-    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false);
+    setOnlyWeeklyAligned(false); setOnlyStrong(false); setOnlyHighConfluence(false); setOnlyLiquid(false);
   }, []);
 
   const applyPreset = useCallback((types: string[]) => {
@@ -646,13 +654,13 @@ function TaramaPageInner() {
     if (totalN > 0) avgWinRate = totalWR / totalN;
   }
 
-  const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
+  const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyLiquid };
   const rawDisplayList = loading ? [] : filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
   // Sektör URL param filtresi
   const displayList = sektorParam
     ? rawDisplayList.filter(r => getSectorId(r.sembol) === sektorParam)
     : rawDisplayList;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence].filter(Boolean).length;
+  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyLiquid].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -733,6 +741,7 @@ function TaramaPageInner() {
               <Chip active={onlyWeeklyAligned}  onClick={() => setOnlyWeeklyAligned(v => !v)}>W✓ Haftalık</Chip>
               <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
               <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)}>Yüksek Güven</Chip>
+              <Chip active={onlyLiquid}          onClick={() => setOnlyLiquid(v => !v)}>≥10M Likit</Chip>
             </>
           )}
         </div>

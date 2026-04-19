@@ -14,6 +14,7 @@ const MiniChart = dynamic(
 import { SignalExplanation } from '@/components/SignalExplanation';
 import type { StockSignal, OHLCVCandle, ConfluenceResult } from '@/types';
 import { computeConfluence } from '@/lib/signals';
+import { computeADV } from '@/lib/yahoo';
 import type { SectorMomentum } from '@/lib/sectors';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SRLevels } from '@/components/SRLevels';
@@ -32,6 +33,32 @@ interface StockCardProps {
   viewMode?: 'grid' | 'list';
   /** Yahoo meta.regularMarketChangePercent — gün sonu %0.00 sorununu önler */
   marketChangePercent?: number;
+}
+
+// ─── Yerel hesaplama yardımcıları ────────────────────────────────────────────
+
+/** Son 14 mumdan basit RSI hesapla (signals.ts ile aynı mantık). */
+function calcRSI14(closes: number[]): number | null {
+  if (closes.length < 15) return null;
+  const slice = closes.slice(-15);
+  let gains = 0, losses = 0;
+  for (let i = 1; i < slice.length; i++) {
+    const diff = (slice[i] ?? 0) - (slice[i - 1] ?? 0);
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const avgLoss = losses / 14;
+  if (avgLoss === 0) return 100;
+  return 100 - 100 / (1 + gains / 14 / avgLoss);
+}
+
+/** 5 günlük relative volume: bugün / ort(son 5 gün) */
+function calcRelVol5(candles: OHLCVCandle[]): number | null {
+  if (candles.length < 6) return null;
+  const today = candles[candles.length - 1]!.volume;
+  const prev5 = candles.slice(-6, -1).map(c => c.volume);
+  const avg = prev5.reduce((s, v) => s + v, 0) / prev5.length;
+  if (avg === 0) return null;
+  return today / avg;
 }
 
 // ─── Badge bileşenleri ────────────────────────────────────────────────────────
@@ -143,6 +170,19 @@ function MacroBadge({ score, wind }: { score: number; wind: string }) {
   );
 }
 
+function LiquidityBadge({ adv }: { adv: number }) {
+  const advM = adv / 1_000_000;
+  if (advM >= 10) return null;
+  return (
+    <span
+      title={`Günlük ort. işlem hacmi: ₺${advM.toFixed(1)}M — düşük likidite (< ₺10M). Büyük pozisyonlarda fiyat etkisi riski.`}
+      className="inline-flex items-center gap-0.5 rounded-md border border-orange-500/40 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-400"
+    >
+      ⚠ Düşük Likit
+    </span>
+  );
+}
+
 // ─── Paylaşımlı ContextBadges ─────────────────────────────────────────────────
 
 interface ContextBadgesProps {
@@ -151,16 +191,19 @@ interface ContextBadgesProps {
   winRate?: { rate: number; sampleSize: number } | null;
   macroScore?: { score: number; wind: string } | null;
   sectorMomentum?: SectorMomentum | null;
+  adv?: number | null;
 }
 
-function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum }: ContextBadgesProps) {
+function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum, adv }: ContextBadgesProps) {
+  const showLiquidity = adv !== null && adv !== undefined && adv < 10_000_000;
   const hasBadges =
     macroScore ||
     sectorMomentum ||
     confluence ||
     winRate ||
     signal.weeklyAligned !== undefined ||
-    (signal.candlesAgo ?? 0) > 0;
+    (signal.candlesAgo ?? 0) > 0 ||
+    showLiquidity;
 
   if (!hasBadges) return null;
 
@@ -172,6 +215,7 @@ function ContextBadges({ signal, confluence, winRate, macroScore, sectorMomentum
       {winRate && winRate.sampleSize >= 20 && <WinRateBadge rate={winRate.rate} sampleSize={winRate.sampleSize} />}
       {signal.weeklyAligned !== undefined && <MTFBadge aligned={signal.weeklyAligned} />}
       {(signal.candlesAgo ?? 0) > 0 && <FreshnessBadge candlesAgo={signal.candlesAgo!} />}
+      {adv != null && <LiquidityBadge adv={adv} />}
     </div>
   );
 }
@@ -210,6 +254,11 @@ export function StockCard({
       : lastPrice !== null && prevCandle
       ? ((lastPrice - prevCandle.close) / prevCandle.close) * 100
       : null;
+
+  // Kritik metrikler
+  const rsiCurrent = calcRSI14(candleData.map(c => c.close));
+  const relVol5    = calcRelVol5(candleData);
+  const adv        = computeADV(candleData, 20);
 
   useEffect(() => {
     if (cachedExplanation) {
@@ -281,8 +330,8 @@ export function StockCard({
         ref={cardRef}
         className="flex items-center gap-3 rounded-xl border border-border bg-surface/60 px-4 py-3 transition hover:border-primary/40 hover:bg-surface"
       >
-        {/* Sol: sembol + fiyat */}
-        <div className="w-28 shrink-0">
+        {/* Sol: sembol + fiyat + metrikler */}
+        <div className="w-36 shrink-0">
           <span className="block font-mono text-base font-bold text-text-primary">
             {signal.sembol}
           </span>
@@ -302,6 +351,25 @@ export function StockCard({
               )}
             </div>
           )}
+          {/* Kritik metrikler */}
+          <div className="mt-0.5 flex items-center gap-2">
+            {relVol5 !== null && (
+              <span
+                title="5 günlük ortalama hacme göre bugünkü hacim oranı"
+                className={`text-[10px] ${relVol5 >= 2 ? 'font-semibold text-amber-400' : 'text-text-muted'}`}
+              >
+                rV{relVol5.toFixed(1)}x
+              </span>
+            )}
+            {rsiCurrent !== null && (
+              <span
+                title="RSI (14 periyot)"
+                className={`text-[10px] ${rsiCurrent > 70 ? 'font-semibold text-red-400' : rsiCurrent < 30 ? 'font-semibold text-emerald-400' : 'text-text-muted'}`}
+              >
+                RSI {Math.round(rsiCurrent)}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Orta: sinyal badge */}
@@ -321,6 +389,7 @@ export function StockCard({
             winRate={winRate}
             macroScore={macroScore}
             sectorMomentum={sectorMomentum}
+            adv={adv}
           />
         </div>
 
@@ -343,7 +412,7 @@ export function StockCard({
     <Card ref={cardRef} className="overflow-hidden transition hover:scale-[1.02] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-2 space-y-1.5">
         {/* Satır 1: Sembol + fiyat + sinyal tipi */}
-        <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="flex items-start justify-between gap-2 min-w-0">
           <div className="min-w-0">
             <span className="font-mono text-lg font-bold text-text-primary">
               {signal.sembol}
@@ -364,6 +433,25 @@ export function StockCard({
                 )}
               </div>
             )}
+            {/* Kritik metrikler: relVol + RSI */}
+            <div className="mt-0.5 flex items-center gap-2">
+              {relVol5 !== null && (
+                <span
+                  title="5 günlük ortalama hacme göre bugünkü hacim oranı"
+                  className={`text-[10px] ${relVol5 >= 2 ? 'font-semibold text-amber-400' : 'text-text-muted'}`}
+                >
+                  rVol {relVol5.toFixed(1)}x
+                </span>
+              )}
+              {rsiCurrent !== null && (
+                <span
+                  title="RSI (14 periyot)"
+                  className={`text-[10px] ${rsiCurrent > 70 ? 'font-semibold text-red-400' : rsiCurrent < 30 ? 'font-semibold text-emerald-400' : 'text-text-muted'}`}
+                >
+                  RSI {Math.round(rsiCurrent)}
+                </span>
+              )}
+            </div>
           </div>
           <SignalBadge
             type={signal.type}
@@ -379,6 +467,7 @@ export function StockCard({
           winRate={winRate}
           macroScore={macroScore}
           sectorMomentum={sectorMomentum}
+          adv={adv}
         />
       </CardHeader>
 

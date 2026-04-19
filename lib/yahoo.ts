@@ -62,6 +62,18 @@ export function normalizeSymbol(raw: string): string {
   return trimmed.replace(/\.IS$/i, '');
 }
 
+/**
+ * n günlük Ortalama Günlük İşlem Değeri (Average Daily Value) — TL cinsinden.
+ * ADV = Σ(close × volume) / n
+ * BIST'te likit kabul sınırı: 10M TL/gün
+ */
+export function computeADV(candles: OHLCVCandle[], n = 20): number {
+  const slice = candles.slice(-n);
+  if (slice.length === 0) return 0;
+  const total = slice.reduce((sum, c) => sum + c.close * c.volume, 0);
+  return total / slice.length;
+}
+
 export type YahooTimeframe = '15m' | '30m' | '1h' | '1d' | '1wk' | '1mo';
 
 /** Intraday interval mi (saniye-bazlı timestamp gerektirir)? */
