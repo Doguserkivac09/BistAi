@@ -19,6 +19,7 @@ import { HisseAIYorum } from '@/components/HisseAIYorum';
 import { AdilDegerMetre } from '@/components/AdilDegerMetre';
 import { HisseSkorKarti } from '@/components/HisseSkorKarti';
 import { SinyalGecmisi } from '@/components/SinyalGecmisi';
+import { TradeTargetsCard } from '@/components/TradeTargetsCard';
 import { computeTechFairValue } from '@/lib/tech-fair-value';
 import { computeStockScore } from '@/lib/stock-score';
 import { createClient } from '@/lib/supabase';
@@ -340,6 +341,14 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 )}
               </div>
             </div>
+
+            {/* ── İŞLEM PLANI (Entry/Stop/Target + R/R + Simülasyon) ──────── */}
+            {!analizLoading && analiz?.priceTargets && (
+              <TradeTargetsCard
+                targets={analiz.priceTargets}
+                direction={analiz.signalDirection ?? 'yukari'}
+              />
+            )}
 
             {/* ── Zaman dilimi seçici ──────────────────────────────────────── */}
             <div className="mb-4 flex items-center">
