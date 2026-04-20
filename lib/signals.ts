@@ -64,87 +64,147 @@ function averageVolume(candles: OHLCVCandle[], n: number): number {
   return sum / slice.length;
 }
 
+/**
+ * Pivot Low tespiti: low[i] ±k bar içinde en düşük mü?
+ * ZigZag tarzı swing detection — gürültü filtreler.
+ */
+function findPivotLows(lows: number[], k: number = 3): number[] {
+  const pivots: number[] = [];
+  for (let i = k; i < lows.length - k; i++) {
+    const v = lows[i]!;
+    let isPivot = true;
+    for (let j = i - k; j <= i + k; j++) {
+      if (j === i) continue;
+      if (lows[j]! <= v) { isPivot = false; break; }
+    }
+    if (isPivot) pivots.push(i);
+  }
+  return pivots;
+}
+
+/**
+ * Pivot High tespiti: high[i] ±k bar içinde en yüksek mi?
+ */
+function findPivotHighs(highs: number[], k: number = 3): number[] {
+  const pivots: number[] = [];
+  for (let i = k; i < highs.length - k; i++) {
+    const v = highs[i]!;
+    let isPivot = true;
+    for (let j = i - k; j <= i + k; j++) {
+      if (j === i) continue;
+      if (highs[j]! >= v) { isPivot = false; break; }
+    }
+    if (isPivot) pivots.push(i);
+  }
+  return pivots;
+}
+
+/**
+ * RSI Uyumsuzluğu — Pivot-based swing detection.
+ *
+ * Bullish:  Fiyat LL (lower low), RSI HL (higher low)  → potansiyel dönüş yukarı
+ * Bearish:  Fiyat HH (higher high), RSI LH (lower high) → potansiyel dönüş aşağı
+ *
+ * Eski sürüm rolling-min kullanıyordu — çok gürültülü (her bar "en düşük 2 fiyat" buluyordu).
+ * Yeni sürüm: gerçek swing pivotları (±3 bar) → klasik uyumsuzluk tespiti.
+ *
+ * Filtreler:
+ *  - Pivotlar arası gap ≥ 5 bar (ardışık salınım reddedilir)
+ *  - Pivotlar arası gap ≤ 40 bar (çok eski uyumsuzluk atlanır)
+ *  - Son pivot son 10 bar içinde (taze olsun)
+ *  - Bullish: son pivot RSI < 45 (oversold bölgesinden dönüş)
+ *  - Bearish: son pivot RSI > 55 (overbought bölgesinden dönüş)
+ *  - RSI farkı ≥ 3 puan (marginal ise reddedilir)
+ */
 export function detectRsiDivergence(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
-  if (candles.length < 20) return null;
+  if (candles.length < 40) return null;
+
   const closes = candles.map((c) => c.close);
-  const lows = candles.map((c) => c.low);
-  const highs = candles.map((c) => c.high);
-  const rsi = calculateRSI(closes, 14);
+  const lows   = candles.map((c) => c.low);
+  const highs  = candles.map((c) => c.high);
+  const rsi    = calculateRSI(closes, 14);
 
-  const lookback = 10;
-  const start = 14;
+  const k           = 3;   // pivot confirmation window
+  const minGap      = 5;   // ardışık pivot gürültü filtresi
+  const maxGap      = 40;  // çok eski uyumsuzluk atla
+  const freshMax    = 10;  // son pivot bu kadar bar önce olmalı
+  const minRsiDiff  = 3;   // RSI divergence magnitude
+  const lastIdx     = candles.length - 1;
 
-  for (let i = candles.length - 1; i >= start + lookback; i--) {
-    let priceLow1 = lows[i]!;
-    let priceLow2 = lows[i]!;
-    let priceHigh1 = highs[i]!;
-    let priceHigh2 = highs[i]!;
-    let idxLow1 = i;
-    let idxLow2 = i;
-    let idxHigh1 = i;
-    let idxHigh2 = i;
+  // ── Bullish Divergence ────────────────────────────────────────────────
+  const lowPivots = findPivotLows(lows, k);
+  if (lowPivots.length >= 2) {
+    const p1 = lowPivots[lowPivots.length - 1]!;  // en son pivot
+    const p2 = lowPivots[lowPivots.length - 2]!;  // önceki pivot
+    const gap     = p1 - p2;
+    const freshness = lastIdx - p1;
 
-    for (let j = i - 1; j >= i - lookback && j >= start; j--) {
-      if (lows[j]! < priceLow1) {
-        priceLow2 = priceLow1;
-        idxLow2 = idxLow1;
-        priceLow1 = lows[j]!;
-        idxLow1 = j;
-      } else if (lows[j]! < priceLow2) {
-        priceLow2 = lows[j]!;
-        idxLow2 = j;
+    if (
+      gap >= minGap && gap <= maxGap &&
+      freshness <= freshMax &&
+      lows[p1]! < lows[p2]!                    // Fiyat LL
+    ) {
+      const r1 = rsi[p1] ?? 50;
+      const r2 = rsi[p2] ?? 50;
+      if (r1 > r2 + minRsiDiff && r1 < 45) {   // RSI HL + oversold zone
+        const severity: SignalSeverity =
+          r1 < 30 ? 'güçlü' : r1 < 38 ? 'orta' : 'zayıf';
+        return {
+          type: 'RSI Uyumsuzluğu',
+          sembol,
+          severity,
+          direction: 'yukari',
+          data: {
+            rsiCurrent: parseFloat(r1.toFixed(1)),
+            rsiPrev:    parseFloat(r2.toFixed(1)),
+            priceLow1:  lows[p1]!,
+            priceLow2:  lows[p2]!,
+            divergenceType: 'bullish',
+            pivotGap:   gap,
+            candlesAgo: freshness,
+          },
+        };
       }
-      if (highs[j]! > priceHigh1) {
-        priceHigh2 = priceHigh1;
-        idxHigh2 = idxHigh1;
-        priceHigh1 = highs[j]!;
-        idxHigh1 = j;
-      } else if (highs[j]! > priceHigh2) {
-        priceHigh2 = highs[j]!;
-        idxHigh2 = j;
-      }
-    }
-
-    const rsi1 = rsi[idxLow1] ?? 50;
-    const rsi2 = rsi[idxLow2] ?? 50;
-    const rsiH1 = rsi[idxHigh1] ?? 50;
-    const rsiH2 = rsi[idxHigh2] ?? 50;
-
-    // Bullish: fiyat daha düşük dip, RSI daha yüksek dip
-    if (idxLow1 > idxLow2 && priceLow1 < priceLow2 && rsi1 > rsi2 && rsi1 < 40) {
-      const severity: SignalSeverity = rsi1 < 30 ? 'güçlü' : rsi1 < 35 ? 'orta' : 'zayıf';
-      return {
-        type: 'RSI Uyumsuzluğu',
-        sembol,
-        severity,
-        direction: 'yukari',
-        data: {
-          rsiCurrent: rsi1,
-          rsiPrev: rsi2,
-          priceLow1,
-          priceLow2,
-          divergenceType: 'bullish',
-        },
-      };
-    }
-    // Bearish: fiyat daha yüksek tepe, RSI daha düşük tepe
-    if (idxHigh1 > idxHigh2 && priceHigh1 > priceHigh2 && rsiH1 < rsiH2 && rsiH1 > 60) {
-      const severity: SignalSeverity = rsiH1 > 70 ? 'güçlü' : rsiH1 > 65 ? 'orta' : 'zayıf';
-      return {
-        type: 'RSI Uyumsuzluğu',
-        sembol,
-        severity,
-        direction: 'asagi',
-        data: {
-          rsiCurrent: rsiH1,
-          rsiPrev: rsiH2,
-          priceHigh1,
-          priceHigh2,
-          divergenceType: 'bearish',
-        },
-      };
     }
   }
+
+  // ── Bearish Divergence ────────────────────────────────────────────────
+  const highPivots = findPivotHighs(highs, k);
+  if (highPivots.length >= 2) {
+    const p1 = highPivots[highPivots.length - 1]!;
+    const p2 = highPivots[highPivots.length - 2]!;
+    const gap = p1 - p2;
+    const freshness = lastIdx - p1;
+
+    if (
+      gap >= minGap && gap <= maxGap &&
+      freshness <= freshMax &&
+      highs[p1]! > highs[p2]!                  // Fiyat HH
+    ) {
+      const r1 = rsi[p1] ?? 50;
+      const r2 = rsi[p2] ?? 50;
+      if (r1 < r2 - minRsiDiff && r1 > 55) {   // RSI LH + overbought zone
+        const severity: SignalSeverity =
+          r1 > 70 ? 'güçlü' : r1 > 62 ? 'orta' : 'zayıf';
+        return {
+          type: 'RSI Uyumsuzluğu',
+          sembol,
+          severity,
+          direction: 'asagi',
+          data: {
+            rsiCurrent: parseFloat(r1.toFixed(1)),
+            rsiPrev:    parseFloat(r2.toFixed(1)),
+            priceHigh1: highs[p1]!,
+            priceHigh2: highs[p2]!,
+            divergenceType: 'bearish',
+            pivotGap:   gap,
+            candlesAgo: freshness,
+          },
+        };
+      }
+    }
+  }
+
   return null;
 }
 
@@ -253,8 +313,8 @@ export function detectSupportResistanceBreak(sembol: string, candles: OHLCVCandl
   const lookback = Math.min(50, candles.length - 1);
   const reference = candles.slice(-lookback - 1, -1);
   const last = candles[candles.length - 1]!;
-  const highN = reference.length > 0 ? Math.max(...reference.map((c) => c.high)) : last.high;
-  const lowN  = reference.length > 0 ? Math.min(...reference.map((c) => c.low))  : last.low;
+  const highN = Math.max(...reference.map((c) => c.high));
+  const lowN  = Math.min(...reference.map((c) => c.low));
   const avgVol = averageVolume(candles, 20);
   const volRatio = avgVol > 0 ? last.volume / avgVol : 0;
 
@@ -482,7 +542,7 @@ export function detectBollingerSqueeze(sembol: string, candles: OHLCVCandle[]): 
 
   const currentWidth = bandWidths[bandWidths.length - 1]!;
   const recentWidths = bandWidths.slice(-LOOKBACK);
-  const minWidth = recentWidths.length > 0 ? Math.min(...recentWidths) : Infinity;
+  const minWidth = Math.min(...recentWidths);
 
   // Sıkışma: mevcut genişlik, son LOOKBACK mumun minimumuyla neredeyse aynı (en dar %10 dilimde)
   const isSqueezing = currentWidth <= minWidth * 1.1 && currentWidth < 15;
@@ -606,12 +666,11 @@ export function aggregateToWeekly(candles: OHLCVCandle[]): OHLCVCandle[] {
   Array.from(weeks.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
     .forEach(([weekKey, cs]) => {
-      if (!cs || cs.length === 0) return;
       const open   = cs[0]!.open;
       const high   = Math.max(...cs.map((c) => c.high));
       const low    = Math.min(...cs.map((c) => c.low));
       const close  = cs[cs.length - 1]!.close;
-      const volume = cs.reduce((s, c) => s + (c.volume ?? 0), 0);
+      const volume = cs.reduce((s, c) => s + c.volume, 0);
       result.push({ date: weekKey, open, high, low, close, volume });
     });
   return result;

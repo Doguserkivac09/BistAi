@@ -53,6 +53,19 @@ function fmt(n: number, decimals = 2) {
 function fmtTL(n: number) { return '₺' + fmt(n); }
 function fmtPct(n: number) { return (n >= 0 ? '+' : '') + fmt(n) + '%'; }
 
+/**
+ * BIST'te 2 yıldan uzun süre elde tutulan hisse senetleri
+ * stopaj vergisinden muaftır (GVK Geç. Md. 67/4).
+ */
+function vergiMuafMi(alisTarihi: string): boolean {
+  const gun = (Date.now() - new Date(alisTarihi).getTime()) / (1000 * 60 * 60 * 24);
+  return gun >= 730;
+}
+function kalanVergiGun(alisTarihi: string): number {
+  const gun = (Date.now() - new Date(alisTarihi).getTime()) / (1000 * 60 * 60 * 24);
+  return Math.max(0, Math.ceil(730 - gun));
+}
+
 // ─── Sparkline (inline SVG) ───────────────────────────────────────────────────
 
 function Sparkline({ closes }: { closes: number[] }) {
@@ -239,7 +252,21 @@ function PozisyonRow({
             {poz.sembol.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-text-primary text-sm group-hover:text-primary transition-colors">{poz.sembol}</div>
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="font-semibold text-text-primary text-sm group-hover:text-primary transition-colors">{poz.sembol}</span>
+              {vergiMuafMi(poz.alis_tarihi) && (
+                <span
+                  title={`${new Date(poz.alis_tarihi).toLocaleDateString('tr-TR')} alış — 2 yılı geçti, vergi muaf (GVK Geç. Md. 67/4).`}
+                  className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-[1px] text-[9px] font-semibold text-emerald-400"
+                >✓ Vergi Muaf</span>
+              )}
+              {!vergiMuafMi(poz.alis_tarihi) && kalanVergiGun(poz.alis_tarihi) <= 60 && (
+                <span
+                  title={`Vergi muafiyetine ${kalanVergiGun(poz.alis_tarihi)} gün kaldı.`}
+                  className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1 py-[1px] text-[9px] font-semibold text-amber-400"
+                >⏳ {kalanVergiGun(poz.alis_tarihi)}g</span>
+              )}
+            </div>
             <SinyalBadge sinyaller={sinyaller} />
             {/* Mobil: lot + alış fiyatı (sm+ kolonlarda gösteriliyor) */}
             <div className="mt-0.5 text-[10px] text-text-muted sm:hidden">
