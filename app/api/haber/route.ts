@@ -3,10 +3,10 @@
  * GET /api/haber?sembol=THYAO
  *
  * Kaynaklar (öncelik sırasına göre):
- * 1. Yahoo Finance (yahoo-finance2 search) — hisse bazlı, doğru eşleşme
- * 2. Türkçe RSS akışları — genel ekonomi + keyword filtreleme
+ * 1. Türkçe RSS akışları — sembol/şirket adı ile filtreleme
+ * 2. Genel Türk ekonomi haberleri — sembol için haber bulunamazsa
  *
- * Resmi devlet platformu, Vercel'den engellenmez, Türkçe, güvenilir.
+ * Neden Yahoo Finance yok: BIST hisseleri için alakasız İngilizce haberler döndürüyor.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,55 +17,8 @@ export interface HaberItem {
   link: string;
   tarih: string;      // ISO string
   kaynak: string;
-  ozet?: string;      // haber özeti (Yahoo'dan gelirse)
-  thumbnail?: string; // haber görseli URL
-}
-
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
-const FETCH_TIMEOUT_MS = 5_000;
-
-// ── Yahoo Finance news ──────────────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const YahooFinanceClass = require('yahoo-finance2').default;
-
-interface YahooNewsItem {
-  title?: string;
-  link?: string;
-  providerPublishTime?: number;
-  publisher?: string;
-  summary?: string;
-  thumbnail?: { resolutions?: Array<{ url?: string }> };
-}
-interface YahooFinanceInstance {
-  search(ticker: string, options: { newsCount: number; quotesCount: number }): Promise<{ news?: YahooNewsItem[] }>;
-}
-const yahooFinance = new YahooFinanceClass({ suppressNotices: ['yahooSurvey'] }) as YahooFinanceInstance;
-
-async function fetchYahooNews(sembol: string): Promise<HaberItem[]> {
-  try {
-    const ticker = `${sembol.replace(/\.IS$/i, '').toUpperCase()}.IS`;
-    const result = await yahooFinance.search(ticker, {
-      newsCount: 8,
-      quotesCount: 0,
-    });
-
-    const news: YahooNewsItem[] = result?.news ?? [];
-
-    return news
-      .filter((n) => n?.title && n?.link)
-      .map((n) => ({
-        baslik:    String(n.title ?? '').trim(),
-        link:      String(n.link ?? '').trim(),
-        tarih:     n.providerPublishTime
-          ? new Date(n.providerPublishTime * 1000).toISOString()
-          : '',
-        kaynak:    String(n.publisher ?? 'Yahoo Finance').trim(),
-        ozet:      n.summary ? String(n.summary).trim() : undefined,
-        thumbnail: n.thumbnail?.resolutions?.[0]?.url ?? undefined,
-      }));
-  } catch {
-    return [];
-  }
+  ozet?: string;
+  thumbnail?: string;
 }
 
 // ── XML entity decode + HTML tag temizleme ──────────────────────────────────────
@@ -140,6 +93,9 @@ function ilgiliMi(baslik: string, anahtarlar: string[]): boolean {
   const lower = baslik.toLowerCase();
   return anahtarlar.some((k) => lower.includes(k.toLowerCase()));
 }
+
+const UA = 'Mozilla/5.0 (compatible; BistAI/1.0; +https://bistai.com)';
+const FETCH_TIMEOUT_MS = 8000;
 
 const RSS_SOURCES = [
   { url: 'https://www.ntv.com.tr/ekonomi.rss',                kaynak: 'NTV Ekonomi' },
@@ -230,16 +186,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ haberler });
   }
 
-  // Yahoo Finance + RSS paralel çek
-  const [yahooNews, rssNews] = await Promise.all([
-    fetchYahooNews(sembol),
-    fetchRSSNews(sembol),
-  ]);
+  // Türkçe RSS'ten sembol haberleri çek
+  const rssNews = await fetchRSSNews(sembol);
 
-  // Yahoo önce, RSS desteği
-  const combined = dedupe([...yahooNews, ...rssNews])
+  // Sembol için haber yoksa genel ekonomi haberlerini göster
+  const haberler = rssNews.length > 0 ? rssNews : await fetchGenelHaberler();
+  const combined = dedupe(haberler)
     .sort((a, b) => (new Date(b.tarih).getTime() || 0) - (new Date(a.tarih).getTime() || 0))
-    .slice(0, 8);
+    .slice(0, 12);
 
   // "Bugün" haber sayısı (son 24 saat)
   const bugun = combined.filter((h) => {

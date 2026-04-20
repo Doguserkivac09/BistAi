@@ -3,16 +3,16 @@
 /**
  * Broker/Platform Linkleri Dropdown
  *
- * Analiz → Emir köprüsü. Kullanıcı sinyal gördükten sonra:
- *  - Sembolü tek tıkla panoya kopyalar (terminalde yapıştırmak için)
- *  - İş Yatırım / TradingView / Foreks / Mynet gibi referans kaynaklarda açar
+ * Analiz → Emir köprüsü. İki bölüm:
+ *  1. Emir Ver — Türkiye'nin en popüler yatırım platformlarına doğrudan link
+ *  2. Analiz — Grafik, şirket kartı, derinlik platformları
  *
- * BIST hisseleri için evrensel "emir aç" deep-link yok (aracı kurumlar kapalı ekosistem).
- * Bu yüzden piyasada en çok başvurulan 4 kaynağa yönlendiriyoruz + clipboard copy.
+ * BIST hisseleri için evrensel deep-link yok (aracı kurumlar kapalı ekosistem).
+ * Kullanıcıyı doğrudan ilgili broker sayfasına yönlendiriyoruz.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { ExternalLink, ChevronDown, Copy, Check } from 'lucide-react';
+import { ExternalLink, ChevronDown, Copy, Check, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -27,39 +27,89 @@ interface LinkTarget {
   emoji: string;
 }
 
-const LINK_TARGETS: LinkTarget[] = [
+// Emir verebileceğiniz aracı kurum platformları
+const BROKER_TARGETS: LinkTarget[] = [
   {
-    label: 'İş Yatırım',
-    description: 'Şirket kartı, bilanço, çarpanlar',
+    label: 'Midas',
+    description: 'Kolay alım/satım · Türkiye\'nin yeni nesil uygulaması',
+    url: () => 'https://getmidas.app',
+    emoji: '🟣',
+  },
+  {
+    label: 'İş Yatırım Trader',
+    description: 'Web tabanlı online işlem platformu',
+    url: () => 'https://www.isyatirim.com.tr/tr-tr/islem',
+    emoji: '🏦',
+  },
+  {
+    label: 'Garanti BBVA Yatırım',
+    description: 'Hisse alım/satım · online işlem',
+    url: () => 'https://yatirim.garantibbva.com.tr',
+    emoji: '🏧',
+  },
+  {
+    label: 'Yapı Kredi Yatırım',
+    description: 'Online işlem platformu',
+    url: () => 'https://www.yapikredi.com.tr/yatirim/bireysel-yatirim/hisse-senedi',
+    emoji: '🏛️',
+  },
+];
+
+// Analiz & veri platformları
+const ANALYSIS_TARGETS: LinkTarget[] = [
+  {
+    label: 'İş Yatırım — Şirket Kartı',
+    description: 'Bilanço, çarpanlar, analist görüşleri',
     url: (s) => `https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/sirket-karti.aspx?hisse=${s}`,
     emoji: '📊',
   },
   {
     label: 'TradingView',
-    description: 'Profesyonel grafik + çizim',
+    description: 'Profesyonel grafik + çizim araçları',
     url: (s) => `https://www.tradingview.com/symbols/BIST-${s}/`,
     emoji: '📈',
   },
   {
     label: 'Foreks',
-    description: 'Derinlik + seans içi veri',
+    description: 'Emir defteri + seans içi veri',
     url: (s) => `https://www.foreks.com/sembol/hisse/bist/${s}`,
     emoji: '🔍',
   },
-  {
-    label: 'Mynet Finans',
-    description: 'Haber + yatırımcı yorumları',
-    url: (s) => `https://finans.mynet.com/borsa/hisseler/${s.toLowerCase()}/`,
-    emoji: '📰',
-  },
 ];
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="px-3 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+      {children}
+    </p>
+  );
+}
+
+function LinkRow({ t, sembol, onClose }: { t: LinkTarget; sembol: string; onClose: () => void }) {
+  return (
+    <a
+      href={t.url(sembol)}
+      target="_blank"
+      rel="noopener noreferrer"
+      role="menuitem"
+      onClick={onClose}
+      className="flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-surface-alt/50"
+    >
+      <span className="text-base leading-none">{t.emoji}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-text-primary">{t.label}</p>
+        <p className="truncate text-[11px] text-text-muted">{t.description}</p>
+      </div>
+      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+    </a>
+  );
+}
 
 export function BrokerLinkButton({ sembol }: BrokerLinkButtonProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Dış tıklama ile kapat
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
@@ -88,20 +138,20 @@ export function BrokerLinkButton({ sembol }: BrokerLinkButtonProps) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        title="Aracı kurum ve analiz platformlarında bu hisseyi aç"
+        title="Aracı kurumda işlem aç veya analiz platformlarında görüntüle"
         className="gap-1"
       >
-        <ExternalLink className="h-4 w-4" />
-        <span className="hidden sm:inline">Aç</span>
+        <ShoppingCart className="h-4 w-4" />
+        <span className="hidden sm:inline">Al / Sat</span>
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </Button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
+          className="absolute right-0 top-full z-40 mt-1 w-72 overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
         >
-          {/* Kopyala satırı */}
+          {/* Sembolü kopyala */}
           <button
             type="button"
             role="menuitem"
@@ -109,11 +159,9 @@ export function BrokerLinkButton({ sembol }: BrokerLinkButtonProps) {
             className="flex w-full items-center justify-between gap-3 border-b border-border/60 px-3 py-2.5 text-left transition-colors hover:bg-surface-alt/50"
           >
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-text-primary">
-                Sembolü Kopyala
-              </p>
+              <p className="text-sm font-semibold text-text-primary">Sembolü Kopyala</p>
               <p className="text-[11px] text-text-muted">
-                <span className="font-mono">{sembol}</span> → Terminalinize yapıştırın
+                <span className="font-mono text-primary">{sembol}</span> → broker terminalinize yapıştırın
               </p>
             </div>
             {copied ? (
@@ -123,34 +171,26 @@ export function BrokerLinkButton({ sembol }: BrokerLinkButtonProps) {
             )}
           </button>
 
-          {/* Harici linkler */}
-          <div className="py-1">
-            {LINK_TARGETS.map((t) => (
-              <a
-                key={t.label}
-                href={t.url(sembol)}
-                target="_blank"
-                rel="noopener noreferrer"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-surface-alt/50"
-              >
-                <span className="text-base leading-none">{t.emoji}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text-primary">
-                    {t.label}
-                  </p>
-                  <p className="truncate text-[11px] text-text-muted">
-                    {t.description}
-                  </p>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-              </a>
+          {/* Emir Ver bölümü */}
+          <SectionLabel>📲 Emir Ver</SectionLabel>
+          <div className="pb-1">
+            {BROKER_TARGETS.map((t) => (
+              <LinkRow key={t.label} t={t} sembol={sembol} onClose={() => setOpen(false)} />
             ))}
           </div>
 
+          {/* Analiz bölümü */}
+          <div className="border-t border-border/40">
+            <SectionLabel>🔬 Analiz & Veri</SectionLabel>
+            <div className="pb-1">
+              {ANALYSIS_TARGETS.map((t) => (
+                <LinkRow key={t.label} t={t} sembol={sembol} onClose={() => setOpen(false)} />
+              ))}
+            </div>
+          </div>
+
           <p className="border-t border-border/60 bg-surface-alt/30 px-3 py-1.5 text-[10px] text-text-muted">
-            BIST hisse emri için aracı kurumunuzun kendi platformunu kullanın.
+            BistAI sinyal üretir, emir vermez. Tercih ettiğiniz aracı kurumu kullanın.
           </p>
         </div>
       )}
