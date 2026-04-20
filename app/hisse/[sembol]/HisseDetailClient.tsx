@@ -13,6 +13,9 @@ import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
 import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
 import { detectAllSignals } from '@/lib/signals';
+import { WinRateBadge, type WinRateStat } from '@/components/WinRateBadge';
+import { BrokerLinkButton } from '@/components/BrokerLinkButton';
+import { TradeTargetsCard } from '@/components/TradeTargetsCard';
 import { calculateSRLevels } from '@/lib/support-resistance';
 import { SRLevels } from '@/components/SRLevels';
 import { HisseAIYorum } from '@/components/HisseAIYorum';
@@ -119,13 +122,6 @@ function formatVolume(v: number): string {
   return String(v);
 }
 
-// ── Backtest win rate tipi ────────────────────────────────────────────
-interface SignalWinRate {
-  rate: number;      // 0-1
-  n: number;
-  horizon: string;   // '3g' | '7g' | '14g' | '30g'
-}
-
 // ── Sinyal doğal vadesi ───────────────────────────────────────────────
 const SIGNAL_VADE: Record<string, { label: string; color: string }> = {
   'Altın Çapraz':            { label: '30g vade', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
@@ -139,6 +135,65 @@ const SIGNAL_VADE: Record<string, { label: string; color: string }> = {
   'Hacim Anomalisi':           { label: '3g vade',  color: 'text-amber-400  border-amber-500/30  bg-amber-500/10'  },
 };
 
+// ── Haftalık uyum rozeti (multi-timeframe) ─────────────────────────────
+function MTFBadge({ aligned }: { aligned: boolean }) {
+  return aligned ? (
+    <span
+      title="Haftalık trend ile uyumlu — güçlü sinyal"
+      className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400"
+    >W✓</span>
+  ) : (
+    <span
+      title="Haftalık trend ile uyumsuz — zayıf sinyal"
+      className="inline-flex items-center rounded-md border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-400"
+    >W✗</span>
+  );
+}
+
+// ── RSI14 Wilder ─────────────────────────────────────────────────────
+function calcRSI14(closes: number[]): number | null {
+  if (closes.length < 15) return null;
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 1; i <= 14; i++) {
+    const d = closes[i]! - closes[i - 1]!;
+    if (d > 0) avgGain += d; else avgLoss -= d;
+  }
+  avgGain /= 14; avgLoss /= 14;
+  for (let i = 15; i < closes.length; i++) {
+    const d = closes[i]! - closes[i - 1]!;
+    avgGain = (avgGain * 13 + (d > 0 ? d : 0)) / 14;
+    avgLoss = (avgLoss * 13 + (d < 0 ? -d : 0)) / 14;
+  }
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return parseFloat((100 - 100 / (1 + rs)).toFixed(1));
+}
+
+// ── Göreceli hacim (5g ort) ───────────────────────────────────────────
+function calcRelVol5(candles: { volume: number }[]): number | null {
+  if (candles.length < 21) return null;
+  const slice20 = candles.slice(-21, -1);
+  const avg20 = slice20.reduce((s, c) => s + c.volume, 0) / 20;
+  if (avg20 === 0) return null;
+  const slice5 = candles.slice(-5);
+  const avg5 = slice5.reduce((s, c) => s + c.volume, 0) / 5;
+  return parseFloat((avg5 / avg20).toFixed(2));
+}
+
+// ── ADV hesaplama (Average Daily Value = Σ(close × volume) / n) ──────
+function computeADV(candles: { close: number; volume: number }[], n: number = 10): number {
+  const slice = candles.slice(-n);
+  if (slice.length === 0) return 0;
+  return slice.reduce((s, c) => s + c.close * c.volume, 0) / slice.length;
+}
+
+// ── ADV formatter ─────────────────────────────────────────────────────
+function formatADV(v: number): string {
+  if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1) + 'B₺';
+  if (v >= 1_000_000)     return (v / 1_000_000).toFixed(1) + 'M₺';
+  return (v / 1_000).toFixed(0) + 'K₺';
+}
+
 // ── Accordion sinyal satırı ────────────────────────────────────────────
 function AccordionSignalRow({
   sig,
@@ -151,7 +206,7 @@ function AccordionSignalRow({
   explanation: string | null;
   sembol: string;
   savedSignalTypes: string[];
-  winRate?: SignalWinRate | null;
+  winRate: WinRateStat | null;
 }) {
   const [open, setOpen] = useState(false);
   const isUp = sig.direction === 'yukari';
@@ -165,9 +220,11 @@ function AccordionSignalRow({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center gap-3 border-l-2 ${borderColor} px-3 py-3 text-left transition-colors ${open ? bgOpen : 'hover:bg-surface-alt/30'}`}
+        className={`flex w-full items-center gap-2 border-l-2 ${borderColor} px-3 py-3 text-left transition-colors ${open ? bgOpen : 'hover:bg-surface-alt/30'}`}
       >
         <SignalBadge type={sig.type} direction={sig.direction} severity={sig.severity} />
+        <WinRateBadge stat={winRate} horizon="7g" showInsufficient />
+        {sig.weeklyAligned !== undefined && <MTFBadge aligned={sig.weeklyAligned} />}
         <div className="min-w-0 flex-1">
           {!open && explanation && (
             <p className="truncate text-xs text-text-muted leading-snug hidden sm:block">
@@ -180,39 +237,6 @@ function AccordionSignalRow({
           <span className={`shrink-0 hidden sm:inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${SIGNAL_VADE[sig.type]!.color}`}>
             {SIGNAL_VADE[sig.type]!.label}
           </span>
-        )}
-        {/* Backtest win rate badge */}
-        {winRate && winRate.n >= 5 && (() => {
-          const pct = Math.round(winRate.rate * 100);
-          const cls = pct >= 60 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                    : pct >= 45 ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10'
-                    :             'text-red-400 border-red-500/30 bg-red-500/10';
-          return (
-            <span
-              title={`Backtest (${winRate.horizon}): %${pct} başarı oranı · ${winRate.n} geçmiş sinyal`}
-              className={`shrink-0 hidden sm:inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
-            >
-              %{pct} başarılı
-            </span>
-          );
-        })()}
-        {/* MTF badge */}
-        {sig.weeklyAligned !== undefined && (
-          sig.weeklyAligned ? (
-            <span
-              title="Günlük + Haftalık trend aynı yönde — güçlü çok zaman dilimli sinyal"
-              className="shrink-0 hidden sm:inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400"
-            >
-              D1·W✓
-            </span>
-          ) : (
-            <span
-              title="Günlük sinyal haftalık trend ile çelişiyor — dikkatli ol"
-              className="shrink-0 hidden sm:inline-flex items-center rounded-full border border-zinc-600/40 bg-zinc-700/20 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500"
-            >
-              D1·W✗
-            </span>
-          )
         )}
         {sigData?.candlesAgo !== undefined && (
           <span className="shrink-0 text-[10px] text-text-muted hidden sm:block">
@@ -286,6 +310,22 @@ function AccordionSignalRow({
             </div>
           )}
           <SignalExplanation text={explanation} isLoading={!explanation} />
+          {sig.weeklyAligned !== undefined && (
+            <div className={`rounded-md border px-2.5 py-2 text-[11px] ${
+              sig.weeklyAligned
+                ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-200'
+                : 'border-red-500/30 bg-red-500/5 text-red-200'
+            }`}>
+              <p className="font-semibold">
+                {sig.weeklyAligned ? '✦ Haftalık trend uyumlu' : '⚠ Haftalık trend uyumsuz'}
+              </p>
+              <p className="mt-0.5 text-[10px] opacity-80">
+                {sig.weeklyAligned
+                  ? 'Günlük sinyal yönü haftalık EMA8 trendiyle hizalı — güç çarpanı +'
+                  : 'Günlük sinyal haftalık trende ters yönde — counter-trend riski, stop sıkı tutulmalı'}
+              </p>
+            </div>
+          )}
           <div className="flex justify-end">
             <SaveSignalButton
               sembol={sembol}
@@ -581,25 +621,30 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [kapSumLoading, setKapSumLoading] = useState(false);
   const [kapUyariMesaj, setKapUyariMesaj] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
-  const [signalStatsMap, setSignalStatsMap] = useState<Map<string, SignalWinRate>>(new Map());
-
-  // Backtest win rate — sinyal tipleri için canonical horizon başarı oranı
-  useEffect(() => {
-    fetch('/api/signal-stats-summary')
-      .then(r => r.ok ? r.json() : { stats: [] })
-      .then((res: { stats: Array<{ signal_type: string; win_rate: number; n: number; horizon: string }> }) => {
-        const map = new Map<string, SignalWinRate>();
-        for (const s of (res.stats ?? [])) {
-          map.set(s.signal_type, { rate: s.win_rate, n: s.n, horizon: s.horizon });
-        }
-        setSignalStatsMap(map);
-      })
-      .catch(() => {});
-  }, []);
 
   // Hisse analizi (AI + fiyat hedefleri + hero meta)
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
   const [analizLoading, setAnalizLoading] = useState(true);
+
+  // Sinyal tipi başına tarihsel başarı oranı
+  const [winRateMap, setWinRateMap] = useState<Map<string, WinRateStat>>(new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/signal-stats')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((stats: Array<{ signal_type: string; total_signals: number; horizon_7d: { win_rate: number | null } | null }>) => {
+        if (cancelled || !Array.isArray(stats)) return;
+        const map = new Map<string, WinRateStat>();
+        for (const s of stats) {
+          const rate = s.horizon_7d?.win_rate;
+          map.set(s.signal_type, { rate: rate ?? 0, sampleSize: s.total_signals });
+        }
+        setWinRateMap(map);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Hisse Analizi (AI, Fiyat Hedefleri, Hero Meta) — timeframe bağımlı ──
   useEffect(() => {
@@ -799,6 +844,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     <PortfolyoEkleButton sembol={sembol} defaultFiyat={lastCandle?.close} />
                     <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
                     <PriceAlertButton sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
+                    <BrokerLinkButton sembol={sembol} />
                     {currentPrice && (
                       <Link
                         href={`/araclar?tab=karZarar&fiyat=${currentPrice.toFixed(2)}`}
@@ -812,12 +858,48 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 </div>
 
                 {/* Meta ızgara */}
-                <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 border-t border-border/40 pt-4">
-                  {volume !== undefined && <MetaCell label="Hacim" value={formatVolume(volume)} />}
-                  {avgVolume20d !== undefined && <MetaCell label="Ort. Hacim (20g)" value={formatVolume(avgVolume20d)} />}
-                  {high90d !== undefined && <MetaCell label="90G Yüksek" value={high90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
-                  {low90d !== undefined && <MetaCell label="90G Düşük" value={low90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
-                </div>
+                {(() => {
+                  const isDailyFrame = timeframe === '1d' || timeframe === '1wk' || timeframe === '1mo';
+                  const rsi14 = isDailyFrame ? calcRSI14(candles.map(c => c.close)) : null;
+                  const rVol5 = isDailyFrame ? calcRelVol5(candles) : null;
+                  const adv   = isDailyFrame && candles.length >= 10 ? computeADV(candles, 10) : null;
+                  return (
+                    <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 border-t border-border/40 pt-4">
+                      {volume !== undefined && <MetaCell label="Hacim" value={formatVolume(volume)} />}
+                      {avgVolume20d !== undefined && <MetaCell label="Ort. Hacim (20g)" value={formatVolume(avgVolume20d)} />}
+                      {high90d !== undefined && <MetaCell label="90G Yüksek" value={high90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
+                      {low90d !== undefined && <MetaCell label="90G Düşük" value={low90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
+                      {rsi14 !== null && (
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wide text-text-muted">RSI 14</p>
+                          <p className={`text-sm font-semibold ${rsi14 >= 70 ? 'text-red-400' : rsi14 <= 30 ? 'text-emerald-400' : 'text-text-primary'}`}>
+                            {rsi14}
+                            {rsi14 >= 70 && <span className="ml-1 text-[10px] text-red-400">OB</span>}
+                            {rsi14 <= 30 && <span className="ml-1 text-[10px] text-emerald-400">OS</span>}
+                          </p>
+                        </div>
+                      )}
+                      {rVol5 !== null && (
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wide text-text-muted">rVol 5g</p>
+                          <p className={`text-sm font-semibold ${rVol5 >= 2 ? 'text-amber-400' : rVol5 >= 1.5 ? 'text-emerald-400' : rVol5 < 0.7 ? 'text-text-muted' : 'text-text-primary'}`}>
+                            {rVol5.toFixed(2)}x
+                          </p>
+                        </div>
+                      )}
+                      {adv !== null && (
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wide text-text-muted">ADV 10g</p>
+                          <p className={`text-sm font-semibold ${adv < 10_000_000 ? 'text-orange-400' : 'text-text-primary'}`}
+                             title={adv < 10_000_000 ? 'Düşük likidite: günlük işlem hacmi < 10M₺' : 'Likit hisse'}>
+                            {formatADV(adv)}
+                            {adv < 10_000_000 && <span className="ml-1 text-[10px]">⚠</span>}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -980,13 +1062,38 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                           explanation={explanations[sig.type] ?? null}
                           sembol={sembol}
                           savedSignalTypes={savedSignalTypes}
-                          winRate={signalStatsMap.get(sig.type) ?? null}
+                          winRate={winRateMap.get(sig.type) ?? null}
                         />
                       ))}
                     </div>
                   )}
                 </Card>
 
+                {/* İşlem Planı — Entry / Stop / Hedef */}
+                {analiz?.priceTargets && signals.length > 0 && (
+                  <TradeTargetsCard
+                    targets={analiz.priceTargets}
+                    direction={signals[0]?.direction === 'yukari' ? 'yukari' : signals[0]?.direction === 'asagi' ? 'asagi' : 'nötr'}
+                  />
+                )}
+
+                {/* AI Genel Yorumu — sol kolonda, grafikle birlikte okunur */}
+                <Card>
+                  <CardHeader className="py-2 px-3 pb-0">
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                      AI Yorumu
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    <HisseAIYorum analiz={analiz} loading={analizLoading} />
+                  </CardContent>
+                </Card>
+
+                {/* Teknik Göstergeler Özeti */}
+                <TeknikGostergelerOzeti candles={candles} timeframe={timeframe} />
+
+                {/* Trend Özeti */}
+                <TrendOzeti candles={candles} timeframe={timeframe} />
               </div>
 
               {/* ── SAĞ KOLON: Destek/Direnç + Skor + Göstergeler + Trend ──── */}
@@ -1204,7 +1311,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                           explanation={explanations[sig.type] ?? null}
                           sembol={sembol}
                           savedSignalTypes={savedSignalTypes}
-                          winRate={signalStatsMap.get(sig.type) ?? null}
+                          winRate={winRateMap.get(sig.type) ?? null}
                         />
                       ))}
                     </div>

@@ -53,6 +53,19 @@ function fmt(n: number, decimals = 2) {
 function fmtTL(n: number) { return '₺' + fmt(n); }
 function fmtPct(n: number) { return (n >= 0 ? '+' : '') + fmt(n) + '%'; }
 
+/**
+ * BIST'te 2 yıldan uzun süre elde tutulan hisse senetleri
+ * stopaj vergisinden muaftır (GVK Geç. Md. 67/4).
+ */
+function vergiMuafMi(alisTarihi: string): boolean {
+  const gun = (Date.now() - new Date(alisTarihi).getTime()) / (1000 * 60 * 60 * 24);
+  return gun >= 730;
+}
+function kalanVergiGun(alisTarihi: string): number {
+  const gun = (Date.now() - new Date(alisTarihi).getTime()) / (1000 * 60 * 60 * 24);
+  return Math.max(0, Math.ceil(730 - gun));
+}
+
 // ─── Sparkline (inline SVG) ───────────────────────────────────────────────────
 
 function Sparkline({ closes }: { closes: number[] }) {
@@ -206,6 +219,131 @@ function SinyalBadge({ sinyaller }: { sinyaller: SinvalInfo[] }) {
   );
 }
 
+// ─── Gruplu pozisyon (DCA: aynı sembolden çoklu alış) ────────────────────────
+
+interface GroupedPosition {
+  sembol: string;
+  totalLot: number;
+  weightedAvgPrice: number;    // Σ(miktar × alis_fiyati) / Σ(miktar)
+  earliestAlisTarihi: string;  // en eski → vergi muafiyeti konservatif hesap
+  guncel_fiyat: number | null;
+  totalMaliyet: number;
+  guncel_deger: number | null;
+  kar_zarar: number | null;
+  kar_zarar_yuzde: number | null;
+  positions: PortfolyoPozisyonWithStats[];
+}
+
+function groupPositionsBySymbol(rows: PortfolyoPozisyonWithStats[]): GroupedPosition[] {
+  const bySymbol = new Map<string, PortfolyoPozisyonWithStats[]>();
+  for (const p of rows) {
+    if (!bySymbol.has(p.sembol)) bySymbol.set(p.sembol, []);
+    bySymbol.get(p.sembol)!.push(p);
+  }
+  return Array.from(bySymbol.entries()).map(([sembol, positions]) => {
+    const totalLot      = positions.reduce((s, p) => s + p.miktar, 0);
+    const totalMaliyet  = positions.reduce((s, p) => s + p.maliyet, 0);
+    const weightedAvgPrice = totalLot > 0 ? totalMaliyet / totalLot : 0;
+    const guncel_fiyat  = positions[0]!.guncel_fiyat;
+    const guncel_deger  = guncel_fiyat !== null ? totalLot * guncel_fiyat : null;
+    const kar_zarar     = guncel_deger !== null ? guncel_deger - totalMaliyet : null;
+    const kar_zarar_yuzde = kar_zarar !== null && totalMaliyet > 0
+      ? (kar_zarar / totalMaliyet) * 100 : null;
+    const earliestAlisTarihi = [...positions.map(p => p.alis_tarihi)].sort()[0]!;
+    return { sembol, totalLot, weightedAvgPrice, earliestAlisTarihi,
+             guncel_fiyat, totalMaliyet, guncel_deger, kar_zarar, kar_zarar_yuzde, positions };
+  });
+}
+
+function GroupedPozisyonRow({
+  group, sinyaller, sparkline, onExpand, expanded, onDelete, onEdit,
+}: {
+  group: GroupedPosition;
+  sinyaller: SinvalInfo[];
+  sparkline: number[];
+  onExpand: (sembol: string) => void;
+  expanded: boolean;
+  onDelete: (id: string) => void;
+  onEdit: (poz: PortfolyoPozisyonWithStats) => void;
+}) {
+  const profit   = (group.kar_zarar ?? 0) >= 0;
+  const hasPrice = group.guncel_fiyat !== null;
+  const multi    = group.positions.length > 1;
+
+  return (
+    <motion.tr
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 10 }}
+      className="border-b border-border/40 hover:bg-surface-hover/30 transition-colors"
+    >
+      <td className="py-3.5 pl-4 pr-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary shrink-0">
+            {group.sembol.slice(0, 2)}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Link href={`/hisse/${group.sembol}`} className="font-semibold text-text-primary text-sm hover:text-primary transition-colors">
+                {group.sembol}
+              </Link>
+              {multi && (
+                <button
+                  onClick={() => onExpand(group.sembol)}
+                  title={`${group.positions.length} ayrı alış — ${expanded ? 'daralt' : 'detay göster'}`}
+                  className="inline-flex items-center rounded border border-sky-500/30 bg-sky-500/10 px-1 py-[1px] text-[9px] font-semibold text-sky-400 hover:bg-sky-500/20 transition-colors"
+                >
+                  {group.positions.length} alış {expanded ? '▲' : '▼'}
+                </button>
+              )}
+              {vergiMuafMi(group.earliestAlisTarihi) && (
+                <span className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-[1px] text-[9px] font-semibold text-emerald-400">✓ Vergi Muaf</span>
+              )}
+              {!vergiMuafMi(group.earliestAlisTarihi) && kalanVergiGun(group.earliestAlisTarihi) <= 60 && (
+                <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1 py-[1px] text-[9px] font-semibold text-amber-400">⏳ {kalanVergiGun(group.earliestAlisTarihi)}g</span>
+              )}
+            </div>
+            <SinyalBadge sinyaller={sinyaller} />
+          </div>
+          <Sparkline closes={sparkline} />
+        </div>
+      </td>
+      <td className="hidden sm:table-cell py-3.5 px-3 text-right text-xs sm:text-sm text-text-secondary">{fmt(group.totalLot, 0)} lot</td>
+      <td className="hidden sm:table-cell py-3.5 px-3 text-right text-xs sm:text-sm">
+        {multi ? (
+          <span
+            title={`Ağırlıklı ort.: ${group.positions.map(p => `${fmt(p.miktar,0)}×${fmtTL(p.alis_fiyati)}`).join(' + ')} / ${fmt(group.totalLot,0)} lot`}
+            className="text-text-secondary border-b border-dotted border-text-muted cursor-help"
+          >{fmtTL(group.weightedAvgPrice)}</span>
+        ) : (
+          <span className="text-text-secondary">{fmtTL(group.weightedAvgPrice)}</span>
+        )}
+      </td>
+      <td className="py-3.5 px-3 text-right text-xs sm:text-sm">
+        {hasPrice ? <span className="text-text-primary">{fmtTL(group.guncel_fiyat!)}</span> : <span className="text-text-muted">—</span>}
+      </td>
+      <td className="py-3.5 px-3 text-right text-xs sm:text-sm text-text-secondary">{fmtTL(group.totalMaliyet)}</td>
+      <td className="py-3.5 px-3 text-right text-xs sm:text-sm">
+        {hasPrice ? fmtTL(group.guncel_deger!) : <span className="text-text-muted">—</span>}
+      </td>
+      <td className="py-3.5 px-3 text-right">
+        {hasPrice ? (
+          <div className={`flex flex-col items-end text-xs font-medium ${profit ? 'text-emerald-400' : 'text-red-400'}`}>
+            <span className="flex items-center gap-0.5">
+              {profit ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {fmtTL(Math.abs(group.kar_zarar!))}
+            </span>
+            <span>{fmtPct(group.kar_zarar_yuzde!)}</span>
+          </div>
+        ) : <span className="text-text-muted text-xs">—</span>}
+      </td>
+      <td className="py-3.5 pl-3 pr-4 text-right">
+        <span title="Tekil alışları düzenlemek için 'Grupla' kapatın." className="text-[10px] text-text-muted">—</span>
+      </td>
+    </motion.tr>
+  );
+}
+
 // ─── Pozisyon satırı ──────────────────────────────────────────────────────────
 
 function PozisyonRow({
@@ -239,7 +377,21 @@ function PozisyonRow({
             {poz.sembol.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-text-primary text-sm group-hover:text-primary transition-colors">{poz.sembol}</div>
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="font-semibold text-text-primary text-sm group-hover:text-primary transition-colors">{poz.sembol}</span>
+              {vergiMuafMi(poz.alis_tarihi) && (
+                <span
+                  title={`${new Date(poz.alis_tarihi).toLocaleDateString('tr-TR')} alış — 2 yılı geçti, vergi muaf (GVK Geç. Md. 67/4).`}
+                  className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-[1px] text-[9px] font-semibold text-emerald-400"
+                >✓ Vergi Muaf</span>
+              )}
+              {!vergiMuafMi(poz.alis_tarihi) && kalanVergiGun(poz.alis_tarihi) <= 60 && (
+                <span
+                  title={`Vergi muafiyetine ${kalanVergiGun(poz.alis_tarihi)} gün kaldı.`}
+                  className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/10 px-1 py-[1px] text-[9px] font-semibold text-amber-400"
+                >⏳ {kalanVergiGun(poz.alis_tarihi)}g</span>
+              )}
+            </div>
             <SinyalBadge sinyaller={sinyaller} />
             {/* Mobil: lot + alış fiyatı (sm+ kolonlarda gösteriliyor) */}
             <div className="mt-0.5 text-[10px] text-text-muted sm:hidden">
@@ -667,6 +819,35 @@ export default function PortfolyoPage() {
   const [editSaving, setEditSaving]     = useState(false);
   const [bist100Return, setBist100Return] = useState<number | null>(null);
   const [initialSembol, setInitialSembol] = useState('');
+  const [groupBySymbol, setGroupBySymbol] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('bistai_portfolio_group') : null;
+      if (saved === '1') setGroupBySymbol(true);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('bistai_portfolio_group', groupBySymbol ? '1' : '0'); } catch {}
+  }, [groupBySymbol]);
+
+  const hasDuplicateSymbols = useMemo(() => {
+    const seen = new Set<string>();
+    for (const p of pozisyonlar) {
+      if (seen.has(p.sembol)) return true;
+      seen.add(p.sembol);
+    }
+    return false;
+  }, [pozisyonlar]);
+
+  const toggleExpand = (sembol: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(sembol)) next.delete(sembol); else next.add(sembol);
+      return next;
+    });
+  };
 
   function downloadCSV() {
     const headers = ['Sembol', 'Miktar', 'Alış Fiyatı', 'Alış Tarihi', 'Güncel Fiyat', 'Maliyet (₺)', 'Güncel Değer (₺)', 'K/Z (₺)', 'K/Z (%)', 'Notlar'];
@@ -881,6 +1062,16 @@ export default function PortfolyoPage() {
     });
   }, [pozisyonlar, sortField, sortDir]);
 
+  const groupedPozisyonlar = useMemo(() => {
+    return groupPositionsBySymbol(pozisyonlar).sort((a, b) => {
+      let diff = 0;
+      if (sortField === 'sembol') diff = a.sembol.localeCompare(b.sembol);
+      else if (sortField === 'kar_zarar') diff = (a.kar_zarar ?? 0) - (b.kar_zarar ?? 0);
+      else diff = (a.kar_zarar_yuzde ?? 0) - (b.kar_zarar_yuzde ?? 0);
+      return sortDir === 'asc' ? diff : -diff;
+    });
+  }, [pozisyonlar, sortField, sortDir]);
+
   // ── En iyi / en kötü ──────────────────────────────────────────────────────
 
   const withPct = pozisyonlar.filter((p) => p.kar_zarar_yuzde !== null);
@@ -990,6 +1181,20 @@ export default function PortfolyoPage() {
               >
                 <Download className="h-3.5 w-3.5" />
                 CSV
+              </button>
+            )}
+            {hasDuplicateSymbols && (
+              <button
+                onClick={() => setGroupBySymbol(v => !v)}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                  groupBySymbol
+                    ? 'border-primary/40 bg-primary/10 text-primary'
+                    : 'border-border text-text-secondary hover:border-text-muted'
+                }`}
+                title={groupBySymbol ? 'Gruplama kapalı → her alış ayrı satır' : 'Aynı sembolün alışlarını birleştir → ağırlıklı ort. maliyet'}
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5" />
+                {groupBySymbol ? 'Grupla: Açık' : 'Grupla'}
               </button>
             )}
             <button
@@ -1205,8 +1410,10 @@ export default function PortfolyoPage() {
                             ) : <ChevronsUpDown className="h-3 w-3 opacity-40" />}
                           </span>
                         </th>
-                        <th className="hidden sm:table-cell py-3 px-3 text-right font-medium">Lot</th>
-                        <th className="hidden sm:table-cell py-3 px-3 text-right font-medium">Alış</th>
+                        <th className="hidden sm:table-cell py-3 px-3 text-right font-medium">{groupBySymbol ? 'Toplam Lot' : 'Lot'}</th>
+                        <th className="hidden sm:table-cell py-3 px-3 text-right font-medium">
+                          {groupBySymbol ? <span title="Ağırlıklı ortalama alış fiyatı">Ağ. Ort. Alış</span> : 'Alış'}
+                        </th>
                         <th className="py-3 px-3 text-right font-medium">Güncel</th>
                         <th className="py-3 px-3 text-right font-medium">Maliyet</th>
                         <th className="py-3 px-3 text-right font-medium">Değer</th>
@@ -1218,18 +1425,53 @@ export default function PortfolyoPage() {
                     </thead>
                     <tbody>
                       <AnimatePresence>
-                        {sortedPozisyonlar.map((poz) => (
-                          <PozisyonRow
-                            key={poz.id}
-                            poz={poz}
-                            sinyaller={sinyalMap[poz.sembol] ?? []}
-                            onDelete={handleDelete}
-                            onEdit={setEditingPoz}
-                            sparkline={(ohlcvMap[poz.sembol] ?? []).slice(-30).map((c) => c.close)}
-                            isBest={poz.id === bestId}
-                            isWorst={poz.id === worstId}
-                          />
-                        ))}
+                        {groupBySymbol ? (
+                          groupedPozisyonlar.flatMap((group) => {
+                            const isExpanded = expandedGroups.has(group.sembol);
+                            const rows: React.ReactNode[] = [
+                              <GroupedPozisyonRow
+                                key={`g-${group.sembol}`}
+                                group={group}
+                                sinyaller={sinyalMap[group.sembol] ?? []}
+                                sparkline={(ohlcvMap[group.sembol] ?? []).slice(-30).map((c) => c.close)}
+                                onExpand={toggleExpand}
+                                expanded={isExpanded}
+                                onDelete={handleDelete}
+                                onEdit={setEditingPoz}
+                              />,
+                            ];
+                            if (isExpanded && group.positions.length > 1) {
+                              for (const poz of group.positions) {
+                                rows.push(
+                                  <PozisyonRow
+                                    key={`d-${poz.id}`}
+                                    poz={poz}
+                                    sinyaller={[]}
+                                    onDelete={handleDelete}
+                                    onEdit={setEditingPoz}
+                                    sparkline={[]}
+                                    isBest={false}
+                                    isWorst={false}
+                                  />
+                                );
+                              }
+                            }
+                            return rows;
+                          })
+                        ) : (
+                          sortedPozisyonlar.map((poz) => (
+                            <PozisyonRow
+                              key={poz.id}
+                              poz={poz}
+                              sinyaller={sinyalMap[poz.sembol] ?? []}
+                              onDelete={handleDelete}
+                              onEdit={setEditingPoz}
+                              sparkline={(ohlcvMap[poz.sembol] ?? []).slice(-30).map((c) => c.close)}
+                              isBest={poz.id === bestId}
+                              isWorst={poz.id === worstId}
+                            />
+                          ))
+                        )}
                       </AnimatePresence>
                     </tbody>
                   </table>
