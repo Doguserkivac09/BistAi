@@ -104,17 +104,24 @@ export async function GET(request: NextRequest) {
 
       totalSignals += signals.length;
 
-      // Her sinyal için DB'ye kaydet (confluence_score ile birlikte)
+      // Her sinyal için DB'ye kaydet (confluence + likidite + MTF + risk seviyeleri)
       const rows = signals.map((sig: StockSignal) => ({
-        user_id:          null,
+        user_id:             null,
         sembol,
-        signal_type:      sig.type,
-        direction:        sig.direction,
-        entry_price:      lastCandle.close,
-        entry_time:       lastCandle.date,
-        evaluated:        false,
+        signal_type:         sig.type,
+        direction:           sig.direction,
+        entry_price:         lastCandle.close,
+        entry_time:          lastCandle.date,
+        evaluated:           false,
         regime,
-        confluence_score: confluence.score,
+        confluence_score:    confluence.score,
+        // 2026-04-23: Yeni kolonlar (P0-3, P1-1, P2-1)
+        avg_daily_volume_tl: sig.avgDailyVolumeTL ?? null,
+        weekly_aligned:      sig.weeklyAligned ?? null,
+        stop_loss:           sig.stopLoss ?? null,
+        target_price:        sig.targetPrice ?? null,
+        risk_reward_ratio:   sig.riskRewardRatio ?? null,
+        atr:                 sig.atr ?? null,
       }));
 
       const { error, data } = await supabase

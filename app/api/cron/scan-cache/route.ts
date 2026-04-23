@@ -97,6 +97,12 @@ export async function GET(request: NextRequest) {
     evaluated: boolean;
     regime: string;
     confluence_score: number | null;
+    avg_daily_volume_tl: number | null;
+    weekly_aligned: boolean | null;
+    stop_loss: number | null;
+    target_price: number | null;
+    risk_reward_ratio: number | null;
+    atr: number | null;
   }> = [];
 
   const scannedAt = new Date().toISOString();
@@ -155,15 +161,22 @@ export async function GET(request: NextRequest) {
         const confluence = computeConfluence(signals);
         for (const sig of signals) {
           perfRows.push({
-            user_id:         null,
+            user_id:             null,
             sembol,
-            signal_type:     sig.type,
-            direction:       sig.direction,
-            entry_price:     lastClose,
-            entry_time:      entryTime,
-            evaluated:       false,
+            signal_type:         sig.type,
+            direction:           sig.direction,
+            entry_price:         lastClose,
+            entry_time:          entryTime,
+            evaluated:           false,
             regime,
-            confluence_score: confluence.score,
+            confluence_score:    confluence.score,
+            // 2026-04-23: Likidite + MTF + risk seviyeleri (P0-3, P1-1, P2-1)
+            avg_daily_volume_tl: sig.avgDailyVolumeTL ?? null,
+            weekly_aligned:      sig.weeklyAligned ?? null,
+            stop_loss:           sig.stopLoss ?? null,
+            target_price:        sig.targetPrice ?? null,
+            risk_reward_ratio:   sig.riskRewardRatio ?? null,
+            atr:                 sig.atr ?? null,
           });
         }
       }

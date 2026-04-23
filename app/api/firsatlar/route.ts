@@ -16,12 +16,15 @@ import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
 import { getSector, getSectorId } from '@/lib/sectors';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
+import { fetchKapDuyurular } from '@/lib/kap';
 
 const MIN_CONFLUENCE    = 45;
 const LOOKBACK_DAYS     = 3;
 const TIME_DECAY_HALF_H = 48;     // 48 saatte confluence etkisi yarıya iner
 const STATS_LOOKBACK_D  = 180;    // geçmiş win rate için örneklem penceresi
 const MIN_N_FOR_WR      = 20;     // bu eşik altındaki win rate güvenilmez
+const MIN_ADV_TL        = 10_000_000; // 10M TL altı likiditesi elenir (P0-3)
+const MIN_RR            = 1.5;        // 1.5 altı R/R sinyaller elenir (P2-1)
 
 // Canonical horizon map (signal-stats-summary ile senkronize)
 const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'> = {
@@ -63,12 +66,28 @@ export interface FirsatItem {
   historicalWinRate:   number | null;
   /** Win rate örneklem sayısı */
   winRateN:            number;
+  // ── P0-3 / P1-1 / P2-1 (2026-04-23) ─────────────────────────────────
+  /** 20g ortalama günlük TL işlem hacmi */
+  avgDailyVolumeTL:    number | null;
+  /** Haftalık trend sinyal yönü ile uyumlu mu? */
+  weeklyAligned:       boolean | null;
+  /** ATR bazlı zarar kes */
+  stopLoss:            number | null;
+  /** Hedef fiyat */
+  targetPrice:         number | null;
+  /** Risk/ödül oranı */
+  riskRewardRatio:     number | null;
+  // ── P2-2 (2026-04-23) KAP uyarısı ────────────────────────────────
+  /** Son 7 gün içinde kritik KAP duyurusu var mı? */
+  kapUyarisi:          { var: boolean; mesaj: string; url?: string } | null;
   /** Skor ayarlamaları (şeffaflık için) */
   adjustments: {
     timeDecay:  number;  // çarpan (0-1)
     winRate:    number;  // ± puan
     regimeFit:  number;  // ± puan
     macroAlign: number;  // ± puan
+    mtfAlign:   number;  // ± puan (haftalık uyum)
+    kapEvent:   number;  // ± puan (KAP event riski)
   };
 }
 
@@ -141,6 +160,30 @@ function winRateAdjustment(winRate: number | null, n: number): number {
   return Math.max(-15, Math.min(15, delta));
 }
 
+function mtfAdjustment(weeklyAligned: boolean | null): number {
+  // Haftalık trend uyumu: +6 bonus; uyumsuz = -8; null (yetersiz veri) = 0
+  if (weeklyAligned === true) return 6;
+  if (weeklyAligned === false) return -8;
+  return 0;
+}
+
+// KAP event — son 7 gün kritik duyuru (finansal rapor, genel kurul, temettü vb.)
+// Bu tür event'ler sinyali yanıltabilir → skor penaltısı
+const KRITIK_KAP_KATEGORI = ['FR', 'FN', 'GK', 'ÖDA'];
+function isKritikKapDuyurusu(baslik: string, kategori: string): boolean {
+  const kat = kategori.toUpperCase();
+  const bas = baslik.toUpperCase();
+  if (KRITIK_KAP_KATEGORI.some((k) => kat.includes(k))) return true;
+  return (
+    bas.includes('FİNANSAL') ||
+    bas.includes('MALİ TABLO') ||
+    bas.includes('TEMETTÜ') ||
+    bas.includes('GENEL KURUL') ||
+    bas.includes('KÂR PAYI') ||
+    bas.includes('SERMAYE ARTIRIM')
+  );
+}
+
 export async function GET() {
   try {
     const supabase = createAdminClient();
@@ -151,11 +194,11 @@ export async function GET() {
     const statsCutoff = new Date();
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);
 
-    // Paralel çek: aktif sinyaller + geçmiş win rate verisi + makro
-    const [sinyalRes, statsRes, macroRes] = await Promise.allSettled([
+    // Paralel çek: aktif sinyaller + geçmiş win rate verisi + makro + KAP duyuruları
+    const [sinyalRes, statsRes, macroRes, kapRes] = await Promise.allSettled([
       supabase
         .from('signal_performance')
-        .select('sembol, signal_type, direction, entry_price, entry_time, confluence_score, regime')
+        .select('sembol, signal_type, direction, entry_price, entry_time, confluence_score, regime, avg_daily_volume_tl, weekly_aligned, stop_loss, target_price, risk_reward_ratio')
         .eq('evaluated', false)
         .gte('entry_time', cutoff.toISOString())
         .gte('confluence_score', MIN_CONFLUENCE)
@@ -168,6 +211,7 @@ export async function GET() {
         .gte('entry_time', statsCutoff.toISOString()),
 
       getMacroFull(),
+      fetchKapDuyurular(200), // son 200 KAP duyurusu (cache'li, 15dk TTL)
     ]);
 
     if (sinyalRes.status !== 'fulfilled' || sinyalRes.value.error) {
@@ -177,7 +221,7 @@ export async function GET() {
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 
-    const rows = (sinyalRes.value.data ?? []) as {
+    const allRows = (sinyalRes.value.data ?? []) as {
       sembol: string;
       signal_type: string;
       direction: string;
@@ -185,7 +229,22 @@ export async function GET() {
       entry_time: string;
       confluence_score: number;
       regime: string | null;
+      avg_daily_volume_tl: number | null;
+      weekly_aligned: boolean | null;
+      stop_loss: number | null;
+      target_price: number | null;
+      risk_reward_ratio: number | null;
     }[];
+
+    // Sert filtreler (P0-3, P2-1):
+    // - avg_daily_volume_tl null ise eski kayıt → tolere et (backwards-compat)
+    // - dolu ama < 10M TL → ele (low liquidity / manipülasyon riski)
+    // - risk_reward_ratio null ise tolere et; dolu ama < 1.5 → ele
+    const rows = allRows.filter((r) => {
+      if (r.avg_daily_volume_tl !== null && r.avg_daily_volume_tl < MIN_ADV_TL) return false;
+      if (r.risk_reward_ratio   !== null && r.risk_reward_ratio   < MIN_RR)     return false;
+      return true;
+    });
 
     // Win rate haritası
     const winRateMap = statsRes.status === 'fulfilled' && !statsRes.value.error
@@ -198,6 +257,23 @@ export async function GET() {
       makroScore = macroRes.value.macroScore.score;
     }
     const regime: string | null = rows[0]?.regime ?? null;
+
+    // KAP haritası: sembol → son 7 gün kritik duyuru (varsa en sonuncusu)
+    const kapMap = new Map<string, { baslik: string; url: string; tarih: string; kategori: string }>();
+    if (kapRes.status === 'fulfilled') {
+      const sinirTarih = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      for (const d of kapRes.value) {
+        const sym = d.sembol?.toUpperCase();
+        if (!sym) continue;
+        const ts = new Date(d.tarih).getTime();
+        if (!Number.isFinite(ts) || ts < sinirTarih) continue;
+        if (!isKritikKapDuyurusu(d.baslik, d.kategori)) continue;
+        // İlk gelen = en yeni (fetchKapDuyurular tarih azalan sırada döner)
+        if (!kapMap.has(sym)) {
+          kapMap.set(sym, { baslik: d.baslik, url: d.url, tarih: d.tarih, kategori: d.kategoriAdi });
+        }
+      }
+    }
 
     // Sembol bazında grupla
     const gruplar = new Map<string, typeof rows>();
@@ -246,9 +322,14 @@ export async function GET() {
       const wrAdj      = winRateAdjustment(histWr, histN);
       const regimeAdj  = regimeAdjustment(direction, best.regime);
       const macroAdj   = macroAdjustment(direction, makroScore);
+      const mtfAdj     = mtfAdjustment(best.weekly_aligned);
+
+      // KAP event riski: son 7 gün kritik duyuru → -10 penaltı
+      const kapEvent = kapMap.get(sembol) ?? null;
+      const kapAdj   = kapEvent ? -10 : 0;
 
       // Adjusted = (base × decay) + ayarlamalar; 0-100 clamp
-      const rawAdjusted = baseScore * decay + wrAdj + regimeAdj + macroAdj;
+      const rawAdjusted = baseScore * decay + wrAdj + regimeAdj + macroAdj + mtfAdj + kapAdj;
       const adjustedScore = Math.max(0, Math.min(100, Math.round(rawAdjusted)));
 
       firsatlar.push({
@@ -266,11 +347,21 @@ export async function GET() {
         sektorSinyalSayisi,
         historicalWinRate:  histWr,
         winRateN:           histN,
+        avgDailyVolumeTL:   best.avg_daily_volume_tl,
+        weeklyAligned:      best.weekly_aligned,
+        stopLoss:           best.stop_loss,
+        targetPrice:        best.target_price,
+        riskRewardRatio:    best.risk_reward_ratio,
+        kapUyarisi: kapEvent
+          ? { var: true, mesaj: `${kapEvent.kategori}: ${kapEvent.baslik.slice(0, 80)}`, url: kapEvent.url }
+          : null,
         adjustments: {
           timeDecay:  Math.round(decay * 100) / 100,
           winRate:    Math.round(wrAdj),
           regimeFit:  regimeAdj,
           macroAlign: macroAdj,
+          mtfAlign:   mtfAdj,
+          kapEvent:   kapAdj,
         },
       });
     }
@@ -282,7 +373,7 @@ export async function GET() {
       firsatlar,
       makroScore,
       regime,
-      toplamSinyal: rows.length,
+      toplamSinyal: allRows.length,
     }, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     });

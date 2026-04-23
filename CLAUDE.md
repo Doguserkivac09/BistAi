@@ -4,6 +4,23 @@
 
 ---
 
+## 📌 BEKLEYEN MANUEL ADIM (2026-04-23)
+
+### Fırsatlar v3 — Supabase Migration
+Migration dosyası oluşturuldu ama Supabase'e uygulanmadı:
+**`supabase/migrations/20260423_signal_performance_liquidity_mtf_risk.sql`**
+→ Supabase SQL Editor'a yapıştırıp çalıştır (idempotent, `if not exists` ile korunmuş).
+
+Eklenen kolonlar (signal_performance):
+- `avg_daily_volume_tl` — P0-3 likidite filtresi (<10M TL elenir)
+- `weekly_aligned` — P1-1 haftalık trend uyumu (skor ±8)
+- `stop_loss`, `target_price`, `risk_reward_ratio`, `atr` — P2-1 R/R gösterimi + filtresi
+- 3 yeni partial index (ADV, R/R, weekly_aligned)
+
+Migration çalıştırılmadan önce: `firsatlar` API null tolere eder (backwards-compat), sadece dolu satırlar filtrelenir. Scan cron'u ertesi sabah çalışınca yeni kayıtlar dolu gelir.
+
+---
+
 ## 🚀 SONRAKİ ADIMLAR — (2026-04-17 güncellendi)
 
 > Phase 1-13 + Roadmap Step 1-13 + BT1-BT11 + B1-B10 + **Investment Score** = **Tümü tamamlandı.**
