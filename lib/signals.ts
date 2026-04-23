@@ -894,16 +894,28 @@ export function computeConfluence(signals: StockSignal[]): ConfluenceResult {
                  : 'nötr';
 
   const dominantSigs = dominant === 'yukari' ? bullish : dominant === 'asagi' ? bearish : signals;
-  const conflictCount = signals.length - dominantSigs.length;
+  const conflictingSigs = signals.filter(
+    (s) => s.direction !== dominant && s.direction !== 'nötr'
+  );
+  const conflictCount = conflictingSigs.length;
 
   // 1. Severity puan toplamı (dominant yön sinyalleri)
   let score = dominantSigs.reduce((s, sig) => s + (SEVERITY_POINTS[sig.severity] ?? 12), 0);
-  score = Math.min(60, score); // severity'den max 60
+  score = Math.min(80, score); // severity'den max 80 — güçlü konsensüs tavana çarpmasın
 
-  // 2. Hizalama bonusu / cezası
-  if (conflictCount === 0 && signals.length >= 2) score += 18; // tam konsensüs
-  else if (conflictCount === 0)                   score += 8;  // tek sinyal, çelişme yok
-  else                                            score -= conflictCount * 8;
+  // 2. Hizalama bonusu / cezası (severity-scaled)
+  if (conflictCount === 0 && signals.length >= 2) {
+    score += 18; // tam konsensüs
+  } else if (conflictCount === 0) {
+    score += 8; // tek sinyal, çelişme yok
+  } else {
+    // Çelişkili sinyal cezası severity'ye göre: güçlü çelişki daha çok cezalandırılır
+    const conflictPenalty = conflictingSigs.reduce(
+      (sum, s) => sum + (s.severity === 'güçlü' ? 10 : s.severity === 'orta' ? 6 : 3),
+      0,
+    );
+    score -= conflictPenalty;
+  }
 
   // 3. Kategori çeşitlendirme bonusu (+7 per ek kategori, max +22)
   const categories = new Set(dominantSigs.map((s) => SIGNAL_CATEGORY[s.type] ?? 'diğer'));

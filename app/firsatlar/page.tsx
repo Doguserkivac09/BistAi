@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
+import type { SignalStatsSummaryResponse } from '@/app/api/signal-stats-summary/route';
 
 // ── Sinyal güç seviyeleri ────────────────────────────────────────────
 
@@ -352,6 +353,76 @@ function BosEkran() {
   );
 }
 
+// ── Sosyal Kanıt Kartı (geçmiş başarı) ─────────────────────────────
+
+function SosyalKanitKarti({ stats }: { stats: SignalStatsSummaryResponse['stats'] }) {
+  // Tüm sinyal tiplerinin birleşik N-ağırlıklı ortalaması
+  const totalN = stats.reduce((s, x) => s + x.n, 0);
+  if (totalN < 30) return null; // yetersiz örneklem → gösterme
+
+  const weightedWin = stats.reduce((s, x) => s + x.win_rate * x.n, 0) / totalN;
+  const weightedRet = stats.reduce((s, x) => s + x.avg_return * x.n, 0) / totalN;
+  const winPct = Math.round(weightedWin * 100);
+
+  // En iyi 3 sinyal tipi (win rate'e göre, min n=10)
+  const top = [...stats]
+    .filter((s) => s.n >= 10)
+    .sort((a, b) => b.win_rate - a.win_rate)
+    .slice(0, 3);
+
+  const winColor = winPct >= 60 ? 'text-green-400' : winPct >= 50 ? 'text-yellow-400' : 'text-orange-400';
+  const retColor = weightedRet > 0 ? 'text-green-400' : 'text-red-400';
+
+  return (
+    <div className="mb-5 rounded-xl border border-primary/25 bg-gradient-to-br from-primary/8 via-surface/50 to-surface/50 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+            Geçmiş Başarı (son 180g)
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-text-muted">Win rate:</span>
+          <span className={`text-sm font-bold ${winColor}`}>%{winPct}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-text-muted">Ort. getiri:</span>
+          <span className={`text-sm font-bold ${retColor}`}>
+            {weightedRet > 0 ? '+' : ''}{weightedRet.toFixed(2)}%
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-text-muted">n:</span>
+          <span className="text-sm font-bold text-text-primary">{totalN}</span>
+        </div>
+      </div>
+
+      {top.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-text-muted">En iyi:</span>
+          {top.map((t) => (
+            <span
+              key={t.signal_type}
+              className="rounded-full border border-green-500/25 bg-green-500/10 px-2 py-0.5 text-[10px] font-semibold text-green-400"
+              title={`${t.n} örneklem · ${t.horizon}`}
+            >
+              {(SINYAL_KISALT[t.signal_type] ?? t.signal_type)} %{Math.round(t.win_rate * 100)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-1.5 text-[10px] text-text-muted">
+        Komisyon dahil net getiri · Canonical horizon · Geçmiş performans geleceği garanti etmez
+      </p>
+    </div>
+  );
+}
+
 // ── Ana Sayfa ────────────────────────────────────────────────────────
 
 export default function FirsatlarPage() {
@@ -359,6 +430,7 @@ export default function FirsatlarPage() {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
+  const [statsSummary, setStatsSummary] = useState<SignalStatsSummaryResponse['stats']>([]);
   const [watchlist,    setWatchlist]    = useState<Set<string>>(new Set());
   const [watchlistIds, setWatchlistIds] = useState<Map<string, string>>(new Map()); // sembol → id
 
@@ -394,10 +466,21 @@ export default function FirsatlarPage() {
     } catch { /* kullanıcı giriş yapmamış olabilir */ }
   }, []);
 
+  // Geçmiş başarı istatistiklerini çek (sosyal kanıt kartı için)
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/signal-stats-summary');
+      if (!res.ok) return;
+      const json = await res.json() as SignalStatsSummaryResponse;
+      setStatsSummary(json.stats ?? []);
+    } catch { /* sessizce geç — kart gizlenir */ }
+  }, []);
+
   useEffect(() => {
     void fetchData();
     void fetchWatchlist();
-  }, [fetchData, fetchWatchlist]);
+    void fetchStats();
+  }, [fetchData, fetchWatchlist, fetchStats]);
 
   // Watchlist toggle
   const handleWatchlistToggle = useCallback(async (sembol: string, currentState: boolean) => {
@@ -482,6 +565,9 @@ export default function FirsatlarPage() {
           </button>
         </div>
       </div>
+
+      {/* Sosyal kanıt kartı — geçmiş başarı */}
+      {statsSummary.length > 0 && <SosyalKanitKarti stats={statsSummary} />}
 
       {/* Makro bar */}
       {data && <MakroBar score={data.makroScore} regime={data.regime} />}
