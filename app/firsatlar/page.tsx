@@ -79,6 +79,55 @@ function confluenceLabel(score: number) {
   return 'Zayıf';
 }
 
+// Ayarlama rozetleri (şeffaflık)
+function adjustmentBadges(f: FirsatItem) {
+  const badges: { key: string; text: string; cls: string; title: string }[] = [];
+
+  if (f.adjustments.winRate !== 0) {
+    const positive = f.adjustments.winRate > 0;
+    badges.push({
+      key: 'wr',
+      text: `Geçmiş ${positive ? '+' : ''}${f.adjustments.winRate}`,
+      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
+                    : 'text-red-400 border-red-500/25 bg-red-500/10',
+      title: `Bu sinyal tipinin geçmiş win rate'i: %${Math.round((f.historicalWinRate ?? 0) * 100)} (n=${f.winRateN})`,
+    });
+  }
+
+  if (f.adjustments.regimeFit !== 0) {
+    const positive = f.adjustments.regimeFit > 0;
+    badges.push({
+      key: 'rg',
+      text: `Rejim ${positive ? '+' : ''}${f.adjustments.regimeFit}`,
+      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
+                    : 'text-red-400 border-red-500/25 bg-red-500/10',
+      title: positive ? 'XU100 trendi sinyal yönü ile uyumlu' : 'XU100 trendi sinyal yönü ile ters',
+    });
+  }
+
+  if (f.adjustments.macroAlign !== 0) {
+    const positive = f.adjustments.macroAlign > 0;
+    badges.push({
+      key: 'mc',
+      text: `Makro ${positive ? '+' : ''}${f.adjustments.macroAlign}`,
+      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
+                    : 'text-red-400 border-red-500/25 bg-red-500/10',
+      title: positive ? 'Makro ortam sinyal yönü ile uyumlu' : 'Makro ortam sinyal yönü ile ters',
+    });
+  }
+
+  if (f.adjustments.timeDecay < 0.85) {
+    badges.push({
+      key: 'td',
+      text: `Yaş ×${f.adjustments.timeDecay.toFixed(2)}`,
+      cls: 'text-orange-400 border-orange-500/25 bg-orange-500/10',
+      title: `${f.ageHours}s önce — time decay uygulandı (half-life 48s)`,
+    });
+  }
+
+  return badges;
+}
+
 // ── Sektör badge ─────────────────────────────────────────────────────
 
 function SektorBadge({ sektorAdi, sektorSinyalSayisi }: { sektorAdi: string; sektorSinyalSayisi: number }) {
@@ -309,22 +358,44 @@ function FirsatKarti({
               inList={inWatchlist}
               onToggle={onWatchlistToggle}
             />
-            {/* Confluence skoru */}
-            <div className={`flex flex-col items-center rounded-xl border px-3 py-1.5 ${confluenceBg(firsat.confluenceScore)}`}>
-              <span className={`text-xl font-bold leading-none ${confluenceColor(firsat.confluenceScore)}`}>
-                {firsat.confluenceScore}
+            {/* Adjusted skor (primary) — confluence × decay + win rate + rejim + makro */}
+            <div
+              className={`flex flex-col items-center rounded-xl border px-3 py-1.5 ${confluenceBg(firsat.adjustedScore)}`}
+              title={`Ham confluence: ${firsat.confluenceScore} · Yaş: ${firsat.ageHours}s · Net: ${firsat.adjustedScore}`}
+            >
+              <span className={`text-xl font-bold leading-none ${confluenceColor(firsat.adjustedScore)}`}>
+                {firsat.adjustedScore}
               </span>
-              <span className={`text-[9px] font-semibold uppercase tracking-wide ${confluenceColor(firsat.confluenceScore)}`}>
-                {confluenceLabel(firsat.confluenceScore)}
+              <span className={`text-[9px] font-semibold uppercase tracking-wide ${confluenceColor(firsat.adjustedScore)}`}>
+                {confluenceLabel(firsat.adjustedScore)}
               </span>
             </div>
           </div>
         </div>
 
         {/* Sinyal etiketleri */}
-        <div className="mb-3 flex flex-wrap gap-1.5">
+        <div className="mb-2 flex flex-wrap gap-1.5">
           {firsat.sinyaller.map((s) => sinyalEtiket(s))}
         </div>
+
+        {/* Skor ayarlamaları (şeffaflık) */}
+        {(() => {
+          const badges = adjustmentBadges(firsat);
+          if (badges.length === 0) return null;
+          return (
+            <div className="mb-3 flex flex-wrap gap-1">
+              {badges.map((b) => (
+                <span
+                  key={b.key}
+                  title={b.title}
+                  className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${b.cls}`}
+                >
+                  {b.text}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Alt: sektör + fiyat + ok */}
         <div className="flex items-center justify-between gap-2">
@@ -529,7 +600,7 @@ export default function FirsatlarPage() {
   // Filtrele
   const filtered = useMemo(() => (data?.firsatlar ?? []).filter((f) => {
     if (dirFilter !== 'tumu' && f.direction !== dirFilter) return false;
-    if (minScore > 0 && f.confluenceScore < minScore) return false;
+    if (minScore > 0 && f.adjustedScore < minScore) return false;
     if (sektorFilter !== 'tumu' && f.sektorAdi !== sektorFilter) return false;
     return true;
   }), [data, dirFilter, minScore, sektorFilter]);
