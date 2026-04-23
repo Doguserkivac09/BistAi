@@ -194,16 +194,8 @@ export async function GET() {
     const statsCutoff = new Date();
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);
 
-    // Paralel çek: aktif sinyaller + geçmiş win rate verisi + makro + KAP duyuruları
-    const [sinyalRes, statsRes, macroRes, kapRes] = await Promise.allSettled([
-      supabase
-        .from('signal_performance')
-        .select('sembol, signal_type, direction, entry_price, entry_time, confluence_score, regime, avg_daily_volume_tl, weekly_aligned, stop_loss, target_price, risk_reward_ratio')
-        .eq('evaluated', false)
-        .gte('entry_time', cutoff.toISOString())
-        .gte('confluence_score', MIN_CONFLUENCE)
-        .order('confluence_score', { ascending: false }),
-
+    // Paralel çek: geçmiş win rate verisi + makro + KAP duyuruları
+    const [statsRes, macroRes, kapRes] = await Promise.allSettled([
       supabase
         .from('signal_performance')
         .select('signal_type, direction, return_3d, return_7d, return_14d, return_30d')
@@ -214,14 +206,8 @@ export async function GET() {
       fetchKapDuyurular(200), // son 200 KAP duyurusu (cache'li, 15dk TTL)
     ]);
 
-    if (sinyalRes.status !== 'fulfilled' || sinyalRes.value.error) {
-      const msg = sinyalRes.status === 'fulfilled'
-        ? sinyalRes.value.error?.message ?? 'DB hatası'
-        : String(sinyalRes.reason);
-      return NextResponse.json({ error: msg }, { status: 500 });
-    }
-
-    const allRows = (sinyalRes.value.data ?? []) as {
+    // Aktif sinyal sorgusu — yeni kolonları önce dene, migration yoksa temel sorguya fall back
+    type SignalRow = {
       sembol: string;
       signal_type: string;
       direction: string;
@@ -234,7 +220,50 @@ export async function GET() {
       stop_loss: number | null;
       target_price: number | null;
       risk_reward_ratio: number | null;
-    }[];
+    };
+
+    const BASE_SELECT = 'sembol, signal_type, direction, entry_price, entry_time, confluence_score, regime';
+    const FULL_SELECT = `${BASE_SELECT}, avg_daily_volume_tl, weekly_aligned, stop_loss, target_price, risk_reward_ratio`;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let sinyalData: { data: any[] | null; error: { message: string; code?: string } | null } =
+      await supabase
+        .from('signal_performance')
+        .select(FULL_SELECT)
+        .eq('evaluated', false)
+        .gte('entry_time', cutoff.toISOString())
+        .gte('confluence_score', MIN_CONFLUENCE)
+        .order('confluence_score', { ascending: false });
+
+    // Kolon bulunamadı hatası (migration henüz uygulanmamış) → temel sorguyla tekrar dene
+    if (sinyalData.error && (sinyalData.error.code === '42703' || sinyalData.error.message?.includes('does not exist'))) {
+      sinyalData = await supabase
+        .from('signal_performance')
+        .select(BASE_SELECT)
+        .eq('evaluated', false)
+        .gte('entry_time', cutoff.toISOString())
+        .gte('confluence_score', MIN_CONFLUENCE)
+        .order('confluence_score', { ascending: false });
+    }
+
+    if (sinyalData.error) {
+      return NextResponse.json({ error: sinyalData.error.message }, { status: 500 });
+    }
+
+    const allRows = ((sinyalData.data ?? []) as Partial<SignalRow>[]).map((r) => ({
+      sembol:              r.sembol ?? '',
+      signal_type:         r.signal_type ?? '',
+      direction:           r.direction ?? '',
+      entry_price:         r.entry_price ?? 0,
+      entry_time:          r.entry_time ?? '',
+      confluence_score:    r.confluence_score ?? 0,
+      regime:              r.regime ?? null,
+      avg_daily_volume_tl: r.avg_daily_volume_tl ?? null,
+      weekly_aligned:      r.weekly_aligned ?? null,
+      stop_loss:           r.stop_loss ?? null,
+      target_price:        r.target_price ?? null,
+      risk_reward_ratio:   r.risk_reward_ratio ?? null,
+    } satisfies SignalRow));
 
     // Sert filtreler (P0-3, P2-1):
     // - avg_daily_volume_tl null ise eski kayıt → tolere et (backwards-compat)
