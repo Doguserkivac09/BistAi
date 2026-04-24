@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, lazy, Suspense, useCallback } from 'react';
+import { useState, useEffect, lazy, Suspense, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import type { HaberItem } from '@/app/api/haber/route';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -607,6 +608,18 @@ function TrendOzeti({ candles, timeframe }: { candles: OHLCVCandle[]; timeframe:
 }
 
 export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: HisseDetailClientProps) {
+  // Fırsatlar sayfasından gelen snapshot bağlamı (varsa) — canlı skorla karşılaştır
+  const searchParams = useSearchParams();
+  const snapshotCtx = useMemo(() => {
+    const rawScore = searchParams?.get('snapshotScore');
+    const rawAt    = searchParams?.get('snapshotAt');
+    const from     = searchParams?.get('from');
+    if (!rawScore || from !== 'firsatlar') return null;
+    const score = Number(rawScore);
+    if (!Number.isFinite(score)) return null;
+    return { score, at: rawAt };
+  }, [searchParams]);
+
   const [candles, setCandles]           = useState<OHLCVCandle[]>([]);
   const [signals, setSignals]           = useState<StockSignal[]>([]);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
@@ -837,6 +850,27 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                         </span>
                       )}
                     </div>
+
+                    {/* Snapshot ↔ Canlı delta uyarısı — Fırsatlar'dan gelen kullanıcıya */}
+                    {snapshotCtx && !analizLoading && analiz?.decisionEngine && (() => {
+                      const live  = analiz.decisionEngine.score;
+                      const snap  = snapshotCtx.score;
+                      const delta = Math.round(live - snap);
+                      const absD  = Math.abs(delta);
+                      if (absD <= 15) {
+                        return (
+                          <div className="mt-3 rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-300/90">
+                            ✓ Fırsatlar skoru {snap} · Canlı skor {live} — sinyal hâlâ tutarlı.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                          ⚠ Fırsatlar skoru <b>{snap}</b> → Şu an <b>{live}</b> (Δ {delta > 0 ? '+' : ''}{delta}).
+                          {' '}Sinyal önemli ölçüde değişmiş olabilir — güncel veriye göre karar verin.
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Sağ: Butonlar */}
