@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --import tsx --test lib/__tests__/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^2.1.80",
@@ -49,6 +50,7 @@
     "postcss": "^8.4.49",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.15",
+    "tsx": "^4.21.0",
     "typescript": "^5.6.3"
   }
 }
