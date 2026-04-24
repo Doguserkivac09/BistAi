@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { fetchOHLCV, fetchOHLCVByTimeframe, type YahooTimeframe } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
+import { getMarketRegime } from '@/lib/regime-engine';
 import { calculateSRLevels } from '@/lib/support-resistance';
 import { computePriceTargets } from '@/lib/price-targets';
 import { calculateCompositeSignal } from '@/lib/composite-signal';
@@ -24,8 +25,15 @@ import { generateCompositeExplanation } from '@/lib/claude';
 import { getMacroScore, getRiskScore } from '@/lib/macro-service';
 import { getSectorId, getSymbolsBySector } from '@/lib/sectors';
 import { analyzeSector } from '@/lib/sector-engine';
+import {
+  computeDecision,
+  toLegacyCompositeScore,
+  toLegacyDecision,
+  type DecisionOutput,
+} from '@/lib/decision-engine';
 import type { PriceTargets } from '@/lib/price-targets';
 import type { CompositeDecision } from '@/lib/composite-signal';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 // ── In-memory cache (1 saat TTL) ────────────────────────────────────
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -78,6 +86,69 @@ export interface HisseAnalizResponse {
   avgVolume20d?: number;
   high90d?: number;
   low90d?: number;
+  /** Birleşik karar motoru çıktısı — tüm sinyalleri dikkate alır (dominant bug FIX'i) */
+  decisionEngine?: DecisionOutput;
+}
+
+// ── Geçmiş win rate (decision engine girdisi) ──────────────────────
+
+const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'> = {
+  'Altın Çapraz':           'return_30d',
+  'Ölüm Çaprazı':            'return_30d',
+  'Trend Başlangıcı':        'return_14d',
+  'Destek/Direnç Kırılımı':  'return_14d',
+  'MACD Kesişimi':           'return_7d',
+  'RSI Uyumsuzluğu':         'return_7d',
+  'Bollinger Sıkışması':     'return_7d',
+  'RSI Seviyesi':            'return_3d',
+  'Hacim Anomalisi':         'return_3d',
+};
+const COMMISSION = 0.004;
+const WR_STATS_LOOKBACK_D = 180;
+
+async function fetchHistoricalWinRate(
+  signalType: string,
+  direction: string,
+): Promise<{ winRate: number; n: number } | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  if (!url || !key) return null;
+
+  const field = SIGNAL_CANONICAL_FIELD[signalType];
+  if (!field) return null;
+
+  try {
+    const supabase = createSupabaseClient(url, key);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - WR_STATS_LOOKBACK_D);
+    const { data, error } = await supabase
+      .from('signal_performance')
+      .select(`signal_type, direction, ${field}`)
+      .eq('evaluated', true)
+      .eq('signal_type', signalType)
+      .gte('entry_time', cutoff.toISOString())
+      .limit(500);
+    if (error || !data) return null;
+
+    const valid = data.filter((r: Record<string, unknown>) => {
+      const v = r[field] as number | null | undefined;
+      return v != null && Number.isFinite(v);
+    });
+    if (valid.length < 5) return null;
+
+    let wins = 0;
+    for (const r of valid) {
+      const rec = r as Record<string, unknown>;
+      const raw = rec[field] as number;
+      const dirAdj = (rec.direction as string) === 'asagi' ? -raw : raw;
+      if (dirAdj - COMMISSION > 0) wins++;
+    }
+    // direction parametresi şimdilik döngüsel analiz için tutuldu; canonical field aynı kalır
+    void direction;
+    return { winRate: wins / valid.length, n: valid.length };
+  } catch {
+    return null;
+  }
 }
 
 // ── Handler ─────────────────────────────────────────────────────────
@@ -176,26 +247,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(noSignalResponse);
     }
 
-    // Güçlü > orta > zayıf sırasıyla seç
+    // Lead signal — SADECE AI açıklaması ve price target yönü için (karar için DEĞİL)
+    // Gerçek karar ALL signals üzerinden computeDecision ile üretilir.
     const severityOrder = { 'güçlü': 3, 'orta': 2, 'zayıf': 1 } as Record<string, number>;
-    const dominantSignal = signals.sort(
+    const dominantSignal = [...signals].sort(
       (a, b) => (severityOrder[b.severity] ?? 0) - (severityOrder[a.severity] ?? 0)
     )[0]!;
 
-    // 3. S/R analizi + fiyat hedefleri
+    // 3. S/R analizi + fiyat hedefleri (yön computeDecision sonrası belirlenecek)
     const srAnalysis = calculateSRLevels(candles);
-    const priceTargets = computePriceTargets(currentPrice, srAnalysis, dominantSignal.direction);
 
-    // 4. Makro + Risk + Sektör — intraday için atla (kısa vadede anlamsız)
+    // 4. Makro + Risk + Sektör + Rejim — intraday için atla (kısa vadede anlamsız)
     let macroScore: Awaited<ReturnType<typeof getMacroScore>> | null = null;
     let riskScore:  Awaited<ReturnType<typeof getRiskScore>>  | null = null;
     let sectorMomentum: ReturnType<typeof analyzeSector> | null = null;
+    let regime: string | null = null;
 
     if (!isIntraday) {
       const sectorId = getSectorId(symbol);
       const sectorSymbols = getSymbolsBySector(sectorId);
 
-      const [macro, risk, sectorData] = await Promise.all([
+      const [macro, risk, sectorData, xu100] = await Promise.all([
         getMacroScore().catch(() => null),
         getRiskScore().catch(() => null),
         Promise.all(
@@ -208,45 +280,69 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           for (const { sym, c } of results) map[sym] = c;
           return map;
         }),
+        fetchOHLCV('XU100', 252).then((r) => r.candles).catch(() => []),
       ]);
 
       macroScore    = macro;
       riskScore     = risk;
       sectorMomentum = analyzeSector(sectorId, sectorData, macroScore);
+      regime = xu100.length > 0 ? getMarketRegime(xu100) : null;
     }
 
-    // 5. Kompozit karar
-    const composite = calculateCompositeSignal(
+    // 4b. Geçmiş win rate — signal_performance tablosundan (dominant signal tipi için)
+    const historicalWinRate = await fetchHistoricalWinRate(dominantSignal.type, dominantSignal.direction);
+
+    // 5. BİRLEŞİK KARAR — tüm sinyaller dikkate alınır (dominant-signal bug FIX)
+    const decisionOut = computeDecision({
+      signals,
+      macroScore,
+      sectorMomentum,
+      riskScore,
+      historicalWinRate,
+      regime,
+      scannedAt: new Date().toISOString(),
+      dataSource: 'live',
+    });
+
+    // 5b. Fiyat hedefleri — karar yönüne göre (tek sinyale göre değil)
+    const priceDirection: 'yukari' | 'asagi' | 'nötr' =
+      decisionOut.direction === 'yukari' ? 'yukari' :
+      decisionOut.direction === 'asagi'  ? 'asagi'  : 'nötr';
+    const priceTargets = computePriceTargets(currentPrice, srAnalysis, priceDirection);
+
+    // 6. Legacy kompozit — AI açıklama context'i + geri uyumluluk alanları için
+    // (UI'da eski kompozit alanları hala tüketiliyor; bunları decisionOut'tan türetiyoruz)
+    const legacyComposite = calculateCompositeSignal(
       dominantSignal,
       macroScore,
       sectorMomentum,
       riskScore
     );
 
-    // 6. AI açıklaması
+    // 7. AI açıklaması — lead signal üzerinden context, ama skor/karar birleşik motordan
     const explanation = await generateCompositeExplanation(
       dominantSignal,
-      composite.context,
-      composite.compositeScore,
-      composite.confidence,
-      composite.decisionTr
+      legacyComposite.context,
+      toLegacyCompositeScore(decisionOut.score, decisionOut.direction),
+      decisionOut.confidence,
+      decisionOut.rating,
     );
 
     const response: HisseAnalizResponse = {
       sembol: symbol,
-      decision: composite.decision,
-      decisionTr: composite.decisionTr,
-      confidence: composite.confidence,
-      compositeScore: composite.compositeScore,
-      color: composite.color,
-      emoji: composite.emoji,
+      decision: toLegacyDecision(decisionOut.rating),
+      decisionTr: decisionOut.rating,
+      confidence: decisionOut.confidence,
+      compositeScore: toLegacyCompositeScore(decisionOut.score, decisionOut.direction),
+      color: legacyComposite.color,
+      emoji: legacyComposite.emoji,
       explanation,
       priceTargets,
-      technicalScore: composite.technicalScore,
-      macroScore: composite.macroScore,
-      sectorScore: composite.sectorScore,
+      technicalScore: legacyComposite.technicalScore,
+      macroScore: legacyComposite.macroScore,
+      sectorScore: legacyComposite.sectorScore,
       sectorName: sectorMomentum?.sectorName ?? '—',
-      signalDirection: dominantSignal.direction as 'yukari' | 'asagi' | 'nötr',
+      signalDirection: priceDirection,
       shortName,
       changePercent: yahooChangePercent,
       currentPrice,
@@ -254,6 +350,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       avgVolume20d,
       high90d,
       low90d,
+      decisionEngine: decisionOut,
     };
 
     setCache(cacheKey, response);
