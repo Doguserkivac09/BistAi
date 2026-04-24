@@ -80,17 +80,23 @@ function mean(scores) {
   return valid.reduce((a, b) => a + b, 0) / valid.length;
 }
 
-function computeScore(f) {
-  // Valuation
-  const pe = scale(f.peRatio, 5, 40, true);
+function computeScore(f, inflation = null) {
+  // Enflasyon düzeltme faktörleri
+  const peUpperBound = inflation !== null ? 40 * (1 + Math.min((inflation / 100) * 0.75, 1.5)) : 40;
+  const toReal = (nominal) => inflation === null ? nominal : (1 + nominal) / (1 + inflation / 100) - 1;
+
+  // Valuation (F/K üst sınırı enflasyonla genişler)
+  const pe = scale(f.peRatio, 5, peUpperBound, true);
   const peg = scale(f.pegRatio, 0.5, 3, true);
   const pb = scale(f.priceToBook, 0.5, 5, true);
   const evEb = scale(f.enterpriseToEbitda, 3, 20, true);
   const valScore = mean([pe, peg, pb, evEb]);
 
-  // Growth
-  const revPct = f.revenueGrowth !== null ? f.revenueGrowth * 100 : null;
-  const earnPct = f.earningsGrowth !== null ? f.earningsGrowth * 100 : null;
+  // Growth (nominal → reel)
+  const realRev = f.revenueGrowth !== null ? toReal(f.revenueGrowth) : null;
+  const realEarn = f.earningsGrowth !== null ? toReal(f.earningsGrowth) : null;
+  const revPct = realRev !== null ? realRev * 100 : null;
+  const earnPct = realEarn !== null ? realEarn * 100 : null;
   const revS = scale(revPct, -20, 40);
   const earnS = scale(earnPct, -30, 50);
   const groScore = mean([revS, earnS]);
@@ -168,13 +174,16 @@ function computeScore(f) {
 
 // ── Test runner ─────────────────────────────────────────────────────────────
 
-async function testSymbol(sembol) {
+async function testSymbol(sembol, inflation = null) {
   try {
     const f = await fetchFundamentals(sembol);
-    const s = computeScore(f);
+    const sBefore = computeScore(f, null);      // Enflasyon düzeltmesiz (v1)
+    const s = computeScore(f, inflation);       // Enflasyon düzeltmeli (v2)
+    const delta = s.score - sBefore.score;
+    const deltaStr = delta === 0 ? '' : delta > 0 ? ` (enf. düzeltme: +${delta})` : ` (enf. düzeltme: ${delta})`;
 
     console.log(`\n━━━ ${sembol} (${f.shortName ?? '—'}) ━━━`);
-    console.log(`  Skor:   ${s.score}/100 → ${s.ratingLabel}`);
+    console.log(`  Skor:   ${s.score}/100 → ${s.ratingLabel}${deltaStr}`);
     console.log(`  Güven:  ${s.confidence} (${s.presentCount}/${s.totalMetrics} metrik)`);
     console.log(`  Alt:    V=${s.subScores.valuation} B=${s.subScores.growth} K=${s.subScores.profitability} R=${s.subScores.risk}`);
     const reweighted = Math.abs(s.appliedWeights.valuation - 0.30) > 0.01;
@@ -190,8 +199,12 @@ async function testSymbol(sembol) {
   }
 }
 
-console.log('Investment Score — Canlı Smoke Test\n');
+// TÜFE değeri — prod'da TCMB EVDS'den gelir, burada son bilinen seviye
+const TUFE_YOY = 30.9;
+
+console.log('Investment Score — Canlı Smoke Test (Enflasyon düzeltmeli v2)');
+console.log(`TÜFE yıllık: %${TUFE_YOY} — F/K üst sınırı ${(40 * (1 + (TUFE_YOY/100) * 0.75)).toFixed(1)}, nominal büyüme reel'e çevrildi\n`);
 for (const s of TEST_SYMBOLS) {
-  await testSymbol(s);
+  await testSymbol(s, TUFE_YOY);
 }
 console.log('\n✓ Test tamamlandı.');

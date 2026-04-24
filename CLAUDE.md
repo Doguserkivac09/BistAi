@@ -547,7 +547,7 @@ Phase 13 (Veri + ML) ← 8.1, 8.2; topluluktan bağımsız
 19. ⬜ **N1: Production backfill** — BT-FIX (maxDrawdown daily grouping) DB'ye yansıtılmalı
 20. ✅ **N2: Telegram tam otomasyon** — Make.com: günlük sinyal, karşılama, haftalık özet/eğitim, pazartesi hazırlık (2026-04)
 21. ✅ **Investable Edge Investment Score** (2026-04-17): Hibrit deterministik skor + AI yorum katmanı — hisse Temel tab ve Teknik tab'a entegre
-22. ⬜ **v2 Enflasyon düzeltmesi** (R5): Türkiye F/K'ları yüksek enflasyondan çarpık (THYAO 335, EREGL 393) — reel F/K = F/K × (1 − enflasyon) düzeltmesi yapılmalı
+22. ✅ **v2 Enflasyon düzeltmesi** (R5) (2026-04-24): TCMB TÜFE verisi ile iki katmanlı düzeltme — (1) F/K üst scale sınırı `40 × (1 + min(TÜFE/100 × 0.75, 1.5))` ile dinamik, (2) Fisher denklemiyle reel büyüme: `(1+nominal)/(1+inf) - 1`. BIST hisselerinde skorlar düşüyor (THYAO 44→34, BIMAS 50→41) — enflasyonun altında "büyüyen" şirketler artık gerçekçi şekilde küçülme olarak skorlanıyor. `computeInvestableScore(f, weights?, inflation?)` geriye uyumlu; UI'da 🇹🇷 sky-renkli badge reel büyümeyi gösteriyor.
 
 ## Test Kuralı (Her Değişiklik Sonrası)
 
@@ -696,9 +696,14 @@ UI: InvestableScoreCard (ring + alt-skor barları + AI accordion)
 
 ### Açık Konular (v2)
 
-- **Enflasyon düzeltmesi (R5):** BIST F/K'ları yüksek enflasyondan şişiyor — reel F/K = F/K × (1 − enflasyon oranı)
+- ✅ **Enflasyon düzeltmesi** (2026-04-24): TCMB TÜFE verisi + Fisher denklemi ile uygulandı
+  - F/K üst scale sınırı: `40 × (1 + min(TÜFE/100 × 0.75, 1.5))` → %30.9 enflasyonda 49.3
+  - Reel büyüme: `(1+nominal)/(1+inf) - 1` → nominal %11.9 + TÜFE %30.9 = reel -%14.5 (gerçekte küçülme)
+  - Kalibrasyon sonucu: BIST hisselerinde skor 4-11 puan düşüyor (THYAO 44→34, EREGL 53→42, BIMAS 50→41, SASA 23→19, ASELS 50→39) — artık BIST'te "büyüyor" görünen çoğu şirketin reel olarak küçüldüğü dürüstçe yansıyor
+  - `InflationContext` parametresi opsiyonel (global hisselerde geçilmez, geriye uyumlu)
+  - UI: Sky-renkli 🇹🇷 banner + reel büyüme (yeşil/kırmızı)
 - **Cron pre-compute (Faz 5):** Top-50 hisse için günde bir kez pre-compute; ilk sürümde lazy yeterli
-- **Global genişleme:** Kod exchange-agnostic, provider katmanında ticker format'ı ayrımı yapılacak (US/EU/JP)
+- **Global genişleme:** Kod exchange-agnostic, provider katmanında ticker format'ı ayrımı yapılacak (US/EU/JP); TR olmayan sembollerde `InflationContext` geçilmez → global ölçek kullanılır
 
 ---
 

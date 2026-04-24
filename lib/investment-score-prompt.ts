@@ -96,8 +96,8 @@ PEG: ${fmt(f.pegRatio, { digits: 2 })}
 F/DD: ${fmt(f.priceToBook, { digits: 2 })}
 EV/FAVÖK: ${fmt(f.enterpriseToEbitda, { digits: 1 })}
 EPS: ${fmt(f.eps, { digits: 2 })}
-Gelir Büyümesi (YoY): ${fmt(f.revenueGrowth, { isRatio: true })}
-Kâr Büyümesi (YoY): ${fmt(f.earningsGrowth, { isRatio: true })}
+Gelir Büyümesi (YoY, nominal): ${fmt(f.revenueGrowth, { isRatio: true })}
+Kâr Büyümesi (YoY, nominal): ${fmt(f.earningsGrowth, { isRatio: true })}
 ROE: ${fmt(f.returnOnEquity, { isRatio: true })}
 ROA: ${fmt(f.returnOnAssets, { isRatio: true })}
 Faaliyet Marjı: ${fmt(f.operatingMargins, { isRatio: true })}
@@ -109,7 +109,15 @@ Beta: ${fmt(f.beta, { digits: 2 })}
 Temettü Verimi: ${fmt(f.dividendYield, { isRatio: true })}
 </fundamentals>
 
-${score.missingMetrics.length > 0 ? `<missing_metrics>${score.missingMetrics.join(', ')}</missing_metrics>\n` : ''}
+${score.inflationAdjustment ? `<enflasyon_duzeltmesi>
+TÜFE (yıllık): %${score.inflationAdjustment.tufeYoy.toFixed(1)}
+Reel Gelir Büyümesi (enflasyondan arındırılmış): ${score.inflationAdjustment.realRevenueGrowth !== null ? `%${(score.inflationAdjustment.realRevenueGrowth * 100).toFixed(1)}` : 'yok'}
+Reel Kâr Büyümesi: ${score.inflationAdjustment.realEarningsGrowth !== null ? `%${(score.inflationAdjustment.realEarningsGrowth * 100).toFixed(1)}` : 'yok'}
+F/K skor üst sınırı (bu hisse için): ${score.inflationAdjustment.peUpperBoundUsed.toFixed(1)} (global: 40.0)
+NOT: Türkiye yüksek enflasyon ortamında. Büyüme oranları reel (enflasyondan arındırılmış) değerlendirildi. Reel büyüme negatifse şirket nominal büyüse bile aslında küçülüyor.
+</enflasyon_duzeltmesi>
+
+` : ''}${score.missingMetrics.length > 0 ? `<missing_metrics>${score.missingMetrics.join(', ')}</missing_metrics>\n` : ''}
 Şimdi aşağıdaki JSON formatında yanıt ver (başka hiçbir şey yazma):
 
 {

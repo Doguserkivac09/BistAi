@@ -28,8 +28,9 @@ import { checkAndRecordAiBudget } from '@/lib/ai-budget';
 import { createServerClient } from '@/lib/supabase-server';
 import { sanitizeTicker } from '@/lib/sanitize';
 import { fetchYahooFundamentals } from '@/lib/yahoo-fundamentals';
-import { computeInvestableScore } from '@/lib/investment-score';
+import { computeInvestableScore, type InflationContext } from '@/lib/investment-score';
 import { buildInvestmentScorePrompt } from '@/lib/investment-score-prompt';
+import { fetchTurkeyInflation } from '@/lib/turkey-macro';
 import {
   AiInvestmentYorumSchema,
   FALLBACK_YORUM,
@@ -165,12 +166,29 @@ async function handle(request: NextRequest) {
     return Response.json({ error: 'Temel veri alınamadı.' }, { status: 404 });
   }
 
-  const score = computeInvestableScore(fundamentals);
+  // Enflasyon bağlamı (BIST için kritik): TÜFE'yi TCMB'den paralel çek,
+  // başarısızsa skor hesabı düzeltmesiz çalışır (geriye uyumlu).
+  let inflation: InflationContext | undefined;
+  try {
+    const tufe = await fetchTurkeyInflation();
+    if (tufe && isFinite(tufe.value) && tufe.value > 0) {
+      inflation = {
+        tufeYoy: tufe.value,
+        source: tufe.source.toLowerCase().includes('fallback') ? 'fallback' : 'tcmb',
+      };
+    }
+  } catch (err) {
+    // Enflasyon çekilemezse sessizce devam et — skor motoru düzeltmesiz çalışır
+    console.warn(`[investment-score] TÜFE çekilemedi (${sembol}):`, err);
+  }
 
-  // Cache key — fundamentals.reportedDate boş olduğundan güne bağlı TTL
-  // (aynı gün + aynı sembol → aynı yorum)
+  const score = computeInvestableScore(fundamentals, undefined, inflation);
+
+  // Cache key — enflasyon değeri yuvarlak puan kademesine giriyor; %30.5 vs %30
+  // farkı skoru hafifçe değiştirebilir → cache key'e enflasyon tam sayısı dahil
   const gunluk = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const cacheKey = `invscore:${sembol}:${gunluk}:${score.score}`;
+  const tufeKademe = inflation ? Math.round(inflation.tufeYoy) : 'no-inf';
+  const cacheKey = `invscore:${sembol}:${gunluk}:${score.score}:${tufeKademe}`;
 
   // 1. ai_cache'te var mı?
   let yorum = await getAiCache(cacheKey);

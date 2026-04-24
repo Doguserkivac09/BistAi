@@ -34,6 +34,14 @@ interface ApiResponse {
   totalMetrics: number;
   confidence: InvestableConfidence;
   ratingLabel: InvestableRating;
+  /** Enflasyon düzeltmesi uygulandıysa dolu olur (BIST hisseleri için) */
+  inflationAdjustment?: {
+    applied: boolean;
+    tufeYoy: number;
+    realRevenueGrowth: number | null;
+    realEarningsGrowth: number | null;
+    peUpperBoundUsed: number;
+  };
   summary: string;
   risks: string[];
   opportunities: string[];
@@ -369,6 +377,48 @@ function FullCard({
             Bazı temel veriler eksik ({data.presentCount}/{data.totalMetrics} metrik) —
             skor tahminidir, daha fazla veriye sahip hisselerle karşılaştırırken dikkatli olun.
           </span>
+        </motion.div>
+      )}
+
+      {/* Enflasyon düzeltmesi bilgi satırı (BIST için) */}
+      {data.inflationAdjustment?.applied && (
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-start gap-2 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-xs text-sky-200/90"
+          title="Türkiye yüksek enflasyon ortamında standart F/K ve nominal büyüme yanıltıcı olur. Skor, TÜFE'ye göre düzeltildi."
+        >
+          <span className="text-base leading-none">🇹🇷</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sky-200">
+              Enflasyon düzeltildi · TÜFE %{data.inflationAdjustment.tufeYoy.toFixed(1)}
+            </p>
+            <p className="text-[11px] text-sky-200/70 mt-0.5">
+              {data.inflationAdjustment.realRevenueGrowth !== null && (
+                <>
+                  Reel gelir büyümesi:{' '}
+                  <span className={cn(
+                    'font-semibold',
+                    data.inflationAdjustment.realRevenueGrowth >= 0 ? 'text-emerald-300' : 'text-red-300'
+                  )}>
+                    %{(data.inflationAdjustment.realRevenueGrowth * 100).toFixed(1)}
+                  </span>
+                </>
+              )}
+              {data.inflationAdjustment.realEarningsGrowth !== null && (
+                <>
+                  {data.inflationAdjustment.realRevenueGrowth !== null && ' · '}
+                  Reel kâr büyümesi:{' '}
+                  <span className={cn(
+                    'font-semibold',
+                    data.inflationAdjustment.realEarningsGrowth >= 0 ? 'text-emerald-300' : 'text-red-300'
+                  )}>
+                    %{(data.inflationAdjustment.realEarningsGrowth * 100).toFixed(1)}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
         </motion.div>
       )}
 
