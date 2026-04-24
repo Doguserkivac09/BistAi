@@ -1163,14 +1163,17 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   </CardContent>
                 </Card>
 
-                {/* Hisse Skor Kartı */}
+                {/* Teknik Profil (karar değil — 5 boyutlu puan) */}
                 {candles.length >= 50 && (() => {
                   const stockScore = computeStockScore(candles, signals);
                   return (
                     <Card>
                       <CardHeader className="py-2 px-3 pb-0">
-                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                          Hisse Skor Kartı
+                        <CardTitle
+                          className="text-xs font-semibold uppercase tracking-widest text-text-muted"
+                          title="5 boyutlu teknik profil — trend/momentum/hacim/sinyal/volatilite. AL/SAT kararı değildir."
+                        >
+                          Teknik Profil <span className="text-[9px] normal-case tracking-normal text-text-muted/60">(karar değil)</span>
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="pt-3">
@@ -1319,7 +1322,12 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     return (
                       <Card>
                         <CardHeader className="py-2 px-3 pb-0">
-                          <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">Hisse Skor Kartı</CardTitle>
+                          <CardTitle
+                            className="text-xs font-semibold uppercase tracking-widest text-text-muted"
+                            title="5 boyutlu teknik profil — trend/momentum/hacim/sinyal/volatilite. AL/SAT kararı değildir."
+                          >
+                            Teknik Profil <span className="text-[9px] normal-case tracking-normal text-text-muted/60">(karar değil)</span>
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-3">
                           <HisseSkorKarti result={stockScore} />
