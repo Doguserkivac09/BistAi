@@ -17,12 +17,15 @@ import { getMacroFull } from '@/lib/macro-service';
 import { getSector, getSectorId } from '@/lib/sectors';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 import { fetchKapDuyurular } from '@/lib/kap';
+import {
+  computeDecision,
+  dbRowsToStockSignals,
+  type DecisionOutput,
+} from '@/lib/decision-engine';
 
 const MIN_CONFLUENCE    = 45;
 const LOOKBACK_DAYS     = 3;
-const TIME_DECAY_HALF_H = 48;     // 48 saatte confluence etkisi yarıya iner
 const STATS_LOOKBACK_D  = 180;    // geçmiş win rate için örneklem penceresi
-const MIN_N_FOR_WR      = 20;     // bu eşik altındaki win rate güvenilmez
 const MIN_ADV_TL        = 10_000_000; // 10M TL altı likiditesi elenir (P0-3)
 const MIN_RR            = 1.5;        // 1.5 altı R/R sinyaller elenir (P2-1)
 
@@ -89,6 +92,8 @@ export interface FirsatItem {
     mtfAlign:   number;  // ± puan (haftalık uyum)
     kapEvent:   number;  // ± puan (KAP event riski)
   };
+  /** Birleşik karar motoru çıktısı — hisse detay ile aynı format */
+  decision: DecisionOutput;
 }
 
 export interface FirsatlarResponse {
@@ -96,6 +101,8 @@ export interface FirsatlarResponse {
   makroScore:   number | null;
   regime:       string | null;
   toplamSinyal: number;
+  /** En yeni sinyalin entry_time değeri — UI'da staleness göstermek için */
+  scannedAt:    string | null;
 }
 
 // ── Yardımcılar ──────────────────────────────────────────────────────
@@ -130,42 +137,8 @@ function computeWinRates(
   return out;
 }
 
-function timeDecayMultiplier(ageHours: number): number {
-  // Exponential decay: 0h → 1.0, 48h → 0.5, 96h → 0.25
-  return Math.pow(0.5, ageHours / TIME_DECAY_HALF_H);
-}
-
-function regimeAdjustment(direction: string, regime: string | null): number {
-  if (!regime || direction === 'notr') return 0;
-  if (direction === 'yukari' && regime === 'bull_trend') return 8;
-  if (direction === 'asagi'  && regime === 'bear_trend') return 8;
-  if (direction === 'yukari' && regime === 'bear_trend') return -10;
-  if (direction === 'asagi'  && regime === 'bull_trend') return -10;
-  return 0; // sideways veya bilinmiyor
-}
-
-function macroAdjustment(direction: string, makroScore: number | null): number {
-  if (makroScore === null || direction === 'notr') return 0;
-  if (direction === 'yukari' && makroScore >=  20) return 5;
-  if (direction === 'asagi'  && makroScore <= -20) return 5;
-  if (direction === 'yukari' && makroScore <= -20) return -7;
-  if (direction === 'asagi'  && makroScore >=  20) return -7;
-  return 0;
-}
-
-function winRateAdjustment(winRate: number | null, n: number): number {
-  if (winRate === null || n < MIN_N_FOR_WR) return 0;
-  // 50% → 0, 65% → +12, 35% → -12, (cap ±15)
-  const delta = (winRate - 0.5) * 80;
-  return Math.max(-15, Math.min(15, delta));
-}
-
-function mtfAdjustment(weeklyAligned: boolean | null): number {
-  // Haftalık trend uyumu: +6 bonus; uyumsuz = -8; null (yetersiz veri) = 0
-  if (weeklyAligned === true) return 6;
-  if (weeklyAligned === false) return -8;
-  return 0;
-}
+// NOT: timeDecay / winRate / regime / macro / mtf ayarlamaları artık
+// `lib/decision-engine.ts` içinde merkezi olarak yapılıyor — duplikasyon kaldırıldı.
 
 // KAP event — son 7 gün kritik duyuru (finansal rapor, genel kurul, temettü vb.)
 // Bu tür event'ler sinyali yanıltabilir → skor penaltısı
@@ -340,26 +313,41 @@ export async function GET() {
       const sektorId     = getSectorId(sembol);
       const sektorSinyalSayisi = sektorSayaci.get(sektorId)?.size ?? 1;
 
-      const baseScore  = Math.round(best.confluence_score ?? 0);
-      const ageHours   = Math.max(0, (now - new Date(best.entry_time).getTime()) / 3_600_000);
-      const decay      = timeDecayMultiplier(ageHours);
+      const baseScore = Math.round(best.confluence_score ?? 0);
+      const ageHours  = Math.max(0, (now - new Date(best.entry_time).getTime()) / 3_600_000);
 
-      const wrEntry    = winRateMap.get(best.signal_type);
-      const histWr     = wrEntry?.winRate ?? null;
-      const histN      = wrEntry?.n ?? 0;
+      const wrEntry = winRateMap.get(best.signal_type);
+      const histWr  = wrEntry?.winRate ?? null;
+      const histN   = wrEntry?.n ?? 0;
 
-      const wrAdj      = winRateAdjustment(histWr, histN);
-      const regimeAdj  = regimeAdjustment(direction, best.regime);
-      const macroAdj   = macroAdjustment(direction, makroScore);
-      const mtfAdj     = mtfAdjustment(best.weekly_aligned);
-
-      // KAP event riski: son 7 gün kritik duyuru → -10 penaltı
+      // KAP event riski: son 7 gün kritik duyuru
       const kapEvent = kapMap.get(sembol) ?? null;
-      const kapAdj   = kapEvent ? -10 : 0;
 
-      // Adjusted = (base × decay) + ayarlamalar; 0-100 clamp
-      const rawAdjusted = baseScore * decay + wrAdj + regimeAdj + macroAdj + mtfAdj + kapAdj;
-      const adjustedScore = Math.max(0, Math.min(100, Math.round(rawAdjusted)));
+      // ── Birleşik Karar Motoru ────────────────────────────────────────
+      // DB satırlarını StockSignal[] şekline çevir ve computeDecision çağır.
+      // Böylece /api/hisse-analiz ile tam aynı skor formülü uygulanır.
+      const stockSignals = dbRowsToStockSignals(sinyaller.map((r) => ({
+        signal_type: r.signal_type,
+        direction: r.direction,
+        sembol,
+        confluence_score: r.confluence_score,
+        weekly_aligned: r.weekly_aligned,
+        stop_loss: r.stop_loss,
+        target_price: r.target_price,
+        risk_reward_ratio: r.risk_reward_ratio,
+        avg_daily_volume_tl: r.avg_daily_volume_tl,
+        entry_price: r.entry_price,
+      })));
+
+      const decision = computeDecision({
+        signals: stockSignals,
+        macroScore: macroRes.status === 'fulfilled' ? macroRes.value.macroScore : null,
+        historicalWinRate: wrEntry ? { winRate: wrEntry.winRate, n: wrEntry.n } : null,
+        kapRisk: kapEvent ? { var: true, mesaj: kapEvent.baslik } : null,
+        regime: best.regime,
+        scannedAt: best.entry_time,
+        dataSource: 'db_snapshot',
+      });
 
       firsatlar.push({
         sembol,
@@ -368,7 +356,7 @@ export async function GET() {
         sinyaller:          uniqueSinyaller,
         direction,
         confluenceScore:    baseScore,
-        adjustedScore,
+        adjustedScore:      decision.score,  // birleşik motordan
         entryPrice:         best.entry_price,
         entryTime:          best.entry_time,
         ageHours:           Math.round(ageHours * 10) / 10,
@@ -385,24 +373,31 @@ export async function GET() {
           ? { var: true, mesaj: `${kapEvent.kategori}: ${kapEvent.baslik.slice(0, 80)}`, url: kapEvent.url }
           : null,
         adjustments: {
-          timeDecay:  Math.round(decay * 100) / 100,
-          winRate:    Math.round(wrAdj),
-          regimeFit:  regimeAdj,
-          macroAlign: macroAdj,
-          mtfAlign:   mtfAdj,
-          kapEvent:   kapAdj,
+          timeDecay:  decision.factors.timeDecay,
+          winRate:    decision.factors.winRateAdj,
+          regimeFit:  decision.factors.regimeFit,
+          macroAlign: decision.factors.macroAlign,
+          mtfAlign:   decision.factors.mtfAlign,
+          kapEvent:   decision.factors.kapEvent,
         },
+        decision,
       });
     }
 
     // Nihai skora göre sırala (en yüksek → en düşük)
     firsatlar.sort((a, b) => b.adjustedScore - a.adjustedScore);
 
+    // En yeni entry_time (UI'da "şu zamanki taramanın sonucu" göstermek için)
+    const scannedAt = firsatlar.length > 0
+      ? firsatlar.reduce((latest, f) => f.entryTime > latest ? f.entryTime : latest, firsatlar[0]!.entryTime)
+      : null;
+
     return NextResponse.json<FirsatlarResponse>({
       firsatlar,
       makroScore,
       regime,
       toplamSinyal: allRows.length,
+      scannedAt,
     }, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
     });

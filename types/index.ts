@@ -127,7 +127,7 @@ export const BIST_SYMBOLS = [
   // Sigorta & Finansal Hizmetler
   'HEKTS', 'ANHYT', 'AGROT', 'ISMEN', 'ANSGR', 'AKGRT', 'RAYSG', 'ISFIN',
   // Holding & Yatırım
-  'KCHOL', 'SAHOL', 'DOHOL', 'TAVHL', 'TKFEN', 'IHLAS', 'GOZDE', 'IEYHO', 'NTHOL', 'POLHO',
+  'KCHOL', 'SAHOL', 'DOHOL', 'TAVHL', 'TKFEN', 'IHLAS', 'GOZDE', 'IEYHO', 'NTHOL', 'POLHO', 'POLTK',
   // Havacılık & Savunma
   'THYAO', 'PGSUS', 'ASELS',
   // Enerji & Petrol

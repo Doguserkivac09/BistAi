@@ -362,7 +362,7 @@ function FirsatKarti({
       transition={{ delay: index * 0.04, duration: 0.25 }}
     >
       <Link
-        href={`/hisse/${firsat.sembol}`}
+        href={`/hisse/${firsat.sembol}?from=firsatlar&snapshotScore=${firsat.adjustedScore}&snapshotAt=${encodeURIComponent(firsat.entryTime)}`}
         className="block rounded-xl border border-border bg-surface p-4 transition-all hover:border-primary/40 hover:bg-white/5 hover:shadow-lg hover:shadow-primary/5"
       >
         {/* Üst: sembol + yön + confluence */}
@@ -731,6 +731,26 @@ export default function FirsatlarPage() {
 
       {/* Sosyal kanıt kartı — geçmiş başarı */}
       {statsSummary.length > 0 && <SosyalKanitKarti stats={statsSummary} />}
+
+      {/* Tarama zamanı rozeti — kullanıcı snapshot olduğunu anlasın */}
+      {data?.scannedAt && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-300/90">
+          <span>📷</span>
+          <span>
+            {new Date(data.scannedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} taraması
+            {' · '}
+            {(() => {
+              const diffMs = Date.now() - new Date(data.scannedAt).getTime();
+              const h = Math.floor(diffMs / 3_600_000);
+              const m = Math.floor((diffMs % 3_600_000) / 60_000);
+              if (h < 1) return `${m} dk önce`;
+              if (h < 24) return `${h} sa ${m} dk önce`;
+              return `${Math.floor(h / 24)} gün önce`;
+            })()}
+          </span>
+          <span className="ml-auto text-[10px] text-amber-300/60">Anlık değildir — karta tıklayınca güncel durum gelir</span>
+        </div>
+      )}
 
       {/* Makro bar */}
       {data && <MakroBar score={data.makroScore} regime={data.regime} />}
