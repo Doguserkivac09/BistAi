@@ -1408,6 +1408,101 @@ export default function MakroPage() {
           </motion.div>
         </section>
 
+        {/* ABD Makro (FRED) */}
+        <section className="mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            className="rounded-xl border border-white/8 bg-[#0a0a18] p-5"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-base">🇺🇸</span>
+              <h3 className="text-base font-semibold text-white">ABD Makro</h3>
+              {macro.usEconomy && (
+                <span
+                  className={`ml-auto text-xs font-semibold rounded-full px-2 py-0.5 border ${
+                    macro.usEconomy.color === 'green'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : macro.usEconomy.color === 'yellow'
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                      : 'bg-red-500/10 border-red-500/30 text-red-300'
+                  }`}
+                  title="Fed funds, CPI, GDP, işsizlik göstergelerinden 0-100 skor"
+                >
+                  Ekonomi: {macro.usEconomy.label} ({macro.usEconomy.score})
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+              {/* Fed Funds Rate */}
+              <div className="pb-3 sm:pb-0 sm:pr-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  Fed Funds Faizi
+                  <FreshnessDot source={macro.fred.fedFundsRate ? 'FRED API' : 'fallback-no-fred-key'} />
+                </p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {macro.fred.fedFundsRate?.value != null ? `%${macro.fred.fedFundsRate.value.toFixed(2)}` : '—'}
+                </p>
+                {macro.fred.fedFundsRate?.value != null && (() => {
+                  const v = macro.fred.fedFundsRate.value;
+                  const ch = macro.fred.fedFundsRate.change;
+                  const label = v >= 5 ? 'Sıkı' : v >= 3 ? 'Nötr' : 'Gevşek';
+                  const cls   = v >= 5 ? 'text-orange-400' : v >= 3 ? 'text-yellow-400' : 'text-green-400';
+                  return (
+                    <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>
+                      {label}
+                      {ch != null && Math.abs(ch) >= 0.01 && (
+                        <span className="text-white/40 font-normal ml-1">
+                          ({ch > 0 ? '+' : ''}{ch.toFixed(2)})
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
+              </div>
+              {/* GDP Growth */}
+              <div className="py-3 sm:py-0 sm:px-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  GSYH Büyüme (Q/Q)
+                  <FreshnessDot source={macro.fred.gdpGrowth ? 'FRED API' : 'fallback-no-fred-key'} />
+                </p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {macro.fred.gdpGrowth?.value != null ? `%${macro.fred.gdpGrowth.value.toFixed(1)}` : '—'}
+                </p>
+                {macro.fred.gdpGrowth?.value != null && (() => {
+                  const v = macro.fred.gdpGrowth.value;
+                  const label = v >= 2.5 ? 'Güçlü' : v >= 1 ? 'Ilımlı' : v >= 0 ? 'Zayıf' : 'Daralma';
+                  const cls   = v >= 2.5 ? 'text-green-400' : v >= 1 ? 'text-yellow-400' : v >= 0 ? 'text-orange-400' : 'text-red-400';
+                  return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{label}</span>;
+                })()}
+              </div>
+              {/* Unemployment */}
+              <div className="pt-3 sm:pt-0 sm:pl-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  İşsizlik
+                  <FreshnessDot source={macro.fred.unemployment ? 'FRED API' : 'fallback-no-fred-key'} />
+                </p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {macro.fred.unemployment?.value != null ? `%${macro.fred.unemployment.value.toFixed(1)}` : '—'}
+                </p>
+                {macro.fred.unemployment?.value != null && (() => {
+                  const v = macro.fred.unemployment.value;
+                  const label = v <= 4 ? 'Tam istihdam' : v <= 5 ? 'Sağlıklı' : v <= 6 ? 'Yumuşama' : 'Resesyon riski';
+                  const cls   = v <= 4 ? 'text-green-400' : v <= 5 ? 'text-yellow-400' : v <= 6 ? 'text-orange-400' : 'text-red-400';
+                  return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{label}</span>;
+                })()}
+              </div>
+            </div>
+            {/* FRED key bilgisi — hiç veri yoksa */}
+            {!macro.fred.fedFundsRate && !macro.fred.gdpGrowth && !macro.fred.unemployment && (
+              <div className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-300/80">
+                ⚠️ FRED verileri çekilemedi. <code className="text-amber-200">FRED_API_KEY</code> tanımlı mı kontrol edin (ücretsiz: fred.stlouisfed.org/docs/api/api_key.html).
+              </div>
+            )}
+          </motion.div>
+        </section>
+
         {/* Tarihsel Makro Skor Grafiği */}
         <section className="mb-6">
           <div className="flex items-center gap-2 mb-3">
