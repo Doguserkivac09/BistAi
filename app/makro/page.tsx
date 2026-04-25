@@ -161,6 +161,47 @@ function numVal(v: { value: number; [k: string]: unknown } | number | null): num
   return typeof v === 'object' ? v.value : v;
 }
 
+// ── Veri kaynağı tazeliği (health badge) ─────────────────────────────
+//
+// Her gösterge `source` alanıyla geliyor. String'i normalize edip
+// 3 kategoriye ayırıyoruz:
+//   • live     → 🟢 canlı API (TCMB EVDS, FRED, Yahoo)
+//   • proxy    → 🟡 türetilmiş (USD/TRY volatilitesinden CDS proxy)
+//   • fallback → 🔴 hardcoded sabit (API key/erişim yok)
+type Freshness = { status: 'live' | 'proxy' | 'fallback'; label: string; cls: string };
+
+function srcOf(v: unknown): string | null {
+  if (v && typeof v === 'object' && 'source' in v) {
+    const s = (v as { source?: unknown }).source;
+    return typeof s === 'string' ? s : null;
+  }
+  return null;
+}
+
+function freshnessFromSource(source: string | null | undefined): Freshness | null {
+  if (!source) return null;
+  const s = source.toLowerCase();
+  if (s.includes('fallback') || s.includes('hardcoded')) {
+    return { status: 'fallback', label: 'Hardcoded sabit (API erişimi yok)',         cls: 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.7)]' };
+  }
+  if (s.includes('proxy')) {
+    return { status: 'proxy',    label: 'Türetilmiş (proxy hesaplama)',              cls: 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]' };
+  }
+  return   { status: 'live',     label: `Canlı kaynak: ${source}`,                   cls: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]' };
+}
+
+function FreshnessDot({ source }: { source: string | null | undefined }) {
+  const f = freshnessFromSource(source);
+  if (!f) return null;
+  return (
+    <span
+      className={`inline-block h-1.5 w-1.5 rounded-full align-middle ml-1 ${f.cls}`}
+      title={f.label}
+      aria-label={f.label}
+    />
+  );
+}
+
 function fmtPct(v: number | null): string {
   if (v == null) return '—';
   return `%${v.toFixed(1)}`;
@@ -1255,7 +1296,10 @@ export default function MakroPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
               {/* TCMB */}
               <div className="pb-3 sm:pb-0 sm:pr-5">
-                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">TCMB Politika Faizi</p>
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  TCMB Politika Faizi
+                  <FreshnessDot source={srcOf(macro.turkey.policyRate)} />
+                </p>
                 <p className="text-3xl font-black text-white font-mono">
                   {numVal(macro.turkey.policyRate) != null ? `%${numVal(macro.turkey.policyRate)}` : '—'}
                 </p>
@@ -1274,6 +1318,7 @@ export default function MakroPage() {
                   >
                     (proxy ⓘ)
                   </span>
+                  <FreshnessDot source={srcOf(macro.turkey.cds5y)} />
                 </p>
                 <p className="text-3xl font-black text-white font-mono">
                   {numVal(macro.turkey.cds5y) != null ? `${numVal(macro.turkey.cds5y)!.toFixed(0)}` : '—'}
@@ -1288,7 +1333,10 @@ export default function MakroPage() {
               </div>
               {/* TÜFE */}
               <div className="pt-3 sm:pt-0 sm:pl-5">
-                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">TÜFE (Enflasyon)</p>
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  TÜFE (Enflasyon)
+                  <FreshnessDot source={srcOf(macro.turkey.inflation)} />
+                </p>
                 <p className="text-3xl font-black text-white font-mono">
                   {numVal(macro.turkey.inflation) != null ? fmtPct(numVal(macro.turkey.inflation)) : '—'}
                 </p>
