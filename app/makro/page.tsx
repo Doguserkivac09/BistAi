@@ -1265,7 +1265,16 @@ export default function MakroPage() {
               </div>
               {/* CDS */}
               <div className="py-3 sm:py-0 sm:px-5">
-                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">CDS 5Y <span className="normal-case text-white/20">(proxy)</span></p>
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1 flex items-center gap-1">
+                  <span>CDS 5Y</span>
+                  <span
+                    className="normal-case text-amber-300/70 cursor-help border-b border-dotted border-amber-300/40"
+                    title="Bu değer gerçek CDS spread'i değildir. TCMB EVDS Türkiye CDS'sini doğrudan yayınlamadığı için USD/TRY 30 günlük volatilitesinden tahmini olarak (proxy) hesaplanmıştır. Gerçek CDS verisi için worldgovernmentbonds.com veya benzeri kaynaklara bakılmalıdır."
+                    aria-label="CDS proxy değeri açıklaması"
+                  >
+                    (proxy ⓘ)
+                  </span>
+                </p>
                 <p className="text-3xl font-black text-white font-mono">
                   {numVal(macro.turkey.cds5y) != null ? `${numVal(macro.turkey.cds5y)!.toFixed(0)}` : '—'}
                   <span className="text-base font-normal text-white/40 ml-1">bps</span>

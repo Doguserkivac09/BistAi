@@ -78,7 +78,11 @@ async function handleHistoryRequest(request: NextRequest): Promise<NextResponse>
 
     const { data, error } = await supabase
       .from('macro_snapshots')
-      .select('snapshot_date, macro_score, wind, vix, dxy, us10y, usdtry, cds_5y, policy_rate, fed_funds_rate')
+      .select(
+        'snapshot_date, macro_score, wind, vix, dxy, us10y, usdtry, ' +
+        'eem, brent, gold, silver, copper, bist100, ' +
+        'cds_5y, policy_rate, inflation, fed_funds_rate'
+      )
       .gte('snapshot_date', cutoff.toISOString().slice(0, 10))
       .order('snapshot_date', { ascending: true });
 
