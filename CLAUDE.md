@@ -18,6 +18,11 @@ Migration dosyası oluşturuldu ama Supabase'e uygulanmadı:
 Çalıştırılınca: bir sonraki cron run'da (Pzt-Cum 06:00 UTC) snapshot tüm emtia/BIST/TÜFE değerlerini de yazmaya başlar → tarihsel grafik tüm göstergeler için canlı olur.
 **İlk snapshot'ı manuel tetiklemek için:** `curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/macro`
 
+### Makro Snapshots — TR 10Y Tahvil (2026-04-26)
+**`supabase/migrations/20260426_macro_snapshots_tr10y.sql`** uygulanmalı.
+→ `macro_snapshots` tablosuna `tr_10y numeric` kolonu ekler. Idempotent.
+TCMB EVDS `TP.ADHGTGS.AGTGS10Y` serisinden çekilir; UI'da TCMB faizi vs piyasa beklentisi karşılaştırması için kullanılır.
+
 Eklenen kolonlar (signal_performance):
 - `avg_daily_volume_tl` — P0-3 likidite filtresi (<10M TL elenir)
 - `weekly_aligned` — P1-1 haftalık trend uyumu (skor ±8)

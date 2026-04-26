@@ -14,6 +14,7 @@ export interface TurkeyMacroData {
   policyRate: TurkeyIndicator | null;     // TCMB politika faizi
   cds5y: TurkeyIndicator | null;          // Türkiye 5Y CDS spread
   inflation: TurkeyIndicator | null;      // TÜFE yıllık
+  bond10y: TurkeyIndicator | null;        // Türkiye 10Y devlet tahvili faizi
   usdtry: TurkeyIndicator | null;         // USD/TRY (macro-data.ts'den de gelir, burada ek analiz)
   fetchedAt: string;
 }
@@ -46,6 +47,11 @@ export const TCMB_SERIES = {
   CPI_YOY: {
     code: 'TP.FG.J0',     // TÜFE Yıllık Değişim
     name: 'TÜFE Yıllık Enflasyon',
+    unit: '%',
+  },
+  BOND_10Y: {
+    code: 'TP.ADHGTGS.AGTGS10Y', // 10 Yıllık Devlet Tahvili Gösterge Faizi (yıllık bileşik, %)
+    name: 'Türkiye 10Y Tahvil Faizi',
     unit: '%',
   },
 } as const;
@@ -202,6 +208,29 @@ export async function fetchTurkeyInflation(): Promise<TurkeyIndicator | null> {
 }
 
 /**
+ * Türkiye 10 yıllık gösterge devlet tahvili faizi.
+ * EVDS serisi mevcut değilse fallback (~%40 — 2026 itibarıyla tipik seviye).
+ */
+export async function fetchTurkey10YBond(): Promise<TurkeyIndicator | null> {
+  const cacheKey = 'turkey:bond10y';
+  const cached = getTurkeyCached<TurkeyIndicator>(cacheKey);
+  if (cached) return cached;
+
+  const { code, name, unit } = TCMB_SERIES.BOND_10Y;
+  const endDate = formatDateEvds(new Date());
+  const startDate = formatDateEvds(monthsAgo(6));
+
+  const data = await fetchEvdsSeries(code, startDate, endDate);
+  if (data.length === 0) {
+    return createFallbackIndicator(name, 40, unit, 'hardcoded-fallback');
+  }
+
+  const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
+  if (indicator) setTurkeyCache(cacheKey, indicator);
+  return indicator;
+}
+
+/**
  * Türkiye 5Y CDS spread verisi.
  * TCMB EVDS'de CDS yoksa, Yahoo Finance'den alternatif olarak
  * USDTRY volatilitesinden proxy CDS hesaplar.
@@ -298,10 +327,11 @@ export async function fetchAllTurkeyMacro(): Promise<TurkeyMacroData> {
   const cached = getTurkeyCached<TurkeyMacroData>(cacheKey);
   if (cached) return cached;
 
-  const [policyRate, cds5y, inflation] = await Promise.all([
+  const [policyRate, cds5y, inflation, bond10y] = await Promise.all([
     fetchPolicyRate(),
     fetchTurkeyCDS(),
     fetchTurkeyInflation(),
+    fetchTurkey10YBond(),
   ]);
 
   // USD/TRY ek analiz: macro-data.ts'deki quote'u zenginleştir
@@ -340,6 +370,7 @@ export async function fetchAllTurkeyMacro(): Promise<TurkeyMacroData> {
     policyRate,
     cds5y,
     inflation,
+    bond10y,
     usdtry,
     fetchedAt: new Date().toISOString(),
   };

@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
           cds_5y:         turkeyData?.cds5y?.value           ?? null,
           policy_rate:    turkeyData?.policyRate?.value      ?? null,
           inflation:      turkeyData?.inflation?.value       ?? null,
+          tr_10y:         turkeyData?.bond10y?.value          ?? null,
           fed_funds_rate: fredData?.fedFundsRate?.latestValue ?? null,
           components: scoreResult.components,
         },

@@ -47,6 +47,7 @@ interface MacroResponse {
     policyRate: { value: number; [key: string]: unknown } | number | null;
     cds5y:      { value: number; [key: string]: unknown } | number | null;
     inflation:  { value: number; [key: string]: unknown } | number | null;
+    bond10y:    { value: number; [key: string]: unknown } | number | null;
   };
   fred: {
     fedFundsRate: { value: number; date: string; change: number } | null;
@@ -1293,9 +1294,9 @@ export default function MakroPage() {
               <span className="text-base">🇹🇷</span>
               <h3 className="text-base font-semibold text-white">Türkiye Makro</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-0 lg:divide-x divide-white/5">
               {/* TCMB */}
-              <div className="pb-3 sm:pb-0 sm:pr-5">
+              <div className="lg:pr-5">
                 <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
                   TCMB Politika Faizi
                   <FreshnessDot source={srcOf(macro.turkey.policyRate)} />
@@ -1308,7 +1309,7 @@ export default function MakroPage() {
                 </span>
               </div>
               {/* CDS */}
-              <div className="py-3 sm:py-0 sm:px-5">
+              <div className="lg:px-5">
                 <p className="text-xs text-white/35 uppercase tracking-wide mb-1 flex items-center gap-1">
                   <span>CDS 5Y</span>
                   <span
@@ -1332,7 +1333,7 @@ export default function MakroPage() {
                 })()}
               </div>
               {/* TÜFE */}
-              <div className="pt-3 sm:pt-0 sm:pl-5">
+              <div className="lg:px-5">
                 <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
                   TÜFE (Enflasyon)
                   <FreshnessDot source={srcOf(macro.turkey.inflation)} />
@@ -1345,6 +1346,32 @@ export default function MakroPage() {
                   const label = v > 30 ? 'Yüksek' : v > 10 ? 'Orta' : 'Düşük';
                   const cls   = v > 30 ? 'text-red-400' : v > 10 ? 'text-orange-400' : 'text-green-400';
                   return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{label}</span>;
+                })()}
+              </div>
+              {/* TR 10Y Tahvil */}
+              <div className="lg:pl-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  TR 10Y Tahvil
+                  <FreshnessDot source={srcOf(macro.turkey.bond10y)} />
+                </p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {numVal(macro.turkey.bond10y) != null ? `%${numVal(macro.turkey.bond10y)!.toFixed(2)}` : '—'}
+                </p>
+                {(() => {
+                  const b = numVal(macro.turkey.bond10y);
+                  const r = numVal(macro.turkey.policyRate);
+                  if (b == null || r == null) {
+                    if (b == null) return null;
+                    const lbl = b >= 40 ? 'Yüksek getiri' : b >= 25 ? 'Yüksek' : 'Orta';
+                    const cls = b >= 40 ? 'text-red-400' : b >= 25 ? 'text-orange-400' : 'text-yellow-400';
+                    return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{lbl}</span>;
+                  }
+                  const spread = b - r;
+                  const lbl = spread >= 3 ? `Faiz artışı bekleniyor (+${spread.toFixed(1)}p)` :
+                              spread >= 0 ? `Politika ile uyumlu (+${spread.toFixed(1)}p)` :
+                              `İndirim bekleniyor (${spread.toFixed(1)}p)`;
+                  const cls = spread >= 3 ? 'text-orange-400' : spread >= 0 ? 'text-yellow-400' : 'text-green-400';
+                  return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{lbl}</span>;
                 })()}
               </div>
             </div>
