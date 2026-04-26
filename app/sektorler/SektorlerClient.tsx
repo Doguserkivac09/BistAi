@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus, RefreshCw, BarChart2, ExternalLink, ChevronsUp, ChevronsDown, Compass } from 'lucide-react';
+import {
+  TrendingUp, TrendingDown, Minus, RefreshCw, BarChart2, ExternalLink,
+  ChevronsUp, ChevronsDown, Compass, Clock, AlertTriangle,
+} from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { SECTORS, SECTOR_REPRESENTATIVES } from '@/lib/sectors';
@@ -41,13 +44,32 @@ function tradingDays(candles: OHLCVCandle[]) {
   return candles.filter((c) => (c.volume ?? 0) > 0);
 }
 
+/**
+ * `days` işlem günü öncesinin getirisi (%).
+ * Yeterli veri yoksa null döner — `Math.max(0, ...)` ile başa düşmek
+ * yanıltıcı değer üretiyordu (B1 fix).
+ */
 function getPeriodReturn(candles: OHLCVCandle[], days: number): number | null {
   const td = tradingDays(candles);
-  if (td.length < 5) return null;
+  if (td.length < days + 1) return null; // YETERLİ veri yoksa null
   const last = td[td.length - 1]!.close;
-  const base = td[Math.max(0, td.length - days)]!.close;
+  const base = td[td.length - 1 - days]!.close;
   if (base === 0) return null;
   return Math.round(((last - base) / base) * 10000) / 100;
+}
+
+/**
+ * Periyoda göre yön eşiği (B4 fix).
+ * 5 günde %2 ≠ 60 günde %2 — eşik dönem uzunluğuyla orantılı olmalı.
+ */
+function dirThreshold(period: PeriodDays): number {
+  return period === 5 ? 1 : period === 20 ? 2.5 : 5;
+}
+
+function classifyDirection(avg: number | null, period: PeriodDays): 'yukari' | 'asagi' | 'nötr' {
+  if (avg === null) return 'nötr';
+  const t = dirThreshold(period);
+  return avg >= t ? 'yukari' : avg <= -t ? 'asagi' : 'nötr';
 }
 
 function getLastPrice(candles: OHLCVCandle[]): number | null {
@@ -163,10 +185,7 @@ function SectorCard({
   period: PeriodDays;
 }) {
   const avg = data.avgByPeriod[period];
-
-  const direction: 'yukari' | 'asagi' | 'nötr' =
-    avg !== null && avg >= 2  ? 'yukari' :
-    avg !== null && avg <= -2 ? 'asagi'  : 'nötr';
+  const direction = classifyDirection(avg, period);
 
   const getChg = (s: StockMomentum) =>
     period === 5 ? s.change5d : period === 20 ? s.change20d : s.change60d;
@@ -366,17 +385,38 @@ const PERIODS: { label: string; value: PeriodDays }[] = [
   { label: '3A', value: 60 },
 ];
 
+const PERIOD_STORAGE_KEY = 'bistai.sektorler.period';
+// 60 işlem günü için en az ~90 takvim günü gerek; 120 güvenli (B1 fix).
+const OHLCV_DAYS = 120;
+
 export function SektorlerClient() {
   const [commodities,   setCommodities]   = useState<CommodityQuote[]>([]);
   const [sectorDataMap, setSectorDataMap] = useState<Map<SectorId, SectorData>>(new Map());
   const [loadingCommodity, setLoadingCommodity] = useState(true);
   const [loadingSectors,   setLoadingSectors]   = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [fetchError, setFetchError] = useState<{ failed: number; total: number } | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0); // soft refresh trigger
 
-  // Filtre & sıralama
+  // Filtre & sıralama (period localStorage persist — F13)
   const [period,    setPeriod]    = useState<PeriodDays>(20);
   const [dirFilter, setDirFilter] = useState<DirFilter>('all');
   const [sortBy,    setSortBy]    = useState<SortBy>('perf');
+
+  // Period: mount'ta localStorage'dan oku, değişince yaz
+  const didReadPeriodRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.localStorage.getItem(PERIOD_STORAGE_KEY);
+    if (saved === '5' || saved === '20' || saved === '60') {
+      setPeriod(Number(saved) as PeriodDays);
+    }
+    didReadPeriodRef.current = true;
+  }, []);
+  useEffect(() => {
+    if (!didReadPeriodRef.current || typeof window === 'undefined') return;
+    window.localStorage.setItem(PERIOD_STORAGE_KEY, String(period));
+  }, [period]);
 
   // Sektörlerin başlangıç haritası
   useEffect(() => {
@@ -437,15 +477,17 @@ export function SektorlerClient() {
       .finally(() => setLoadingCommodity(false));
   }, []);
 
-  // Sektör verisi — her zaman 65 gün çek, tüm periyotlar için yeterli
+  // Sektör verisi — 120 takvim günü ≈ 80 işlem günü (60g getirisi için yeterli — B1 fix)
   useEffect(() => {
     if (sectorDataMap.size === 0) return;
 
     setLoadingSectors(true);
+    setFetchError(null);
     const allSymbols = Array.from(sectorDataMap.values()).flatMap((d) => d.stocks.map((s) => s.sembol));
     const unique = [...new Set(allSymbols)];
 
     let completed = 0;
+    let failedCount = 0;
     const results = new Map<string, {
       change5d: number | null; change20d: number | null; change60d: number | null; lastPrice: number | null;
     }>();
@@ -454,7 +496,12 @@ export function SektorlerClient() {
       await Promise.allSettled(
         unique.map(async (sembol) => {
           try {
-            const res = await fetch(`/api/ohlcv?symbol=${sembol}&days=65`);
+            const res = await fetch(`/api/ohlcv?symbol=${sembol}&days=${OHLCV_DAYS}`);
+            if (!res.ok) {
+              failedCount++;
+              results.set(sembol, { change5d: null, change20d: null, change60d: null, lastPrice: null });
+              return;
+            }
             const { candles = [] } = await res.json() as { candles: OHLCVCandle[] };
             results.set(sembol, {
               change5d:  getPeriodReturn(candles, 5),
@@ -463,6 +510,7 @@ export function SektorlerClient() {
               lastPrice: getLastPrice(candles),
             });
           } catch {
+            failedCount++;
             results.set(sembol, { change5d: null, change20d: null, change60d: null, lastPrice: null });
           } finally {
             completed++;
@@ -496,23 +544,35 @@ export function SektorlerClient() {
       );
       setLoadingSectors(false);
       setLastUpdated(new Date());
+      if (failedCount > 0) {
+        setFetchError({ failed: failedCount, total: unique.length });
+      }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectorDataMap.size]);
+  }, [sectorDataMap.size, refreshTick]);
 
-  // Filtreli + sıralı sektörler
+  // Soft refresh — full reload yerine state reset (B5 fix)
+  const handleRefresh = useCallback(() => {
+    setLoadingCommodity(true);
+    setLoadingSectors(true);
+    setLastUpdated(null);
+    setFetchError(null);
+    // Emtia + sektör API'lerini yeniden tetikle
+    fetch('/api/commodity?_t=' + Date.now())
+      .then((r) => r.json())
+      .then((data: CommodityQuote[]) => setCommodities(data))
+      .catch(() => {})
+      .finally(() => setLoadingCommodity(false));
+    setRefreshTick((t) => t + 1);
+  }, []);
+
+  // Filtreli + sıralı sektörler — dönem-aware eşik (B4)
   const sectors = useMemo(() => {
     const arr = Array.from(sectorDataMap.values());
 
-    const getDir = (s: SectorData): 'yukari' | 'asagi' | 'nötr' => {
-      const avg = s.avgByPeriod[period];
-      return avg !== null && avg >= 2  ? 'yukari' :
-             avg !== null && avg <= -2 ? 'asagi'  : 'nötr';
-    };
-
     const filtered = dirFilter === 'all'
       ? arr
-      : arr.filter((s) => getDir(s) === dirFilter);
+      : arr.filter((s) => classifyDirection(s.avgByPeriod[period], period) === dirFilter);
 
     return [...filtered].sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name, 'tr');
@@ -524,15 +584,26 @@ export function SektorlerClient() {
   const allSectors = useMemo(() => Array.from(sectorDataMap.values()), [sectorDataMap]);
 
   const bullCount = useMemo(
-    () => allSectors.filter((s) => { const a = s.avgByPeriod[period]; return a !== null && a >= 2; }).length,
+    () => allSectors.filter((s) => classifyDirection(s.avgByPeriod[period], period) === 'yukari').length,
     [allSectors, period],
   );
   const bearCount = useMemo(
-    () => allSectors.filter((s) => { const a = s.avgByPeriod[period]; return a !== null && a <= -2; }).length,
+    () => allSectors.filter((s) => classifyDirection(s.avgByPeriod[period], period) === 'asagi').length,
     [allSectors, period],
   );
   const neutCount = allSectors.length - bullCount - bearCount;
   const total     = allSectors.length || 1;
+
+  // "Veri X dk önce" — saniye/dakika/saat
+  const lastUpdatedText = useMemo(() => {
+    if (!lastUpdated) return null;
+    const diffSec = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+    if (diffSec < 30) return 'şimdi';
+    if (diffSec < 60) return `${diffSec} sn önce`;
+    const m = Math.floor(diffSec / 60);
+    if (m < 60) return `${m} dk önce`;
+    return `${Math.floor(m / 60)} sa önce`;
+  }, [lastUpdated, refreshTick]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -547,13 +618,26 @@ export function SektorlerClient() {
             </p>
           </div>
           <button
-            onClick={() => window.location.reload()}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface/50 px-3 py-2 text-xs text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
+            onClick={handleRefresh}
+            disabled={loadingSectors}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface/50 px-3 py-2 text-xs text-text-secondary hover:text-text-primary hover:bg-surface transition-colors disabled:opacity-50"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Yenile
+            <RefreshCw className={cn('h-3.5 w-3.5', loadingSectors && 'animate-spin')} />
+            {loadingSectors ? 'Yükleniyor...' : 'Yenile'}
           </button>
         </div>
+
+        {/* Hata banner — bazı semboller çekilemediyse */}
+        {fetchError && fetchError.failed > 0 && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-300">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold">{fetchError.failed}/{fetchError.total} sembol veri çekilemedi.</span>
+              {' '}Yahoo Finance rate limit veya geçici bağlantı sorunu olabilir.
+              {' '}<button onClick={handleRefresh} className="underline hover:text-amber-200">Yeniden dene</button>
+            </div>
+          </div>
+        )}
 
         {/* Emtia & Döviz Şeridi */}
         <section className="mb-8">
@@ -590,9 +674,13 @@ export function SektorlerClient() {
                 <Minus className="h-4 w-4 text-zinc-400" />
                 <span className="text-sm text-zinc-400 font-semibold">{neutCount} sektör yatay</span>
               </div>
-              {lastUpdated && (
-                <div className="ml-auto flex items-center text-[11px] text-text-muted">
-                  Son güncelleme: {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+              {lastUpdated && lastUpdatedText && (
+                <div
+                  className="ml-auto flex items-center gap-1 text-[11px] text-text-muted"
+                  title={`Son güncelleme: ${lastUpdated.toLocaleString('tr-TR')}`}
+                >
+                  <Clock className="h-3 w-3" />
+                  <span>Veri {lastUpdatedText}</span>
                 </div>
               )}
             </div>
