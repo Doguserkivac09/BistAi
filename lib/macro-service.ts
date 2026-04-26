@@ -164,6 +164,7 @@ export function formatMacroResponse(full: MacroFullResult) {
       policyRate: turkey?.policyRate ?? null,
       cds5y: turkey?.cds5y ?? null,
       inflation: turkey?.inflation ?? null,
+      bond10y: turkey?.bond10y ?? null,
     },
     fred: {
       fedFundsRate: fred?.fedFundsRate ? {

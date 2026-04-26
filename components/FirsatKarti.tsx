@@ -149,6 +149,14 @@ function adjustmentBadges(f: FirsatItem) {
   return badges;
 }
 
+// Yatırım Skoru rozeti — investment-score rating eşikleriyle (80/65/45/30) hizalı
+function investmentScoreBadge(score: number): string {
+  if (score >= 65) return 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300';
+  if (score >= 45) return 'bg-sky-500/10 border-sky-500/30 text-sky-300';
+  if (score >= 30) return 'bg-amber-500/10 border-amber-500/30 text-amber-300';
+  return 'bg-red-500/10 border-red-500/30 text-red-300';
+}
+
 function formatADV(tl: number | null): string | null {
   if (tl === null) return null;
   if (tl >= 1_000_000_000) return `${(tl / 1_000_000_000).toFixed(1)}B₺`;
@@ -345,6 +353,14 @@ export function FirsatKarti({
                 title="Haftalık trend sinyal yönü ile uyumlu — güçlü kurulum"
               >
                 MTF ✓
+              </span>
+            )}
+            {firsat.investmentScore && (
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold ${investmentScoreBadge(firsat.investmentScore.score)}`}
+                title={`Yatırım Skoru (temel veri): ${firsat.investmentScore.score}/100 → ${firsat.investmentScore.rating} · Güven: ${firsat.investmentScore.confidence}${firsat.investmentScore.inflationAdjusted ? ' · TÜFE düzeltmeli' : ''}`}
+              >
+                YS {firsat.investmentScore.score}
               </span>
             )}
           </div>

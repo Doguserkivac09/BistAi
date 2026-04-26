@@ -47,6 +47,7 @@ interface MacroResponse {
     policyRate: { value: number; [key: string]: unknown } | number | null;
     cds5y:      { value: number; [key: string]: unknown } | number | null;
     inflation:  { value: number; [key: string]: unknown } | number | null;
+    bond10y:    { value: number; [key: string]: unknown } | number | null;
   };
   fred: {
     fedFundsRate: { value: number; date: string; change: number } | null;
@@ -159,6 +160,47 @@ function heroGradient(score: number): string {
 function numVal(v: { value: number; [k: string]: unknown } | number | null): number | null {
   if (v == null) return null;
   return typeof v === 'object' ? v.value : v;
+}
+
+// ── Veri kaynağı tazeliği (health badge) ─────────────────────────────
+//
+// Her gösterge `source` alanıyla geliyor. String'i normalize edip
+// 3 kategoriye ayırıyoruz:
+//   • live     → 🟢 canlı API (TCMB EVDS, FRED, Yahoo)
+//   • proxy    → 🟡 türetilmiş (USD/TRY volatilitesinden CDS proxy)
+//   • fallback → 🔴 hardcoded sabit (API key/erişim yok)
+type Freshness = { status: 'live' | 'proxy' | 'fallback'; label: string; cls: string };
+
+function srcOf(v: unknown): string | null {
+  if (v && typeof v === 'object' && 'source' in v) {
+    const s = (v as { source?: unknown }).source;
+    return typeof s === 'string' ? s : null;
+  }
+  return null;
+}
+
+function freshnessFromSource(source: string | null | undefined): Freshness | null {
+  if (!source) return null;
+  const s = source.toLowerCase();
+  if (s.includes('fallback') || s.includes('hardcoded')) {
+    return { status: 'fallback', label: 'Hardcoded sabit (API erişimi yok)',         cls: 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.7)]' };
+  }
+  if (s.includes('proxy')) {
+    return { status: 'proxy',    label: 'Türetilmiş (proxy hesaplama)',              cls: 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]' };
+  }
+  return   { status: 'live',     label: `Canlı kaynak: ${source}`,                   cls: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]' };
+}
+
+function FreshnessDot({ source }: { source: string | null | undefined }) {
+  const f = freshnessFromSource(source);
+  if (!f) return null;
+  return (
+    <span
+      className={`inline-block h-1.5 w-1.5 rounded-full align-middle ml-1 ${f.cls}`}
+      title={f.label}
+      aria-label={f.label}
+    />
+  );
 }
 
 function fmtPct(v: number | null): string {
@@ -1252,10 +1294,13 @@ export default function MakroPage() {
               <span className="text-base">🇹🇷</span>
               <h3 className="text-base font-semibold text-white">Türkiye Makro</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-0 lg:divide-x divide-white/5">
               {/* TCMB */}
-              <div className="pb-3 sm:pb-0 sm:pr-5">
-                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">TCMB Politika Faizi</p>
+              <div className="lg:pr-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  TCMB Politika Faizi
+                  <FreshnessDot source={srcOf(macro.turkey.policyRate)} />
+                </p>
                 <p className="text-3xl font-black text-white font-mono">
                   {numVal(macro.turkey.policyRate) != null ? `%${numVal(macro.turkey.policyRate)}` : '—'}
                 </p>
@@ -1264,8 +1309,18 @@ export default function MakroPage() {
                 </span>
               </div>
               {/* CDS */}
-              <div className="py-3 sm:py-0 sm:px-5">
-                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">CDS 5Y <span className="normal-case text-white/20">(proxy)</span></p>
+              <div className="lg:px-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1 flex items-center gap-1">
+                  <span>CDS 5Y</span>
+                  <span
+                    className="normal-case text-amber-300/70 cursor-help border-b border-dotted border-amber-300/40"
+                    title="Bu değer gerçek CDS spread'i değildir. TCMB EVDS Türkiye CDS'sini doğrudan yayınlamadığı için USD/TRY 30 günlük volatilitesinden tahmini olarak (proxy) hesaplanmıştır. Gerçek CDS verisi için worldgovernmentbonds.com veya benzeri kaynaklara bakılmalıdır."
+                    aria-label="CDS proxy değeri açıklaması"
+                  >
+                    (proxy ⓘ)
+                  </span>
+                  <FreshnessDot source={srcOf(macro.turkey.cds5y)} />
+                </p>
                 <p className="text-3xl font-black text-white font-mono">
                   {numVal(macro.turkey.cds5y) != null ? `${numVal(macro.turkey.cds5y)!.toFixed(0)}` : '—'}
                   <span className="text-base font-normal text-white/40 ml-1">bps</span>
@@ -1278,8 +1333,11 @@ export default function MakroPage() {
                 })()}
               </div>
               {/* TÜFE */}
-              <div className="pt-3 sm:pt-0 sm:pl-5">
-                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">TÜFE (Enflasyon)</p>
+              <div className="lg:px-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  TÜFE (Enflasyon)
+                  <FreshnessDot source={srcOf(macro.turkey.inflation)} />
+                </p>
                 <p className="text-3xl font-black text-white font-mono">
                   {numVal(macro.turkey.inflation) != null ? fmtPct(numVal(macro.turkey.inflation)) : '—'}
                 </p>
@@ -1288,6 +1346,32 @@ export default function MakroPage() {
                   const label = v > 30 ? 'Yüksek' : v > 10 ? 'Orta' : 'Düşük';
                   const cls   = v > 30 ? 'text-red-400' : v > 10 ? 'text-orange-400' : 'text-green-400';
                   return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{label}</span>;
+                })()}
+              </div>
+              {/* TR 10Y Tahvil */}
+              <div className="lg:pl-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  TR 10Y Tahvil
+                  <FreshnessDot source={srcOf(macro.turkey.bond10y)} />
+                </p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {numVal(macro.turkey.bond10y) != null ? `%${numVal(macro.turkey.bond10y)!.toFixed(2)}` : '—'}
+                </p>
+                {(() => {
+                  const b = numVal(macro.turkey.bond10y);
+                  const r = numVal(macro.turkey.policyRate);
+                  if (b == null || r == null) {
+                    if (b == null) return null;
+                    const lbl = b >= 40 ? 'Yüksek getiri' : b >= 25 ? 'Yüksek' : 'Orta';
+                    const cls = b >= 40 ? 'text-red-400' : b >= 25 ? 'text-orange-400' : 'text-yellow-400';
+                    return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{lbl}</span>;
+                  }
+                  const spread = b - r;
+                  const lbl = spread >= 3 ? `Faiz artışı bekleniyor (+${spread.toFixed(1)}p)` :
+                              spread >= 0 ? `Politika ile uyumlu (+${spread.toFixed(1)}p)` :
+                              `İndirim bekleniyor (${spread.toFixed(1)}p)`;
+                  const cls = spread >= 3 ? 'text-orange-400' : spread >= 0 ? 'text-yellow-400' : 'text-green-400';
+                  return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{lbl}</span>;
                 })()}
               </div>
             </div>
@@ -1348,6 +1432,101 @@ export default function MakroPage() {
                 </div>
               );
             })()}
+          </motion.div>
+        </section>
+
+        {/* ABD Makro (FRED) */}
+        <section className="mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            className="rounded-xl border border-white/8 bg-[#0a0a18] p-5"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-base">🇺🇸</span>
+              <h3 className="text-base font-semibold text-white">ABD Makro</h3>
+              {macro.usEconomy && (
+                <span
+                  className={`ml-auto text-xs font-semibold rounded-full px-2 py-0.5 border ${
+                    macro.usEconomy.color === 'green'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : macro.usEconomy.color === 'yellow'
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                      : 'bg-red-500/10 border-red-500/30 text-red-300'
+                  }`}
+                  title="Fed funds, CPI, GDP, işsizlik göstergelerinden 0-100 skor"
+                >
+                  Ekonomi: {macro.usEconomy.label} ({macro.usEconomy.score})
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-white/5">
+              {/* Fed Funds Rate */}
+              <div className="pb-3 sm:pb-0 sm:pr-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  Fed Funds Faizi
+                  <FreshnessDot source={macro.fred.fedFundsRate ? 'FRED API' : 'fallback-no-fred-key'} />
+                </p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {macro.fred.fedFundsRate?.value != null ? `%${macro.fred.fedFundsRate.value.toFixed(2)}` : '—'}
+                </p>
+                {macro.fred.fedFundsRate?.value != null && (() => {
+                  const v = macro.fred.fedFundsRate.value;
+                  const ch = macro.fred.fedFundsRate.change;
+                  const label = v >= 5 ? 'Sıkı' : v >= 3 ? 'Nötr' : 'Gevşek';
+                  const cls   = v >= 5 ? 'text-orange-400' : v >= 3 ? 'text-yellow-400' : 'text-green-400';
+                  return (
+                    <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>
+                      {label}
+                      {ch != null && Math.abs(ch) >= 0.01 && (
+                        <span className="text-white/40 font-normal ml-1">
+                          ({ch > 0 ? '+' : ''}{ch.toFixed(2)})
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
+              </div>
+              {/* GDP Growth */}
+              <div className="py-3 sm:py-0 sm:px-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  GSYH Büyüme (Q/Q)
+                  <FreshnessDot source={macro.fred.gdpGrowth ? 'FRED API' : 'fallback-no-fred-key'} />
+                </p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {macro.fred.gdpGrowth?.value != null ? `%${macro.fred.gdpGrowth.value.toFixed(1)}` : '—'}
+                </p>
+                {macro.fred.gdpGrowth?.value != null && (() => {
+                  const v = macro.fred.gdpGrowth.value;
+                  const label = v >= 2.5 ? 'Güçlü' : v >= 1 ? 'Ilımlı' : v >= 0 ? 'Zayıf' : 'Daralma';
+                  const cls   = v >= 2.5 ? 'text-green-400' : v >= 1 ? 'text-yellow-400' : v >= 0 ? 'text-orange-400' : 'text-red-400';
+                  return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{label}</span>;
+                })()}
+              </div>
+              {/* Unemployment */}
+              <div className="pt-3 sm:pt-0 sm:pl-5">
+                <p className="text-xs text-white/35 uppercase tracking-wide mb-1">
+                  İşsizlik
+                  <FreshnessDot source={macro.fred.unemployment ? 'FRED API' : 'fallback-no-fred-key'} />
+                </p>
+                <p className="text-3xl font-black text-white font-mono">
+                  {macro.fred.unemployment?.value != null ? `%${macro.fred.unemployment.value.toFixed(1)}` : '—'}
+                </p>
+                {macro.fred.unemployment?.value != null && (() => {
+                  const v = macro.fred.unemployment.value;
+                  const label = v <= 4 ? 'Tam istihdam' : v <= 5 ? 'Sağlıklı' : v <= 6 ? 'Yumuşama' : 'Resesyon riski';
+                  const cls   = v <= 4 ? 'text-green-400' : v <= 5 ? 'text-yellow-400' : v <= 6 ? 'text-orange-400' : 'text-red-400';
+                  return <span className={`text-xs font-semibold mt-1 inline-block ${cls}`}>{label}</span>;
+                })()}
+              </div>
+            </div>
+            {/* FRED key bilgisi — hiç veri yoksa */}
+            {!macro.fred.fedFundsRate && !macro.fred.gdpGrowth && !macro.fred.unemployment && (
+              <div className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-300/80">
+                ⚠️ FRED verileri çekilemedi. <code className="text-amber-200">FRED_API_KEY</code> tanımlı mı kontrol edin (ücretsiz: fred.stlouisfed.org/docs/api/api_key.html).
+              </div>
+            )}
           </motion.div>
         </section>
 

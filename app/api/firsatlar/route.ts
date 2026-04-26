@@ -23,6 +23,14 @@ import {
   type DecisionOutput,
 } from '@/lib/decision-engine';
 import { createServerClient } from '@/lib/supabase-server';
+import { fetchYahooFundamentals } from '@/lib/yahoo-fundamentals';
+import {
+  computeInvestableScore,
+  DEFAULT_WEIGHTS,
+  type InvestableConfidence,
+  type InvestableRating,
+} from '@/lib/investment-score';
+import { fetchTurkeyInflation } from '@/lib/turkey-macro';
 
 const MIN_CONFLUENCE    = 45;
 const LOOKBACK_DAYS     = 3;
@@ -95,6 +103,13 @@ export interface FirsatItem {
   };
   /** Birleşik karar motoru çıktısı — hisse detay ile aynı format */
   decision: DecisionOutput;
+  /** Yatırım Skoru (deterministik, temel veriye dayalı) — null = veri çekilemedi */
+  investmentScore: {
+    score: number;                   // 0-100
+    rating: InvestableRating;
+    confidence: InvestableConfidence;
+    inflationAdjusted: boolean;
+  } | null;
 }
 
 export interface FirsatlarResponse {
@@ -197,8 +212,8 @@ export async function GET(req: NextRequest) {
     const statsCutoff = new Date();
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);
 
-    // Paralel çek: geçmiş win rate verisi + makro + KAP duyuruları
-    const [statsRes, macroRes, kapRes] = await Promise.allSettled([
+    // Paralel çek: geçmiş win rate verisi + makro + KAP duyuruları + TÜFE
+    const [statsRes, macroRes, kapRes, tufeRes] = await Promise.allSettled([
       supabase
         .from('signal_performance')
         .select('signal_type, direction, return_3d, return_7d, return_14d, return_30d')
@@ -207,7 +222,14 @@ export async function GET(req: NextRequest) {
 
       getMacroFull(),
       fetchKapDuyurular(200), // son 200 KAP duyurusu (cache'li, 15dk TTL)
+      fetchTurkeyInflation(), // TÜFE YoY — Investment Score enflasyon düzeltmesi
     ]);
+
+    // TÜFE bağlamı (yoksa global formül)
+    const inflation =
+      tufeRes.status === 'fulfilled' && tufeRes.value && Number.isFinite(tufeRes.value.value)
+        ? { tufeYoy: tufeRes.value.value, source: 'tcmb' }
+        : undefined;
 
     // Aktif sinyal sorgusu — yeni kolonları önce dene, migration yoksa temel sorguya fall back
     type SignalRow = {
@@ -323,6 +345,31 @@ export async function GET(req: NextRequest) {
       sektorSayaci.get(sektorId)!.add(sembol);
     }
 
+    // ── Yatırım Skoru (deterministik, ham temel veri → 0-100) ───────────
+    // Yahoo fundamentals 24h in-memory cache'li → çağrı maliyeti çok düşük.
+    // Hata olursa null döner; o sembolde rozet gösterilmez.
+    const uniqueSymbols = Array.from(gruplar.keys());
+    const investmentScoreMap = new Map<
+      string,
+      FirsatItem['investmentScore']
+    >();
+    await Promise.all(
+      uniqueSymbols.map(async (sym) => {
+        try {
+          const fundamentals = await fetchYahooFundamentals(sym);
+          const inv = computeInvestableScore(fundamentals, DEFAULT_WEIGHTS, inflation);
+          investmentScoreMap.set(sym, {
+            score: inv.score,
+            rating: inv.ratingLabel,
+            confidence: inv.confidence,
+            inflationAdjusted: inv.inflationAdjustment?.applied ?? false,
+          });
+        } catch {
+          investmentScoreMap.set(sym, null);
+        }
+      }),
+    );
+
     const now = Date.now();
     const firsatlar: FirsatItem[] = [];
 
@@ -411,6 +458,7 @@ export async function GET(req: NextRequest) {
           kapEvent:   decision.factors.kapEvent,
         },
         decision,
+        investmentScore: investmentScoreMap.get(sembol) ?? null,
       });
     }
 
