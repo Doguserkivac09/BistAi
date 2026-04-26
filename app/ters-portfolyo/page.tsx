@@ -1,26 +1,52 @@
 'use client';
 
 /**
- * Portföy Dışı Fırsatlar — "Ters Portföy" v2 (2026-04-26)
+ * Portföy Dışı Fırsatlar — "Ters Portföy" v3 (2026-04-26)
  *
- * /firsatlar ile aynı karar motoru. Tek SoT: /api/firsatlar
- *  - Anonim kullanıcı: tüm BIST evrenindeki sinyaller
- *  - Giriş yapan kullanıcı: portföy + watchlist hariç (excludeOwned=true)
+ * Tema: Kişisel Çeşitlendirme Asistanı (sadece "fırsatlar - portföy" değil)
+ *  - Portföy sektör dağılımı görseli
+ *  - Eksik sektörler (kullanıcının HİÇ pozisyonu olmayan güçlü sektörler)
+ *  - Konsantrasyon riski uyarısı (≥%50 tek sektör)
+ *  - AI fırsat analizi (Pro/Premium)
+ *  - Sektör bazlı fırsat listesi
  *
- * Görünüm farkı: sektör bazlı gruplama + AI fırsat analizi (Pro/Premium).
+ * Tek SoT: /api/firsatlar?excludeOwned=true (skor parite /firsatlar ile)
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp, Compass, RefreshCw, Sparkles, Bot, AlertTriangle,
-  Layers, Target, Award, Crown, Lock,
+  Layers, Target, Award, Crown, Lock, PieChart, ArrowRight, Shield,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { FirsatKarti } from '@/components/FirsatKarti';
+import { getSectorId, getSector } from '@/lib/sectors';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
+
+// ── /api/sectors response ─────────────────────────────────────────────
+
+interface SectorApiItem {
+  id?: string;
+  sectorId?: string;
+  name?: string;
+  sectorName?: string;
+  shortName?: string;
+  compositeScore?: number;
+  signal?: string;
+  perf20d?: number;
+  momentum20d?: number;
+}
+
+// Tailwind-safe sektör renk paleti (id → renk)
+const SECTOR_COLORS = [
+  'bg-blue-500',  'bg-emerald-500', 'bg-purple-500', 'bg-amber-500',
+  'bg-pink-500',  'bg-cyan-500',    'bg-indigo-500', 'bg-orange-500',
+  'bg-teal-500',  'bg-rose-500',    'bg-violet-500', 'bg-lime-500',
+];
+function colorFor(idx: number) { return SECTOR_COLORS[idx % SECTOR_COLORS.length]; }
 
 type Tier = 'free' | 'pro' | 'premium';
 
@@ -45,6 +71,8 @@ export default function TersPortfolyoPage() {
   const [tier,         setTier]         = useState<Tier>('free');
   const [watchlist,    setWatchlist]    = useState<Set<string>>(new Set());
   const [watchlistIds, setWatchlistIds] = useState<Map<string, string>>(new Map());
+  const [portfoyo,     setPortfoyo]     = useState<string[]>([]); // user portföy semboller
+  const [sectorData,   setSectorData]   = useState<SectorApiItem[]>([]);
 
   // Filtreler — /firsatlar ile paralel
   const [dirFilter, setDirFilter] = useState<'tumu' | 'yukari' | 'asagi'>('tumu');
@@ -59,7 +87,7 @@ export default function TersPortfolyoPage() {
   const [aiError,   setAiError]   = useState<string | null>(null);
   const aiAbortRef  = useRef<AbortController | null>(null);
 
-  // 1. Auth + tier — soft login
+  // 1. Auth + tier + portföy semboller — soft login
   useEffect(() => {
     (async () => {
       try {
@@ -67,17 +95,25 @@ export default function TersPortfolyoPage() {
         const { data: { user } } = await supabase.auth.getUser();
         setLoggedIn(!!user);
         if (user) {
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('tier')
-            .eq('id', user.id)
-            .single();
+          const [{ data: prof }, { data: poz }] = await Promise.all([
+            supabase.from('profiles').select('tier').eq('id', user.id).single(),
+            supabase.from('portfolyo_pozisyonlar').select('sembol').eq('user_id', user.id),
+          ]);
           setTier(((prof as { tier?: Tier } | null)?.tier ?? 'free'));
+          setPortfoyo((poz ?? []).map((p: { sembol: string }) => p.sembol));
         }
       } catch {
         setLoggedIn(false);
       }
     })();
+  }, []);
+
+  // 2. Sektör momentum verisi (eksik sektörler hesaplaması için)
+  useEffect(() => {
+    fetch('/api/sectors')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.sectors) setSectorData(d.sectors as SectorApiItem[]); })
+      .catch(() => {});
   }, []);
 
   // 2. Fırsat verisi — anonim ise tümü, login ise portföy hariç
@@ -154,6 +190,46 @@ export default function TersPortfolyoPage() {
       toast.error('İşlem başarısız');
     }
   }, [loggedIn, watchlistIds]);
+
+  // ── Çeşitlendirme analizi ──────────────────────────────────────────────
+
+  // Portföy sektör dağılımı
+  const portfoyDagilim = useMemo(() => {
+    if (portfoyo.length === 0) return [];
+    const map = new Map<string, { sektorId: string; sektorAdi: string; semboller: string[] }>();
+    for (const s of portfoyo) {
+      const sid  = getSectorId(s);
+      const meta = getSector(sid);
+      if (!map.has(sid)) map.set(sid, { sektorId: sid, sektorAdi: meta.name, semboller: [] });
+      map.get(sid)!.semboller.push(s);
+    }
+    return [...map.values()]
+      .map((g) => ({ ...g, oran: g.semboller.length / portfoyo.length }))
+      .sort((a, b) => b.oran - a.oran);
+  }, [portfoyo]);
+
+  // Konsantrasyon riski — tek sektör ≥%50
+  const konsantrasyonRiski = useMemo(() => {
+    if (portfoyo.length < 3) return null;
+    const top = portfoyDagilim[0];
+    if (!top || top.oran < 0.5) return null;
+    return { sektorAdi: top.sektorAdi, oran: top.oran, sayi: top.semboller.length };
+  }, [portfoyDagilim, portfoyo]);
+
+  // Eksik sektörler — portföyde olmayan + güçlü momentum
+  const eksikSektorler = useMemo(() => {
+    if (portfoyo.length === 0 || sectorData.length === 0) return [];
+    const ownedSet = new Set(portfoyDagilim.map((p) => p.sektorId));
+    return sectorData
+      .map((s) => ({
+        id:    s.sectorId ?? s.id ?? '',
+        ad:    s.sectorName ?? s.name ?? s.shortName ?? '—',
+        skor:  Math.round(s.compositeScore ?? 0),
+      }))
+      .filter((s) => s.id && !ownedSet.has(s.id) && s.skor > 0)
+      .sort((a, b) => b.skor - a.skor)
+      .slice(0, 3);
+  }, [portfoyDagilim, sectorData, portfoyo]);
 
   // ── Türetilmiş veriler ─────────────────────────────────────────────────
 
@@ -308,6 +384,96 @@ export default function TersPortfolyoPage() {
             </span>
             <span className="ml-auto text-[10px] text-amber-300/60">Anlık değildir — karta tıklayınca güncel durum gelir</span>
           </div>
+        )}
+
+        {/* ── Çeşitlendirme Asistanı Bloğu ────────────────────────────── */}
+
+        {/* 1. Portföy Sektör Dağılımı */}
+        {loggedIn && portfoyo.length > 0 && portfoyDagilim.length > 0 && (
+          <section className="mb-4 rounded-xl border border-border bg-surface p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-text-primary">Portföy Sektör Dağılımı</h2>
+              <span className="ml-auto text-xs text-text-muted">{portfoyo.length} hisse · {portfoyDagilim.length} sektör</span>
+            </div>
+
+            {/* Yığın bar */}
+            <div className="mb-3 flex h-2.5 w-full overflow-hidden rounded-full bg-white/5">
+              {portfoyDagilim.map((g, i) => (
+                <div
+                  key={g.sektorId}
+                  className={colorFor(i)}
+                  style={{ width: `${g.oran * 100}%` }}
+                  title={`${g.sektorAdi}: %${Math.round(g.oran * 100)}`}
+                />
+              ))}
+            </div>
+
+            {/* Liste */}
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {portfoyDagilim.map((g, i) => (
+                <div key={g.sektorId} className="flex items-center gap-2 text-xs">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${colorFor(i)}`} />
+                  <span className="text-text-secondary truncate">{g.sektorAdi}</span>
+                  <span className="text-text-muted ml-auto shrink-0">
+                    {g.semboller.length} · %{Math.round(g.oran * 100)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 2. Konsantrasyon riski uyarısı */}
+        {konsantrasyonRiski && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+            <Shield className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-300">
+                Konsantrasyon Riski — {konsantrasyonRiski.sektorAdi}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-200/80">
+                Portföyünün %{Math.round(konsantrasyonRiski.oran * 100)}'i tek sektörde
+                ({konsantrasyonRiski.sayi}/{portfoyo.length} hisse). Çeşitlendirmek riski azaltır —
+                aşağıdaki güçlü sektörlerden seçim yapabilirsin.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 3. Eksik sektörler — öne çıkarılmış */}
+        {eksikSektorler.length > 0 && (
+          <section className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Award className="h-4 w-4 text-emerald-400" />
+              <h2 className="text-sm font-semibold text-emerald-300">
+                Portföyünde Olmayan Güçlü Sektörler
+              </h2>
+              <span className="ml-auto text-[11px] text-emerald-300/60">Çeşitlendirme önerisi</span>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              {eksikSektorler.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/firsatlar?sektor=${encodeURIComponent(s.id)}`}
+                  className="group flex items-center justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/10"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-text-primary truncate">{s.ad}</div>
+                    <div className="text-[11px] text-emerald-300/80">
+                      Momentum skor: <span className="font-semibold">{s.skor}</span>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-emerald-400 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                </Link>
+              ))}
+            </div>
+
+            <p className="mt-2.5 text-[11px] text-text-muted">
+              Bu sektörlerde aktif sinyaller görmek için karta tıkla. Skor yüksekse sektör genelinde momentum güçlüdür.
+            </p>
+          </section>
         )}
 
         {/* AI Analiz Butonu / Tier Gate */}
