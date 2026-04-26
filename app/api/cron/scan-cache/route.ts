@@ -82,6 +82,11 @@ export async function GET(request: NextRequest) {
     change_percent: number | null;
     rsi: number | null;
     last_volume: number | null;
+    last_close: number | null;
+    confluence_score: number | null;
+    pct_from_52w_high: number | null;
+    pct_from_52w_low: number | null;
+    rel_vol5: number | null;
     sector: string;
     scanned_at: string;
   }> = [];
@@ -140,6 +145,32 @@ export async function GET(request: NextRequest) {
       // Son 60 mum — MiniChart için yeterli, payload'u küçük tutar
       const last60 = candles.slice(-60);
 
+      // Hisse-seviyesi confluence — scan_cache'de screener filtresi için.
+      const stockConfluence = signals.length > 0 ? computeConfluence(signals) : null;
+
+      // 52 hafta tepe/dip mesafesi (252 mum ≈ 1 yıl iş günü)
+      const lastCloseCandle = candles[candles.length - 1]?.close ?? null;
+      const last252 = candles.slice(-252);
+      let pct52High: number | null = null;
+      let pct52Low:  number | null = null;
+      if (lastCloseCandle && last252.length >= 60) {
+        const highs = last252.map((c) => c.high);
+        const lows  = last252.map((c) => c.low);
+        const max52 = Math.max(...highs);
+        const min52 = Math.min(...lows);
+        if (max52 > 0) pct52High = parseFloat((((lastCloseCandle - max52) / max52) * 100).toFixed(2));
+        if (min52 > 0) pct52Low  = parseFloat((((lastCloseCandle - min52) / min52) * 100).toFixed(2));
+      }
+
+      // Relative Volume (5g) — son hacim / 5 günlük ortalama (son hariç)
+      let relVol5: number | null = null;
+      if (candles.length >= 6) {
+        const lastVol = candles[candles.length - 1]?.volume ?? 0;
+        const prev5 = candles.slice(-6, -1);
+        const avg5 = prev5.reduce((s, c) => s + c.volume, 0) / prev5.length;
+        if (avg5 > 0) relVol5 = parseFloat((lastVol / avg5).toFixed(2));
+      }
+
       rows.push({
         sembol,
         signals_json: signals,
@@ -149,16 +180,21 @@ export async function GET(request: NextRequest) {
             ? ((candles[candles.length - 1]!.close - candles[candles.length - 2]!.close)
                / candles[candles.length - 2]!.close) * 100
             : null),
-        rsi:         calcLastRSI(candles),
-        last_volume: candles[candles.length - 1]?.volume ?? null,
-        sector:      getSectorId(sembol),
-        scanned_at:  scannedAt,
+        rsi:               calcLastRSI(candles),
+        last_volume:       candles[candles.length - 1]?.volume ?? null,
+        last_close:        lastCloseCandle,
+        confluence_score:  stockConfluence?.score ?? null,
+        pct_from_52w_high: pct52High,
+        pct_from_52w_low:  pct52Low,
+        rel_vol5:          relVol5,
+        sector:            getSectorId(sembol),
+        scanned_at:        scannedAt,
       });
 
       // signal_performance kayıtları — entry_price = son kapanış
       const lastClose = candles[candles.length - 1]?.close;
-      if (lastClose && lastClose > 0 && signals.length > 0) {
-        const confluence = computeConfluence(signals);
+      if (lastClose && lastClose > 0 && signals.length > 0 && stockConfluence) {
+        const confluence = stockConfluence;
         for (const sig of signals) {
           perfRows.push({
             user_id:             null,

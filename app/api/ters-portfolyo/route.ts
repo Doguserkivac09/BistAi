@@ -20,6 +20,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
+import { getMacroFull } from '@/lib/macro-service';
+import { getSectorId, getSector } from '@/lib/sectors';
 
 const RATE_LIMIT = 10;
 const WINDOW_MS  = 60_000;
@@ -73,27 +75,60 @@ async function getSectorData(): Promise<SectorInfo[]> {
 
 // ── Prompt ────────────────────────────────────────────────────────────
 
+interface MacroCtx {
+  score: number | null;
+  wind: string | null;
+  regime: string | null;
+}
+
 function buildPrompt(
   portfoy: PozRow[],
   watchlist: WatchRow[],
-  sektorler: SectorInfo[]
+  sektorler: SectorInfo[],
+  macro: MacroCtx,
 ): string {
   const now = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Portföy sektör dağılımı özeti (basit — sembol prefix'ten tahmin)
   const portfoySemboller = portfoy.map(p => p.sembol);
   const watchSemboller   = watchlist.map(w => w.sembol);
   const tumTakip = new Set([...portfoySemboller, ...watchSemboller]);
 
   const portfoyText = portfoy.length > 0
-    ? portfoy.map(p => `${p.sembol}(${p.miktar}lot)`).join(', ')
+    ? portfoy.map(p => `${p.sembol}(${p.miktar}lot @ ${p.alis_fiyati}₺)`).join(', ')
     : 'Portföy boş';
 
   const watchText = watchlist.length > 0
     ? watchlist.map(w => w.sembol).join(', ')
     : 'Watchlist boş';
 
-  // Güçlü sektörler
+  // Portföy sektör dağılımı (lib/sectors.ts üzerinden gerçek mapping)
+  const sektorYogunluk = new Map<string, { ad: string; sayi: number; semboller: string[] }>();
+  for (const sembol of portfoySemboller) {
+    const sid = getSectorId(sembol);
+    const meta = getSector(sid);
+    if (!sektorYogunluk.has(sid)) sektorYogunluk.set(sid, { ad: meta.name, sayi: 0, semboller: [] });
+    const entry = sektorYogunluk.get(sid)!;
+    entry.sayi += 1;
+    entry.semboller.push(sembol);
+  }
+  const sektorYogunlukText = portfoy.length > 0
+    ? [...sektorYogunluk.values()]
+        .sort((a, b) => b.sayi - a.sayi)
+        .map(s => `${s.ad}: ${s.sayi} (${s.semboller.join(', ')})`)
+        .join(' · ')
+    : 'Portföy boş';
+
+  // Tüm sektör listesi (kullanıcının portföyünde OLMAYAN sektörleri tespit için)
+  const portfoySektorIdSet = new Set(sektorYogunluk.keys());
+  const eksikSektorler = sektorler
+    .filter(s => !portfoySektorIdSet.has(s.id))
+    .filter(s => s.compositeScore > 0)
+    .sort((a, b) => b.compositeScore - a.compositeScore)
+    .slice(0, 5)
+    .map(s => `${s.name} (+${s.compositeScore})`)
+    .join(', ');
+
+  // Güçlü/zayıf sektörler
   const gucluSektor = sektorler
     .filter(s => s.direction === 'yukari' || s.compositeScore > 10)
     .sort((a, b) => b.compositeScore - a.compositeScore)
@@ -108,37 +143,58 @@ function buildPrompt(
     .map(s => `${s.name} (skor: ${s.compositeScore})`)
     .join(', ');
 
+  // Konsantrasyon riski tespiti
+  const enYogunSektor = [...sektorYogunluk.values()].sort((a, b) => b.sayi - a.sayi)[0];
+  const konsantrasyonRiski = enYogunSektor && portfoy.length >= 3 && (enYogunSektor.sayi / portfoy.length) >= 0.5
+    ? `⚠️ ${enYogunSektor.ad} sektöründe yoğunlaşma var (${enYogunSektor.sayi}/${portfoy.length} hisse)`
+    : null;
+
+  // Makro bağlam
+  const makroText = macro.score !== null
+    ? `Makro skor: ${macro.score > 0 ? '+' : ''}${macro.score} (${macro.wind ?? 'nötr'})${macro.regime ? `, XU100 rejimi: ${macro.regime}` : ''}`
+    : 'Makro veri henüz yüklenmedi';
+
   return `Sen Türkiye Borsa İstanbul (BIST) portföy stratejisti ve çeşitlendirme uzmanısın.
 Bugün: ${now}
 
 KULLANICININ MEVCUT DURUMU:
-- Portföy (${portfoy.length} hisse): ${portfoyText}
+- Portföy (${portfoy.length} pozisyon): ${portfoyText}
 - Watchlist (${watchlist.length} hisse): ${watchText}
-- Toplam takip edilen: ${tumTakip.size} hisse
+- Toplam takip: ${tumTakip.size} hisse
+
+PORTFÖY SEKTÖR DAĞILIMI:
+${sektorYogunlukText}
+${konsantrasyonRiski ? `\n${konsantrasyonRiski}` : ''}
+
+MAKRO BAĞLAM:
+${makroText}
 
 GÜNCEL SEKTÖR MOMENTUMU:
 - Güçlü sektörler: ${gucluSektor || 'veri yok'}
 - Zayıf sektörler: ${zayifSektor || 'veri yok'}
+- Portföyde OLMAYAN güçlü sektörler: ${eksikSektorler || 'tüm güçlü sektörlerde varlık var'}
 
-GÖREV: Bu kullanıcıya portföyünün DIŞINDA kalan fırsatları anlat.
+GÖREV: Kullanıcıya portföyünün DIŞINDA kalan fırsatları somut, aksiyon odaklı anlat.
+Önemli: Spesifik hisse önerirken makro bağlamı ve sektör momentumunu birlikte değerlendir.
 
-YANIT FORMATI (Türkçe, pratik odaklı):
+YANIT FORMATI (Türkçe, pratik, kısa cümleler — toplam ~400-500 kelime):
 
 ## 🎯 Portföy Analizi
-Kullanıcının mevcut portföyünün güçlü yanları ve eksikleri (2-3 cümle).
-${portfoy.length === 0 ? 'Portföy boş — başlangıç için önerileri ver.' : ''}
+Mevcut portföyün güçlü yanları + eksiklikler + makro koşullarla uyumu (3-4 cümle).
+${portfoy.length === 0 ? 'Portföy boş — başlangıç stratejisi öner.' : ''}
+${konsantrasyonRiski ? 'Konsantrasyon riskini açıkça vurgula.' : ''}
 
 ## 🏆 Kaçırılan Fırsatlar
-Portföyde olmayan ama momentum güçlü 3-4 sektör/hisse tipi:
-- Her biri için: neden fırsat olduğu, dikkat edilmesi gereken risk
-- Spesifik hisse adı öner (sadece analiz — yatırım tavsiyesi değil)
+Portföyde olmayan ama momentum güçlü 3-4 sektör/hisse:
+- Her biri için: neden fırsat (makro + sektör + teknik), dikkat edilmesi gereken risk
+- Spesifik hisse adı öner — neden o hisse spesifik olarak (sadece analiz — yatırım tavsiyesi değil)
 
 ## ⚖️ Çeşitlendirme Boşlukları
-Portföyde eksik olan 2-3 sektör/tema (ör: döviz koruma, defansif, büyüme).
-Bu boşlukları doldurmak için ne bakılabilir?
+Eksik 2-3 tema (ör: döviz koruması, defansif, büyüme, ihracatçı).
+Mevcut makro koşullarda hangi tema öncelikli — kısa gerekçe.
 
 ## ⚠️ Dikkat: Riskli Alanlar
-Şu an momentum zayıf olan ve portföyde eklenebilecek ama riskli sektörler.
+Şu an momentum zayıf veya makroya ters duran sektörler — bunlardan kaçın gerekçesi.
 
 *Bu analiz genel bilgi amaçlıdır, yatırım tavsiyesi değildir.*`;
 }
@@ -190,12 +246,19 @@ export async function POST(request: NextRequest) {
     return Response.json({ analysis: cached.analysis, cached: true });
   }
 
-  const [userData, sektorler] = await Promise.all([
+  const [userData, sektorler, macroFull] = await Promise.all([
     getUserData(user.id),
     getSectorData(),
+    getMacroFull().catch(() => null),
   ]);
 
-  const prompt = buildPrompt(userData.portfoy, userData.watchlist, sektorler);
+  const macroCtx: MacroCtx = {
+    score:  macroFull?.macroScore?.score ?? null,
+    wind:   macroFull?.macroScore?.wind ?? null,
+    regime: null, // regime ayrı bir kaynak — getMacroFull içermez
+  };
+
+  const prompt = buildPrompt(userData.portfoy, userData.watchlist, sektorler, macroCtx);
   const client = new Anthropic({ apiKey });
 
   const encoder = new TextEncoder();

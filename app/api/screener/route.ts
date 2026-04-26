@@ -21,26 +21,54 @@ function createAdminClient() {
   );
 }
 
+// "0" ve "0.0" gibi sıfır değerleri korur — `parseFloat(x) || null` deseni 0'ı eziyordu (B1).
+function parseNum(raw: string | null): number | null {
+  if (raw === null || raw.trim() === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
 
-  const sector     = searchParams.get('sector')?.trim()     || null;
-  const signalType = searchParams.get('signalType')?.trim() || null;
-  const severity   = searchParams.get('severity')?.trim()   || null;
-  const rsiMin     = parseFloat(searchParams.get('rsiMin') ?? '') || null;
-  const rsiMax     = parseFloat(searchParams.get('rsiMax') ?? '') || null;
-  const changeMin  = parseFloat(searchParams.get('changeMin') ?? '') || null;
-  const changeMax  = parseFloat(searchParams.get('changeMax') ?? '') || null;
-  const volumeMin  = parseFloat(searchParams.get('volumeMin') ?? '') || null;
-  const limit      = Math.min(parseInt(searchParams.get('limit') ?? '200'), 300);
+  const sector       = searchParams.get('sector')?.trim()     || null;
+  const signalType   = searchParams.get('signalType')?.trim() || null;
+  const severity     = searchParams.get('severity')?.trim()   || null;
+  const direction    = searchParams.get('direction')?.trim()  || null; // 'yukari' | 'asagi'
+  const mtfOnly      = searchParams.get('mtfOnly') === '1';
+  const rsiMin       = parseNum(searchParams.get('rsiMin'));
+  const rsiMax       = parseNum(searchParams.get('rsiMax'));
+  const changeMin    = parseNum(searchParams.get('changeMin'));
+  const changeMax    = parseNum(searchParams.get('changeMax'));
+  const volumeMin    = parseNum(searchParams.get('volumeMin'));
+  const confluenceMin = parseNum(searchParams.get('confluenceMin'));
+  // 52H/dip yakınlığı: -3 → tepeye %3 (veya daha) yakın; +5 → diptan %5+ yukarıda
+  const near52wHighMaxPctAway = parseNum(searchParams.get('near52wHigh')); // örn 3 = "tepeye %3 mesafe içinde"
+  const near52wLowMaxPctAbove = parseNum(searchParams.get('near52wLow'));  // örn 10 = "diptan %10 mesafe içinde"
+  const relVol5Min    = parseNum(searchParams.get('relVol5Min'));
+  const limit         = Math.min(parseInt(searchParams.get('limit') ?? '200'), 300);
 
   const admin = createAdminClient();
 
-  // scan_cache'den tüm alanları çek (signals_json filtreleme için gerekli)
   let query = admin
     .from('scan_cache')
-    .select('sembol, signals_json, change_percent, rsi, last_volume, sector, scanned_at')
+    .select('sembol, signals_json, change_percent, rsi, last_volume, last_close, confluence_score, pct_from_52w_high, pct_from_52w_low, rel_vol5, sector, scanned_at')
     .order('scanned_at', { ascending: false });
+
+  // Confluence filtresi — DB seviyesinde
+  if (confluenceMin !== null) query = query.gte('confluence_score', confluenceMin);
+
+  // 52H tepe yakınlığı: pct_from_52w_high negatif değer; "%3 yakın" = pct >= -3
+  if (near52wHighMaxPctAway !== null) {
+    query = query.gte('pct_from_52w_high', -Math.abs(near52wHighMaxPctAway));
+  }
+  // 52H dip yakınlığı: pct_from_52w_low pozitif; "diptan %10 içinde" = pct <= 10
+  if (near52wLowMaxPctAbove !== null) {
+    query = query.lte('pct_from_52w_low', Math.abs(near52wLowMaxPctAbove));
+  }
+
+  // Relative volume filtresi
+  if (relVol5Min !== null) query = query.gte('rel_vol5', relVol5Min);
 
   // Sektör filtresi — DB seviyesinde
   if (sector) query = query.eq('sector', sector);
@@ -56,7 +84,9 @@ export async function GET(req: NextRequest) {
   // Hacim filtresi — DB seviyesinde
   if (volumeMin !== null) query = query.gte('last_volume', volumeMin);
 
-  const { data, error } = await query.limit(limit * 3); // sinyal filtresi için fazla çek
+  // Sinyal tipi/şiddeti filtresi sonrası sayım için fazla çek (max 300 = limit cap)
+  const fetchCap = Math.min(300, Math.max(limit * 3, 200));
+  const { data, error } = await query.limit(fetchCap);
 
   if (error) {
     console.error('[screener] Supabase hatası:', error.message);
@@ -65,47 +95,91 @@ export async function GET(req: NextRequest) {
 
   type CacheRow = {
     sembol: string;
-    signals_json: Array<{ type: string; direction: string; severity: string; candlesAgo?: number }>;
+    signals_json: Array<{
+      type: string;
+      direction: string;
+      severity: string;
+      candlesAgo?: number;
+      weeklyAligned?: boolean;
+    }>;
     change_percent: number | null;
     rsi: number | null;
     last_volume: number | null;
+    last_close: number | null;
+    confluence_score: number | null;
+    pct_from_52w_high: number | null;
+    pct_from_52w_low: number | null;
+    rel_vol5: number | null;
     sector: string | null;
     scanned_at: string;
   };
 
   let rows = (data ?? []) as CacheRow[];
 
-  // Sinyal tipi / şiddeti filtresi — JS seviyesinde (JSONB içeriği)
-  if (signalType || severity) {
+  // Sinyal-tabanlı filtreler — JS seviyesinde (JSONB içeriği)
+  // Tip + şiddet + yön + MTF aynı sinyalde birlikte uyuşmalı.
+  if (signalType || severity || direction || mtfOnly) {
     rows = rows.filter((row) => {
       const sigs = row.signals_json ?? [];
       if (sigs.length === 0) return false;
       return sigs.some((sig) => {
-        const typeMatch  = !signalType || sig.type === signalType;
-        const sevMatch   = !severity   || sig.severity === severity;
-        return typeMatch && sevMatch;
+        if (signalType && sig.type !== signalType) return false;
+        if (severity && sig.severity !== severity) return false;
+        if (direction && sig.direction !== direction) return false;
+        if (mtfOnly && sig.weeklyAligned !== true) return false;
+        return true;
       });
     });
   }
 
-  // Limit uygula
+  const totalMatched = rows.length;
   rows = rows.slice(0, limit);
 
-  // Sektör display adını ekle
-  const result = rows.map((row) => ({
-    sembol:        row.sembol,
-    signals:       row.signals_json ?? [],
-    signalCount:   (row.signals_json ?? []).length,
-    changePercent: row.change_percent,
-    rsi:           row.rsi,
-    lastVolume:    row.last_volume,
-    sector:        row.sector,
-    sectorName:    row.sector ? (SECTORS[row.sector as keyof typeof SECTORS]?.shortName ?? row.sector) : null,
-    scannedAt:     row.scanned_at,
-  }));
+  // En son scan zamanı — UI'da "veri X dk önce" göstermek için
+  const latestScannedAt = rows[0]?.scanned_at ?? data?.[0]?.scanned_at ?? null;
+
+  const result = rows.map((row) => {
+    const sigs = row.signals_json ?? [];
+    // Hisse-seviyesi yön: AL/SAT/Karışık — UI badge için
+    const ups   = sigs.filter((s) => s.direction === 'yukari').length;
+    const downs = sigs.filter((s) => s.direction === 'asagi').length;
+    const dominantDir =
+      ups > 0 && downs === 0 ? 'yukari' :
+      downs > 0 && ups === 0 ? 'asagi'  :
+      ups > downs            ? 'yukari' :
+      downs > ups            ? 'asagi'  :
+      ups === 0 && downs === 0 ? null   : 'karisik';
+    const anyMtf = sigs.some((s) => s.weeklyAligned === true);
+
+    return {
+      sembol:           row.sembol,
+      signals:          sigs,
+      signalCount:      sigs.length,
+      changePercent:    row.change_percent,
+      rsi:              row.rsi,
+      lastVolume:       row.last_volume,
+      lastClose:        row.last_close,
+      confluenceScore:  row.confluence_score,
+      pctFrom52wHigh:   row.pct_from_52w_high,
+      pctFrom52wLow:    row.pct_from_52w_low,
+      relVol5:          row.rel_vol5,
+      dominantDir,
+      anyMtf,
+      sector:           row.sector,
+      sectorName:       row.sector ? (SECTORS[row.sector as keyof typeof SECTORS]?.shortName ?? row.sector) : null,
+      scannedAt:        row.scanned_at,
+    };
+  });
 
   return NextResponse.json(
-    { ok: true, count: result.length, results: result },
+    {
+      ok: true,
+      count: result.length,
+      totalMatched,         // limit'ten önce eşleşen toplam (UI: "200 / 245 gösteriliyor")
+      capped: totalMatched > limit,
+      latestScannedAt,
+      results: result,
+    },
     { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } }
   );
 }

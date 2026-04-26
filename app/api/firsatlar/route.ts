@@ -11,7 +11,7 @@
  *  - adjustedScore = compositeScore (UI bununla sıralar)
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
 import { getSector, getSectorId } from '@/lib/sectors';
@@ -22,6 +22,7 @@ import {
   dbRowsToStockSignals,
   type DecisionOutput,
 } from '@/lib/decision-engine';
+import { createServerClient } from '@/lib/supabase-server';
 
 const MIN_CONFLUENCE    = 45;
 const LOOKBACK_DAYS     = 3;
@@ -103,6 +104,10 @@ export interface FirsatlarResponse {
   toplamSinyal: number;
   /** En yeni sinyalin entry_time değeri — UI'da staleness göstermek için */
   scannedAt:    string | null;
+  /** excludeOwned ile filtrelenmiş hisse sayısı (login varsa) */
+  excludedOwnedCount?: number;
+  /** Filtre dışında kalan portföy/watchlist sembolleri */
+  ownedSymbols?: string[];
 }
 
 // ── Yardımcılar ──────────────────────────────────────────────────────
@@ -157,9 +162,34 @@ function isKritikKapDuyurusu(baslik: string, kategori: string): boolean {
   );
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const url           = new URL(req.url);
+    const excludeOwned  = url.searchParams.get('excludeOwned') === 'true';
+    const sektorFilter  = url.searchParams.get('sektor'); // sektör ID (opsiyonel)
+
     const supabase = createAdminClient();
+
+    // Login + portföy/watchlist (sadece excludeOwned varsa)
+    let ownedSet: Set<string> = new Set();
+    if (excludeOwned) {
+      try {
+        const userClient = await createServerClient();
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          const [{ data: poz }, { data: watch }] = await Promise.all([
+            userClient.from('portfolyo_pozisyonlar').select('sembol').eq('user_id', user.id),
+            userClient.from('watchlist').select('sembol').eq('user_id', user.id),
+          ]);
+          ownedSet = new Set([
+            ...(poz   ?? []).map((p: { sembol: string }) => p.sembol),
+            ...(watch ?? []).map((w: { sembol: string }) => w.sembol),
+          ]);
+        }
+      } catch {
+        // Auth/DB hatası → ownedSet boş kalır, normal liste döner
+      }
+    }
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - LOOKBACK_DAYS);
@@ -392,14 +422,42 @@ export async function GET() {
       ? firsatlar.reduce((latest, f) => f.entryTime > latest ? f.entryTime : latest, firsatlar[0]!.entryTime)
       : null;
 
+    // ── Response-time filters ─────────────────────────────────────────
+    let filtered = firsatlar;
+    let excludedOwnedCount = 0;
+    const ownedSymbols: string[] = [];
+
+    if (ownedSet.size > 0) {
+      const before = filtered.length;
+      filtered = filtered.filter((f) => {
+        if (ownedSet.has(f.sembol)) {
+          ownedSymbols.push(f.sembol);
+          return false;
+        }
+        return true;
+      });
+      excludedOwnedCount = before - filtered.length;
+    }
+
+    if (sektorFilter) {
+      filtered = filtered.filter((f) => f.sektorId === sektorFilter);
+    }
+
     return NextResponse.json<FirsatlarResponse>({
-      firsatlar,
+      firsatlar: filtered,
       makroScore,
       regime,
       toplamSinyal: allRows.length,
       scannedAt,
+      excludedOwnedCount: excludeOwned ? excludedOwnedCount : undefined,
+      ownedSymbols:       excludeOwned ? ownedSymbols       : undefined,
     }, {
-      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+      // excludeOwned + auth → kullanıcıya özgü, no-cache. Aksi halde public cache.
+      headers: {
+        'Cache-Control': excludeOwned
+          ? 'private, no-cache'
+          : 'public, s-maxage=300, stale-while-revalidate=600',
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
