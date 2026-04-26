@@ -42,17 +42,33 @@ export async function GET(req: NextRequest) {
   const changeMax    = parseNum(searchParams.get('changeMax'));
   const volumeMin    = parseNum(searchParams.get('volumeMin'));
   const confluenceMin = parseNum(searchParams.get('confluenceMin'));
+  // 52H/dip yakınlığı: -3 → tepeye %3 (veya daha) yakın; +5 → diptan %5+ yukarıda
+  const near52wHighMaxPctAway = parseNum(searchParams.get('near52wHigh')); // örn 3 = "tepeye %3 mesafe içinde"
+  const near52wLowMaxPctAbove = parseNum(searchParams.get('near52wLow'));  // örn 10 = "diptan %10 mesafe içinde"
+  const relVol5Min    = parseNum(searchParams.get('relVol5Min'));
   const limit         = Math.min(parseInt(searchParams.get('limit') ?? '200'), 300);
 
   const admin = createAdminClient();
 
   let query = admin
     .from('scan_cache')
-    .select('sembol, signals_json, change_percent, rsi, last_volume, last_close, confluence_score, sector, scanned_at')
+    .select('sembol, signals_json, change_percent, rsi, last_volume, last_close, confluence_score, pct_from_52w_high, pct_from_52w_low, rel_vol5, sector, scanned_at')
     .order('scanned_at', { ascending: false });
 
   // Confluence filtresi — DB seviyesinde
   if (confluenceMin !== null) query = query.gte('confluence_score', confluenceMin);
+
+  // 52H tepe yakınlığı: pct_from_52w_high negatif değer; "%3 yakın" = pct >= -3
+  if (near52wHighMaxPctAway !== null) {
+    query = query.gte('pct_from_52w_high', -Math.abs(near52wHighMaxPctAway));
+  }
+  // 52H dip yakınlığı: pct_from_52w_low pozitif; "diptan %10 içinde" = pct <= 10
+  if (near52wLowMaxPctAbove !== null) {
+    query = query.lte('pct_from_52w_low', Math.abs(near52wLowMaxPctAbove));
+  }
+
+  // Relative volume filtresi
+  if (relVol5Min !== null) query = query.gte('rel_vol5', relVol5Min);
 
   // Sektör filtresi — DB seviyesinde
   if (sector) query = query.eq('sector', sector);
@@ -91,6 +107,9 @@ export async function GET(req: NextRequest) {
     last_volume: number | null;
     last_close: number | null;
     confluence_score: number | null;
+    pct_from_52w_high: number | null;
+    pct_from_52w_low: number | null;
+    rel_vol5: number | null;
     sector: string | null;
     scanned_at: string;
   };
@@ -133,19 +152,22 @@ export async function GET(req: NextRequest) {
     const anyMtf = sigs.some((s) => s.weeklyAligned === true);
 
     return {
-      sembol:          row.sembol,
-      signals:         sigs,
-      signalCount:     sigs.length,
-      changePercent:   row.change_percent,
-      rsi:             row.rsi,
-      lastVolume:      row.last_volume,
-      lastClose:       row.last_close,
-      confluenceScore: row.confluence_score,
+      sembol:           row.sembol,
+      signals:          sigs,
+      signalCount:      sigs.length,
+      changePercent:    row.change_percent,
+      rsi:              row.rsi,
+      lastVolume:       row.last_volume,
+      lastClose:        row.last_close,
+      confluenceScore:  row.confluence_score,
+      pctFrom52wHigh:   row.pct_from_52w_high,
+      pctFrom52wLow:    row.pct_from_52w_low,
+      relVol5:          row.rel_vol5,
       dominantDir,
       anyMtf,
-      sector:          row.sector,
-      sectorName:      row.sector ? (SECTORS[row.sector as keyof typeof SECTORS]?.shortName ?? row.sector) : null,
-      scannedAt:       row.scanned_at,
+      sector:           row.sector,
+      sectorName:       row.sector ? (SECTORS[row.sector as keyof typeof SECTORS]?.shortName ?? row.sector) : null,
+      scannedAt:        row.scanned_at,
     };
   });
 

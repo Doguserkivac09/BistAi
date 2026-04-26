@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Search, SlidersHorizontal, X, ChevronDown, ChevronUp, ArrowUpDown,
   TrendingUp, TrendingDown, Minus, BarChart2, RefreshCw, Clock, Star, Zap, Target,
+  Download, Share2, Mountain,
 } from 'lucide-react';
 import { SECTORS } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
@@ -22,6 +23,9 @@ interface ScreenerResult {
   lastVolume: number | null;
   lastClose: number | null;
   confluenceScore: number | null;
+  pctFrom52wHigh: number | null;
+  pctFrom52wLow: number | null;
+  relVol5: number | null;
   dominantDir: 'yukari' | 'asagi' | 'karisik' | null;
   anyMtf: boolean;
   sector: string | null;
@@ -49,11 +53,15 @@ interface Filters {
   changeMax: string;
   volumeMin: string;
   confluenceMin: string;
+  near52wHigh: string; // "tepeye %X içinde" (X = mesafe)
+  near52wLow: string;  // "diptan %X içinde"
+  relVol5Min: string;  // örn 1.5 = "ortalamanın 1.5 katı"
 }
 
 const EMPTY_FILTERS: Filters = {
   sector: '', signalType: '', severity: '', direction: '', mtfOnly: false,
-  rsiMin: '', rsiMax: '', changeMin: '', changeMax: '', volumeMin: '', confluenceMin: '',
+  rsiMin: '', rsiMax: '', changeMin: '', changeMax: '', volumeMin: '',
+  confluenceMin: '', near52wHigh: '', near52wLow: '', relVol5Min: '',
 };
 
 // Hazır preset'ler — tek tıkta yaygın taramalar
@@ -94,6 +102,18 @@ const PRESETS: Array<{ key: string; label: string; emoji: string; filters: Parti
     emoji: '✓',
     filters: { mtfOnly: true, confluenceMin: '40' },
   },
+  {
+    key: 'tepe-yakin',
+    label: '52H Tepe Yakın',
+    emoji: '🏔️',
+    filters: { near52wHigh: '3', volumeMin: '5000000' },
+  },
+  {
+    key: 'dip-yakin',
+    label: '52H Dip Yakın',
+    emoji: '⛰️',
+    filters: { near52wLow: '8', confluenceMin: '40' },
+  },
 ];
 
 const SIGNAL_TYPES = [
@@ -130,7 +150,7 @@ const TOTAL_BIST = BIST_SYMBOLS.length;
 
 // ── Sıralama ──────────────────────────────────────────────────────────────────
 
-type SortKey = 'sembol' | 'change' | 'rsi' | 'volume' | 'price' | 'signalCount' | 'confluence';
+type SortKey = 'sembol' | 'change' | 'rsi' | 'volume' | 'price' | 'signalCount' | 'confluence' | 'relVol5' | 'pct52High';
 type SortDir = 'asc' | 'desc';
 
 // ── Yardımcılar ──────────────────────────────────────────────────────────────
@@ -369,6 +389,9 @@ export default function ScreenerPage() {
     if (f.changeMax)     params.set('changeMax', f.changeMax);
     if (f.volumeMin)     params.set('volumeMin', f.volumeMin);
     if (f.confluenceMin) params.set('confluenceMin', f.confluenceMin);
+    if (f.near52wHigh)   params.set('near52wHigh', f.near52wHigh);
+    if (f.near52wLow)    params.set('near52wLow', f.near52wLow);
+    if (f.relVol5Min)    params.set('relVol5Min', f.relVol5Min);
     params.set('limit', '200');
 
     try {
@@ -386,6 +409,57 @@ export default function ScreenerPage() {
       if (!ctrl.signal.aborted) setLoading(false);
     }
   }, []);
+
+  // ── URL persist ──────────────────────────────────────────────────────
+  // Mount'ta URL'den filtreleri oku (paylaşılabilir/bookmark'lanabilir bağlantı)
+  const didReadUrlRef = useRef(false);
+  useEffect(() => {
+    if (didReadUrlRef.current) return;
+    didReadUrlRef.current = true;
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.toString().length === 0) return;
+    setFilters({
+      sector:        sp.get('sector')        ?? '',
+      signalType:    sp.get('signalType')    ?? '',
+      severity:      sp.get('severity')      ?? '',
+      direction:     (sp.get('direction') as Filters['direction']) ?? '',
+      mtfOnly:       sp.get('mtfOnly') === '1',
+      rsiMin:        sp.get('rsiMin')        ?? '',
+      rsiMax:        sp.get('rsiMax')        ?? '',
+      changeMin:     sp.get('changeMin')     ?? '',
+      changeMax:     sp.get('changeMax')     ?? '',
+      volumeMin:     sp.get('volumeMin')     ?? '',
+      confluenceMin: sp.get('confluenceMin') ?? '',
+      near52wHigh:   sp.get('near52wHigh')   ?? '',
+      near52wLow:    sp.get('near52wLow')    ?? '',
+      relVol5Min:    sp.get('relVol5Min')    ?? '',
+    });
+  }, []);
+
+  // Filtre değiştikçe URL'i güncelle (replaceState — history kirliliği yok)
+  useEffect(() => {
+    if (!didReadUrlRef.current) return;
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams();
+    if (filters.sector)        sp.set('sector', filters.sector);
+    if (filters.signalType)    sp.set('signalType', filters.signalType);
+    if (filters.severity)      sp.set('severity', filters.severity);
+    if (filters.direction)     sp.set('direction', filters.direction);
+    if (filters.mtfOnly)       sp.set('mtfOnly', '1');
+    if (filters.rsiMin)        sp.set('rsiMin', filters.rsiMin);
+    if (filters.rsiMax)        sp.set('rsiMax', filters.rsiMax);
+    if (filters.changeMin)     sp.set('changeMin', filters.changeMin);
+    if (filters.changeMax)     sp.set('changeMax', filters.changeMax);
+    if (filters.volumeMin)     sp.set('volumeMin', filters.volumeMin);
+    if (filters.confluenceMin) sp.set('confluenceMin', filters.confluenceMin);
+    if (filters.near52wHigh)   sp.set('near52wHigh', filters.near52wHigh);
+    if (filters.near52wLow)    sp.set('near52wLow', filters.near52wLow);
+    if (filters.relVol5Min)    sp.set('relVol5Min', filters.relVol5Min);
+    const qs = sp.toString();
+    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, '', url);
+  }, [filters]);
 
   // Tek useEffect — filtre değişince debounced çalışır, ilk render'da da bir kez tetiklenir (B4 fix).
   useEffect(() => {
@@ -422,6 +496,66 @@ export default function ScreenerPage() {
     } else {
       setSortKey(k);
       setSortDir(k === 'sembol' ? 'asc' : 'desc');
+    }
+  }
+
+  // CSV indir — görünür/sıralı sonuçları
+  function downloadCsv() {
+    if (sortedResults.length === 0) {
+      toast.info('İndirilecek sonuç yok');
+      return;
+    }
+    const headers = [
+      'Sembol', 'Sektör', 'Fiyat', 'Değişim%', 'RSI', 'Hacim',
+      'Confluence', 'relVol5', '52H_Tepe%', '52H_Dip%', 'Yön', 'MTF', 'TopSinyal',
+    ];
+    const rows = sortedResults.map((r) => {
+      const top = [...r.signals].sort((a, b) => {
+        const order = { güçlü: 3, orta: 2, zayıf: 1 } as Record<string, number>;
+        return (order[b.severity] ?? 0) - (order[a.severity] ?? 0);
+      })[0];
+      return [
+        r.sembol,
+        r.sectorName ?? '',
+        r.lastClose ?? '',
+        r.changePercent !== null ? r.changePercent.toFixed(2) : '',
+        r.rsi !== null ? r.rsi.toFixed(0) : '',
+        r.lastVolume ?? '',
+        r.confluenceScore ?? '',
+        r.relVol5 ?? '',
+        r.pctFrom52wHigh !== null ? r.pctFrom52wHigh.toFixed(2) : '',
+        r.pctFrom52wLow  !== null ? r.pctFrom52wLow.toFixed(2)  : '',
+        r.dominantDir === 'yukari' ? 'AL' : r.dominantDir === 'asagi' ? 'SAT' : r.dominantDir === 'karisik' ? 'KARIŞIK' : '',
+        r.anyMtf ? 'EVET' : '',
+        top ? `${top.type} (${top.severity})` : '',
+      ];
+    });
+    const escape = (v: string | number) => {
+      const s = String(v);
+      return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    // BOM + ; ayraç (Excel TR locale uyumlu)
+    const csv = '﻿' + [headers, ...rows].map((r) => r.map(escape).join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bistai-screener-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`${sortedResults.length} satır indirildi`);
+  }
+
+  // Bağlantıyı kopyala (URL persist sayesinde filtreler dahil)
+  async function copyShareLink() {
+    if (typeof window === 'undefined') return;
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success('Bağlantı kopyalandı');
+    } catch {
+      toast.error('Kopyalanamadı');
     }
   }
 
@@ -658,6 +792,81 @@ export default function ScreenerPage() {
                 </button>
               </div>
 
+              {/* 52H Tepe/Dip Yakınlığı */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
+                  52 Hafta Tepe/Dip Yakınlığı
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    { side: 'high', val: '3',  label: 'Tepe ≤%3'  },
+                    { side: 'high', val: '7',  label: 'Tepe ≤%7'  },
+                    { side: 'low',  val: '8',  label: 'Dip ≤%8'   },
+                    { side: 'low',  val: '15', label: 'Dip ≤%15'  },
+                  ] as const).map((opt) => {
+                    const isHigh = opt.side === 'high';
+                    const active = isHigh
+                      ? filters.near52wHigh === opt.val
+                      : filters.near52wLow  === opt.val;
+                    return (
+                      <button
+                        key={`${opt.side}-${opt.val}`}
+                        onClick={() => {
+                          // Karşı tarafı temizle, mevcutu toggle et
+                          if (isHigh) {
+                            setFilter('near52wLow', '');
+                            setFilter('near52wHigh', active ? '' : opt.val);
+                          } else {
+                            setFilter('near52wHigh', '');
+                            setFilter('near52wLow', active ? '' : opt.val);
+                          }
+                        }}
+                        className={`rounded-md border px-2 py-1 text-[11px] transition ${
+                          active
+                            ? (isHigh ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                                       : 'border-blue-500/40 bg-blue-500/10 text-blue-300')
+                            : 'border-border text-text-muted hover:border-primary/40'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-text-muted/80 leading-snug">
+                  Tepe yakını = momentum gücü; dip yakını = dönüş fırsatı
+                </p>
+              </div>
+
+              {/* Relative Volume (5g) */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
+                  Min. Bağıl Hacim (5g)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    { val: '1.5', label: '1.5×' },
+                    { val: '2',   label: '2×'   },
+                    { val: '3',   label: '3×'   },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.val}
+                      onClick={() => setFilter('relVol5Min', filters.relVol5Min === opt.val ? '' : opt.val)}
+                      className={`rounded-md border px-2 py-1 text-[11px] transition ${
+                        filters.relVol5Min === opt.val
+                          ? 'border-primary bg-primary/15 text-primary'
+                          : 'border-border text-text-muted hover:border-primary/40'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-text-muted/80 leading-snug">
+                  Son hacim, 5 günlük ortalamanın kaç katı? 1.5×+ = anormal aktivite
+                </p>
+              </div>
+
             </div>
           </aside>
 
@@ -702,6 +911,23 @@ export default function ScreenerPage() {
                   </span>
                 )}
                 <button
+                  onClick={copyShareLink}
+                  title="Bu filtre kombinasyonunu paylaşılabilir bağlantı olarak kopyala"
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-xs text-text-muted hover:text-text-primary transition"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Paylaş</span>
+                </button>
+                <button
+                  onClick={downloadCsv}
+                  disabled={sortedResults.length === 0}
+                  title="Sonuçları CSV olarak indir (Excel uyumlu)"
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-xs text-text-muted hover:text-text-primary transition disabled:opacity-40"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">CSV</span>
+                </button>
+                <button
                   onClick={() => runScreener(filters)}
                   disabled={loading}
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-muted hover:text-text-primary transition disabled:opacity-50"
@@ -721,6 +947,8 @@ export default function ScreenerPage() {
                 <SortHeader label="Değ %"   sortKey="change"      current={sortKey} dir={sortDir} onSort={handleSort} className="w-16 shrink-0" />
                 <SortHeader label="RSI"     sortKey="rsi"         current={sortKey} dir={sortDir} onSort={handleSort} className="w-24 shrink-0 hidden sm:flex" />
                 <SortHeader label="Hacim"   sortKey="volume"      current={sortKey} dir={sortDir} onSort={handleSort} className="w-14 shrink-0 hidden lg:flex" />
+                <SortHeader label="rVol"    sortKey="relVol5"     current={sortKey} dir={sortDir} onSort={handleSort} className="w-12 shrink-0 hidden lg:flex" />
+                <SortHeader label="52H"     sortKey="pct52High"   current={sortKey} dir={sortDir} onSort={handleSort} className="w-14 shrink-0 hidden xl:flex" />
                 <SortHeader label="Conf"    sortKey="confluence"  current={sortKey} dir={sortDir} onSort={handleSort} className="w-12 shrink-0" />
                 <SortHeader label="Sinyal"  sortKey="signalCount" current={sortKey} dir={sortDir} onSort={handleSort} className="flex-1" />
               </div>
@@ -777,6 +1005,8 @@ function pickSortValue(r: ScreenerResult, key: SortKey): number | string | null 
     case 'price':       return r.lastClose;
     case 'signalCount': return r.signalCount;
     case 'confluence':  return r.confluenceScore;
+    case 'relVol5':     return r.relVol5;
+    case 'pct52High':   return r.pctFrom52wHigh;
   }
 }
 
@@ -804,7 +1034,7 @@ function ScreenerRow({
   inWatchlist: boolean;
   onWatchlistToggle: (sembol: string) => void;
 }) {
-  const { sembol, signals, changePercent, rsi, lastVolume, lastClose, sectorName, confluenceScore, dominantDir, anyMtf } = result;
+  const { sembol, signals, changePercent, rsi, lastVolume, lastClose, sectorName, confluenceScore, dominantDir, anyMtf, relVol5, pctFrom52wHigh, pctFrom52wLow } = result;
 
   const changePct = changePercent;
   const effectivePct = changePct ?? 0;
@@ -872,6 +1102,52 @@ function ScreenerRow({
         <div className="hidden w-14 shrink-0 text-xs text-text-muted lg:block tabular-nums">
           <BarChart2 className="inline h-3 w-3 mr-0.5" />
           {formatVolume(lastVolume)}
+        </div>
+
+        {/* Relative Volume (5g) */}
+        <div className="hidden w-12 shrink-0 lg:block">
+          {relVol5 !== null ? (
+            <span
+              title={`Son hacim, 5 günlük ortalamanın ${relVol5.toFixed(1)} katı`}
+              className={`text-xs font-mono tabular-nums ${
+                relVol5 >= 3   ? 'text-emerald-400 font-bold' :
+                relVol5 >= 1.5 ? 'text-emerald-300' :
+                relVol5 >= 1   ? 'text-text-secondary' :
+                                 'text-text-muted'
+              }`}
+            >
+              {relVol5.toFixed(1)}×
+            </span>
+          ) : (
+            <span className="text-xs text-text-muted">—</span>
+          )}
+        </div>
+
+        {/* 52H Tepe/Dip */}
+        <div className="hidden w-14 shrink-0 xl:block">
+          {pctFrom52wHigh !== null ? (
+            (() => {
+              const dHigh = Math.abs(pctFrom52wHigh);
+              const dLow  = pctFrom52wLow ?? 999;
+              const tepeYakin = dHigh <= dLow;
+              const cls = tepeYakin
+                ? (dHigh <= 3 ? 'text-emerald-400 font-bold' : dHigh <= 10 ? 'text-emerald-300' : 'text-text-muted')
+                : (dLow  <= 8 ? 'text-blue-300 font-bold'    : 'text-text-muted');
+              const Icon = tepeYakin ? Mountain : TrendingDown;
+              const text = tepeYakin ? `−${dHigh.toFixed(0)}%` : `+${dLow.toFixed(0)}%`;
+              const title = tepeYakin
+                ? `52H tepeden ${dHigh.toFixed(1)}% aşağıda`
+                : `52H dipten ${dLow.toFixed(1)}% yukarıda`;
+              return (
+                <span title={title} className={`flex items-center gap-0.5 text-[11px] font-mono tabular-nums ${cls}`}>
+                  <Icon className="h-3 w-3 shrink-0" />
+                  {text}
+                </span>
+              );
+            })()
+          ) : (
+            <span className="text-xs text-text-muted">—</span>
+          )}
         </div>
 
         {/* Confluence */}
