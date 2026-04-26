@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
     rsi: number | null;
     last_volume: number | null;
     last_close: number | null;
+    confluence_score: number | null;
     sector: string;
     scanned_at: string;
   }> = [];
@@ -141,6 +142,9 @@ export async function GET(request: NextRequest) {
       // Son 60 mum — MiniChart için yeterli, payload'u küçük tutar
       const last60 = candles.slice(-60);
 
+      // Hisse-seviyesi confluence — scan_cache'de screener filtresi için.
+      const stockConfluence = signals.length > 0 ? computeConfluence(signals) : null;
+
       rows.push({
         sembol,
         signals_json: signals,
@@ -150,17 +154,18 @@ export async function GET(request: NextRequest) {
             ? ((candles[candles.length - 1]!.close - candles[candles.length - 2]!.close)
                / candles[candles.length - 2]!.close) * 100
             : null),
-        rsi:         calcLastRSI(candles),
-        last_volume: candles[candles.length - 1]?.volume ?? null,
-        last_close:  candles[candles.length - 1]?.close ?? null,
-        sector:      getSectorId(sembol),
-        scanned_at:  scannedAt,
+        rsi:              calcLastRSI(candles),
+        last_volume:      candles[candles.length - 1]?.volume ?? null,
+        last_close:       candles[candles.length - 1]?.close ?? null,
+        confluence_score: stockConfluence?.score ?? null,
+        sector:           getSectorId(sembol),
+        scanned_at:       scannedAt,
       });
 
       // signal_performance kayıtları — entry_price = son kapanış
       const lastClose = candles[candles.length - 1]?.close;
-      if (lastClose && lastClose > 0 && signals.length > 0) {
-        const confluence = computeConfluence(signals);
+      if (lastClose && lastClose > 0 && signals.length > 0 && stockConfluence) {
+        const confluence = stockConfluence;
         for (const sig of signals) {
           perfRows.push({
             user_id:             null,

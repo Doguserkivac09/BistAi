@@ -4,21 +4,26 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   Search, SlidersHorizontal, X, ChevronDown, ChevronUp, ArrowUpDown,
-  TrendingUp, TrendingDown, Minus, BarChart2, RefreshCw, Clock,
+  TrendingUp, TrendingDown, Minus, BarChart2, RefreshCw, Clock, Star, Zap, Target,
 } from 'lucide-react';
 import { SECTORS } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
+import { createClient } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 // ── Tipler ────────────────────────────────────────────────────────────────────
 
 interface ScreenerResult {
   sembol: string;
-  signals: Array<{ type: string; direction: string; severity: string; candlesAgo?: number }>;
+  signals: Array<{ type: string; direction: string; severity: string; candlesAgo?: number; weeklyAligned?: boolean }>;
   signalCount: number;
   changePercent: number | null;
   rsi: number | null;
   lastVolume: number | null;
   lastClose: number | null;
+  confluenceScore: number | null;
+  dominantDir: 'yukari' | 'asagi' | 'karisik' | null;
+  anyMtf: boolean;
   sector: string | null;
   sectorName: string | null;
 }
@@ -36,17 +41,60 @@ interface Filters {
   sector: string;
   signalType: string;
   severity: string;
+  direction: '' | 'yukari' | 'asagi';
+  mtfOnly: boolean;
   rsiMin: string;
   rsiMax: string;
   changeMin: string;
   changeMax: string;
   volumeMin: string;
+  confluenceMin: string;
 }
 
 const EMPTY_FILTERS: Filters = {
-  sector: '', signalType: '', severity: '',
-  rsiMin: '', rsiMax: '', changeMin: '', changeMax: '', volumeMin: '',
+  sector: '', signalType: '', severity: '', direction: '', mtfOnly: false,
+  rsiMin: '', rsiMax: '', changeMin: '', changeMax: '', volumeMin: '', confluenceMin: '',
 };
+
+// Hazır preset'ler — tek tıkta yaygın taramalar
+const PRESETS: Array<{ key: string; label: string; emoji: string; filters: Partial<Filters> }> = [
+  {
+    key: 'asiri-satim',
+    label: 'Aşırı Satım Fırsatı',
+    emoji: '🟦',
+    filters: { rsiMax: '30', confluenceMin: '40', volumeMin: '5000000' },
+  },
+  {
+    key: 'tepe-patlama',
+    label: 'Tepe Patlaması',
+    emoji: '🚀',
+    filters: { signalType: 'Destek/Direnç Kırılımı', severity: 'güçlü', direction: 'yukari', volumeMin: '5000000' },
+  },
+  {
+    key: 'hacim-patlama',
+    label: 'Hacim Patlaması',
+    emoji: '📊',
+    filters: { signalType: 'Hacim Anomalisi', severity: 'güçlü', volumeMin: '10000000' },
+  },
+  {
+    key: 'altin-capraz',
+    label: 'Altın Çapraz',
+    emoji: '✨',
+    filters: { signalType: 'Altın Çapraz', direction: 'yukari' },
+  },
+  {
+    key: 'yuksek-confluence',
+    label: 'Yüksek Confluence',
+    emoji: '🎯',
+    filters: { confluenceMin: '60', volumeMin: '5000000' },
+  },
+  {
+    key: 'mtf-aligned',
+    label: 'MTF Uyumlu (Haftalık ✓)',
+    emoji: '✓',
+    filters: { mtfOnly: true, confluenceMin: '40' },
+  },
+];
 
 const SIGNAL_TYPES = [
   'RSI Uyumsuzluğu', 'Hacim Anomalisi', 'Trend Başlangıcı',
@@ -82,7 +130,7 @@ const TOTAL_BIST = BIST_SYMBOLS.length;
 
 // ── Sıralama ──────────────────────────────────────────────────────────────────
 
-type SortKey = 'sembol' | 'change' | 'rsi' | 'volume' | 'price' | 'signalCount';
+type SortKey = 'sembol' | 'change' | 'rsi' | 'volume' | 'price' | 'signalCount' | 'confluence';
 type SortDir = 'asc' | 'desc';
 
 // ── Yardımcılar ──────────────────────────────────────────────────────────────
@@ -220,15 +268,86 @@ export default function ScreenerPage() {
   const [capped, setCapped] = useState(false);
   const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(true);
-  const [sortKey, setSortKey] = useState<SortKey>('signalCount');
+  const [sortKey, setSortKey] = useState<SortKey>('confluence');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [watchlist, setWatchlist] = useState<Set<string>>(new Set());
+  const [watchlistIds, setWatchlistIds] = useState<Map<string, string>>(new Map());
+  const [loggedIn, setLoggedIn] = useState<boolean>(false);
   const abortRef = useRef<AbortController | null>(null);
 
   function setFilter<K extends keyof Filters>(key: K, val: Filters[K]) {
+    setActivePreset(null); // manuel değişiklik preset'i sıfırlar
     setFilters((prev) => ({ ...prev, [key]: val }));
   }
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  function applyPreset(key: string) {
+    const p = PRESETS.find((x) => x.key === key);
+    if (!p) return;
+    if (activePreset === key) {
+      setActivePreset(null);
+      setFilters(EMPTY_FILTERS);
+      return;
+    }
+    setActivePreset(key);
+    setFilters({ ...EMPTY_FILTERS, ...p.filters });
+  }
+
+  const activeFilterCount = Object.entries(filters).filter(([, v]) =>
+    typeof v === 'boolean' ? v : Boolean(v)
+  ).length;
+
+  // Auth + watchlist (soft login)
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        setLoggedIn(true);
+        const res = await fetch('/api/watchlist');
+        if (!res.ok) return;
+        const json = await res.json() as { id: string; sembol?: string }[];
+        setWatchlist(new Set(json.map((r) => r.sembol ?? '')));
+        setWatchlistIds(new Map(json.map((r) => [r.sembol ?? '', r.id])));
+      } catch { /* sessizce */ }
+    })();
+  }, []);
+
+  const handleWatchlistToggle = useCallback(async (sembol: string) => {
+    if (!loggedIn) {
+      toast.info('İzleme listesi için giriş yapın');
+      return;
+    }
+    const isIn = watchlist.has(sembol);
+    setWatchlist((prev) => {
+      const next = new Set(prev);
+      if (isIn) next.delete(sembol); else next.add(sembol);
+      return next;
+    });
+    try {
+      if (isIn) {
+        const id = watchlistIds.get(sembol);
+        if (id) await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' });
+        setWatchlistIds((p) => { const n = new Map(p); n.delete(sembol); return n; });
+      } else {
+        const res = await fetch('/api/watchlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sembol }),
+        });
+        const j = await res.json() as { id?: string };
+        if (j.id) setWatchlistIds((p) => new Map(p).set(sembol, j.id!));
+      }
+    } catch {
+      setWatchlist((prev) => {
+        const next = new Set(prev);
+        if (isIn) next.add(sembol); else next.delete(sembol);
+        return next;
+      });
+      toast.error('İşlem başarısız');
+    }
+  }, [loggedIn, watchlist, watchlistIds]);
 
   const runScreener = useCallback(async (f: Filters) => {
     abortRef.current?.abort();
@@ -239,14 +358,17 @@ export default function ScreenerPage() {
     setHasSearched(true);
 
     const params = new URLSearchParams();
-    if (f.sector)     params.set('sector', f.sector);
-    if (f.signalType) params.set('signalType', f.signalType);
-    if (f.severity)   params.set('severity', f.severity);
-    if (f.rsiMin)     params.set('rsiMin', f.rsiMin);
-    if (f.rsiMax)     params.set('rsiMax', f.rsiMax);
-    if (f.changeMin)  params.set('changeMin', f.changeMin);
-    if (f.changeMax)  params.set('changeMax', f.changeMax);
-    if (f.volumeMin)  params.set('volumeMin', f.volumeMin);
+    if (f.sector)        params.set('sector', f.sector);
+    if (f.signalType)    params.set('signalType', f.signalType);
+    if (f.severity)      params.set('severity', f.severity);
+    if (f.direction)     params.set('direction', f.direction);
+    if (f.mtfOnly)       params.set('mtfOnly', '1');
+    if (f.rsiMin)        params.set('rsiMin', f.rsiMin);
+    if (f.rsiMax)        params.set('rsiMax', f.rsiMax);
+    if (f.changeMin)     params.set('changeMin', f.changeMin);
+    if (f.changeMax)     params.set('changeMax', f.changeMax);
+    if (f.volumeMin)     params.set('volumeMin', f.volumeMin);
+    if (f.confluenceMin) params.set('confluenceMin', f.confluenceMin);
     params.set('limit', '200');
 
     try {
@@ -308,7 +430,7 @@ export default function ScreenerPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 
         {/* ── Başlık ── */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="flex items-center gap-3 mb-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15">
               <SlidersHorizontal className="h-4.5 w-4.5 text-primary" />
@@ -316,10 +438,33 @@ export default function ScreenerPage() {
             <div>
               <h1 className="text-xl font-bold text-text-primary">Çok Kriterli BIST Tarama</h1>
               <p className="text-sm text-text-muted">
-                {TOTAL_BIST} BIST hissesini sektör · RSI · sinyal · hacim · değişim filtrelerinde tara
+                {TOTAL_BIST} BIST hissesini sektör · RSI · sinyal · confluence · MTF filtrelerinde tara
               </p>
             </div>
           </div>
+        </div>
+
+        {/* ── Hazır Preset Bar ── */}
+        <div className="mb-5 flex items-center gap-2 overflow-x-auto pb-1">
+          <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+          <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider shrink-0 mr-1">Hızlı Tarama:</span>
+          {PRESETS.map((p) => {
+            const isActive = activePreset === p.key;
+            return (
+              <button
+                key={p.key}
+                onClick={() => applyPreset(p.key)}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition shrink-0 ${
+                  isActive
+                    ? 'border-primary bg-primary/15 text-primary'
+                    : 'border-border bg-surface/40 text-text-secondary hover:border-primary/40 hover:text-text-primary'
+                }`}
+              >
+                <span>{p.emoji}</span>
+                {p.label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
@@ -441,6 +586,78 @@ export default function ScreenerPage() {
                 </div>
               </div>
 
+              {/* Yön */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-text-muted uppercase tracking-wider">Yön</label>
+                <div className="flex overflow-hidden rounded-lg border border-border">
+                  {([
+                    { val: '',       label: 'Tümü'   },
+                    { val: 'yukari', label: '↑ AL'   },
+                    { val: 'asagi',  label: '↓ SAT'  },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.val}
+                      onClick={() => setFilter('direction', opt.val)}
+                      className={`flex-1 px-2 py-1.5 text-xs font-medium transition ${
+                        filters.direction === opt.val
+                          ? (opt.val === 'yukari' ? 'bg-emerald-500/20 text-emerald-300'
+                            : opt.val === 'asagi' ? 'bg-red-500/20 text-red-300'
+                            : 'bg-primary/15 text-primary')
+                          : 'text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Confluence */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
+                  Min. Confluence Skoru
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    { val: '40', label: '40+ Orta'   },
+                    { val: '60', label: '60+ Güçlü'  },
+                    { val: '75', label: '75+ Yüksek' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.val}
+                      onClick={() => setFilter('confluenceMin', filters.confluenceMin === opt.val ? '' : opt.val)}
+                      className={`rounded-md border px-2 py-1 text-[11px] transition ${
+                        filters.confluenceMin === opt.val
+                          ? 'border-primary bg-primary/15 text-primary'
+                          : 'border-border text-text-muted hover:border-primary/40'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-text-muted/80 leading-snug">
+                  Birden fazla farklı kategorideki sinyalin aynı anda gerçekleşmesi
+                </p>
+              </div>
+
+              {/* MTF — haftalık aligned */}
+              <div className="pt-1">
+                <button
+                  onClick={() => setFilter('mtfOnly', !filters.mtfOnly)}
+                  aria-pressed={filters.mtfOnly}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                    filters.mtfOnly
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                      : 'border-border text-text-muted hover:text-text-primary'
+                  }`}
+                  title="Sadece haftalık trendle uyumlu (MTF) sinyalleri göster"
+                >
+                  <span>Sadece MTF Uyumlu (Haftalık ✓)</span>
+                  <span>{filters.mtfOnly ? 'Açık' : 'Kapalı'}</span>
+                </button>
+              </div>
+
             </div>
           </aside>
 
@@ -497,12 +714,14 @@ export default function ScreenerPage() {
 
             {/* Kolon başlıkları (sıralama) */}
             {hasSearched && results.length > 0 && (
-              <div className="mb-2 flex items-center gap-4 px-4 py-2 rounded-lg border border-border/60 bg-surface/30">
-                <SortHeader label="Sembol"  sortKey="sembol" current={sortKey} dir={sortDir} onSort={handleSort} className="w-24 shrink-0" />
-                <SortHeader label="Fiyat"   sortKey="price"  current={sortKey} dir={sortDir} onSort={handleSort} className="w-16 shrink-0 hidden md:flex" />
-                <SortHeader label="Değ %"   sortKey="change" current={sortKey} dir={sortDir} onSort={handleSort} className="w-16 shrink-0" />
-                <SortHeader label="RSI"     sortKey="rsi"    current={sortKey} dir={sortDir} onSort={handleSort} className="w-24 shrink-0 hidden sm:flex" />
-                <SortHeader label="Hacim"   sortKey="volume" current={sortKey} dir={sortDir} onSort={handleSort} className="w-16 shrink-0 hidden lg:flex" />
+              <div className="mb-2 flex items-center gap-3 px-4 py-2 rounded-lg border border-border/60 bg-surface/30">
+                {loggedIn && <span className="w-5 shrink-0" />}
+                <SortHeader label="Sembol"  sortKey="sembol"      current={sortKey} dir={sortDir} onSort={handleSort} className="w-20 shrink-0" />
+                <SortHeader label="Fiyat"   sortKey="price"       current={sortKey} dir={sortDir} onSort={handleSort} className="w-14 shrink-0 hidden md:flex" />
+                <SortHeader label="Değ %"   sortKey="change"      current={sortKey} dir={sortDir} onSort={handleSort} className="w-16 shrink-0" />
+                <SortHeader label="RSI"     sortKey="rsi"         current={sortKey} dir={sortDir} onSort={handleSort} className="w-24 shrink-0 hidden sm:flex" />
+                <SortHeader label="Hacim"   sortKey="volume"      current={sortKey} dir={sortDir} onSort={handleSort} className="w-14 shrink-0 hidden lg:flex" />
+                <SortHeader label="Conf"    sortKey="confluence"  current={sortKey} dir={sortDir} onSort={handleSort} className="w-12 shrink-0" />
                 <SortHeader label="Sinyal"  sortKey="signalCount" current={sortKey} dir={sortDir} onSort={handleSort} className="flex-1" />
               </div>
             )}
@@ -532,7 +751,13 @@ export default function ScreenerPage() {
             ) : (
               <div className="space-y-2">
                 {sortedResults.map((r) => (
-                  <ScreenerRow key={r.sembol} result={r} />
+                  <ScreenerRow
+                    key={r.sembol}
+                    result={r}
+                    loggedIn={loggedIn}
+                    inWatchlist={watchlist.has(r.sembol)}
+                    onWatchlistToggle={handleWatchlistToggle}
+                  />
                 ))}
               </div>
             )}
@@ -551,13 +776,35 @@ function pickSortValue(r: ScreenerResult, key: SortKey): number | string | null 
     case 'volume':      return r.lastVolume;
     case 'price':       return r.lastClose;
     case 'signalCount': return r.signalCount;
+    case 'confluence':  return r.confluenceScore;
   }
 }
 
 // ── Sonuç satırı ──────────────────────────────────────────────────────────────
 
-function ScreenerRow({ result }: { result: ScreenerResult }) {
-  const { sembol, signals, changePercent, rsi, lastVolume, lastClose, sectorName } = result;
+function ConfluenceBadge({ score }: { score: number | null }) {
+  if (score === null) return <span className="text-text-muted text-xs">—</span>;
+  const cls =
+    score >= 75 ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
+    score >= 60 ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' :
+    score >= 40 ? 'bg-yellow-500/10 text-yellow-300 border-yellow-500/25' :
+                  'bg-white/5 text-text-muted border-border';
+  return (
+    <span className={`inline-flex items-center justify-center rounded-md border px-1.5 py-0.5 text-[11px] font-bold tabular-nums w-full ${cls}`}>
+      {score}
+    </span>
+  );
+}
+
+function ScreenerRow({
+  result, loggedIn, inWatchlist, onWatchlistToggle,
+}: {
+  result: ScreenerResult;
+  loggedIn: boolean;
+  inWatchlist: boolean;
+  onWatchlistToggle: (sembol: string) => void;
+}) {
+  const { sembol, signals, changePercent, rsi, lastVolume, lastClose, sectorName, confluenceScore, dominantDir, anyMtf } = result;
 
   const changePct = changePercent;
   const effectivePct = changePct ?? 0;
@@ -572,60 +819,95 @@ function ScreenerRow({ result }: { result: ScreenerResult }) {
   const topSignal = sortedSignals[0];
 
   return (
-    <Link
-      href={`/hisse/${sembol}`}
-      className="flex items-center gap-4 rounded-xl border border-border bg-surface/50 px-4 py-3 transition hover:border-primary/30 hover:bg-surface"
-    >
-      {/* Sembol + sektör */}
-      <div className="w-24 shrink-0">
-        <p className="font-semibold text-text-primary">{sembol}</p>
-        {sectorName && (
-          <p className="text-[10px] text-text-muted truncate">{sectorName}</p>
-        )}
-      </div>
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-surface/50 px-4 py-3 transition hover:border-primary/30 hover:bg-surface">
 
-      {/* Son fiyat */}
-      <div className="hidden w-16 shrink-0 md:block text-sm font-mono text-text-primary tabular-nums">
-        {formatPrice(lastClose)}
-      </div>
+      {/* Watchlist yıldız */}
+      {loggedIn && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatchlistToggle(sembol); }}
+          className="w-5 shrink-0 flex items-center justify-center"
+          aria-label={inWatchlist ? 'İzleme listesinden çıkar' : 'İzleme listesine ekle'}
+          title={inWatchlist ? 'İzleme listesinden çıkar' : 'İzleme listesine ekle'}
+        >
+          <Star
+            className={`h-4 w-4 transition ${
+              inWatchlist ? 'fill-amber-400 text-amber-400' : 'text-text-muted hover:text-amber-400'
+            }`}
+          />
+        </button>
+      )}
 
-      {/* Değişim */}
-      <div className={`flex w-16 shrink-0 items-center gap-1 text-sm font-medium tabular-nums ${changeColor}`}>
-        {changePct !== null && <ChangeIcon className="h-3.5 w-3.5" />}
-        {changePct !== null ? `${changePct > 0 ? '+' : ''}${changePct.toFixed(2)}%` : '—'}
-      </div>
+      <Link href={`/hisse/${sembol}`} className="flex flex-1 items-center gap-3 min-w-0">
 
-      {/* RSI */}
-      <div className="hidden w-24 shrink-0 sm:block">
-        <RsiBar rsi={rsi} />
-      </div>
+        {/* Sembol + sektör + yön */}
+        <div className="w-20 shrink-0">
+          <div className="flex items-center gap-1">
+            <p className="font-semibold text-text-primary">{sembol}</p>
+            {dominantDir === 'yukari' && <span className="text-[10px] text-emerald-400" title="Yukarı yönlü sinyaller">↑</span>}
+            {dominantDir === 'asagi'  && <span className="text-[10px] text-red-400"     title="Aşağı yönlü sinyaller">↓</span>}
+            {dominantDir === 'karisik' && <span className="text-[10px] text-text-muted" title="Karışık yön">≷</span>}
+          </div>
+          {sectorName && (
+            <p className="text-[10px] text-text-muted truncate">{sectorName}</p>
+          )}
+        </div>
 
-      {/* Hacim */}
-      <div className="hidden w-16 shrink-0 text-xs text-text-muted lg:block tabular-nums">
-        <BarChart2 className="inline h-3 w-3 mr-0.5" />
-        {formatVolume(lastVolume)}
-      </div>
+        {/* Son fiyat */}
+        <div className="hidden w-14 shrink-0 md:block text-sm font-mono text-text-primary tabular-nums">
+          {formatPrice(lastClose)}
+        </div>
 
-      {/* Sinyaller */}
-      <div className="flex flex-1 flex-wrap items-center gap-1.5 min-w-0">
-        {signals.length === 0 ? (
-          <span className="text-xs text-text-muted">Sinyal yok</span>
-        ) : topSignal ? (
-          <>
-            <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] ${
-              topSignal.severity === 'güçlü' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-              : topSignal.severity === 'orta' ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300'
-              : 'border-border text-text-muted'
-            }`}>
-              <SeverityDot severity={topSignal.severity} />
-              {topSignal.type}
-            </span>
-            {signals.length > 1 && (
-              <span className="text-[11px] text-text-muted">+{signals.length - 1}</span>
-            )}
-          </>
-        ) : null}
-      </div>
-    </Link>
+        {/* Değişim */}
+        <div className={`flex w-16 shrink-0 items-center gap-1 text-sm font-medium tabular-nums ${changeColor}`}>
+          {changePct !== null && <ChangeIcon className="h-3.5 w-3.5" />}
+          {changePct !== null ? `${changePct > 0 ? '+' : ''}${changePct.toFixed(2)}%` : '—'}
+        </div>
+
+        {/* RSI */}
+        <div className="hidden w-24 shrink-0 sm:block">
+          <RsiBar rsi={rsi} />
+        </div>
+
+        {/* Hacim */}
+        <div className="hidden w-14 shrink-0 text-xs text-text-muted lg:block tabular-nums">
+          <BarChart2 className="inline h-3 w-3 mr-0.5" />
+          {formatVolume(lastVolume)}
+        </div>
+
+        {/* Confluence */}
+        <div className="w-12 shrink-0">
+          <ConfluenceBadge score={confluenceScore} />
+        </div>
+
+        {/* Sinyaller */}
+        <div className="flex flex-1 flex-wrap items-center gap-1.5 min-w-0">
+          {signals.length === 0 ? (
+            <span className="text-xs text-text-muted">Sinyal yok</span>
+          ) : topSignal ? (
+            <>
+              <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] ${
+                topSignal.severity === 'güçlü' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                : topSignal.severity === 'orta' ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300'
+                : 'border-border text-text-muted'
+              }`}>
+                <SeverityDot severity={topSignal.severity} />
+                {topSignal.type}
+              </span>
+              {signals.length > 1 && (
+                <span className="text-[11px] text-text-muted">+{signals.length - 1}</span>
+              )}
+              {anyMtf && (
+                <span
+                  className="inline-flex items-center gap-0.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-1.5 py-0.5 text-[10px] text-emerald-300"
+                  title="Haftalık trendle uyumlu (MTF)"
+                >
+                  <Target className="h-2.5 w-2.5" /> MTF
+                </span>
+              )}
+            </>
+          ) : null}
+        </div>
+      </Link>
+    </div>
   );
 }

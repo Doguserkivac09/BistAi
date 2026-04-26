@@ -31,22 +31,28 @@ function parseNum(raw: string | null): number | null {
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
 
-  const sector     = searchParams.get('sector')?.trim()     || null;
-  const signalType = searchParams.get('signalType')?.trim() || null;
-  const severity   = searchParams.get('severity')?.trim()   || null;
-  const rsiMin     = parseNum(searchParams.get('rsiMin'));
-  const rsiMax     = parseNum(searchParams.get('rsiMax'));
-  const changeMin  = parseNum(searchParams.get('changeMin'));
-  const changeMax  = parseNum(searchParams.get('changeMax'));
-  const volumeMin  = parseNum(searchParams.get('volumeMin'));
-  const limit      = Math.min(parseInt(searchParams.get('limit') ?? '200'), 300);
+  const sector       = searchParams.get('sector')?.trim()     || null;
+  const signalType   = searchParams.get('signalType')?.trim() || null;
+  const severity     = searchParams.get('severity')?.trim()   || null;
+  const direction    = searchParams.get('direction')?.trim()  || null; // 'yukari' | 'asagi'
+  const mtfOnly      = searchParams.get('mtfOnly') === '1';
+  const rsiMin       = parseNum(searchParams.get('rsiMin'));
+  const rsiMax       = parseNum(searchParams.get('rsiMax'));
+  const changeMin    = parseNum(searchParams.get('changeMin'));
+  const changeMax    = parseNum(searchParams.get('changeMax'));
+  const volumeMin    = parseNum(searchParams.get('volumeMin'));
+  const confluenceMin = parseNum(searchParams.get('confluenceMin'));
+  const limit         = Math.min(parseInt(searchParams.get('limit') ?? '200'), 300);
 
   const admin = createAdminClient();
 
   let query = admin
     .from('scan_cache')
-    .select('sembol, signals_json, change_percent, rsi, last_volume, last_close, sector, scanned_at')
+    .select('sembol, signals_json, change_percent, rsi, last_volume, last_close, confluence_score, sector, scanned_at')
     .order('scanned_at', { ascending: false });
+
+  // Confluence filtresi — DB seviyesinde
+  if (confluenceMin !== null) query = query.gte('confluence_score', confluenceMin);
 
   // Sektör filtresi — DB seviyesinde
   if (sector) query = query.eq('sector', sector);
@@ -73,27 +79,36 @@ export async function GET(req: NextRequest) {
 
   type CacheRow = {
     sembol: string;
-    signals_json: Array<{ type: string; direction: string; severity: string; candlesAgo?: number }>;
+    signals_json: Array<{
+      type: string;
+      direction: string;
+      severity: string;
+      candlesAgo?: number;
+      weeklyAligned?: boolean;
+    }>;
     change_percent: number | null;
     rsi: number | null;
     last_volume: number | null;
     last_close: number | null;
+    confluence_score: number | null;
     sector: string | null;
     scanned_at: string;
   };
 
   let rows = (data ?? []) as CacheRow[];
 
-  // Sinyal tipi / şiddeti filtresi — JS seviyesinde (JSONB içeriği)
-  // Aynı sinyalde tipi VE şiddeti birlikte uyuşmalı.
-  if (signalType || severity) {
+  // Sinyal-tabanlı filtreler — JS seviyesinde (JSONB içeriği)
+  // Tip + şiddet + yön + MTF aynı sinyalde birlikte uyuşmalı.
+  if (signalType || severity || direction || mtfOnly) {
     rows = rows.filter((row) => {
       const sigs = row.signals_json ?? [];
       if (sigs.length === 0) return false;
       return sigs.some((sig) => {
-        const typeMatch = !signalType || sig.type === signalType;
-        const sevMatch  = !severity   || sig.severity === severity;
-        return typeMatch && sevMatch;
+        if (signalType && sig.type !== signalType) return false;
+        if (severity && sig.severity !== severity) return false;
+        if (direction && sig.direction !== direction) return false;
+        if (mtfOnly && sig.weeklyAligned !== true) return false;
+        return true;
       });
     });
   }
@@ -104,18 +119,35 @@ export async function GET(req: NextRequest) {
   // En son scan zamanı — UI'da "veri X dk önce" göstermek için
   const latestScannedAt = rows[0]?.scanned_at ?? data?.[0]?.scanned_at ?? null;
 
-  const result = rows.map((row) => ({
-    sembol:        row.sembol,
-    signals:       row.signals_json ?? [],
-    signalCount:   (row.signals_json ?? []).length,
-    changePercent: row.change_percent,
-    rsi:           row.rsi,
-    lastVolume:    row.last_volume,
-    lastClose:     row.last_close,
-    sector:        row.sector,
-    sectorName:    row.sector ? (SECTORS[row.sector as keyof typeof SECTORS]?.shortName ?? row.sector) : null,
-    scannedAt:     row.scanned_at,
-  }));
+  const result = rows.map((row) => {
+    const sigs = row.signals_json ?? [];
+    // Hisse-seviyesi yön: AL/SAT/Karışık — UI badge için
+    const ups   = sigs.filter((s) => s.direction === 'yukari').length;
+    const downs = sigs.filter((s) => s.direction === 'asagi').length;
+    const dominantDir =
+      ups > 0 && downs === 0 ? 'yukari' :
+      downs > 0 && ups === 0 ? 'asagi'  :
+      ups > downs            ? 'yukari' :
+      downs > ups            ? 'asagi'  :
+      ups === 0 && downs === 0 ? null   : 'karisik';
+    const anyMtf = sigs.some((s) => s.weeklyAligned === true);
+
+    return {
+      sembol:          row.sembol,
+      signals:         sigs,
+      signalCount:     sigs.length,
+      changePercent:   row.change_percent,
+      rsi:             row.rsi,
+      lastVolume:      row.last_volume,
+      lastClose:       row.last_close,
+      confluenceScore: row.confluence_score,
+      dominantDir,
+      anyMtf,
+      sector:          row.sector,
+      sectorName:      row.sector ? (SECTORS[row.sector as keyof typeof SECTORS]?.shortName ?? row.sector) : null,
+      scannedAt:       row.scanned_at,
+    };
+  });
 
   return NextResponse.json(
     {
