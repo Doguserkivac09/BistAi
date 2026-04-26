@@ -1,9 +1,13 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { Search, SlidersHorizontal, X, ChevronDown, TrendingUp, TrendingDown, Minus, BarChart2, RefreshCw } from 'lucide-react';
+import {
+  Search, SlidersHorizontal, X, ChevronDown, ChevronUp, ArrowUpDown,
+  TrendingUp, TrendingDown, Minus, BarChart2, RefreshCw, Clock,
+} from 'lucide-react';
 import { SECTORS } from '@/lib/sectors';
+import { BIST_SYMBOLS } from '@/types';
 
 // ── Tipler ────────────────────────────────────────────────────────────────────
 
@@ -14,8 +18,18 @@ interface ScreenerResult {
   changePercent: number | null;
   rsi: number | null;
   lastVolume: number | null;
+  lastClose: number | null;
   sector: string | null;
   sectorName: string | null;
+}
+
+interface ScreenerResponse {
+  ok: boolean;
+  count: number;
+  totalMatched: number;
+  capped: boolean;
+  latestScannedAt: string | null;
+  results: ScreenerResult[];
 }
 
 interface Filters {
@@ -64,7 +78,14 @@ const SECTOR_OPTIONS = Object.values(SECTORS).map((s) => ({
   label: s.shortName,
 }));
 
-// ── Yardımcı bileşenler ───────────────────────────────────────────────────────
+const TOTAL_BIST = BIST_SYMBOLS.length;
+
+// ── Sıralama ──────────────────────────────────────────────────────────────────
+
+type SortKey = 'sembol' | 'change' | 'rsi' | 'volume' | 'price' | 'signalCount';
+type SortDir = 'asc' | 'desc';
+
+// ── Yardımcılar ──────────────────────────────────────────────────────────────
 
 function formatVolume(v: number | null): string {
   if (v === null) return '—';
@@ -74,14 +95,35 @@ function formatVolume(v: number | null): string {
   return v.toFixed(0);
 }
 
+function formatPrice(v: number | null): string {
+  if (v === null) return '—';
+  if (v >= 1000) return v.toFixed(0);
+  if (v >= 100)  return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+function dataAgeText(iso: string | null): string | null {
+  if (!iso) return null;
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diffMs / 60000);
+  if (m < 1) return 'şimdi';
+  if (m < 60) return `${m} dk önce`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} sa önce`;
+  return `${Math.floor(h / 24)} gün önce`;
+}
+
 function RsiBar({ rsi }: { rsi: number | null }) {
   if (rsi === null) return <span className="text-text-muted text-xs">—</span>;
   const color = rsi < 30 ? 'text-blue-400' : rsi > 70 ? 'text-red-400' : 'text-text-primary';
   const barColor = rsi < 30 ? 'bg-blue-500' : rsi > 70 ? 'bg-red-500' : 'bg-primary';
   return (
     <div className="flex items-center gap-1.5 min-w-[70px]">
-      <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
+      <div className="relative flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
         <div className={`h-full rounded-full ${barColor}`} style={{ width: `${rsi}%` }} />
+        {/* 30 / 70 eşik çizgileri */}
+        <div className="absolute top-0 bottom-0 w-px bg-white/20" style={{ left: '30%' }} />
+        <div className="absolute top-0 bottom-0 w-px bg-white/20" style={{ left: '70%' }} />
       </div>
       <span className={`text-xs font-mono ${color}`}>{rsi.toFixed(0)}</span>
     </div>
@@ -144,6 +186,29 @@ function FilterInput({
   );
 }
 
+function SortHeader({
+  label, sortKey, current, dir, onSort, className,
+}: {
+  label: string; sortKey: SortKey;
+  current: SortKey; dir: SortDir;
+  onSort: (k: SortKey) => void;
+  className?: string;
+}) {
+  const active = current === sortKey;
+  const Icon = !active ? ArrowUpDown : dir === 'asc' ? ChevronUp : ChevronDown;
+  return (
+    <button
+      onClick={() => onSort(sortKey)}
+      className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider transition ${
+        active ? 'text-primary' : 'text-text-muted hover:text-text-primary'
+      } ${className ?? ''}`}
+    >
+      {label}
+      <Icon className="h-3 w-3" />
+    </button>
+  );
+}
+
 // ── Ana Sayfa ─────────────────────────────────────────────────────────────────
 
 export default function ScreenerPage() {
@@ -151,8 +216,12 @@ export default function ScreenerPage() {
   const [results, setResults] = useState<ScreenerResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [total, setTotal] = useState(0);
+  const [totalMatched, setTotalMatched] = useState(0);
+  const [capped, setCapped] = useState(false);
+  const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>('signalCount');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const abortRef = useRef<AbortController | null>(null);
 
   function setFilter<K extends keyof Filters>(key: K, val: Filters[K]) {
@@ -182,10 +251,12 @@ export default function ScreenerPage() {
 
     try {
       const res = await fetch(`/api/screener?${params}`, { signal: ctrl.signal });
-      const data = await res.json();
+      const data = await res.json() as ScreenerResponse;
       if (!ctrl.signal.aborted) {
         setResults(data.results ?? []);
-        setTotal(data.count ?? 0);
+        setTotalMatched(data.totalMatched ?? data.count ?? 0);
+        setCapped(data.capped ?? false);
+        setScannedAt(data.latestScannedAt ?? null);
       }
     } catch {
       if (!ctrl.signal.aborted) setResults([]);
@@ -194,17 +265,42 @@ export default function ScreenerPage() {
     }
   }, []);
 
-  // Her filtre değişikliğinde otomatik tara (debounced)
+  // Tek useEffect — filtre değişince debounced çalışır, ilk render'da da bir kez tetiklenir (B4 fix).
   useEffect(() => {
-    const timer = setTimeout(() => runScreener(filters), 400);
+    const timer = setTimeout(() => runScreener(filters), 300);
     return () => clearTimeout(timer);
   }, [filters, runScreener]);
 
-  // İlk yüklemede boş filtrelerle tara (tüm hisseleri göster)
-  useEffect(() => { runScreener(EMPTY_FILTERS); }, [runScreener]);
-
   function resetFilters() {
     setFilters(EMPTY_FILTERS);
+  }
+
+  // Client-side sıralama
+  const sortedResults = useMemo(() => {
+    const arr = [...results];
+    const dirMul = sortDir === 'asc' ? 1 : -1;
+    arr.sort((a, b) => {
+      const av = pickSortValue(a, sortKey);
+      const bv = pickSortValue(b, sortKey);
+      // null'ları her zaman sona at
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (typeof av === 'string' && typeof bv === 'string') {
+        return av.localeCompare(bv) * dirMul;
+      }
+      return ((av as number) - (bv as number)) * dirMul;
+    });
+    return arr;
+  }, [results, sortKey, sortDir]);
+
+  function handleSort(k: SortKey) {
+    if (sortKey === k) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(k);
+      setSortDir(k === 'sembol' ? 'asc' : 'desc');
+    }
   }
 
   return (
@@ -218,8 +314,10 @@ export default function ScreenerPage() {
               <SlidersHorizontal className="h-4.5 w-4.5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-text-primary">Özel Screener</h1>
-              <p className="text-sm text-text-muted">295 BIST hissesini filtrele — RSI, sektör, sinyal, hacim</p>
+              <h1 className="text-xl font-bold text-text-primary">Çok Kriterli BIST Tarama</h1>
+              <p className="text-sm text-text-muted">
+                {TOTAL_BIST} BIST hissesini sektör · RSI · sinyal · hacim · değişim filtrelerinde tara
+              </p>
             </div>
           </div>
         </div>
@@ -279,6 +377,12 @@ export default function ScreenerPage() {
                     </button>
                   ))}
                 </div>
+                {filters.signalType && filters.severity && (
+                  <p className="text-[10px] text-text-muted leading-snug pt-0.5">
+                    Aynı sinyalde tipi <span className="text-text-secondary">{filters.signalType}</span> ve şiddeti{' '}
+                    <span className="text-text-secondary">{filters.severity}</span> olan hisseler.
+                  </p>
+                )}
               </div>
 
               {/* RSI */}
@@ -344,8 +448,8 @@ export default function ScreenerPage() {
           <div className="flex-1 min-w-0">
 
             {/* Araç çubuğu */}
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setShowFilters((p) => !p)}
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-muted hover:text-text-primary transition lg:hidden"
@@ -355,19 +459,53 @@ export default function ScreenerPage() {
                 </button>
                 {hasSearched && !loading && (
                   <span className="text-sm text-text-muted">
-                    <span className="font-semibold text-text-primary">{total}</span> sonuç
+                    <span className="font-semibold text-text-primary">{results.length}</span>
+                    {capped && <span> / {totalMatched}</span>}
+                    {' '}sonuç
+                  </span>
+                )}
+                {capped && (
+                  <span
+                    title={`Toplam ${totalMatched} eşleşti, ilk 200'ü gösteriliyor — filtreleri daraltın`}
+                    className="text-[11px] rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-300"
+                  >
+                    Limit: ilk 200
                   </span>
                 )}
               </div>
-              <button
-                onClick={() => runScreener(filters)}
-                disabled={loading}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-muted hover:text-text-primary transition disabled:opacity-50"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                {loading ? 'Tarıyor...' : 'Yenile'}
-              </button>
+
+              <div className="flex items-center gap-2">
+                {scannedAt && (
+                  <span
+                    title={`Veri taraması: ${new Date(scannedAt).toLocaleString('tr-TR')}`}
+                    className="flex items-center gap-1 text-[11px] text-text-muted"
+                  >
+                    <Clock className="h-3 w-3" />
+                    {dataAgeText(scannedAt)}
+                  </span>
+                )}
+                <button
+                  onClick={() => runScreener(filters)}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-muted hover:text-text-primary transition disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  {loading ? 'Tarıyor...' : 'Yenile'}
+                </button>
+              </div>
             </div>
+
+            {/* Kolon başlıkları (sıralama) */}
+            {hasSearched && results.length > 0 && (
+              <div className="mb-2 flex items-center gap-4 px-4 py-2 rounded-lg border border-border/60 bg-surface/30">
+                <SortHeader label="Sembol"  sortKey="sembol" current={sortKey} dir={sortDir} onSort={handleSort} className="w-24 shrink-0" />
+                <SortHeader label="Fiyat"   sortKey="price"  current={sortKey} dir={sortDir} onSort={handleSort} className="w-16 shrink-0 hidden md:flex" />
+                <SortHeader label="Değ %"   sortKey="change" current={sortKey} dir={sortDir} onSort={handleSort} className="w-16 shrink-0" />
+                <SortHeader label="RSI"     sortKey="rsi"    current={sortKey} dir={sortDir} onSort={handleSort} className="w-24 shrink-0 hidden sm:flex" />
+                <SortHeader label="Hacim"   sortKey="volume" current={sortKey} dir={sortDir} onSort={handleSort} className="w-16 shrink-0 hidden lg:flex" />
+                <SortHeader label="Sinyal"  sortKey="signalCount" current={sortKey} dir={sortDir} onSort={handleSort} className="flex-1" />
+              </div>
+            )}
 
             {/* Sonuç listesi */}
             {loading && results.length === 0 ? (
@@ -376,17 +514,24 @@ export default function ScreenerPage() {
                   <div key={i} className="h-16 rounded-xl border border-border bg-surface/40 animate-pulse" />
                 ))}
               </div>
-            ) : results.length === 0 && hasSearched ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface/30 py-16">
+            ) : sortedResults.length === 0 && hasSearched ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface/30 py-16 text-center px-4">
                 <Search className="h-10 w-10 text-text-muted/40 mb-3" />
-                <p className="text-text-muted">Filtrelere uyan hisse bulunamadı</p>
-                <button onClick={resetFilters} className="mt-3 text-sm text-primary hover:underline">
-                  Filtreleri temizle
-                </button>
+                <p className="text-text-muted mb-1">Filtrelere uyan hisse bulunamadı</p>
+                <p className="text-[11px] text-text-muted/70 mb-3 max-w-xs">
+                  {activeFilterCount > 0
+                    ? 'Filtreleri gevşetmeyi dene — örn. RSI aralığını genişlet veya hacim eşiğini düşür.'
+                    : 'Veri henüz hazır değil olabilir, birazdan tekrar dene.'}
+                </p>
+                {activeFilterCount > 0 && (
+                  <button onClick={resetFilters} className="text-sm text-primary hover:underline">
+                    Tüm filtreleri temizle
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
-                {results.map((r) => (
+                {sortedResults.map((r) => (
                   <ScreenerRow key={r.sembol} result={r} />
                 ))}
               </div>
@@ -398,21 +543,33 @@ export default function ScreenerPage() {
   );
 }
 
+function pickSortValue(r: ScreenerResult, key: SortKey): number | string | null {
+  switch (key) {
+    case 'sembol':      return r.sembol;
+    case 'change':      return r.changePercent;
+    case 'rsi':         return r.rsi;
+    case 'volume':      return r.lastVolume;
+    case 'price':       return r.lastClose;
+    case 'signalCount': return r.signalCount;
+  }
+}
+
 // ── Sonuç satırı ──────────────────────────────────────────────────────────────
 
 function ScreenerRow({ result }: { result: ScreenerResult }) {
-  const { sembol, signals, changePercent, rsi, lastVolume, sectorName } = result;
+  const { sembol, signals, changePercent, rsi, lastVolume, lastClose, sectorName } = result;
 
-  const changePct = changePercent; // null korunur — 0 ile null ayrıştırılır
+  const changePct = changePercent;
   const effectivePct = changePct ?? 0;
   const changeColor = effectivePct > 0 ? 'text-emerald-400' : effectivePct < 0 ? 'text-red-400' : 'text-text-muted';
   const ChangeIcon = effectivePct > 0 ? TrendingUp : effectivePct < 0 ? TrendingDown : Minus;
 
-  // En güçlü sinyali öne çıkar
-  const topSignal = signals.sort((a, b) => {
+  // En güçlü sinyali öne çıkar — kopya üzerinde sırala (B2: state mutasyonu önle)
+  const sortedSignals = [...signals].sort((a, b) => {
     const order = { güçlü: 3, orta: 2, zayıf: 1 } as Record<string, number>;
     return (order[b.severity] ?? 0) - (order[a.severity] ?? 0);
-  })[0];
+  });
+  const topSignal = sortedSignals[0];
 
   return (
     <Link
@@ -427,8 +584,13 @@ function ScreenerRow({ result }: { result: ScreenerResult }) {
         )}
       </div>
 
+      {/* Son fiyat */}
+      <div className="hidden w-16 shrink-0 md:block text-sm font-mono text-text-primary tabular-nums">
+        {formatPrice(lastClose)}
+      </div>
+
       {/* Değişim */}
-      <div className={`flex w-16 shrink-0 items-center gap-1 text-sm font-medium ${changeColor}`}>
+      <div className={`flex w-16 shrink-0 items-center gap-1 text-sm font-medium tabular-nums ${changeColor}`}>
         {changePct !== null && <ChangeIcon className="h-3.5 w-3.5" />}
         {changePct !== null ? `${changePct > 0 ? '+' : ''}${changePct.toFixed(2)}%` : '—'}
       </div>
@@ -439,7 +601,7 @@ function ScreenerRow({ result }: { result: ScreenerResult }) {
       </div>
 
       {/* Hacim */}
-      <div className="hidden w-16 shrink-0 text-xs text-text-muted lg:block">
+      <div className="hidden w-16 shrink-0 text-xs text-text-muted lg:block tabular-nums">
         <BarChart2 className="inline h-3 w-3 mr-0.5" />
         {formatVolume(lastVolume)}
       </div>

@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
     change_percent: number | null;
     rsi: number | null;
     last_volume: number | null;
+    last_close: number | null;
     sector: string;
     scanned_at: string;
   }> = [];
@@ -151,6 +152,7 @@ export async function GET(request: NextRequest) {
             : null),
         rsi:         calcLastRSI(candles),
         last_volume: candles[candles.length - 1]?.volume ?? null,
+        last_close:  candles[candles.length - 1]?.close ?? null,
         sector:      getSectorId(sembol),
         scanned_at:  scannedAt,
       });

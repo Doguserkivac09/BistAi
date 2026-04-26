@@ -21,25 +21,31 @@ function createAdminClient() {
   );
 }
 
+// "0" ve "0.0" gibi sıfır değerleri korur — `parseFloat(x) || null` deseni 0'ı eziyordu (B1).
+function parseNum(raw: string | null): number | null {
+  if (raw === null || raw.trim() === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
 
   const sector     = searchParams.get('sector')?.trim()     || null;
   const signalType = searchParams.get('signalType')?.trim() || null;
   const severity   = searchParams.get('severity')?.trim()   || null;
-  const rsiMin     = parseFloat(searchParams.get('rsiMin') ?? '') || null;
-  const rsiMax     = parseFloat(searchParams.get('rsiMax') ?? '') || null;
-  const changeMin  = parseFloat(searchParams.get('changeMin') ?? '') || null;
-  const changeMax  = parseFloat(searchParams.get('changeMax') ?? '') || null;
-  const volumeMin  = parseFloat(searchParams.get('volumeMin') ?? '') || null;
+  const rsiMin     = parseNum(searchParams.get('rsiMin'));
+  const rsiMax     = parseNum(searchParams.get('rsiMax'));
+  const changeMin  = parseNum(searchParams.get('changeMin'));
+  const changeMax  = parseNum(searchParams.get('changeMax'));
+  const volumeMin  = parseNum(searchParams.get('volumeMin'));
   const limit      = Math.min(parseInt(searchParams.get('limit') ?? '200'), 300);
 
   const admin = createAdminClient();
 
-  // scan_cache'den tüm alanları çek (signals_json filtreleme için gerekli)
   let query = admin
     .from('scan_cache')
-    .select('sembol, signals_json, change_percent, rsi, last_volume, sector, scanned_at')
+    .select('sembol, signals_json, change_percent, rsi, last_volume, last_close, sector, scanned_at')
     .order('scanned_at', { ascending: false });
 
   // Sektör filtresi — DB seviyesinde
@@ -56,7 +62,9 @@ export async function GET(req: NextRequest) {
   // Hacim filtresi — DB seviyesinde
   if (volumeMin !== null) query = query.gte('last_volume', volumeMin);
 
-  const { data, error } = await query.limit(limit * 3); // sinyal filtresi için fazla çek
+  // Sinyal tipi/şiddeti filtresi sonrası sayım için fazla çek (max 300 = limit cap)
+  const fetchCap = Math.min(300, Math.max(limit * 3, 200));
+  const { data, error } = await query.limit(fetchCap);
 
   if (error) {
     console.error('[screener] Supabase hatası:', error.message);
@@ -69,6 +77,7 @@ export async function GET(req: NextRequest) {
     change_percent: number | null;
     rsi: number | null;
     last_volume: number | null;
+    last_close: number | null;
     sector: string | null;
     scanned_at: string;
   };
@@ -76,22 +85,25 @@ export async function GET(req: NextRequest) {
   let rows = (data ?? []) as CacheRow[];
 
   // Sinyal tipi / şiddeti filtresi — JS seviyesinde (JSONB içeriği)
+  // Aynı sinyalde tipi VE şiddeti birlikte uyuşmalı.
   if (signalType || severity) {
     rows = rows.filter((row) => {
       const sigs = row.signals_json ?? [];
       if (sigs.length === 0) return false;
       return sigs.some((sig) => {
-        const typeMatch  = !signalType || sig.type === signalType;
-        const sevMatch   = !severity   || sig.severity === severity;
+        const typeMatch = !signalType || sig.type === signalType;
+        const sevMatch  = !severity   || sig.severity === severity;
         return typeMatch && sevMatch;
       });
     });
   }
 
-  // Limit uygula
+  const totalMatched = rows.length;
   rows = rows.slice(0, limit);
 
-  // Sektör display adını ekle
+  // En son scan zamanı — UI'da "veri X dk önce" göstermek için
+  const latestScannedAt = rows[0]?.scanned_at ?? data?.[0]?.scanned_at ?? null;
+
   const result = rows.map((row) => ({
     sembol:        row.sembol,
     signals:       row.signals_json ?? [],
@@ -99,13 +111,21 @@ export async function GET(req: NextRequest) {
     changePercent: row.change_percent,
     rsi:           row.rsi,
     lastVolume:    row.last_volume,
+    lastClose:     row.last_close,
     sector:        row.sector,
     sectorName:    row.sector ? (SECTORS[row.sector as keyof typeof SECTORS]?.shortName ?? row.sector) : null,
     scannedAt:     row.scanned_at,
   }));
 
   return NextResponse.json(
-    { ok: true, count: result.length, results: result },
+    {
+      ok: true,
+      count: result.length,
+      totalMatched,         // limit'ten önce eşleşen toplam (UI: "200 / 245 gösteriliyor")
+      capped: totalMatched > limit,
+      latestScannedAt,
+      results: result,
+    },
     { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } }
   );
 }
