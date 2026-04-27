@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Minus, RefreshCw, BarChart2, ExternalLink,
   ChevronsUp, ChevronsDown, Compass, Clock, AlertTriangle, Sparkles, Bot,
-  Lock, Crown, Briefcase, Zap,
+  Lock, Crown, Briefcase, Zap, HelpCircle, Search,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -72,6 +72,30 @@ function classifyDirection(avg: number | null, period: PeriodDays): 'yukari' | '
   if (avg === null) return 'nötr';
   const t = dirThreshold(period);
   return avg >= t ? 'yukari' : avg <= -t ? 'asagi' : 'nötr';
+}
+
+// ─── Yardım/Tooltip ──────────────────────────────────────────────────
+
+/**
+ * InfoTooltip — başlıkların yanına eklenen küçük (?) ikon.
+ * Pure CSS ile hover/focus tooltip — extra dep yok.
+ */
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span
+      tabIndex={0}
+      className="relative inline-flex group cursor-help focus:outline-none"
+      aria-label={text}
+    >
+      <HelpCircle className="h-3.5 w-3.5 text-text-muted/60 hover:text-text-secondary transition-colors" />
+      <span
+        role="tooltip"
+        className="invisible group-hover:visible group-focus-within:visible absolute left-1/2 top-full mt-1.5 -translate-x-1/2 z-50 w-64 rounded-lg border border-border bg-surface px-3 py-2 text-[11px] font-normal normal-case tracking-normal text-text-secondary shadow-xl pointer-events-none"
+      >
+        {text}
+      </span>
+    </span>
+  );
 }
 
 function getLastPrice(candles: OHLCVCandle[]): number | null {
@@ -377,7 +401,14 @@ function SectorCard({
       )}
 
       {/* Alt linkler */}
-      <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-3">
+      <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-3 flex-wrap">
+        <Link
+          href={`/sektorler/${data.id}`}
+          className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+          title="Sektördeki tüm hisseleri detaylı incele"
+        >
+          📊 Sektör Detayı
+        </Link>
         <Link
           href={`/tarama?sektor=${data.id}`}
           className="flex items-center gap-1 text-[11px] text-text-muted hover:text-primary transition-colors"
@@ -531,48 +562,76 @@ function TodayLeaderHero({
 
 // ── Hızlı Aksiyon — 3 Kart ────────────────────────────────────────────
 
-function QuickActionCards({ summaries }: { summaries: SectorSummary[] }) {
-  // 1. Lider (1A)
-  const leader = useMemo(() => {
-    return [...summaries].filter((s) => s.perf20 !== null)
-      .sort((a, b) => (b.perf20 ?? 0) - (a.perf20 ?? 0))[0] ?? null;
-  }, [summaries]);
+function QuickActionCards({
+  summaries,
+  period,
+}: {
+  summaries: SectorSummary[];
+  period: PeriodDays;
+}) {
+  const periodLabel = period === 5 ? '1 hafta' : period === 20 ? '1 ay' : '3 ay';
+  const getPerf = (s: SectorSummary) =>
+    period === 5 ? s.perf5 : period === 20 ? s.perf20 : s.perf60;
 
-  // 2. Trend Dönüşü (yukarı veya aşağı)
+  // Trend Dönüşü (yukarı veya aşağı)
   const reversalSector = useMemo(() => {
     return summaries.find((s) => s.reversal === 'up')
         ?? summaries.find((s) => s.reversal === 'down')
         ?? null;
   }, [summaries]);
 
-  // 3. Aşırı Düşen (1A)
+  // Aşırı Düşen — seçili periyoda göre
   const oversold = useMemo(() => {
-    return [...summaries].filter((s) => s.perf20 !== null && s.perf20 < 0)
-      .sort((a, b) => (a.perf20 ?? 0) - (b.perf20 ?? 0))[0] ?? null;
+    return [...summaries]
+      .filter((s) => {
+        const p = getPerf(s);
+        return p !== null && p < 0;
+      })
+      .sort((a, b) => (getPerf(a) ?? 0) - (getPerf(b) ?? 0))[0] ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaries, period]);
+
+  // Stabil Lider — 5g/20g/60g hepsi pozitif olan ilk sektör
+  const consistentLeader = useMemo(() => {
+    return [...summaries]
+      .filter((s) => s.perf5 !== null && s.perf20 !== null && s.perf60 !== null
+        && s.perf5 > 0 && s.perf20 > 0 && s.perf60 > 0)
+      .sort((a, b) => (b.perf20 ?? 0) - (a.perf20 ?? 0))[0] ?? null;
   }, [summaries]);
 
-  if (!leader && !reversalSector && !oversold) return null;
+  if (!reversalSector && !oversold && !consistentLeader) return null;
 
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      {/* Lider */}
-      {leader && leader.perf20 !== null && (
+      {/* Stabil Lider — Hero zaten 1A göstermiyorsa burada gösteriyoruz */}
+      {consistentLeader ? (
         <Link
-          href={`/tarama?sektor=${leader.id}`}
+          href={`/tarama?sektor=${consistentLeader.id}`}
           className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-colors block"
+          title="1H + 1A + 3A periyotlarının üçünde de pozitif sektör — istikrarlı yükseliş"
         >
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-base">🟢</span>
+            <span className="text-base">⭐</span>
             <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
-              Yükselişte
+              İstikrarlı Lider
             </span>
           </div>
-          <p className="text-sm font-bold text-text-primary truncate">{leader.shortName}</p>
+          <p className="text-sm font-bold text-text-primary truncate">{consistentLeader.shortName}</p>
           <p className="text-[11px] text-text-secondary mt-0.5">
-            <span className="text-emerald-400 font-semibold">+{leader.perf20.toFixed(1)}%</span>
-            {' '}1 ay · Sinyalleri gör →
+            Her dönemde pozitif · 3A:{' '}
+            <span className="text-emerald-400 font-semibold">+{consistentLeader.perf60?.toFixed(1)}%</span>
           </p>
         </Link>
+      ) : (
+        <div className="rounded-xl border border-border bg-surface/30 p-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-base opacity-50">⭐</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+              İstikrarlı Lider
+            </span>
+          </div>
+          <p className="text-xs text-text-muted">Her periyotta pozitif sektör yok</p>
+        </div>
       )}
 
       {/* Trend Dönüşü */}
@@ -585,6 +644,7 @@ function QuickActionCards({ summaries }: { summaries: SectorSummary[] }) {
               ? 'border-sky-500/25 bg-sky-500/5'
               : 'border-amber-500/25 bg-amber-500/5',
           )}
+          title="3 aylık trend zıt yönde, son hafta aksini gösteriyor"
         >
           <div className="flex items-center gap-2 mb-1.5">
             <span className="text-base">🔄</span>
@@ -612,8 +672,8 @@ function QuickActionCards({ summaries }: { summaries: SectorSummary[] }) {
         </div>
       )}
 
-      {/* Aşırı Düşen */}
-      {oversold && oversold.perf20 !== null && (
+      {/* Aşırı Düşen — period-aware */}
+      {oversold && getPerf(oversold) !== null ? (
         <Link
           href={`/tarama?sektor=${oversold.id}`}
           className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 hover:border-red-500/50 hover:bg-red-500/10 transition-colors block"
@@ -626,10 +686,20 @@ function QuickActionCards({ summaries }: { summaries: SectorSummary[] }) {
           </div>
           <p className="text-sm font-bold text-text-primary truncate">{oversold.shortName}</p>
           <p className="text-[11px] text-text-secondary mt-0.5">
-            <span className="text-red-400 font-semibold">{oversold.perf20.toFixed(1)}%</span>
-            {' '}1 ay · Fırsat olabilir →
+            <span className="text-red-400 font-semibold">{getPerf(oversold)?.toFixed(1)}%</span>
+            {' '}{periodLabel} · Fırsat olabilir →
           </p>
         </Link>
+      ) : (
+        <div className="rounded-xl border border-border bg-surface/30 p-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-base opacity-50">⚠️</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+              Aşırı Düşen
+            </span>
+          </div>
+          <p className="text-xs text-text-muted">Tüm sektörler {periodLabel} pozitif 🎉</p>
+        </div>
       )}
     </div>
   );
@@ -1084,6 +1154,7 @@ export function SektorlerClient() {
   const [period,    setPeriod]    = useState<PeriodDays>(20);
   const [dirFilter, setDirFilter] = useState<DirFilter>('all');
   const [sortBy,    setSortBy]    = useState<SortBy>('perf');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Period: mount'ta localStorage'dan oku, değişince yaz
   const didReadPeriodRef = useRef(false);
@@ -1281,19 +1352,28 @@ export function SektorlerClient() {
     setRefreshTick((t) => t + 1);
   }, []);
 
-  // Filtreli + sıralı sektörler — dönem-aware eşik (B4)
+  // Filtreli + sıralı + aranan sektörler — dönem-aware eşik (B4)
   const sectors = useMemo(() => {
     const arr = Array.from(sectorDataMap.values());
+    const q = searchQuery.trim().toLowerCase();
 
-    const filtered = dirFilter === 'all'
+    let filtered = dirFilter === 'all'
       ? arr
       : arr.filter((s) => classifyDirection(s.avgByPeriod[period], period) === dirFilter);
+
+    if (q.length > 0) {
+      filtered = filtered.filter((s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.shortName.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q),
+      );
+    }
 
     return [...filtered].sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name, 'tr');
       return (b.avgByPeriod[period] ?? -999) - (a.avgByPeriod[period] ?? -999);
     });
-  }, [sectorDataMap, period, dirFilter, sortBy]);
+  }, [sectorDataMap, period, dirFilter, sortBy, searchQuery]);
 
   // Tüm sektörler (özet bar için)
   const allSectors = useMemo(() => Array.from(sectorDataMap.values()), [sectorDataMap]);
@@ -1398,7 +1478,7 @@ export function SektorlerClient() {
         {/* ── ⚡ Hızlı Aksiyon Kartları ─────────────────────────────── */}
         {!loadingSectors && summaries.length > 0 && (
           <section className="mb-5">
-            <QuickActionCards summaries={summaries} />
+            <QuickActionCards summaries={summaries} period={period} />
           </section>
         )}
 
@@ -1482,131 +1562,6 @@ export function SektorlerClient() {
           </div>
         )}
 
-        {/* ── Sektör Rotasyon Paneli (detaylı görünüm — collapse) ──── */}
-        {!loadingSectors && allSectors.length > 0 && (() => {
-          // rotasyonDelta = avg5g − avg20g: pozitif → kısa vade > orta vade (ivme kazanıyor)
-          const withDelta = allSectors
-            .map((s) => ({
-              id:        s.id,
-              name:      s.shortName,
-              delta:     (s.avgByPeriod[5] !== null && s.avgByPeriod[20] !== null)
-                           ? s.avgByPeriod[5]! - s.avgByPeriod[20]!
-                           : null,
-              perf5:     s.avgByPeriod[5],
-              perf20:    s.avgByPeriod[20],
-            }))
-            .filter((s) => s.delta !== null)
-            .sort((a, b) => b.delta! - a.delta!);
-
-          const inflow  = withDelta.slice(0, 3);   // En yüksek delta (para giriyor)
-          const outflow = withDelta.slice(-3).reverse(); // En düşük delta (para çıkıyor)
-          const maxAbs  = Math.max(...withDelta.map((s) => Math.abs(s.delta!)), 0.01);
-
-          if (withDelta.length < 4) return null;
-
-          return (
-            <details className="mb-8 group">
-              <summary className="cursor-pointer text-xs text-text-muted hover:text-text-primary inline-flex items-center gap-1.5 select-none">
-                <ChevronsDown className="h-3.5 w-3.5 group-open:rotate-180 transition-transform" />
-                Tüm sektörlerin detaylı para akışı görünümünü göster
-              </summary>
-              <div className="mt-3 grid gap-4 md:grid-cols-3">
-                {/* Sol: Para Girişi */}
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                  <p className="text-xs font-semibold text-emerald-400 mb-3 flex items-center gap-1.5">
-                    <ChevronsUp className="h-3.5 w-3.5" />
-                    Para Girişi — Ivme Kazananlar
-                  </p>
-                  <div className="space-y-2.5">
-                    {inflow.map((s) => (
-                      <div key={s.id} className="flex items-center gap-2">
-                        <span className="w-20 shrink-0 text-xs font-medium text-text-primary truncate">{s.name}</span>
-                        <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-emerald-500/70 transition-all duration-700"
-                            style={{ width: `${(s.delta! / maxAbs) * 100}%` }}
-                          />
-                        </div>
-                        <span className="shrink-0 text-[11px] font-bold text-emerald-400 tabular-nums w-14 text-right">
-                          +{s.delta!.toFixed(1)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-3 text-[10px] text-emerald-400/50">
-                    Kısa vade ivmesi orta vadeyi geçiyor — kurumsal ilgi artıyor olabilir
-                  </p>
-                </div>
-
-                {/* Orta: Tüm Sektörler Sıralama Barı */}
-                <div className="rounded-xl border border-border bg-surface/40 p-4">
-                  <p className="text-xs font-semibold text-text-secondary mb-3 flex items-center gap-1.5">
-                    <BarChart2 className="h-3.5 w-3.5" />
-                    Tüm Sektörler — Ivme Farkı
-                  </p>
-                  <div className="space-y-1.5">
-                    {withDelta.map((s) => {
-                      const pct = (s.delta! / maxAbs) * 100;
-                      const isPos = s.delta! >= 0;
-                      return (
-                        <div key={s.id} className="flex items-center gap-1.5">
-                          <span className="w-16 shrink-0 text-[10px] text-text-muted truncate">{s.name}</span>
-                          <div className="flex-1 relative h-1 rounded-full bg-white/5">
-                            <div
-                              className={cn(
-                                'absolute top-0 h-full rounded-full transition-all duration-700',
-                                isPos ? 'left-1/2 bg-emerald-500/60' : 'right-1/2 bg-red-500/60',
-                              )}
-                              style={{ width: `${Math.abs(pct) / 2}%` }}
-                            />
-                            <div className="absolute top-1/2 left-1/2 w-px h-2 -translate-y-1/2 bg-white/15" />
-                          </div>
-                          <span className={cn(
-                            'shrink-0 text-[10px] tabular-nums w-10 text-right font-semibold',
-                            isPos ? 'text-emerald-400' : 'text-red-400',
-                          )}>
-                            {isPos ? '+' : ''}{s.delta!.toFixed(1)}%
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Sağ: Para Çıkışı */}
-                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                  <p className="text-xs font-semibold text-red-400 mb-3 flex items-center gap-1.5">
-                    <ChevronsDown className="h-3.5 w-3.5" />
-                    Para Çıkışı — Ivme Kaybedenler
-                  </p>
-                  <div className="space-y-2.5">
-                    {outflow.map((s) => (
-                      <div key={s.id} className="flex items-center gap-2">
-                        <span className="w-20 shrink-0 text-xs font-medium text-text-primary truncate">{s.name}</span>
-                        <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-red-500/60 transition-all duration-700"
-                            style={{ width: `${(Math.abs(s.delta!) / maxAbs) * 100}%` }}
-                          />
-                        </div>
-                        <span className="shrink-0 text-[11px] font-bold text-red-400 tabular-nums w-14 text-right">
-                          {s.delta!.toFixed(1)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-3 text-[10px] text-red-400/50">
-                    Kısa vade zayıfladı — pozisyon azaltılıyor olabilir
-                  </p>
-                </div>
-              </div>
-              <p className="mt-2 text-[10px] text-text-muted/50 text-center">
-                Ivme farkı = 1H ort. getiri − 1A ort. getiri. Pozitif = kısa vadede ivme kazanıyor.
-              </p>
-            </details>
-          );
-        })()}
-
 
         {/* Sektör Grid */}
         <section>
@@ -1615,10 +1570,32 @@ export function SektorlerClient() {
             <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide flex items-center gap-2">
               <BarChart2 className="h-4 w-4" />
               Sektör Performansı
+              <InfoTooltip text="Sektör temsilci hisselerinin seçili dönemdeki ortalama getirisi. Dönem değiştirilirse seçili periyot eşiği uygulanır (1H ±%1, 1A ±%2.5, 3A ±%5)." />
             </h2>
 
+            {/* Sektör arama */}
+            <div className="relative ml-auto md:ml-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Sektör ara..."
+                className="w-full md:w-44 rounded-lg border border-border bg-surface/30 pl-8 pr-2.5 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary/60 focus:outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                  aria-label="Temizle"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
             {/* Periyot seçici */}
-            <div className="flex rounded-lg border border-border bg-surface/30 p-0.5 ml-auto">
+            <div className="flex rounded-lg border border-border bg-surface/30 p-0.5 md:ml-auto">
               {PERIODS.map(({ label, value }) => (
                 <button
                   key={value}
