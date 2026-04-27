@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StockCard } from '@/components/StockCard';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import type { SectorMomentum, SectorId } from '@/lib/sectors';
 import { useSearchParams } from 'next/navigation';
 import {
   Search, RefreshCw, Zap, TrendingUp, TrendingDown, Activity,
-  Settings, LayoutGrid, List, X, ChevronDown, BarChart2,
+  Settings, LayoutGrid, List, X, ChevronDown, BarChart2, CheckCircle2,
 } from 'lucide-react';
 import { ScanProgress } from '@/components/ScanProgress';
 import { toast } from 'sonner';
@@ -56,8 +56,25 @@ const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeCol
 
 const ALL_SIGNAL_TYPES = SCANNABLE_SIGNALS.map(s => s.type);
 const SCAN_PREFS_KEY   = 'investableedge_scan_signal_prefs';
-const SCAN_CACHE_KEY   = `investableedge_scan_results_${new Date().toISOString().slice(0, 10)}`;
+const SCAN_CACHE_PREFIX = 'investableedge_scan_results_';
+const SCAN_CACHE_KEY   = `${SCAN_CACHE_PREFIX}${new Date().toISOString().slice(0, 10)}`;
 const SCAN_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 saat — aynı gün içinde anında yükle
+const DELAY_BANNER_DISMISS_KEY = 'bistai.tarama.delayBannerDismissed';
+const EXPLANATION_CACHE_LIMIT  = 100;
+
+// Cache yaşına göre buton stratejisi (mobile UX)
+//  - fresh (< 4 saat): "Veriler güncel" rozeti, buton gizli
+//  - stale (4-12 saat): secondary "Verileri Tazele"
+//  - old   (> 12 saat): primary "Yeniden Tara"
+type CacheFreshness = 'fresh' | 'stale' | 'old' | 'none';
+
+function getCacheFreshness(scannedAtIso: string | null): CacheFreshness {
+  if (!scannedAtIso) return 'none';
+  const ageMs = Date.now() - new Date(scannedAtIso).getTime();
+  if (ageMs < 4 * 60 * 60 * 1000)  return 'fresh';
+  if (ageMs < 12 * 60 * 60 * 1000) return 'stale';
+  return 'old';
+}
 
 const DIRECTION_OPTIONS: { value: DirectionFilter; label: string; icon: React.ElementType }[] = [
   { value: 'Tümü',   label: 'Tümü',   icon: Activity     },
@@ -171,11 +188,20 @@ function filterAndSortResults(
 
 // ─── Chip ─────────────────────────────────────────────────────────────────────
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function Chip({
+  active, onClick, children, disabled,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+      disabled={disabled}
+      aria-pressed={active}
+      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
         active
           ? 'border-primary bg-primary/15 text-primary'
           : 'border-border bg-surface text-text-secondary hover:border-primary/40 hover:text-text-primary'
@@ -440,7 +466,6 @@ function TaramaPageInner() {
   const searchParams = useSearchParams();
   const sektorParam   = searchParams.get('sektor');
   const excludeParam  = searchParams.get('exclude');
-  const excludeSet    = new Set(excludeParam ? excludeParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : []);
 
   // Filter state
   const [signalType,         setSignalType]         = useState<SignalTypeFilter>('Tümü');
@@ -468,11 +493,91 @@ function TaramaPageInner() {
   const [macroScore,           setMacroScore]           = useState<{ score: number; wind: string } | null>(null);
   const [winRateMap,           setWinRateMap]           = useState<Map<string, { rate: number; sampleSize: number; horizon?: string }>>(new Map());
   const [macroBannerDismissed, setMacroBannerDismissed] = useState(false);
+  const [delayBannerDismissed, setDelayBannerDismissed] = useState(false);
   const [onlyKapToday,         setOnlyKapToday]         = useState(false);
   const [kapTodaySet,          setKapTodaySet]          = useState<Set<string>>(new Set());
   const [dbScannedAt,          setDbScannedAt]          = useState<string | null>(null);
   const [dbAgeMinutes,         setDbAgeMinutes]         = useState<number | null>(null);
   const explanationCache = useRef<Map<string, string>>(new Map());
+
+  // Cache yaşı — buton görünürlüğü için
+  const cacheFreshness: CacheFreshness = useMemo(() => getCacheFreshness(dbScannedAt), [dbScannedAt]);
+
+  // Delay banner — tek seferlik dismiss
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(DELAY_BANNER_DISMISS_KEY) === '1') setDelayBannerDismissed(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  const dismissDelayBanner = useCallback(() => {
+    setDelayBannerDismissed(true);
+    try { localStorage.setItem(DELAY_BANNER_DISMISS_KEY, '1'); } catch { /* ignore */ }
+  }, []);
+
+  // localStorage cache cleanup — eski tarihli scan sonuçlarını sil
+  useEffect(() => {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(SCAN_CACHE_PREFIX) && key !== SCAN_CACHE_KEY) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // URL persist — mount'ta okuma + filtre değiştikçe yazma
+  const didReadUrlRef = useRef(false);
+  useEffect(() => {
+    if (didReadUrlRef.current) return;
+    didReadUrlRef.current = true;
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    const sigVal = sp.get('signal');
+    const dirVal = sp.get('dir');
+    const sortVal = sp.get('sort');
+    if (sigVal) setSignalType(sigVal as SignalTypeFilter);
+    if (dirVal === 'Yukarı' || dirVal === 'Aşağı' || dirVal === 'Tümü') setDirection(dirVal as DirectionFilter);
+    if (sortVal && SORT_OPTIONS.some(o => o.value === sortVal)) setSortBy(sortVal as SortBy);
+    if (sp.get('mtf') === '1')   setOnlyWeeklyAligned(true);
+    if (sp.get('strong') === '1') setOnlyStrong(true);
+    if (sp.get('hc') === '1')    setOnlyHighConfluence(true);
+    if (sp.get('ss') === '1')    setOnlyStrongSectors(true);
+    if (sp.get('kap') === '1')   setOnlyKapToday(true);
+    const sek = sp.get('sek');
+    if (sek) setSelectedSector(sek as SectorId);
+    const q = sp.get('q');
+    if (q) setSearchQuery(q);
+    if (sp.get('v') === 'list')  setViewMode('list');
+  }, []);
+
+  // Filtre değiştikçe URL güncelle (replaceState — history kirliliği yok)
+  useEffect(() => {
+    if (!didReadUrlRef.current || typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    // Mevcut bazı paramları koru: sektor, exclude
+    const preserved = ['sektor', 'exclude'];
+    const next = new URLSearchParams();
+    for (const key of preserved) {
+      const v = sp.get(key);
+      if (v) next.set(key, v);
+    }
+    if (signalType !== 'Tümü')   next.set('signal', signalType);
+    if (direction !== 'Tümü')    next.set('dir', direction);
+    if (sortBy !== 'confluence') next.set('sort', sortBy);
+    if (onlyWeeklyAligned)       next.set('mtf', '1');
+    if (onlyStrong)              next.set('strong', '1');
+    if (onlyHighConfluence)      next.set('hc', '1');
+    if (onlyStrongSectors)       next.set('ss', '1');
+    if (onlyKapToday)            next.set('kap', '1');
+    if (selectedSector)          next.set('sek', selectedSector);
+    if (searchQuery)             next.set('q', searchQuery);
+    if (viewMode === 'list')     next.set('v', 'list');
+    const qs = next.toString();
+    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, '', url);
+  }, [signalType, direction, sortBy, onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, onlyKapToday, selectedSector, searchQuery, viewMode]);
 
   // Load prefs
   useEffect(() => {
@@ -717,60 +822,103 @@ function TaramaPageInner() {
     if (totalN > 0) avgWinRate = totalWR / totalN;
   }
 
-  const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
-  // Progressive render: tarama devam ederken de bulunan sinyalleri göster
-  const rawDisplayList = filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
-  // Sektör URL param filtresi + sembol arama
+  // ── Türetilmiş filtre zinciri — useMemo ile her render hesaplama önlendi (D2 fix) ──
+
   const searchUpper = searchQuery.trim().toUpperCase();
 
-  // Arama aktifken tüm BIST_SYMBOLS içinde ara — sinyali olmayan hisseler de çıksın
-  const searchMatchedSymbols: string[] = searchUpper
-    ? (BIST_SYMBOLS as readonly string[]).filter(s => s.includes(searchUpper))
-    : [];
-  const resultSembolSet = new Set(rawDisplayList.map(r => r.sembol));
-  const noSignalSearchResults: ScanResult[] = searchUpper
-    ? searchMatchedSymbols
-        .filter(s => !resultSembolSet.has(s))
-        .map(s => ({ sembol: s, signals: [], candles: [], changePercent: undefined }))
-    : [];
+  // Excluded set'i memoize — her render'da yeni Set oluşmasın
+  const excludeSetMemo = useMemo(() => {
+    return excludeParam
+      ? new Set(excludeParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean))
+      : new Set<string>();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [excludeParam]);
 
-  const filteredBySearch = searchUpper
-    ? [...rawDisplayList.filter(r => r.sembol.includes(searchUpper)), ...noSignalSearchResults]
-    : rawDisplayList;
-  const filteredBySectorParam = sektorParam
-    ? filteredBySearch.filter(r => getSectorId(r.sembol) === sektorParam)
-    : filteredBySearch;
-  const filteredBySectorDropdown = selectedSector
-    ? filteredBySectorParam.filter(r => getSectorId(r.sembol) === selectedSector)
-    : filteredBySectorParam;
-  const filteredByExclude = excludeSet.size > 0
-    ? filteredBySectorDropdown.filter((r) => !excludeSet.has(r.sembol))
-    : filteredBySectorDropdown;
-  const displayList = onlyStrongSectors
-    ? filteredByExclude.filter(r => {
-        const hasBullish = r.signals.some(s => s.direction === 'yukari');
-        if (!hasBullish) return true;
+  const filteredByKap = useMemo(() => {
+    const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
+    const rawDisplayList = filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
+
+    // Arama: sinyalsiz hisseler de eklenir
+    const searchMatchedSymbols: string[] = searchUpper
+      ? (BIST_SYMBOLS as readonly string[]).filter(s => s.includes(searchUpper))
+      : [];
+    const resultSembolSet = new Set(rawDisplayList.map(r => r.sembol));
+    const noSignalSearchResults: ScanResult[] = searchUpper
+      ? searchMatchedSymbols
+          .filter(s => !resultSembolSet.has(s))
+          .map(s => ({ sembol: s, signals: [], candles: [], changePercent: undefined }))
+      : [];
+
+    let list = searchUpper
+      ? [...rawDisplayList.filter(r => r.sembol.includes(searchUpper)), ...noSignalSearchResults]
+      : rawDisplayList;
+
+    if (sektorParam) {
+      list = list.filter(r => getSectorId(r.sembol) === sektorParam);
+    }
+    if (selectedSector) {
+      list = list.filter(r => getSectorId(r.sembol) === selectedSector);
+    }
+    if (excludeSetMemo.size > 0) {
+      list = list.filter(r => !excludeSetMemo.has(r.sembol));
+    }
+
+    // D1 fix — onlyStrongSectors mantığı:
+    // Sektör momentum'u sinyal yönüyle UYUMLU olmalı (yukari sinyal + yukari sektör veya asagi+asagi).
+    // Önceki kod yanlışlıkla sadece negative case'i filtreliyordu, neutral sektörler geçiyordu.
+    if (onlyStrongSectors) {
+      list = list.filter(r => {
         const sector = sectorMap.get(getSector(r.sembol).id);
-        return !sector || sector.direction !== 'asagi';
-      })
-    : filteredByExclude;
-  const filteredByKap = onlyKapToday && kapTodaySet.size > 0
-    ? displayList.filter(r => kapTodaySet.has(r.sembol))
-    : displayList;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper, excludeSet.size > 0, onlyKapToday].filter(Boolean).length;
+        if (!sector) return false; // sektör verisi yok → filtre dışı
+        const primary = r.signals[0];
+        if (!primary) return false;
+        // Yön uyumu: AL → sektör yukari, SAT → sektör asagi
+        if (primary.direction === 'yukari') return sector.direction === 'yukari';
+        if (primary.direction === 'asagi')  return sector.direction === 'asagi';
+        return sector.direction === 'yukari'; // nötr sinyalse pozitif sektör tercih
+      });
+    }
+
+    if (onlyKapToday && kapTodaySet.size > 0) {
+      list = list.filter(r => kapTodaySet.has(r.sembol));
+    }
+
+    return list;
+  }, [
+    results, signalType, direction, onlyWeeklyAligned, onlyStrong, onlyHighConfluence,
+    onlyStrongSectors, onlyKapToday, selectedSector, sektorParam, searchUpper,
+    sortBy, winRateMap, kapTodaySet, sectorMap, excludeSetMemo,
+  ]);
+
+  const activeFilterCount = useMemo(() =>
+    [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong,
+     onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper,
+     excludeSetMemo.size > 0, onlyKapToday].filter(Boolean).length,
+    [signalType, direction, onlyWeeklyAligned, onlyStrong, onlyHighConfluence,
+     onlyStrongSectors, selectedSector, searchUpper, excludeSetMemo.size, onlyKapToday],
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
 
-        {/* ── Veri gecikme uyarısı ── */}
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
-          <span className="shrink-0">⚠️</span>
-          <span>
-            <strong>Veri ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
-            Sinyaller teknik analiz için uygundur; anlık işlem kararları için broker platformunuzu kullanın.
-          </span>
-        </div>
+        {/* ── Veri gecikme uyarısı (dismissible — U4 fix) ── */}
+        {!delayBannerDismissed && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
+            <span className="shrink-0">⚠️</span>
+            <span className="flex-1">
+              <strong>Veri ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
+              Sinyaller teknik analiz için uygundur; anlık işlem kararları için broker platformunuzu kullanın.
+            </span>
+            <button
+              onClick={dismissDelayBanner}
+              aria-label="Uyarıyı kapat"
+              className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* ── Row 1: Title + view/sort/scan controls ── */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -801,10 +949,31 @@ function TaramaPageInner() {
 
             {hasScanResults ? (
               <div className="flex items-center gap-1">
-                <Button onClick={runScan} disabled={loading} size="sm" className="gap-2">
-                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                  {loading ? 'Taranıyor...' : 'Yeniden Tara'}
-                </Button>
+                {/* U5 fix — Cache-aware buton (mobile UX) */}
+                {cacheFreshness === 'fresh' && !loading ? (
+                  <span
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2.5 py-1.5 text-xs font-medium text-emerald-400"
+                    title={`Veri güncel: ${dbScannedAt ? new Date(dbScannedAt).toLocaleString('tr-TR') : ''}`}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Veri güncel
+                  </span>
+                ) : (
+                  <Button
+                    onClick={runScan}
+                    disabled={loading}
+                    size="sm"
+                    variant={cacheFreshness === 'stale' ? 'outline' : 'default'}
+                    className="gap-2"
+                    title={cacheFreshness === 'stale' ? 'Verileri tazele (cache 4+ saat)' : 'Tüm hisseleri yeniden tara'}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    {loading
+                      ? 'Taranıyor...'
+                      : cacheFreshness === 'stale' ? 'Tazele'
+                      : 'Yeniden Tara'}
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={resetToEmptyState} title="Sinyal seçimini değiştir">
                   <Settings className="h-3.5 w-3.5" />
                 </Button>
@@ -844,7 +1013,12 @@ function TaramaPageInner() {
 
           <div className="flex flex-wrap gap-1.5">
             {SIGNAL_TYPE_OPTIONS.map(o => (
-              <Chip key={o.value} active={signalType === o.value} onClick={() => setSignalType(o.value)}>
+              <Chip
+                key={o.value}
+                active={signalType === o.value}
+                onClick={() => setSignalType(o.value)}
+                disabled={loading}
+              >
                 {o.label}
               </Chip>
             ))}
@@ -854,7 +1028,12 @@ function TaramaPageInner() {
 
           <div className="flex gap-1.5">
             {DIRECTION_OPTIONS.map(o => (
-              <Chip key={o.value} active={direction === o.value} onClick={() => setDirection(o.value)}>
+              <Chip
+                key={o.value}
+                active={direction === o.value}
+                onClick={() => setDirection(o.value)}
+                disabled={loading}
+              >
                 <span className="flex items-center gap-1">
                   <o.icon className="h-3 w-3" />
                   {o.label}
@@ -870,7 +1049,8 @@ function TaramaPageInner() {
               <select
                 value={selectedSector}
                 onChange={e => setSelectedSector(e.target.value as SectorId | '')}
-                className="h-7 rounded-lg border border-border bg-surface px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
+                disabled={loading}
+                className="h-7 rounded-lg border border-border bg-surface px-2 text-xs text-text-secondary focus:border-primary focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <option value="">Tüm Sektörler</option>
                 {(Object.values(SECTORS) as { id: string; shortName: string }[]).map(s => (
@@ -878,13 +1058,14 @@ function TaramaPageInner() {
                 ))}
               </select>
               <div className="h-5 w-px bg-border" />
-              <Chip active={onlyWeeklyAligned}  onClick={() => setOnlyWeeklyAligned(v => !v)}>W✓ Haftalık</Chip>
-              <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
-              <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)}>Yüksek Güven</Chip>
-              <Chip active={onlyStrongSectors}   onClick={() => setOnlyStrongSectors(v => !v)}>Güçlü Sektör</Chip>
+              <Chip active={onlyWeeklyAligned}  onClick={() => setOnlyWeeklyAligned(v => !v)} disabled={loading}>W✓ Haftalık</Chip>
+              <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)} disabled={loading}>Güçlü</Chip>
+              <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)} disabled={loading}>Yüksek Güven</Chip>
+              <Chip active={onlyStrongSectors}   onClick={() => setOnlyStrongSectors(v => !v)} disabled={loading}>Güçlü Sektör</Chip>
               <Chip
                 active={onlyKapToday}
                 onClick={() => setOnlyKapToday(v => !v)}
+                disabled={loading}
               >
                 KAP{kapTodaySet.size > 0 && ` (${kapTodaySet.size})`}
               </Chip>
@@ -905,10 +1086,10 @@ function TaramaPageInner() {
         )}
 
         {/* Portföy dışı fırsatlar bandı */}
-        {excludeSet.size > 0 && (
+        {excludeSetMemo.size > 0 && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-2.5 text-sm text-violet-400">
             <span>
-              Portföyündeki <span className="font-semibold">{excludeSet.size} hisse</span> filtrelendi · Yalnızca portföy dışı fırsatlar gösteriliyor
+              Portföyündeki <span className="font-semibold">{excludeSetMemo.size} hisse</span> filtrelendi · Yalnızca portföy dışı fırsatlar gösteriliyor
             </span>
             <a href="/tarama" className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity">Tüm hisseler →</a>
           </div>
@@ -1031,7 +1212,15 @@ function TaramaPageInner() {
                       viewMode={viewMode}
                       marketChangePercent={r.changePercent}
                       cachedExplanation={explanationCache.current.get(`${r.sembol}:${primarySig.type}`) ?? null}
-                      onExplanationLoaded={(text) => explanationCache.current.set(`${r.sembol}:${primarySig.type}`, text)}
+                      onExplanationLoaded={(text) => {
+                        const cache = explanationCache.current;
+                        // LRU benzeri davranış: ilk ekleneni at (D15 fix)
+                        if (cache.size >= EXPLANATION_CACHE_LIMIT) {
+                          const firstKey = cache.keys().next().value;
+                          if (firstKey) cache.delete(firstKey);
+                        }
+                        cache.set(`${r.sembol}:${primarySig.type}`, text);
+                      }}
                     />
                   </motion.div>
                 );
