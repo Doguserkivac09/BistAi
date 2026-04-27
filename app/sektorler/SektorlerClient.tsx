@@ -4,14 +4,16 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Minus, RefreshCw, BarChart2, ExternalLink,
-  ChevronsUp, ChevronsDown, Compass, Clock, AlertTriangle,
+  ChevronsUp, ChevronsDown, Compass, Clock, AlertTriangle, Sparkles, Bot,
+  Lock, Crown, Briefcase, Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { SECTORS, SECTOR_REPRESENTATIVES } from '@/lib/sectors';
+import { SECTORS, SECTOR_REPRESENTATIVES, getSectorId } from '@/lib/sectors';
 import type { SectorId } from '@/lib/sectors';
 import type { CommodityQuote } from '@/lib/commodity';
 import type { OHLCVCandle } from '@/types';
+import { createClient as createSupabaseClient } from '@/lib/supabase';
 
 // ─── Türler ───────────────────────────────────────────────────────────────────
 
@@ -711,6 +713,344 @@ function MoneyFlowNarrative({ summaries }: { summaries: SectorSummary[] }) {
   );
 }
 
+// ─── Sprint 3: BIST Liderleri + Portföy Uyumu + AI Özet ───────────────
+
+interface Mover {
+  sembol: string;
+  changePercent: number;
+  lastClose: number | null;
+  sectorName: string | null;
+}
+
+// ── Bugünün BIST Liderleri Banner ─────────────────────────────────────
+
+function BistMoversBanner({
+  gainers,
+  losers,
+}: {
+  gainers: Mover[];
+  losers: Mover[];
+}) {
+  if (gainers.length === 0 && losers.length === 0) return null;
+
+  const Card = ({ m, kind }: { m: Mover; kind: 'up' | 'down' }) => (
+    <Link
+      href={`/hisse/${m.sembol}`}
+      className={cn(
+        'flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 hover:bg-white/5 transition-colors',
+        kind === 'up'
+          ? 'border-emerald-500/30 bg-emerald-500/5'
+          : 'border-red-500/30 bg-red-500/5',
+      )}
+    >
+      <div className="min-w-0">
+        <p className="text-xs font-bold text-text-primary truncate">{m.sembol}</p>
+        {m.sectorName && (
+          <p className="text-[9px] text-text-muted truncate">{m.sectorName}</p>
+        )}
+      </div>
+      <span className={cn(
+        'text-xs font-bold tabular-nums shrink-0',
+        kind === 'up' ? 'text-emerald-400' : 'text-red-400',
+      )}>
+        {kind === 'up' ? '+' : ''}{m.changePercent.toFixed(2)}%
+      </span>
+    </Link>
+  );
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {/* Gainers */}
+      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-base">🚀</span>
+          <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+            Bugünün Yıldızları
+          </h3>
+        </div>
+        <div className="grid gap-1.5">
+          {gainers.map((m) => <Card key={m.sembol} m={m} kind="up" />)}
+        </div>
+      </div>
+
+      {/* Losers */}
+      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-base">📉</span>
+          <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wider">
+            Bugünün En Çok Düşenleri
+          </h3>
+        </div>
+        <div className="grid gap-1.5">
+          {losers.map((m) => <Card key={m.sembol} m={m} kind="down" />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Portföyünle Uyum Kartı ────────────────────────────────────────────
+
+interface PortfolioMatchProps {
+  loggedIn: boolean;
+  portfoyo: string[];
+  summaries: SectorSummary[];
+  period: PeriodDays;
+}
+
+function PortfolioMatch({ loggedIn, portfoyo, summaries, period }: PortfolioMatchProps) {
+  const analysis = useMemo(() => {
+    if (!loggedIn || portfoyo.length === 0) return null;
+
+    // Portföydeki sektör dağılımı
+    const sectorCounts = new Map<SectorId, number>();
+    for (const sym of portfoyo) {
+      const sid = getSectorId(sym) as SectorId;
+      sectorCounts.set(sid, (sectorCounts.get(sid) ?? 0) + 1);
+    }
+
+    // Summaries map'i — perf çekme için
+    const summaryMap = new Map(summaries.map((s) => [s.id, s]));
+
+    // Her sektör için durum
+    const sectorStatus = [...sectorCounts.entries()]
+      .map(([sid, count]) => {
+        const s = summaryMap.get(sid);
+        const perf = s ? (period === 5 ? s.perf5 : period === 20 ? s.perf20 : s.perf60) : null;
+        return {
+          sectorId: sid,
+          name: SECTORS[sid]?.shortName ?? 'Diğer',
+          count,
+          perf,
+          reversal: s?.reversal ?? null,
+        };
+      })
+      .filter((s) => s.perf !== null)
+      .sort((a, b) => b.count - a.count);
+
+    // Genel uyum: ağırlıklı ortalama
+    const totalCount = sectorStatus.reduce((s, x) => s + x.count, 0);
+    const weightedPerf = sectorStatus.reduce(
+      (acc, x) => acc + (x.perf ?? 0) * x.count,
+      0,
+    ) / Math.max(1, totalCount);
+
+    const positiveCount = sectorStatus.filter((s) => (s.perf ?? 0) > 0).length;
+    const negativeCount = sectorStatus.filter((s) => (s.perf ?? 0) < 0).length;
+
+    return { sectorStatus, weightedPerf, positiveCount, negativeCount, totalSectors: sectorStatus.length };
+  }, [loggedIn, portfoyo, summaries, period]);
+
+  if (!loggedIn || !analysis || analysis.sectorStatus.length === 0) return null;
+
+  const { sectorStatus, weightedPerf, positiveCount, negativeCount, totalSectors } = analysis;
+  const periodLabel = period === 5 ? '1 hafta' : period === 20 ? '1 ay' : '3 ay';
+  const isPositive = weightedPerf >= 0;
+
+  // Mesaj
+  let mainMessage = '';
+  if (positiveCount === totalSectors) {
+    mainMessage = `Portföyündeki tüm sektörler ${periodLabel} pozitif — momentum tarafındasın`;
+  } else if (negativeCount === totalSectors) {
+    mainMessage = `Portföyündeki tüm sektörler ${periodLabel} ekside — diversifikasyon zayıf olabilir`;
+  } else if (positiveCount > negativeCount) {
+    mainMessage = `Portföyündeki sektörlerin çoğu (${positiveCount}/${totalSectors}) ${periodLabel} pozitif`;
+  } else {
+    mainMessage = `Portföyündeki ${negativeCount}/${totalSectors} sektör ${periodLabel} ekside`;
+  }
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 to-purple-500/5 p-4">
+      <div className="flex items-start gap-3 mb-3">
+        <div className={cn(
+          'flex h-9 w-9 items-center justify-center rounded-lg shrink-0',
+          isPositive ? 'bg-emerald-500/20' : 'bg-red-500/20',
+        )}>
+          <Briefcase className={cn('h-4 w-4', isPositive ? 'text-emerald-400' : 'text-red-400')} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-text-primary">Senin Portföyünle Uyum</h3>
+          <p className="text-xs text-text-secondary mt-0.5 leading-snug">{mainMessage}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <div className={cn(
+            'text-lg font-bold tabular-nums',
+            isPositive ? 'text-emerald-400' : 'text-red-400',
+          )}>
+            {isPositive ? '+' : ''}{weightedPerf.toFixed(1)}%
+          </div>
+          <p className="text-[9px] text-text-muted">ağırlıklı</p>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        {sectorStatus.map((s) => (
+          <div key={s.sectorId} className="flex items-center gap-2 text-xs">
+            <span className="w-24 shrink-0 text-text-secondary truncate">{s.name}</span>
+            <span className="text-[10px] text-text-muted shrink-0">{s.count} hisse</span>
+            <div className="flex-1 relative h-1 rounded-full bg-white/5 mx-2">
+              <div
+                className={cn(
+                  'absolute top-0 h-full rounded-full',
+                  (s.perf ?? 0) >= 0 ? 'left-1/2 bg-emerald-500/60' : 'right-1/2 bg-red-500/60',
+                )}
+                style={{ width: `${Math.min(50, Math.abs(s.perf ?? 0) * 3)}%` }}
+              />
+              <div className="absolute top-1/2 left-1/2 w-px h-2 -translate-y-1/2 bg-white/15" />
+            </div>
+            <span className={cn(
+              'shrink-0 w-12 text-right font-mono tabular-nums font-semibold',
+              (s.perf ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400',
+            )}>
+              {(s.perf ?? 0) >= 0 ? '+' : ''}{(s.perf ?? 0).toFixed(1)}%
+            </span>
+            {s.reversal === 'up' && (
+              <span title="Dipten Dönüş" className="shrink-0">🔁</span>
+            )}
+            {s.reversal === 'down' && (
+              <span title="Tepe Dönüşü" className="shrink-0">⚠️</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── AI Sektör Özeti Kartı ─────────────────────────────────────────────
+
+type AiTier = 'free' | 'pro' | 'premium';
+
+function AiSectorSummary({
+  loggedIn,
+  tier,
+  summaries,
+}: {
+  loggedIn: boolean;
+  tier: AiTier;
+  summaries: SectorSummary[];
+}) {
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const start = useCallback(async () => {
+    if (loading || tier === 'free' || !loggedIn) return;
+    setError(null);
+    setLoading(true);
+    setText('');
+    abortRef.current = new AbortController();
+    try {
+      const payload = summaries.map((s) => ({
+        shortName: s.shortName,
+        perf5: s.perf5,
+        perf20: s.perf20,
+        perf60: s.perf60,
+        delta5v20: s.delta5v20,
+      }));
+      const res = await fetch('/api/sectors/ai-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summaries: payload }),
+        signal: abortRef.current.signal,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error ?? 'Bir hata oluştu.');
+        return;
+      }
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const dec = new TextDecoder();
+      let acc = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of dec.decode(value, { stream: true }).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const p = JSON.parse(line.slice(6));
+            if (p.text) { acc += p.text; setText(acc); }
+            if (p.error) setError(p.error);
+          } catch { /* ignore */ }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') setError('Bağlantı hatası.');
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, tier, loggedIn, summaries]);
+
+  // Tier gate görünümü (free veya anonim)
+  if (!loggedIn || tier === 'free') {
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-4">
+        <Lock className="h-4 w-4 text-violet-400 shrink-0" />
+        <div className="flex-1 min-w-[200px]">
+          <p className="text-sm font-semibold text-violet-300">AI Sektör Özeti</p>
+          <p className="text-xs text-text-secondary mt-0.5">
+            {!loggedIn
+              ? 'Bu özelliği kullanmak için giriş yapın'
+              : 'Pro ve Premium planlarda — yatırımcı diliyle haftalık özet'}
+          </p>
+        </div>
+        <Link
+          href={!loggedIn ? '/giris' : '/fiyatlandirma'}
+          className="flex items-center gap-1.5 rounded-lg bg-violet-500/20 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-500/30 transition-colors"
+        >
+          {!loggedIn ? 'Giriş Yap' : <><Crown className="h-3 w-3" />Yükselt</>}
+        </Link>
+      </div>
+    );
+  }
+
+  // Pro/Premium — başlat butonu veya streaming text
+  return (
+    <div>
+      {!text && !loading ? (
+        <button
+          onClick={() => void start()}
+          className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-gradient-to-br from-violet-500/15 to-indigo-500/5 px-4 py-3 text-sm font-medium text-violet-300 hover:from-violet-500/25 hover:to-indigo-500/10 transition-all w-full"
+        >
+          <Sparkles className="h-4 w-4" />
+          <span>AI ile Haftalık Sektör Özeti Al</span>
+          <span className="ml-auto text-[10px] text-violet-400/70">~5 sn</span>
+        </button>
+      ) : (
+        <div className="rounded-xl border border-violet-500/25 bg-gradient-to-br from-violet-500/10 to-indigo-500/5 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Bot className="h-4 w-4 text-violet-400" />
+            <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">
+              AI Sektör Analizi
+            </span>
+            {!loading && text && (
+              <button
+                onClick={() => { setText(''); setError(null); }}
+                className="ml-auto text-[11px] text-text-muted hover:text-text-secondary"
+              >
+                Kapat
+              </button>
+            )}
+          </div>
+          <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line prose prose-sm prose-invert max-w-none">
+            {text || (loading && (
+              <span className="inline-flex items-center gap-2 text-text-muted">
+                <Zap className="h-3 w-3 animate-pulse" /> AI düşünüyor…
+              </span>
+            ))}
+            {loading && text && (
+              <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />
+            )}
+          </div>
+          {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Ana Bileşen ─────────────────────────────────────────────────────────────
 
 const PERIODS: { label: string; value: PeriodDays }[] = [
@@ -728,6 +1068,12 @@ export function SektorlerClient() {
   const [sectorDataMap, setSectorDataMap] = useState<Map<SectorId, SectorData>>(new Map());
   // Candles cache — para akışı + dönüş sinyali için
   const [candlesBySymbol, setCandlesBySymbol] = useState<Map<string, OHLCVCandle[]>>(new Map());
+
+  // Sprint 3 — BIST hareket edenler + login + portföy
+  const [movers, setMovers] = useState<{ gainers: Mover[]; losers: Mover[] }>({ gainers: [], losers: [] });
+  const [loggedIn, setLoggedIn] = useState<boolean>(false);
+  const [tier, setTier]         = useState<AiTier>('free');
+  const [portfoyo, setPortfoyo] = useState<string[]>([]);
   const [loadingCommodity, setLoadingCommodity] = useState(true);
   const [loadingSectors,   setLoadingSectors]   = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -812,6 +1158,35 @@ export function SektorlerClient() {
       .catch(() => {})
       .finally(() => setLoadingCommodity(false));
   }, []);
+
+  // Auth + tier + portföy (soft login)
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = createSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        setLoggedIn(true);
+        const [{ data: prof }, { data: poz }] = await Promise.all([
+          supabase.from('profiles').select('tier').eq('id', user.id).single(),
+          supabase.from('portfolyo_pozisyonlar').select('sembol').eq('user_id', user.id),
+        ]);
+        setTier(((prof as { tier?: AiTier } | null)?.tier ?? 'free'));
+        setPortfoyo((poz ?? []).map((p: { sembol: string }) => p.sembol));
+      } catch { /* sessizce */ }
+    })();
+  }, []);
+
+  // BIST Liderleri — scan_cache'ten
+  useEffect(() => {
+    fetch('/api/movers')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { gainers?: Mover[]; losers?: Mover[] } | null) => {
+        if (!data) return;
+        setMovers({ gainers: data.gainers ?? [], losers: data.losers ?? [] });
+      })
+      .catch(() => {});
+  }, [refreshTick]);
 
   // Sektör verisi — 120 takvim günü ≈ 80 işlem günü (60g getirisi için yeterli — B1 fix)
   useEffect(() => {
@@ -1013,6 +1388,13 @@ export function SektorlerClient() {
           </section>
         )}
 
+        {/* ── 🚀 BIST Liderleri Banner (Sprint 3) ───────────────────── */}
+        {(movers.gainers.length > 0 || movers.losers.length > 0) && (
+          <section className="mb-5">
+            <BistMoversBanner gainers={movers.gainers} losers={movers.losers} />
+          </section>
+        )}
+
         {/* ── ⚡ Hızlı Aksiyon Kartları ─────────────────────────────── */}
         {!loadingSectors && summaries.length > 0 && (
           <section className="mb-5">
@@ -1020,10 +1402,33 @@ export function SektorlerClient() {
           </section>
         )}
 
+        {/* ── 💼 Portföyünle Uyum (Sprint 3 — login varsa) ─────────── */}
+        {loggedIn && portfoyo.length > 0 && summaries.length > 0 && (
+          <section className="mb-5">
+            <PortfolioMatch
+              loggedIn={loggedIn}
+              portfoyo={portfoyo}
+              summaries={summaries}
+              period={period}
+            />
+          </section>
+        )}
+
         {/* ── 💸 Para Akışı Hikayesi (sektör-sektör eşleştirme) ────── */}
         {!loadingSectors && summaries.length > 0 && (
-          <section className="mb-6">
+          <section className="mb-5">
             <MoneyFlowNarrative summaries={summaries} />
+          </section>
+        )}
+
+        {/* ── 🤖 AI Sektör Özeti (Sprint 3 — Pro/Premium) ──────────── */}
+        {!loadingSectors && summaries.length > 0 && (
+          <section className="mb-6">
+            <AiSectorSummary
+              loggedIn={loggedIn}
+              tier={tier}
+              summaries={summaries}
+            />
           </section>
         )}
 
