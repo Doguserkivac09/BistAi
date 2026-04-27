@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, Minus, RefreshCw, BarChart2, ExternalLink,
-  ChevronsUp, ChevronsDown, Compass, Clock, AlertTriangle,
+  ChevronsUp, ChevronsDown, Compass, Clock, AlertTriangle, Network, Activity, PieChart as PieChartIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -377,6 +377,446 @@ function SectorCard({
   );
 }
 
+// ─── Sprint 2: Korelasyon + Rotasyon Timeline + Sektör Ağırlığı ───────
+
+/**
+ * Bir sembol için günlük getiri serisi: returns[i] = (close[i]-close[i-1])/close[i-1]
+ * Pearson korelasyon hesabı için.
+ */
+function dailyReturns(candles: OHLCVCandle[]): number[] {
+  const td = candles.filter((c) => (c.volume ?? 0) > 0);
+  const out: number[] = [];
+  for (let i = 1; i < td.length; i++) {
+    const prev = td[i - 1]!.close;
+    const cur  = td[i]!.close;
+    if (prev > 0) out.push((cur - prev) / prev);
+  }
+  return out;
+}
+
+/** Pearson korelasyon — iki seri eşit uzunluğa truncate edilir */
+function pearson(x: number[], y: number[]): number | null {
+  const n = Math.min(x.length, y.length);
+  if (n < 10) return null; // istatistiksel olarak güvenilmez
+  const xs = x.slice(-n);
+  const ys = y.slice(-n);
+  const mx = xs.reduce((s, v) => s + v, 0) / n;
+  const my = ys.reduce((s, v) => s + v, 0) / n;
+  let num = 0, dx = 0, dy = 0;
+  for (let i = 0; i < n; i++) {
+    const a = xs[i]! - mx;
+    const b = ys[i]! - my;
+    num += a * b;
+    dx  += a * a;
+    dy  += b * b;
+  }
+  const denom = Math.sqrt(dx * dy);
+  if (denom === 0) return null;
+  return num / denom;
+}
+
+/** Sektör için "sektör seri" — temsilcilerin günlük getirilerinin ortalaması */
+function sectorReturnSeries(symbols: string[], candlesMap: Map<string, OHLCVCandle[]>): number[] {
+  const series: number[][] = [];
+  for (const s of symbols) {
+    const c = candlesMap.get(s);
+    if (!c || c.length < 5) continue;
+    series.push(dailyReturns(c));
+  }
+  if (series.length === 0) return [];
+  // Equal-weight ortalama (en kısa seriye truncate)
+  const minLen = Math.min(...series.map((s) => s.length));
+  const out: number[] = [];
+  for (let i = 0; i < minLen; i++) {
+    let sum = 0;
+    for (const s of series) sum += s[s.length - minLen + i]!;
+    out.push(sum / series.length);
+  }
+  return out;
+}
+
+/** Haftalık ortalama getiri serisi — son N hafta için sektör momentum */
+function weeklyAvgReturns(symbols: string[], candlesMap: Map<string, OHLCVCandle[]>, weeks: number): Array<number | null> {
+  const ret = sectorReturnSeries(symbols, candlesMap);
+  if (ret.length < 5) return [];
+  const out: Array<number | null> = [];
+  // Son `weeks` hafta = son `weeks*5` gün, 5'lik gruplar
+  for (let w = weeks - 1; w >= 0; w--) {
+    const end = ret.length - w * 5;
+    const start = Math.max(0, end - 5);
+    const slice = ret.slice(start, end);
+    if (slice.length === 0) { out.push(null); continue; }
+    // Haftalık birikimli getiri (yaklaşık)
+    const cumPct = slice.reduce((acc, r) => acc + r * 100, 0);
+    out.push(cumPct);
+  }
+  return out;
+}
+
+// ── Korelasyon Matrix Heatmap ─────────────────────────────────────────
+
+function CorrelationHeatmap({
+  sectors,
+  candlesMap,
+}: {
+  sectors: SectorData[];
+  candlesMap: Map<string, OHLCVCandle[]>;
+}) {
+  const matrix = useMemo(() => {
+    // Her sektör için sektör seri
+    const series = new Map<SectorId, number[]>();
+    for (const s of sectors) {
+      const symbols = s.stocks.map((x) => x.sembol);
+      series.set(s.id, sectorReturnSeries(symbols, candlesMap));
+    }
+    // 2D matrix
+    const ids = sectors.map((s) => s.id);
+    const m: Array<Array<number | null>> = ids.map(() => ids.map(() => null));
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i; j < ids.length; j++) {
+        const a = series.get(ids[i]!)!;
+        const b = series.get(ids[j]!)!;
+        const r = i === j ? 1 : pearson(a, b);
+        m[i]![j] = r;
+        m[j]![i] = r;
+      }
+    }
+    return { ids, m };
+  }, [sectors, candlesMap]);
+
+  function corrColor(r: number | null): string {
+    if (r === null) return 'bg-zinc-700/30';
+    if (r >=  0.75) return 'bg-emerald-500/80';
+    if (r >=  0.5)  return 'bg-emerald-500/55';
+    if (r >=  0.25) return 'bg-emerald-500/30';
+    if (r >  -0.25) return 'bg-zinc-500/20';
+    if (r >  -0.5)  return 'bg-red-500/30';
+    if (r >  -0.75) return 'bg-red-500/55';
+    return 'bg-red-500/80';
+  }
+
+  function corrText(r: number | null): string {
+    if (r === null) return 'text-text-muted';
+    if (Math.abs(r) > 0.5) return 'text-white font-bold';
+    return 'text-text-secondary';
+  }
+
+  if (matrix.ids.length === 0) return null;
+
+  return (
+    <div className="overflow-x-auto">
+      <div
+        className="grid gap-0.5 min-w-[640px]"
+        style={{
+          gridTemplateColumns: `100px repeat(${matrix.ids.length}, minmax(40px, 1fr))`,
+        }}
+      >
+        {/* Boş köşe */}
+        <div />
+        {/* Üst başlık */}
+        {matrix.ids.map((id) => (
+          <div
+            key={`h-${id}`}
+            className="text-[9px] font-semibold text-text-muted uppercase tracking-wider text-center px-1 py-2 truncate"
+            title={SECTORS[id].name}
+          >
+            {SECTORS[id].shortName.slice(0, 6)}
+          </div>
+        ))}
+
+        {/* Satırlar */}
+        {matrix.ids.map((rowId, i) => (
+          <div key={`row-${rowId}`} className="contents">
+            <div
+              className="text-[10px] font-semibold text-text-secondary px-2 py-2 truncate flex items-center"
+              title={SECTORS[rowId].name}
+            >
+              {SECTORS[rowId].shortName}
+            </div>
+            {matrix.ids.map((colId, j) => {
+              const r = matrix.m[i]![j];
+              return (
+                <div
+                  key={`${rowId}-${colId}`}
+                  className={cn(
+                    'aspect-square flex items-center justify-center rounded text-[9px] font-mono tabular-nums',
+                    corrColor(r),
+                    corrText(r),
+                  )}
+                  title={`${SECTORS[rowId].shortName} × ${SECTORS[colId].shortName}: ${r === null ? 'yetersiz veri' : r.toFixed(2)}`}
+                >
+                  {r === null ? '—' : r.toFixed(2)}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-text-muted">
+        <span>Negatif</span>
+        <div className="flex gap-px">
+          <div className="w-5 h-3 bg-red-500/80" />
+          <div className="w-5 h-3 bg-red-500/55" />
+          <div className="w-5 h-3 bg-red-500/30" />
+          <div className="w-5 h-3 bg-zinc-500/20" />
+          <div className="w-5 h-3 bg-emerald-500/30" />
+          <div className="w-5 h-3 bg-emerald-500/55" />
+          <div className="w-5 h-3 bg-emerald-500/80" />
+        </div>
+        <span>Pozitif</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Rotasyon Timeline (multi-line chart) ──────────────────────────────
+
+function RotationTimeline({
+  sectors,
+  candlesMap,
+  topN = 5,
+  weeks = 12,
+}: {
+  sectors: SectorData[];
+  candlesMap: Map<string, OHLCVCandle[]>;
+  topN?: number;
+  weeks?: number;
+}) {
+  const lines = useMemo(() => {
+    const all = sectors.map((s) => {
+      const symbols = s.stocks.map((x) => x.sembol);
+      const series = weeklyAvgReturns(symbols, candlesMap, weeks);
+      const last = series[series.length - 1] ?? null;
+      return { id: s.id, name: SECTORS[s.id].shortName, series, last };
+    }).filter((s) => s.series.length === weeks);
+
+    // En son haftadaki performansa göre sırala — hem en iyi hem en kötü gösterilir
+    const sorted = [...all].sort((a, b) => (b.last ?? -999) - (a.last ?? -999));
+    const top    = sorted.slice(0, topN);
+    const bottom = sorted.slice(-Math.min(2, sorted.length));
+    // Tekrarsız birleşim
+    const ids = new Set<string>();
+    const merged: typeof sorted = [];
+    for (const s of [...top, ...bottom]) {
+      if (!ids.has(s.id)) { ids.add(s.id); merged.push(s); }
+    }
+    return merged;
+  }, [sectors, candlesMap, topN, weeks]);
+
+  if (lines.length === 0) return null;
+
+  const flat = lines.flatMap((l) => l.series.filter((v): v is number => v !== null));
+  const minY = Math.min(...flat, 0);
+  const maxY = Math.max(...flat, 0);
+  const range = (maxY - minY) || 1;
+  const W = 600, H = 220, padL = 36, padR = 16, padT = 12, padB = 28;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  // 8 renk paleti — Tailwind palette'inden
+  const COLORS = [
+    '#10b981', // emerald-500
+    '#3b82f6', // blue-500
+    '#f59e0b', // amber-500
+    '#a855f7', // purple-500
+    '#ec4899', // pink-500
+    '#06b6d4', // cyan-500
+    '#ef4444', // red-500
+    '#84cc16', // lime-500
+  ];
+
+  function pathFor(series: Array<number | null>): string {
+    return series.map((v, i) => {
+      if (v === null) return null;
+      const x = padL + (i / (weeks - 1)) * innerW;
+      const y = padT + innerH - ((v - minY) / range) * innerH;
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    }).filter(Boolean).join(' ');
+  }
+
+  // Y eksen tickleri (3 nokta)
+  const yTicks = [minY, (minY + maxY) / 2, maxY];
+
+  return (
+    <div className="relative">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+        {/* Grid */}
+        {yTicks.map((t, i) => {
+          const y = padT + innerH - ((t - minY) / range) * innerH;
+          return (
+            <g key={`grid-${i}`}>
+              <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#ffffff10" strokeWidth="1" strokeDasharray="2 3" />
+              <text x={padL - 6} y={y + 3} fill="#9ca3af" fontSize="9" textAnchor="end" fontFamily="ui-monospace, monospace">
+                {t > 0 ? '+' : ''}{t.toFixed(1)}%
+              </text>
+            </g>
+          );
+        })}
+        {/* Sıfır çizgisi */}
+        {minY < 0 && maxY > 0 && (
+          <line
+            x1={padL}
+            x2={W - padR}
+            y1={padT + innerH - ((0 - minY) / range) * innerH}
+            y2={padT + innerH - ((0 - minY) / range) * innerH}
+            stroke="#ffffff20"
+            strokeWidth="1"
+          />
+        )}
+        {/* Hafta tickleri */}
+        {[0, Math.floor(weeks / 2), weeks - 1].map((wIdx) => {
+          const x = padL + (wIdx / (weeks - 1)) * innerW;
+          const label = wIdx === weeks - 1 ? 'Bu hafta' : `${weeks - 1 - wIdx}h önce`;
+          return (
+            <text key={`wt-${wIdx}`} x={x} y={H - 8} fill="#9ca3af" fontSize="9" textAnchor="middle">
+              {label}
+            </text>
+          );
+        })}
+        {/* Sektör çizgileri */}
+        {lines.map((l, idx) => (
+          <path
+            key={l.id}
+            d={pathFor(l.series)}
+            stroke={COLORS[idx % COLORS.length]}
+            strokeWidth="1.8"
+            fill="none"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity={0.85}
+          />
+        ))}
+      </svg>
+
+      {/* Legend */}
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5 px-1">
+        {lines.map((l, idx) => (
+          <div key={l.id} className="flex items-center gap-1.5 text-[10px]">
+            <span className="h-2 w-3 rounded-sm" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+            <span className="text-text-secondary">{l.name}</span>
+            {l.last !== null && (
+              <span className={cn('font-mono tabular-nums font-semibold',
+                l.last >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                {l.last > 0 ? '+' : ''}{l.last.toFixed(1)}%
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Sektör Ağırlığı Bar (BIST market cap proxy) ───────────────────────
+
+function SectorWeightsPanel({
+  sectors,
+  weights,
+  period,
+}: {
+  sectors: SectorData[];
+  weights: Map<SectorId, number>;
+  period: PeriodDays;
+}) {
+  const items = useMemo(() => {
+    const total = Array.from(weights.values()).reduce((s, v) => s + v, 0);
+    if (total === 0) return [];
+    return sectors
+      .map((s) => {
+        const w = weights.get(s.id) ?? 0;
+        const perf = s.avgByPeriod[period];
+        return {
+          id:    s.id,
+          name:  SECTORS[s.id].shortName,
+          weight: w / total,
+          perf,
+          contribution: perf !== null ? (w / total) * perf : null, // ağırlıklı katkı
+        };
+      })
+      .filter((s) => s.weight > 0)
+      .sort((a, b) => b.weight - a.weight);
+  }, [sectors, weights, period]);
+
+  if (items.length === 0) return null;
+
+  const maxAbsContrib = Math.max(...items.map((s) => Math.abs(s.contribution ?? 0)), 0.1);
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {/* Sol: Ağırlık dağılımı */}
+      <div className="rounded-xl border border-border bg-surface/40 p-4">
+        <p className="text-xs font-semibold text-text-secondary mb-3 flex items-center gap-1.5">
+          <PieChartIcon className="h-3.5 w-3.5" />
+          Toplam Piyasa Değeri Ağırlığı
+        </p>
+        <div className="space-y-1.5">
+          {items.map((s) => (
+            <div key={s.id} className="flex items-center gap-2">
+              <span className="w-20 shrink-0 text-[11px] text-text-secondary truncate">{s.name}</span>
+              <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full bg-primary/60 rounded-full transition-all duration-700"
+                  style={{ width: `${s.weight * 100}%` }}
+                />
+              </div>
+              <span className="w-10 shrink-0 text-right text-[10px] font-mono text-text-muted tabular-nums">
+                %{(s.weight * 100).toFixed(1)}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[10px] text-text-muted/70">
+          Temsilci hisselerin Yahoo market cap toplamı — endeks ağırlığı yaklaşık değeri
+        </p>
+      </div>
+
+      {/* Sağ: Endekse Katkı (ağırlık × performans) */}
+      <div className="rounded-xl border border-border bg-surface/40 p-4">
+        <p className="text-xs font-semibold text-text-secondary mb-3 flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5" />
+          Endekse Tahmini Katkı ({period === 5 ? '1H' : period === 20 ? '1A' : '3A'})
+        </p>
+        <div className="space-y-1.5">
+          {items
+            .filter((s) => s.contribution !== null)
+            .sort((a, b) => Math.abs(b.contribution!) - Math.abs(a.contribution!))
+            .map((s) => {
+              const c = s.contribution!;
+              const pct = (Math.abs(c) / maxAbsContrib) * 100;
+              const isPos = c >= 0;
+              return (
+                <div key={s.id} className="flex items-center gap-1.5">
+                  <span className="w-16 shrink-0 text-[10px] text-text-muted truncate">{s.name}</span>
+                  <div className="flex-1 relative h-1.5 rounded-full bg-white/5">
+                    <div
+                      className={cn(
+                        'absolute top-0 h-full rounded-full transition-all duration-700',
+                        isPos ? 'left-1/2 bg-emerald-500/60' : 'right-1/2 bg-red-500/60',
+                      )}
+                      style={{ width: `${pct / 2}%` }}
+                    />
+                    <div className="absolute top-1/2 left-1/2 w-px h-2 -translate-y-1/2 bg-white/15" />
+                  </div>
+                  <span className={cn(
+                    'w-12 shrink-0 text-right text-[10px] font-mono tabular-nums font-semibold',
+                    isPos ? 'text-emerald-400' : 'text-red-400',
+                  )}>
+                    {isPos ? '+' : ''}{c.toFixed(2)}%
+                  </span>
+                </div>
+              );
+            })}
+        </div>
+        <p className="mt-3 text-[10px] text-text-muted/70">
+          Ağırlık × performans = endekse tahmini sürükleme. Büyük sektör küçük hareket = büyük etki.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Ana Bileşen ─────────────────────────────────────────────────────────────
 
 const PERIODS: { label: string; value: PeriodDays }[] = [
@@ -392,6 +832,11 @@ const OHLCV_DAYS = 120;
 export function SektorlerClient() {
   const [commodities,   setCommodities]   = useState<CommodityQuote[]>([]);
   const [sectorDataMap, setSectorDataMap] = useState<Map<SectorId, SectorData>>(new Map());
+  // Candles cache — korelasyon ve rotasyon timeline için (Sprint 2)
+  const [candlesBySymbol, setCandlesBySymbol] = useState<Map<string, OHLCVCandle[]>>(new Map());
+  // Sektör ağırlığı (market cap toplamı) — F3
+  const [sectorWeights, setSectorWeights] = useState<Map<SectorId, number>>(new Map());
+  const [loadingWeights, setLoadingWeights] = useState(false);
   const [loadingCommodity, setLoadingCommodity] = useState(true);
   const [loadingSectors,   setLoadingSectors]   = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -491,6 +936,7 @@ export function SektorlerClient() {
     const results = new Map<string, {
       change5d: number | null; change20d: number | null; change60d: number | null; lastPrice: number | null;
     }>();
+    const candlesAcc = new Map<string, OHLCVCandle[]>();
 
     void (async () => {
       await Promise.allSettled(
@@ -509,6 +955,7 @@ export function SektorlerClient() {
               change60d: getPeriodReturn(candles, 60),
               lastPrice: getLastPrice(candles),
             });
+            candlesAcc.set(sembol, candles);
           } catch {
             failedCount++;
             results.set(sembol, { change5d: null, change20d: null, change60d: null, lastPrice: null });
@@ -542,6 +989,7 @@ export function SektorlerClient() {
           }
         }),
       );
+      setCandlesBySymbol(candlesAcc);
       setLoadingSectors(false);
       setLastUpdated(new Date());
       if (failedCount > 0) {
@@ -550,6 +998,23 @@ export function SektorlerClient() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectorDataMap.size, refreshTick]);
+
+  // Sektör ağırlığı — yeni endpoint /api/sectors/weights (mount + refresh)
+  useEffect(() => {
+    setLoadingWeights(true);
+    fetch('/api/sectors/weights')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { weights?: Record<string, number> } | null) => {
+        if (!data?.weights) return;
+        const map = new Map<SectorId, number>();
+        for (const [k, v] of Object.entries(data.weights)) {
+          map.set(k as SectorId, v);
+        }
+        setSectorWeights(map);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingWeights(false));
+  }, [refreshTick]);
 
   // Soft refresh — full reload yerine state reset (B5 fix)
   const handleRefresh = useCallback(() => {
@@ -837,6 +1302,65 @@ export function SektorlerClient() {
             </section>
           );
         })()}
+
+        {/* ── Rotasyon Timeline (Sprint 2 - F2) ─────────────────────── */}
+        {!loadingSectors && candlesBySymbol.size > 0 && (
+          <section className="mb-8">
+            <h2 className="mb-3 text-sm font-semibold text-text-secondary uppercase tracking-wide flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              12 Haftalık Sektör Rotasyon Timeline
+              <span className="text-[10px] normal-case font-normal text-text-muted">
+                — Hangi sektör ne zaman ön plandaydı, şimdi nerede?
+              </span>
+            </h2>
+            <div className="rounded-xl border border-border bg-surface/40 p-4">
+              <RotationTimeline
+                sectors={allSectors}
+                candlesMap={candlesBySymbol}
+                topN={5}
+                weeks={12}
+              />
+              <p className="mt-3 text-[10px] text-text-muted/70 text-center">
+                Y ekseni: o haftaki ortalama % getiri. Üst-5 + alt-2 sektör gösterilir.
+                Çapraz çizgiler = liderlik değişimi (rotasyon).
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* ── Sektör Ağırlığı + Endeks Katkı (F3) ───────────────────── */}
+        {!loadingWeights && sectorWeights.size > 0 && allSectors.length > 0 && (
+          <section className="mb-8">
+            <h2 className="mb-3 text-sm font-semibold text-text-secondary uppercase tracking-wide flex items-center gap-2">
+              <PieChartIcon className="h-4 w-4" />
+              Sektör Ağırlığı & Endekse Katkı
+              <span className="text-[10px] normal-case font-normal text-text-muted">
+                — Büyük sektör küçük hareket = büyük etki
+              </span>
+            </h2>
+            <SectorWeightsPanel sectors={allSectors} weights={sectorWeights} period={period} />
+          </section>
+        )}
+
+        {/* ── Korelasyon Heatmap (F1) ─────────────────────────────── */}
+        {!loadingSectors && candlesBySymbol.size > 0 && allSectors.length > 0 && (
+          <section className="mb-8">
+            <h2 className="mb-3 text-sm font-semibold text-text-secondary uppercase tracking-wide flex items-center gap-2">
+              <Network className="h-4 w-4" />
+              Sektör Korelasyon Matrisi
+              <span className="text-[10px] normal-case font-normal text-text-muted">
+                — Birlikte hareket eden sektörler (60g günlük getiri Pearson)
+              </span>
+            </h2>
+            <div className="rounded-xl border border-border bg-surface/40 p-4">
+              <CorrelationHeatmap sectors={allSectors} candlesMap={candlesBySymbol} />
+              <p className="mt-3 text-[10px] text-text-muted/70 text-center">
+                +1 = mükemmel paralel hareket · 0 = bağımsız · −1 = ters hareket.
+                Yüksek korelasyonlu sektörler portföyde aynı anda tutulursa çeşitlendirme zayıflar.
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* Sektör Grid */}
         <section>
