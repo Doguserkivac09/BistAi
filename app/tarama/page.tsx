@@ -14,9 +14,12 @@ import { useSearchParams } from 'next/navigation';
 import {
   Search, RefreshCw, Zap, TrendingUp, TrendingDown, Activity,
   Settings, LayoutGrid, List, X, ChevronDown, BarChart2, CheckCircle2,
+  Sparkles, Bot, Lock, Crown, Download, Save, Folder,
 } from 'lucide-react';
 import { ScanProgress } from '@/components/ScanProgress';
 import { toast } from 'sonner';
+import { createClient as createSupabaseClient } from '@/lib/supabase';
+import Link from 'next/link';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,6 +64,23 @@ const SCAN_CACHE_KEY   = `${SCAN_CACHE_PREFIX}${new Date().toISOString().slice(0
 const SCAN_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 saat — aynı gün içinde anında yükle
 const DELAY_BANNER_DISMISS_KEY = 'bistai.tarama.delayBannerDismissed';
 const EXPLANATION_CACHE_LIMIT  = 100;
+const FILTER_PRESETS_KEY       = 'bistai.tarama.filterPresets';
+
+type AiTier = 'free' | 'pro' | 'premium';
+
+interface FilterPreset {
+  name: string;
+  signalType: SignalTypeFilter;
+  direction: DirectionFilter;
+  sortBy: string;
+  onlyWeeklyAligned: boolean;
+  onlyStrong: boolean;
+  onlyHighConfluence: boolean;
+  onlyStrongSectors: boolean;
+  onlyKapToday: boolean;
+  selectedSector: string;
+  signalTypes: string[];
+}
 
 // Cache yaşına göre buton stratejisi (mobile UX)
 //  - fresh (< 4 saat): "Veriler güncel" rozeti, buton gizli
@@ -500,6 +520,16 @@ function TaramaPageInner() {
   const [dbAgeMinutes,         setDbAgeMinutes]         = useState<number | null>(null);
   const explanationCache = useRef<Map<string, string>>(new Map());
 
+  // Sprint 2 — AI özet, sektör grup mod, preset, watchlist auth
+  const [groupBySector, setGroupBySector] = useState<boolean>(false);
+  const [aiText, setAiText] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
+  const [loggedIn, setLoggedIn] = useState<boolean>(false);
+  const [tier, setTier] = useState<AiTier>('free');
+  const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
+
   // Cache yaşı — buton görünürlüğü için
   const cacheFreshness: CacheFreshness = useMemo(() => getCacheFreshness(dbScannedAt), [dbScannedAt]);
 
@@ -550,6 +580,34 @@ function TaramaPageInner() {
     const q = sp.get('q');
     if (q) setSearchQuery(q);
     if (sp.get('v') === 'list')  setViewMode('list');
+  }, []);
+
+  // Auth + tier (soft login — AI özeti ve preset için)
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = createSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        setLoggedIn(true);
+        const { data: prof } = await supabase
+          .from('profiles').select('tier').eq('id', user.id).single();
+        setTier(((prof as { tier?: AiTier } | null)?.tier ?? 'free'));
+      } catch { /* sessizce */ }
+    })();
+  }, []);
+
+  // Preset yükleme
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(FILTER_PRESETS_KEY);
+      if (saved) setFilterPresets(JSON.parse(saved) as FilterPreset[]);
+    } catch { /* ignore */ }
+  }, []);
+
+  const savePresets = useCallback((presets: FilterPreset[]) => {
+    setFilterPresets(presets);
+    try { localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets)); } catch { /* ignore */ }
   }, []);
 
   // Filtre değiştikçe URL güncelle (replaceState — history kirliliği yok)
@@ -793,6 +851,42 @@ function TaramaPageInner() {
     setSearchQuery('');
   }, []);
 
+  // ── Sprint 2: Preset (filter zinciri öncesi tanımlanabilir) ──────────
+
+  const saveCurrentAsPreset = useCallback(() => {
+    const name = window.prompt('Preset adı:');
+    if (!name) return;
+    const newPreset: FilterPreset = {
+      name: name.trim().slice(0, 30),
+      signalType, direction, sortBy,
+      onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, onlyKapToday,
+      selectedSector,
+      signalTypes: selectedTypes,
+    };
+    savePresets([...filterPresets.filter((p) => p.name !== newPreset.name), newPreset]);
+    toast.success(`"${newPreset.name}" kaydedildi`);
+  }, [signalType, direction, sortBy, onlyWeeklyAligned, onlyStrong, onlyHighConfluence,
+      onlyStrongSectors, onlyKapToday, selectedSector, selectedTypes, filterPresets, savePresets]);
+
+  const applySavedPreset = useCallback((p: FilterPreset) => {
+    setSignalType(p.signalType);
+    setDirection(p.direction);
+    setSortBy(p.sortBy as SortBy);
+    setOnlyWeeklyAligned(p.onlyWeeklyAligned);
+    setOnlyStrong(p.onlyStrong);
+    setOnlyHighConfluence(p.onlyHighConfluence);
+    setOnlyStrongSectors(p.onlyStrongSectors);
+    setOnlyKapToday(p.onlyKapToday);
+    setSelectedSector(p.selectedSector as SectorId | '');
+    if (p.signalTypes && p.signalTypes.length > 0) setSelectedTypes(p.signalTypes);
+    toast.success(`"${p.name}" uygulandı`);
+  }, []);
+
+  const deletePreset = useCallback((name: string) => {
+    if (!window.confirm(`"${name}" preset'i silinsin mi?`)) return;
+    savePresets(filterPresets.filter((p) => p.name !== name));
+  }, [filterPresets, savePresets]);
+
   const applyPreset = useCallback((types: string[]) => {
     setSelectedTypes(types);
     try { localStorage.setItem(SCAN_PREFS_KEY, JSON.stringify(types)); } catch { /* ignore */ }
@@ -898,6 +992,146 @@ function TaramaPageInner() {
      onlyStrongSectors, selectedSector, searchUpper, excludeSetMemo.size, onlyKapToday],
   );
 
+  // ── Sektör grup mod (Sprint 2: W5) ──────────────────────────────────
+  const groupedBySector = useMemo(() => {
+    if (!groupBySector) return null;
+    const groups = new Map<string, { sektorAdi: string; sektorId: SectorId; items: ScanResult[] }>();
+    for (const r of filteredByKap) {
+      if (r.signals.length === 0) continue;
+      const sec = getSector(r.sembol);
+      const key = sec.id;
+      if (!groups.has(key)) groups.set(key, { sektorAdi: sec.shortName, sektorId: sec.id as SectorId, items: [] });
+      groups.get(key)!.items.push(r);
+    }
+    return [...groups.values()].sort((a, b) => b.items.length - a.items.length);
+  }, [groupBySector, filteredByKap]);
+
+  // ── Sprint 2: AI Özet ───────────────────────────────────────────────
+
+  const startAiSummary = useCallback(async () => {
+    if (aiLoading || !loggedIn || tier === 'free') return;
+    setAiError(null);
+    setAiLoading(true);
+    setAiText('');
+    aiAbortRef.current = new AbortController();
+    try {
+      const signalGroups = new Map<string, { count: number; al: number; sat: number; strong: number }>();
+      const sectorGroups = new Map<string, number>();
+      for (const r of results) {
+        for (const s of r.signals) {
+          const g = signalGroups.get(s.type) ?? { count: 0, al: 0, sat: 0, strong: 0 };
+          g.count++;
+          if (s.direction === 'yukari') g.al++;
+          if (s.direction === 'asagi')  g.sat++;
+          if (s.severity === 'güçlü')   g.strong++;
+          signalGroups.set(s.type, g);
+        }
+        const sec = getSector(r.sembol).shortName;
+        sectorGroups.set(sec, (sectorGroups.get(sec) ?? 0) + 1);
+      }
+      const signalBreakdown = [...signalGroups.entries()]
+        .map(([type, g]) => ({ type, count: g.count, alCount: g.al, satCount: g.sat, strongCount: g.strong }))
+        .sort((a, b) => b.count - a.count);
+      const sectorBreakdown = [...sectorGroups.entries()]
+        .map(([shortName, count]) => ({ shortName, count }))
+        .sort((a, b) => b.count - a.count);
+
+      const totalSignals = signalBreakdown.reduce((s, x) => s + x.count, 0);
+
+      const res = await fetch('/api/tarama/ai-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          totalSignals,
+          totalScanned: scannedCount,
+          alCount,
+          satCount,
+          strongCount,
+          signalBreakdown,
+          sectorBreakdown,
+          avgWinRate,
+        }),
+        signal: aiAbortRef.current.signal,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setAiError(d.error ?? 'Bir hata oluştu.');
+        return;
+      }
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const dec = new TextDecoder();
+      let acc = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of dec.decode(value, { stream: true }).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const p = JSON.parse(line.slice(6));
+            if (p.text) { acc += p.text; setAiText(acc); }
+            if (p.error) setAiError(p.error);
+          } catch { /* ignore */ }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') setAiError('Bağlantı hatası.');
+    } finally {
+      setAiLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiLoading, loggedIn, tier, results, scannedCount, alCount, satCount, strongCount, avgWinRate]);
+
+  // ── Sprint 2: CSV Export ────────────────────────────────────────────
+
+  const downloadCsv = useCallback(() => {
+    if (!hasScanResults) {
+      toast.info('Önce tarama yapın');
+      return;
+    }
+    const headers = [
+      'Sembol', 'Sektör', 'Yön', 'Sinyal Tipi', 'Şiddet',
+      'Confluence', 'Win Rate %', 'Değişim %',
+    ];
+    const rows = filteredByKap.flatMap((r) => {
+      if (r.signals.length === 0) return [];
+      const conf = r.signals.length > 1 ? computeConfluence(r.signals).score : '';
+      const change = getDailyChange(r.candles, r.changePercent) * 100;
+      return r.signals.map((s) => {
+        const wr = winRateMap.get(s.type);
+        return [
+          r.sembol,
+          getSector(r.sembol).shortName,
+          s.direction === 'yukari' ? 'AL' : s.direction === 'asagi' ? 'SAT' : '',
+          s.type,
+          s.severity,
+          conf,
+          wr ? Math.round(wr.rate * 100) : '',
+          change.toFixed(2),
+        ];
+      });
+    });
+    if (rows.length === 0) {
+      toast.info('İndirilecek satır yok');
+      return;
+    }
+    const escape = (v: string | number) => {
+      const str = String(v);
+      return /[",;\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const csv = '﻿' + [headers, ...rows].map((r) => r.map(escape).join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bistai-tarama-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`${rows.length} satır indirildi`);
+  }, [hasScanResults, filteredByKap, winRateMap]);
+
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
@@ -945,7 +1179,33 @@ function TaramaPageInner() {
               </div>
             )}
 
-            {hasScanResults && <SortDropdown value={sortBy} onChange={setSortBy} />}
+            {hasScanResults && (
+              <>
+                <button
+                  onClick={() => setGroupBySector((v) => !v)}
+                  title="Sektörlere göre grupla"
+                  aria-pressed={groupBySector}
+                  className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    groupBySector
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-border bg-surface text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <Folder className="h-3 w-3" />
+                  Sektör
+                </button>
+                <button
+                  onClick={downloadCsv}
+                  disabled={!hasScanResults}
+                  title="Sonuçları CSV olarak indir"
+                  className="flex items-center gap-1 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary disabled:opacity-40 transition-colors"
+                >
+                  <Download className="h-3 w-3" />
+                  <span className="hidden sm:inline">CSV</span>
+                </button>
+                <SortDropdown value={sortBy} onChange={setSortBy} />
+              </>
+            )}
 
             {hasScanResults ? (
               <div className="flex items-center gap-1">
@@ -986,6 +1246,48 @@ function TaramaPageInner() {
             )}
           </div>
         </div>
+
+        {/* ── Filtre Preset'leri ── */}
+        {hasScanResults && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              Preset:
+            </span>
+            {filterPresets.length === 0 ? (
+              <span className="text-xs text-text-muted/70">
+                Mevcut filtrelerden bir preset oluştur ↓
+              </span>
+            ) : (
+              filterPresets.map((p) => (
+                <div key={p.name} className="group relative inline-flex">
+                  <button
+                    onClick={() => applySavedPreset(p)}
+                    className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-text-secondary hover:border-primary/40 hover:text-text-primary transition-colors"
+                  >
+                    {p.name}
+                  </button>
+                  <button
+                    onClick={() => deletePreset(p.name)}
+                    className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-full bg-red-500/70 text-[10px] text-white group-hover:flex"
+                    aria-label={`${p.name} sil`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            )}
+            {activeFilterCount > 0 && (
+              <button
+                onClick={saveCurrentAsPreset}
+                className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-xs text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                title="Mevcut filtre kombinasyonunu kaydet"
+              >
+                <Save className="h-3 w-3" />
+                Kaydet
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── Row 2: Filter chips ── */}
         <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -1135,6 +1437,64 @@ function TaramaPageInner() {
                 )}
               </div>
             )}
+
+            {/* AI Tarama Özeti — Pro/Premium */}
+            <div className="mb-4">
+              {!loggedIn || tier === 'free' ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-3">
+                  <Lock className="h-4 w-4 text-violet-400 shrink-0" />
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-sm font-semibold text-violet-300">AI Tarama Özeti</p>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      {!loggedIn
+                        ? 'Bu özelliği kullanmak için giriş yapın'
+                        : 'Pro ve Premium planlarda — yatırımcı diliyle tarama özeti'}
+                    </p>
+                  </div>
+                  <Link
+                    href={!loggedIn ? '/giris' : '/fiyatlandirma'}
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/20 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-500/30 transition-colors"
+                  >
+                    {!loggedIn ? 'Giriş Yap' : <><Crown className="h-3 w-3" />Yükselt</>}
+                  </Link>
+                </div>
+              ) : !aiText && !aiLoading ? (
+                <button
+                  onClick={() => void startAiSummary()}
+                  className="flex w-full items-center gap-2 rounded-xl border border-violet-500/30 bg-gradient-to-br from-violet-500/15 to-indigo-500/5 px-4 py-2.5 text-sm font-medium text-violet-300 hover:from-violet-500/25 hover:to-indigo-500/10 transition-all"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>AI ile Tarama Özeti Al</span>
+                  <span className="ml-auto text-[10px] text-violet-400/70">~5 sn</span>
+                </button>
+              ) : (
+                <div className="rounded-xl border border-violet-500/25 bg-gradient-to-br from-violet-500/10 to-indigo-500/5 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Bot className="h-4 w-4 text-violet-400" />
+                    <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Tarama Analizi</span>
+                    {!aiLoading && aiText && (
+                      <button
+                        onClick={() => { setAiText(''); setAiError(null); }}
+                        className="ml-auto text-[11px] text-text-muted hover:text-text-secondary"
+                      >
+                        Kapat
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">
+                    {aiText || (aiLoading && (
+                      <span className="inline-flex items-center gap-2 text-text-muted">
+                        <Zap className="h-3 w-3 animate-pulse" /> AI düşünüyor…
+                      </span>
+                    ))}
+                    {aiLoading && aiText && (
+                      <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />
+                    )}
+                  </div>
+                  {aiError && <p className="mt-2 text-xs text-red-400">{aiError}</p>}
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -1163,7 +1523,53 @@ function TaramaPageInner() {
           </motion.div>
         )}
 
-        {filteredByKap.length > 0 && (
+        {/* Sektör grup mod aktif — sektör başlıklarıyla render */}
+        {filteredByKap.length > 0 && groupBySector && groupedBySector && (
+          <div className="space-y-6">
+            {groupedBySector.map((g) => (
+              <section key={g.sektorId}>
+                <div className="mb-3 flex items-end justify-between gap-2 flex-wrap">
+                  <h3 className="text-sm font-bold text-text-primary">{g.sektorAdi}</h3>
+                  <span className="text-xs text-text-muted">{g.items.length} sinyal</span>
+                </div>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={viewMode === 'grid' ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'flex flex-col gap-2'}
+                >
+                  {g.items.map((r) => {
+                    const primarySig = r.signals[0]!;
+                    return (
+                      <StockCard
+                        key={r.sembol}
+                        signal={primarySig}
+                        candleData={r.candles}
+                        allSignals={r.signals}
+                        macroScore={macroScore}
+                        winRate={winRateMap.get(primarySig.type) ?? null}
+                        sectorMomentum={sectorMap.get(getSector(r.sembol).id) ?? null}
+                        viewMode={viewMode}
+                        marketChangePercent={r.changePercent}
+                        cachedExplanation={explanationCache.current.get(`${r.sembol}:${primarySig.type}`) ?? null}
+                        onExplanationLoaded={(text) => {
+                          const cache = explanationCache.current;
+                          if (cache.size >= EXPLANATION_CACHE_LIMIT) {
+                            const firstKey = cache.keys().next().value;
+                            if (firstKey) cache.delete(firstKey);
+                          }
+                          cache.set(`${r.sembol}:${primarySig.type}`, text);
+                        }}
+                      />
+                    );
+                  })}
+                </motion.div>
+              </section>
+            ))}
+          </div>
+        )}
+
+        {/* Klasik (düz) görünüm */}
+        {filteredByKap.length > 0 && !groupBySector && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
