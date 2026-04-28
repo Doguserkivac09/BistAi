@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StockCard } from '@/components/StockCard';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,13 @@ import type { SectorMomentum, SectorId } from '@/lib/sectors';
 import { useSearchParams } from 'next/navigation';
 import {
   Search, RefreshCw, Zap, TrendingUp, TrendingDown, Activity,
-  Settings, LayoutGrid, List, X, ChevronDown, BarChart2,
+  Settings, LayoutGrid, List, X, ChevronDown, BarChart2, CheckCircle2,
+  Sparkles, Bot, Lock, Crown, Download, Save, Folder,
 } from 'lucide-react';
 import { ScanProgress } from '@/components/ScanProgress';
 import { toast } from 'sonner';
+import { createClient as createSupabaseClient } from '@/lib/supabase';
+import Link from 'next/link';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,8 +59,42 @@ const SCANNABLE_SIGNALS: { type: string; label: string; color: string; activeCol
 
 const ALL_SIGNAL_TYPES = SCANNABLE_SIGNALS.map(s => s.type);
 const SCAN_PREFS_KEY   = 'investableedge_scan_signal_prefs';
-const SCAN_CACHE_KEY   = `investableedge_scan_results_${new Date().toISOString().slice(0, 10)}`;
+const SCAN_CACHE_PREFIX = 'investableedge_scan_results_';
+const SCAN_CACHE_KEY   = `${SCAN_CACHE_PREFIX}${new Date().toISOString().slice(0, 10)}`;
 const SCAN_CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 saat — aynı gün içinde anında yükle
+const DELAY_BANNER_DISMISS_KEY = 'bistai.tarama.delayBannerDismissed';
+const EXPLANATION_CACHE_LIMIT  = 100;
+const FILTER_PRESETS_KEY       = 'bistai.tarama.filterPresets';
+
+type AiTier = 'free' | 'pro' | 'premium';
+
+interface FilterPreset {
+  name: string;
+  signalType: SignalTypeFilter;
+  direction: DirectionFilter;
+  sortBy: string;
+  onlyWeeklyAligned: boolean;
+  onlyStrong: boolean;
+  onlyHighConfluence: boolean;
+  onlyStrongSectors: boolean;
+  onlyKapToday: boolean;
+  selectedSector: string;
+  signalTypes: string[];
+}
+
+// Cache yaşına göre buton stratejisi (mobile UX)
+//  - fresh (< 4 saat): "Veriler güncel" rozeti, buton gizli
+//  - stale (4-12 saat): secondary "Verileri Tazele"
+//  - old   (> 12 saat): primary "Yeniden Tara"
+type CacheFreshness = 'fresh' | 'stale' | 'old' | 'none';
+
+function getCacheFreshness(scannedAtIso: string | null): CacheFreshness {
+  if (!scannedAtIso) return 'none';
+  const ageMs = Date.now() - new Date(scannedAtIso).getTime();
+  if (ageMs < 4 * 60 * 60 * 1000)  return 'fresh';
+  if (ageMs < 12 * 60 * 60 * 1000) return 'stale';
+  return 'old';
+}
 
 const DIRECTION_OPTIONS: { value: DirectionFilter; label: string; icon: React.ElementType }[] = [
   { value: 'Tümü',   label: 'Tümü',   icon: Activity     },
@@ -171,11 +208,20 @@ function filterAndSortResults(
 
 // ─── Chip ─────────────────────────────────────────────────────────────────────
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function Chip({
+  active, onClick, children, disabled,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+      disabled={disabled}
+      aria-pressed={active}
+      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
         active
           ? 'border-primary bg-primary/15 text-primary'
           : 'border-border bg-surface text-text-secondary hover:border-primary/40 hover:text-text-primary'
@@ -440,7 +486,6 @@ function TaramaPageInner() {
   const searchParams = useSearchParams();
   const sektorParam   = searchParams.get('sektor');
   const excludeParam  = searchParams.get('exclude');
-  const excludeSet    = new Set(excludeParam ? excludeParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) : []);
 
   // Filter state
   const [signalType,         setSignalType]         = useState<SignalTypeFilter>('Tümü');
@@ -468,11 +513,129 @@ function TaramaPageInner() {
   const [macroScore,           setMacroScore]           = useState<{ score: number; wind: string } | null>(null);
   const [winRateMap,           setWinRateMap]           = useState<Map<string, { rate: number; sampleSize: number; horizon?: string }>>(new Map());
   const [macroBannerDismissed, setMacroBannerDismissed] = useState(false);
+  const [delayBannerDismissed, setDelayBannerDismissed] = useState(false);
   const [onlyKapToday,         setOnlyKapToday]         = useState(false);
   const [kapTodaySet,          setKapTodaySet]          = useState<Set<string>>(new Set());
   const [dbScannedAt,          setDbScannedAt]          = useState<string | null>(null);
   const [dbAgeMinutes,         setDbAgeMinutes]         = useState<number | null>(null);
   const explanationCache = useRef<Map<string, string>>(new Map());
+
+  // Sprint 2 — AI özet, sektör grup mod, preset, watchlist auth
+  const [groupBySector, setGroupBySector] = useState<boolean>(false);
+  const [aiText, setAiText] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
+  const [loggedIn, setLoggedIn] = useState<boolean>(false);
+  const [tier, setTier] = useState<AiTier>('free');
+  const [filterPresets, setFilterPresets] = useState<FilterPreset[]>([]);
+
+  // Cache yaşı — buton görünürlüğü için
+  const cacheFreshness: CacheFreshness = useMemo(() => getCacheFreshness(dbScannedAt), [dbScannedAt]);
+
+  // Delay banner — tek seferlik dismiss
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(DELAY_BANNER_DISMISS_KEY) === '1') setDelayBannerDismissed(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  const dismissDelayBanner = useCallback(() => {
+    setDelayBannerDismissed(true);
+    try { localStorage.setItem(DELAY_BANNER_DISMISS_KEY, '1'); } catch { /* ignore */ }
+  }, []);
+
+  // localStorage cache cleanup — eski tarihli scan sonuçlarını sil
+  useEffect(() => {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(SCAN_CACHE_PREFIX) && key !== SCAN_CACHE_KEY) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // URL persist — mount'ta okuma + filtre değiştikçe yazma
+  const didReadUrlRef = useRef(false);
+  useEffect(() => {
+    if (didReadUrlRef.current) return;
+    didReadUrlRef.current = true;
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    const sigVal = sp.get('signal');
+    const dirVal = sp.get('dir');
+    const sortVal = sp.get('sort');
+    if (sigVal) setSignalType(sigVal as SignalTypeFilter);
+    if (dirVal === 'Yukarı' || dirVal === 'Aşağı' || dirVal === 'Tümü') setDirection(dirVal as DirectionFilter);
+    if (sortVal && SORT_OPTIONS.some(o => o.value === sortVal)) setSortBy(sortVal as SortBy);
+    if (sp.get('mtf') === '1')   setOnlyWeeklyAligned(true);
+    if (sp.get('strong') === '1') setOnlyStrong(true);
+    if (sp.get('hc') === '1')    setOnlyHighConfluence(true);
+    if (sp.get('ss') === '1')    setOnlyStrongSectors(true);
+    if (sp.get('kap') === '1')   setOnlyKapToday(true);
+    const sek = sp.get('sek');
+    if (sek) setSelectedSector(sek as SectorId);
+    const q = sp.get('q');
+    if (q) setSearchQuery(q);
+    if (sp.get('v') === 'list')  setViewMode('list');
+  }, []);
+
+  // Auth + tier (soft login — AI özeti ve preset için)
+  useEffect(() => {
+    (async () => {
+      try {
+        const supabase = createSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        setLoggedIn(true);
+        const { data: prof } = await supabase
+          .from('profiles').select('tier').eq('id', user.id).single();
+        setTier(((prof as { tier?: AiTier } | null)?.tier ?? 'free'));
+      } catch { /* sessizce */ }
+    })();
+  }, []);
+
+  // Preset yükleme
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(FILTER_PRESETS_KEY);
+      if (saved) setFilterPresets(JSON.parse(saved) as FilterPreset[]);
+    } catch { /* ignore */ }
+  }, []);
+
+  const savePresets = useCallback((presets: FilterPreset[]) => {
+    setFilterPresets(presets);
+    try { localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets)); } catch { /* ignore */ }
+  }, []);
+
+  // Filtre değiştikçe URL güncelle (replaceState — history kirliliği yok)
+  useEffect(() => {
+    if (!didReadUrlRef.current || typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    // Mevcut bazı paramları koru: sektor, exclude
+    const preserved = ['sektor', 'exclude'];
+    const next = new URLSearchParams();
+    for (const key of preserved) {
+      const v = sp.get(key);
+      if (v) next.set(key, v);
+    }
+    if (signalType !== 'Tümü')   next.set('signal', signalType);
+    if (direction !== 'Tümü')    next.set('dir', direction);
+    if (sortBy !== 'confluence') next.set('sort', sortBy);
+    if (onlyWeeklyAligned)       next.set('mtf', '1');
+    if (onlyStrong)              next.set('strong', '1');
+    if (onlyHighConfluence)      next.set('hc', '1');
+    if (onlyStrongSectors)       next.set('ss', '1');
+    if (onlyKapToday)            next.set('kap', '1');
+    if (selectedSector)          next.set('sek', selectedSector);
+    if (searchQuery)             next.set('q', searchQuery);
+    if (viewMode === 'list')     next.set('v', 'list');
+    const qs = next.toString();
+    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, '', url);
+  }, [signalType, direction, sortBy, onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, onlyKapToday, selectedSector, searchQuery, viewMode]);
 
   // Load prefs
   useEffect(() => {
@@ -688,6 +851,42 @@ function TaramaPageInner() {
     setSearchQuery('');
   }, []);
 
+  // ── Sprint 2: Preset (filter zinciri öncesi tanımlanabilir) ──────────
+
+  const saveCurrentAsPreset = useCallback(() => {
+    const name = window.prompt('Preset adı:');
+    if (!name) return;
+    const newPreset: FilterPreset = {
+      name: name.trim().slice(0, 30),
+      signalType, direction, sortBy,
+      onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, onlyKapToday,
+      selectedSector,
+      signalTypes: selectedTypes,
+    };
+    savePresets([...filterPresets.filter((p) => p.name !== newPreset.name), newPreset]);
+    toast.success(`"${newPreset.name}" kaydedildi`);
+  }, [signalType, direction, sortBy, onlyWeeklyAligned, onlyStrong, onlyHighConfluence,
+      onlyStrongSectors, onlyKapToday, selectedSector, selectedTypes, filterPresets, savePresets]);
+
+  const applySavedPreset = useCallback((p: FilterPreset) => {
+    setSignalType(p.signalType);
+    setDirection(p.direction);
+    setSortBy(p.sortBy as SortBy);
+    setOnlyWeeklyAligned(p.onlyWeeklyAligned);
+    setOnlyStrong(p.onlyStrong);
+    setOnlyHighConfluence(p.onlyHighConfluence);
+    setOnlyStrongSectors(p.onlyStrongSectors);
+    setOnlyKapToday(p.onlyKapToday);
+    setSelectedSector(p.selectedSector as SectorId | '');
+    if (p.signalTypes && p.signalTypes.length > 0) setSelectedTypes(p.signalTypes);
+    toast.success(`"${p.name}" uygulandı`);
+  }, []);
+
+  const deletePreset = useCallback((name: string) => {
+    if (!window.confirm(`"${name}" preset'i silinsin mi?`)) return;
+    savePresets(filterPresets.filter((p) => p.name !== name));
+  }, [filterPresets, savePresets]);
+
   const applyPreset = useCallback((types: string[]) => {
     setSelectedTypes(types);
     try { localStorage.setItem(SCAN_PREFS_KEY, JSON.stringify(types)); } catch { /* ignore */ }
@@ -717,60 +916,243 @@ function TaramaPageInner() {
     if (totalN > 0) avgWinRate = totalWR / totalN;
   }
 
-  const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
-  // Progressive render: tarama devam ederken de bulunan sinyalleri göster
-  const rawDisplayList = filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
-  // Sektör URL param filtresi + sembol arama
+  // ── Türetilmiş filtre zinciri — useMemo ile her render hesaplama önlendi (D2 fix) ──
+
   const searchUpper = searchQuery.trim().toUpperCase();
 
-  // Arama aktifken tüm BIST_SYMBOLS içinde ara — sinyali olmayan hisseler de çıksın
-  const searchMatchedSymbols: string[] = searchUpper
-    ? (BIST_SYMBOLS as readonly string[]).filter(s => s.includes(searchUpper))
-    : [];
-  const resultSembolSet = new Set(rawDisplayList.map(r => r.sembol));
-  const noSignalSearchResults: ScanResult[] = searchUpper
-    ? searchMatchedSymbols
-        .filter(s => !resultSembolSet.has(s))
-        .map(s => ({ sembol: s, signals: [], candles: [], changePercent: undefined }))
-    : [];
+  // Excluded set'i memoize — her render'da yeni Set oluşmasın
+  const excludeSetMemo = useMemo(() => {
+    return excludeParam
+      ? new Set(excludeParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean))
+      : new Set<string>();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [excludeParam]);
 
-  const filteredBySearch = searchUpper
-    ? [...rawDisplayList.filter(r => r.sembol.includes(searchUpper)), ...noSignalSearchResults]
-    : rawDisplayList;
-  const filteredBySectorParam = sektorParam
-    ? filteredBySearch.filter(r => getSectorId(r.sembol) === sektorParam)
-    : filteredBySearch;
-  const filteredBySectorDropdown = selectedSector
-    ? filteredBySectorParam.filter(r => getSectorId(r.sembol) === selectedSector)
-    : filteredBySectorParam;
-  const filteredByExclude = excludeSet.size > 0
-    ? filteredBySectorDropdown.filter((r) => !excludeSet.has(r.sembol))
-    : filteredBySectorDropdown;
-  const displayList = onlyStrongSectors
-    ? filteredByExclude.filter(r => {
-        const hasBullish = r.signals.some(s => s.direction === 'yukari');
-        if (!hasBullish) return true;
+  const filteredByKap = useMemo(() => {
+    const smartFilters = { onlyWeeklyAligned, onlyStrong, onlyHighConfluence };
+    const rawDisplayList = filterAndSortResults(results, signalType, direction, smartFilters, sortBy, winRateMap);
+
+    // Arama: sinyalsiz hisseler de eklenir
+    const searchMatchedSymbols: string[] = searchUpper
+      ? (BIST_SYMBOLS as readonly string[]).filter(s => s.includes(searchUpper))
+      : [];
+    const resultSembolSet = new Set(rawDisplayList.map(r => r.sembol));
+    const noSignalSearchResults: ScanResult[] = searchUpper
+      ? searchMatchedSymbols
+          .filter(s => !resultSembolSet.has(s))
+          .map(s => ({ sembol: s, signals: [], candles: [], changePercent: undefined }))
+      : [];
+
+    let list = searchUpper
+      ? [...rawDisplayList.filter(r => r.sembol.includes(searchUpper)), ...noSignalSearchResults]
+      : rawDisplayList;
+
+    if (sektorParam) {
+      list = list.filter(r => getSectorId(r.sembol) === sektorParam);
+    }
+    if (selectedSector) {
+      list = list.filter(r => getSectorId(r.sembol) === selectedSector);
+    }
+    if (excludeSetMemo.size > 0) {
+      list = list.filter(r => !excludeSetMemo.has(r.sembol));
+    }
+
+    // D1 fix — onlyStrongSectors mantığı:
+    // Sektör momentum'u sinyal yönüyle UYUMLU olmalı (yukari sinyal + yukari sektör veya asagi+asagi).
+    // Önceki kod yanlışlıkla sadece negative case'i filtreliyordu, neutral sektörler geçiyordu.
+    if (onlyStrongSectors) {
+      list = list.filter(r => {
         const sector = sectorMap.get(getSector(r.sembol).id);
-        return !sector || sector.direction !== 'asagi';
-      })
-    : filteredByExclude;
-  const filteredByKap = onlyKapToday && kapTodaySet.size > 0
-    ? displayList.filter(r => kapTodaySet.has(r.sembol))
-    : displayList;
-  const activeFilterCount = [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper, excludeSet.size > 0, onlyKapToday].filter(Boolean).length;
+        if (!sector) return false; // sektör verisi yok → filtre dışı
+        const primary = r.signals[0];
+        if (!primary) return false;
+        // Yön uyumu: AL → sektör yukari, SAT → sektör asagi
+        if (primary.direction === 'yukari') return sector.direction === 'yukari';
+        if (primary.direction === 'asagi')  return sector.direction === 'asagi';
+        return sector.direction === 'yukari'; // nötr sinyalse pozitif sektör tercih
+      });
+    }
+
+    if (onlyKapToday && kapTodaySet.size > 0) {
+      list = list.filter(r => kapTodaySet.has(r.sembol));
+    }
+
+    return list;
+  }, [
+    results, signalType, direction, onlyWeeklyAligned, onlyStrong, onlyHighConfluence,
+    onlyStrongSectors, onlyKapToday, selectedSector, sektorParam, searchUpper,
+    sortBy, winRateMap, kapTodaySet, sectorMap, excludeSetMemo,
+  ]);
+
+  const activeFilterCount = useMemo(() =>
+    [signalType !== 'Tümü', direction !== 'Tümü', onlyWeeklyAligned, onlyStrong,
+     onlyHighConfluence, onlyStrongSectors, !!selectedSector, !!searchUpper,
+     excludeSetMemo.size > 0, onlyKapToday].filter(Boolean).length,
+    [signalType, direction, onlyWeeklyAligned, onlyStrong, onlyHighConfluence,
+     onlyStrongSectors, selectedSector, searchUpper, excludeSetMemo.size, onlyKapToday],
+  );
+
+  // ── Sektör grup mod (Sprint 2: W5) ──────────────────────────────────
+  const groupedBySector = useMemo(() => {
+    if (!groupBySector) return null;
+    const groups = new Map<string, { sektorAdi: string; sektorId: SectorId; items: ScanResult[] }>();
+    for (const r of filteredByKap) {
+      if (r.signals.length === 0) continue;
+      const sec = getSector(r.sembol);
+      const key = sec.id;
+      if (!groups.has(key)) groups.set(key, { sektorAdi: sec.shortName, sektorId: sec.id as SectorId, items: [] });
+      groups.get(key)!.items.push(r);
+    }
+    return [...groups.values()].sort((a, b) => b.items.length - a.items.length);
+  }, [groupBySector, filteredByKap]);
+
+  // ── Sprint 2: AI Özet ───────────────────────────────────────────────
+
+  const startAiSummary = useCallback(async () => {
+    if (aiLoading || !loggedIn || tier === 'free') return;
+    setAiError(null);
+    setAiLoading(true);
+    setAiText('');
+    aiAbortRef.current = new AbortController();
+    try {
+      const signalGroups = new Map<string, { count: number; al: number; sat: number; strong: number }>();
+      const sectorGroups = new Map<string, number>();
+      for (const r of results) {
+        for (const s of r.signals) {
+          const g = signalGroups.get(s.type) ?? { count: 0, al: 0, sat: 0, strong: 0 };
+          g.count++;
+          if (s.direction === 'yukari') g.al++;
+          if (s.direction === 'asagi')  g.sat++;
+          if (s.severity === 'güçlü')   g.strong++;
+          signalGroups.set(s.type, g);
+        }
+        const sec = getSector(r.sembol).shortName;
+        sectorGroups.set(sec, (sectorGroups.get(sec) ?? 0) + 1);
+      }
+      const signalBreakdown = [...signalGroups.entries()]
+        .map(([type, g]) => ({ type, count: g.count, alCount: g.al, satCount: g.sat, strongCount: g.strong }))
+        .sort((a, b) => b.count - a.count);
+      const sectorBreakdown = [...sectorGroups.entries()]
+        .map(([shortName, count]) => ({ shortName, count }))
+        .sort((a, b) => b.count - a.count);
+
+      const totalSignals = signalBreakdown.reduce((s, x) => s + x.count, 0);
+
+      const res = await fetch('/api/tarama/ai-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          totalSignals,
+          totalScanned: scannedCount,
+          alCount,
+          satCount,
+          strongCount,
+          signalBreakdown,
+          sectorBreakdown,
+          avgWinRate,
+        }),
+        signal: aiAbortRef.current.signal,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setAiError(d.error ?? 'Bir hata oluştu.');
+        return;
+      }
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const dec = new TextDecoder();
+      let acc = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of dec.decode(value, { stream: true }).split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const p = JSON.parse(line.slice(6));
+            if (p.text) { acc += p.text; setAiText(acc); }
+            if (p.error) setAiError(p.error);
+          } catch { /* ignore */ }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') setAiError('Bağlantı hatası.');
+    } finally {
+      setAiLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiLoading, loggedIn, tier, results, scannedCount, alCount, satCount, strongCount, avgWinRate]);
+
+  // ── Sprint 2: CSV Export ────────────────────────────────────────────
+
+  const downloadCsv = useCallback(() => {
+    if (!hasScanResults) {
+      toast.info('Önce tarama yapın');
+      return;
+    }
+    const headers = [
+      'Sembol', 'Sektör', 'Yön', 'Sinyal Tipi', 'Şiddet',
+      'Confluence', 'Win Rate %', 'Değişim %',
+    ];
+    const rows = filteredByKap.flatMap((r) => {
+      if (r.signals.length === 0) return [];
+      const conf = r.signals.length > 1 ? computeConfluence(r.signals).score : '';
+      const change = getDailyChange(r.candles, r.changePercent) * 100;
+      return r.signals.map((s) => {
+        const wr = winRateMap.get(s.type);
+        return [
+          r.sembol,
+          getSector(r.sembol).shortName,
+          s.direction === 'yukari' ? 'AL' : s.direction === 'asagi' ? 'SAT' : '',
+          s.type,
+          s.severity,
+          conf,
+          wr ? Math.round(wr.rate * 100) : '',
+          change.toFixed(2),
+        ];
+      });
+    });
+    if (rows.length === 0) {
+      toast.info('İndirilecek satır yok');
+      return;
+    }
+    const escape = (v: string | number) => {
+      const str = String(v);
+      return /[",;\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const csv = '﻿' + [headers, ...rows].map((r) => r.map(escape).join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bistai-tarama-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`${rows.length} satır indirildi`);
+  }, [hasScanResults, filteredByKap, winRateMap]);
 
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
 
-        {/* ── Veri gecikme uyarısı ── */}
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
-          <span className="shrink-0">⚠️</span>
-          <span>
-            <strong>Veri ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
-            Sinyaller teknik analiz için uygundur; anlık işlem kararları için broker platformunuzu kullanın.
-          </span>
-        </div>
+        {/* ── Veri gecikme uyarısı (dismissible — U4 fix) ── */}
+        {!delayBannerDismissed && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
+            <span className="shrink-0">⚠️</span>
+            <span className="flex-1">
+              <strong>Veri ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
+              Sinyaller teknik analiz için uygundur; anlık işlem kararları için broker platformunuzu kullanın.
+            </span>
+            <button
+              onClick={dismissDelayBanner}
+              aria-label="Uyarıyı kapat"
+              className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* ── Row 1: Title + view/sort/scan controls ── */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -797,14 +1179,61 @@ function TaramaPageInner() {
               </div>
             )}
 
-            {hasScanResults && <SortDropdown value={sortBy} onChange={setSortBy} />}
+            {hasScanResults && (
+              <>
+                <button
+                  onClick={() => setGroupBySector((v) => !v)}
+                  title="Sektörlere göre grupla"
+                  aria-pressed={groupBySector}
+                  className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    groupBySector
+                      ? 'border-primary bg-primary/15 text-primary'
+                      : 'border-border bg-surface text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <Folder className="h-3 w-3" />
+                  Sektör
+                </button>
+                <button
+                  onClick={downloadCsv}
+                  disabled={!hasScanResults}
+                  title="Sonuçları CSV olarak indir"
+                  className="flex items-center gap-1 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary disabled:opacity-40 transition-colors"
+                >
+                  <Download className="h-3 w-3" />
+                  <span className="hidden sm:inline">CSV</span>
+                </button>
+                <SortDropdown value={sortBy} onChange={setSortBy} />
+              </>
+            )}
 
             {hasScanResults ? (
               <div className="flex items-center gap-1">
-                <Button onClick={runScan} disabled={loading} size="sm" className="gap-2">
-                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                  {loading ? 'Taranıyor...' : 'Yeniden Tara'}
-                </Button>
+                {/* U5 fix — Cache-aware buton (mobile UX) */}
+                {cacheFreshness === 'fresh' && !loading ? (
+                  <span
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-2.5 py-1.5 text-xs font-medium text-emerald-400"
+                    title={`Veri güncel: ${dbScannedAt ? new Date(dbScannedAt).toLocaleString('tr-TR') : ''}`}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Veri güncel
+                  </span>
+                ) : (
+                  <Button
+                    onClick={runScan}
+                    disabled={loading}
+                    size="sm"
+                    variant={cacheFreshness === 'stale' ? 'outline' : 'default'}
+                    className="gap-2"
+                    title={cacheFreshness === 'stale' ? 'Verileri tazele (cache 4+ saat)' : 'Tüm hisseleri yeniden tara'}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    {loading
+                      ? 'Taranıyor...'
+                      : cacheFreshness === 'stale' ? 'Tazele'
+                      : 'Yeniden Tara'}
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={resetToEmptyState} title="Sinyal seçimini değiştir">
                   <Settings className="h-3.5 w-3.5" />
                 </Button>
@@ -817,6 +1246,48 @@ function TaramaPageInner() {
             )}
           </div>
         </div>
+
+        {/* ── Filtre Preset'leri ── */}
+        {hasScanResults && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              Preset:
+            </span>
+            {filterPresets.length === 0 ? (
+              <span className="text-xs text-text-muted/70">
+                Mevcut filtrelerden bir preset oluştur ↓
+              </span>
+            ) : (
+              filterPresets.map((p) => (
+                <div key={p.name} className="group relative inline-flex">
+                  <button
+                    onClick={() => applySavedPreset(p)}
+                    className="rounded-full border border-border bg-surface px-3 py-1 text-xs text-text-secondary hover:border-primary/40 hover:text-text-primary transition-colors"
+                  >
+                    {p.name}
+                  </button>
+                  <button
+                    onClick={() => deletePreset(p.name)}
+                    className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-full bg-red-500/70 text-[10px] text-white group-hover:flex"
+                    aria-label={`${p.name} sil`}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            )}
+            {activeFilterCount > 0 && (
+              <button
+                onClick={saveCurrentAsPreset}
+                className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-xs text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                title="Mevcut filtre kombinasyonunu kaydet"
+              >
+                <Save className="h-3 w-3" />
+                Kaydet
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ── Row 2: Filter chips ── */}
         <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -844,7 +1315,12 @@ function TaramaPageInner() {
 
           <div className="flex flex-wrap gap-1.5">
             {SIGNAL_TYPE_OPTIONS.map(o => (
-              <Chip key={o.value} active={signalType === o.value} onClick={() => setSignalType(o.value)}>
+              <Chip
+                key={o.value}
+                active={signalType === o.value}
+                onClick={() => setSignalType(o.value)}
+                disabled={loading}
+              >
                 {o.label}
               </Chip>
             ))}
@@ -854,7 +1330,12 @@ function TaramaPageInner() {
 
           <div className="flex gap-1.5">
             {DIRECTION_OPTIONS.map(o => (
-              <Chip key={o.value} active={direction === o.value} onClick={() => setDirection(o.value)}>
+              <Chip
+                key={o.value}
+                active={direction === o.value}
+                onClick={() => setDirection(o.value)}
+                disabled={loading}
+              >
                 <span className="flex items-center gap-1">
                   <o.icon className="h-3 w-3" />
                   {o.label}
@@ -870,7 +1351,8 @@ function TaramaPageInner() {
               <select
                 value={selectedSector}
                 onChange={e => setSelectedSector(e.target.value as SectorId | '')}
-                className="h-7 rounded-lg border border-border bg-surface px-2 text-xs text-text-secondary focus:border-primary focus:outline-none"
+                disabled={loading}
+                className="h-7 rounded-lg border border-border bg-surface px-2 text-xs text-text-secondary focus:border-primary focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <option value="">Tüm Sektörler</option>
                 {(Object.values(SECTORS) as { id: string; shortName: string }[]).map(s => (
@@ -878,13 +1360,14 @@ function TaramaPageInner() {
                 ))}
               </select>
               <div className="h-5 w-px bg-border" />
-              <Chip active={onlyWeeklyAligned}  onClick={() => setOnlyWeeklyAligned(v => !v)}>W✓ Haftalık</Chip>
-              <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)}>Güçlü</Chip>
-              <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)}>Yüksek Güven</Chip>
-              <Chip active={onlyStrongSectors}   onClick={() => setOnlyStrongSectors(v => !v)}>Güçlü Sektör</Chip>
+              <Chip active={onlyWeeklyAligned}  onClick={() => setOnlyWeeklyAligned(v => !v)} disabled={loading}>W✓ Haftalık</Chip>
+              <Chip active={onlyStrong}          onClick={() => setOnlyStrong(v => !v)} disabled={loading}>Güçlü</Chip>
+              <Chip active={onlyHighConfluence}  onClick={() => setOnlyHighConfluence(v => !v)} disabled={loading}>Yüksek Güven</Chip>
+              <Chip active={onlyStrongSectors}   onClick={() => setOnlyStrongSectors(v => !v)} disabled={loading}>Güçlü Sektör</Chip>
               <Chip
                 active={onlyKapToday}
                 onClick={() => setOnlyKapToday(v => !v)}
+                disabled={loading}
               >
                 KAP{kapTodaySet.size > 0 && ` (${kapTodaySet.size})`}
               </Chip>
@@ -905,10 +1388,10 @@ function TaramaPageInner() {
         )}
 
         {/* Portföy dışı fırsatlar bandı */}
-        {excludeSet.size > 0 && (
+        {excludeSetMemo.size > 0 && (
           <div className="mb-4 flex items-center justify-between rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-2.5 text-sm text-violet-400">
             <span>
-              Portföyündeki <span className="font-semibold">{excludeSet.size} hisse</span> filtrelendi · Yalnızca portföy dışı fırsatlar gösteriliyor
+              Portföyündeki <span className="font-semibold">{excludeSetMemo.size} hisse</span> filtrelendi · Yalnızca portföy dışı fırsatlar gösteriliyor
             </span>
             <a href="/tarama" className="ml-3 shrink-0 text-xs opacity-60 hover:opacity-100 transition-opacity">Tüm hisseler →</a>
           </div>
@@ -954,6 +1437,64 @@ function TaramaPageInner() {
                 )}
               </div>
             )}
+
+            {/* AI Tarama Özeti — Pro/Premium */}
+            <div className="mb-4">
+              {!loggedIn || tier === 'free' ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-3">
+                  <Lock className="h-4 w-4 text-violet-400 shrink-0" />
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-sm font-semibold text-violet-300">AI Tarama Özeti</p>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      {!loggedIn
+                        ? 'Bu özelliği kullanmak için giriş yapın'
+                        : 'Pro ve Premium planlarda — yatırımcı diliyle tarama özeti'}
+                    </p>
+                  </div>
+                  <Link
+                    href={!loggedIn ? '/giris' : '/fiyatlandirma'}
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-500/20 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-500/30 transition-colors"
+                  >
+                    {!loggedIn ? 'Giriş Yap' : <><Crown className="h-3 w-3" />Yükselt</>}
+                  </Link>
+                </div>
+              ) : !aiText && !aiLoading ? (
+                <button
+                  onClick={() => void startAiSummary()}
+                  className="flex w-full items-center gap-2 rounded-xl border border-violet-500/30 bg-gradient-to-br from-violet-500/15 to-indigo-500/5 px-4 py-2.5 text-sm font-medium text-violet-300 hover:from-violet-500/25 hover:to-indigo-500/10 transition-all"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>AI ile Tarama Özeti Al</span>
+                  <span className="ml-auto text-[10px] text-violet-400/70">~5 sn</span>
+                </button>
+              ) : (
+                <div className="rounded-xl border border-violet-500/25 bg-gradient-to-br from-violet-500/10 to-indigo-500/5 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Bot className="h-4 w-4 text-violet-400" />
+                    <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">AI Tarama Analizi</span>
+                    {!aiLoading && aiText && (
+                      <button
+                        onClick={() => { setAiText(''); setAiError(null); }}
+                        className="ml-auto text-[11px] text-text-muted hover:text-text-secondary"
+                      >
+                        Kapat
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">
+                    {aiText || (aiLoading && (
+                      <span className="inline-flex items-center gap-2 text-text-muted">
+                        <Zap className="h-3 w-3 animate-pulse" /> AI düşünüyor…
+                      </span>
+                    ))}
+                    {aiLoading && aiText && (
+                      <span className="inline-block h-4 w-0.5 animate-pulse bg-violet-400 align-middle ml-0.5" />
+                    )}
+                  </div>
+                  {aiError && <p className="mt-2 text-xs text-red-400">{aiError}</p>}
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -982,7 +1523,53 @@ function TaramaPageInner() {
           </motion.div>
         )}
 
-        {filteredByKap.length > 0 && (
+        {/* Sektör grup mod aktif — sektör başlıklarıyla render */}
+        {filteredByKap.length > 0 && groupBySector && groupedBySector && (
+          <div className="space-y-6">
+            {groupedBySector.map((g) => (
+              <section key={g.sektorId}>
+                <div className="mb-3 flex items-end justify-between gap-2 flex-wrap">
+                  <h3 className="text-sm font-bold text-text-primary">{g.sektorAdi}</h3>
+                  <span className="text-xs text-text-muted">{g.items.length} sinyal</span>
+                </div>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={viewMode === 'grid' ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'flex flex-col gap-2'}
+                >
+                  {g.items.map((r) => {
+                    const primarySig = r.signals[0]!;
+                    return (
+                      <StockCard
+                        key={r.sembol}
+                        signal={primarySig}
+                        candleData={r.candles}
+                        allSignals={r.signals}
+                        macroScore={macroScore}
+                        winRate={winRateMap.get(primarySig.type) ?? null}
+                        sectorMomentum={sectorMap.get(getSector(r.sembol).id) ?? null}
+                        viewMode={viewMode}
+                        marketChangePercent={r.changePercent}
+                        cachedExplanation={explanationCache.current.get(`${r.sembol}:${primarySig.type}`) ?? null}
+                        onExplanationLoaded={(text) => {
+                          const cache = explanationCache.current;
+                          if (cache.size >= EXPLANATION_CACHE_LIMIT) {
+                            const firstKey = cache.keys().next().value;
+                            if (firstKey) cache.delete(firstKey);
+                          }
+                          cache.set(`${r.sembol}:${primarySig.type}`, text);
+                        }}
+                      />
+                    );
+                  })}
+                </motion.div>
+              </section>
+            ))}
+          </div>
+        )}
+
+        {/* Klasik (düz) görünüm */}
+        {filteredByKap.length > 0 && !groupBySector && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1031,7 +1618,15 @@ function TaramaPageInner() {
                       viewMode={viewMode}
                       marketChangePercent={r.changePercent}
                       cachedExplanation={explanationCache.current.get(`${r.sembol}:${primarySig.type}`) ?? null}
-                      onExplanationLoaded={(text) => explanationCache.current.set(`${r.sembol}:${primarySig.type}`, text)}
+                      onExplanationLoaded={(text) => {
+                        const cache = explanationCache.current;
+                        // LRU benzeri davranış: ilk ekleneni at (D15 fix)
+                        if (cache.size >= EXPLANATION_CACHE_LIMIT) {
+                          const firstKey = cache.keys().next().value;
+                          if (firstKey) cache.delete(firstKey);
+                        }
+                        cache.set(`${r.sembol}:${primarySig.type}`, text);
+                      }}
                     />
                   </motion.div>
                 );

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { getAllSectors, getSymbolsBySector, SECTORS } from '@/lib/sectors';
+import { getAllSectors, getSymbolsBySector, SECTORS, SECTOR_REPRESENTATIVES } from '@/lib/sectors';
 import { analyzeSector, analyzeAllSectors } from '@/lib/sector-engine';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { getMacroScore } from '@/lib/macro-service';
@@ -39,9 +39,12 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
 
-  // Sadece sektör listesi
+  // Sadece sektör listesi (statik, uzun cache)
   if (searchParams.get('list') === 'true') {
-    return NextResponse.json({ sectors: getAllSectors() });
+    return NextResponse.json(
+      { sectors: getAllSectors() },
+      { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' } },
+    );
   }
 
   // Tek sektör detay
@@ -67,7 +70,10 @@ async function handleSingleSector(sectorId: SectorId): Promise<NextResponse> {
     ]);
 
     const analysis = analyzeSector(sectorId, sectorData, macroScore);
-    return NextResponse.json(analysis);
+    return NextResponse.json(
+      analysis,
+      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
     console.error(`[api/sectors] Hata (${sectorId}):`, message);
@@ -83,8 +89,11 @@ async function handleAllSectors(): Promise<NextResponse> {
     const sectorDataMap = {} as Record<SectorId, Record<string, OHLCVCandle[]>>;
     const fetchPromises: Array<Promise<void>> = [];
 
+    // Tek SoT: frontend'in kullandığı SECTOR_REPRESENTATIVES (B3 fix)
+    // → API ve UI aynı hisse seti üzerinden hesaplar, makro alignment + composite tutarlı.
     for (const sector of allSectors) {
-      const symbols = sector.symbols.slice(0, 5);
+      const reps = SECTOR_REPRESENTATIVES[sector.id];
+      const symbols = reps && reps.length > 0 ? reps : sector.symbols.slice(0, 5);
       fetchPromises.push(
         fetchSectorData(symbols).then((data) => {
           sectorDataMap[sector.id] = data;
@@ -95,7 +104,10 @@ async function handleAllSectors(): Promise<NextResponse> {
     await Promise.all(fetchPromises);
 
     const snapshot = analyzeAllSectors(sectorDataMap, macroScore);
-    return NextResponse.json(snapshot);
+    return NextResponse.json(
+      snapshot,
+      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
     console.error('[api/sectors] Hata:', message);
@@ -110,7 +122,8 @@ async function fetchSectorData(
 ): Promise<Record<string, OHLCVCandle[]>> {
   const results = await Promise.allSettled(
     symbols.map(async (s) => {
-      const { candles: data } = await fetchOHLCV(s, 90);
+      // 60 işlem günü için en az ~90 takvim günü gerek; 120 güvenli (B1 fix)
+      const { candles: data } = await fetchOHLCV(s, 120);
       return { symbol: s, data };
     })
   );
