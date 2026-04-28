@@ -234,8 +234,15 @@ export function calculateMacroScore(
 // ── FRED Verilerinden Ek Skor (bonus — ana skora eklenebilir) ──────
 
 /**
- * FRED verilerinden ABD ekonomi sağlık skoru (bilgi amaçlı).
- * Ana makro skora dahil değil, Phase 6'da kullanılabilir.
+ * FRED verilerinden ABD ekonomi sağlık skoru — 0-100 mutlak ölçek.
+ *
+ * 50 = nötr taban. Her boyut sağlıklıysa puan ekler, zayıfsa çıkarır.
+ * Etiket eşikleri (formatMacroResponse'ta): >=60 Güçlü, >=40 Normal, <40 Zayıf.
+ *
+ * Tasarım kararı: Önceki sürüm "delta" mantığı kullanıyordu (sıfırdan başla,
+ * sadece change/uç değerlerde puan ekle/çıkar). Sonuç hep 0 civarında kalıyor
+ * ve sağlıklı veride bile "Zayıf" görünüyordu. Bu sürüm her gösterge için
+ * absolute seviye + trendi birlikte değerlendiriyor.
  */
 export function calculateUSEconomyHealth(fredData: FredSnapshot | null): {
   score: number;
@@ -243,42 +250,57 @@ export function calculateUSEconomyHealth(fredData: FredSnapshot | null): {
 } | null {
   if (!fredData) return null;
 
-  let score = 0;
+  let score = 50; // Nötr taban
   const details: string[] = [];
+  let dimensionsScored = 0;
 
-  // Fed Funds Rate trendi
-  if (fredData.fedFundsRate?.change !== null && fredData.fedFundsRate?.change !== undefined) {
-    if (fredData.fedFundsRate.change < 0) {
-      score += 20; // Faiz indirimi → likidite → EM pozitif
-      details.push('Fed faiz indirimi (EM pozitif)');
-    } else if (fredData.fedFundsRate.change > 0) {
-      score -= 15;
-      details.push('Fed faiz artışı (EM negatif)');
+  // Fed Funds Rate — seviye + trend
+  // Düşük faiz (<3) genişlemeci, yüksek faiz (>5) sıkı
+  // İndirim trendi → EM pozitif, artış trendi → EM negatif
+  const fedRate = fredData.fedFundsRate?.latestValue;
+  const fedChange = fredData.fedFundsRate?.change;
+  if (fedRate != null) {
+    dimensionsScored++;
+    if (fedRate < 2) {
+      score += 8; details.push(`Fed %${fedRate.toFixed(2)} (gevşek)`);
+    } else if (fedRate < 4) {
+      score += 4; details.push(`Fed %${fedRate.toFixed(2)} (nötr)`);
+    } else if (fedRate < 5.5) {
+      score -= 2; details.push(`Fed %${fedRate.toFixed(2)} (sıkı)`);
+    } else {
+      score -= 8; details.push(`Fed %${fedRate.toFixed(2)} (çok sıkı)`);
+    }
+    if (fedChange != null && Math.abs(fedChange) >= 0.1) {
+      if (fedChange < 0) { score += 5; details.push('faiz indirimi'); }
+      else                { score -= 5; details.push('faiz artışı'); }
     }
   }
 
-  // GDP büyüme
-  if (fredData.gdpGrowth?.latestValue !== null && fredData.gdpGrowth?.latestValue !== undefined) {
-    if (fredData.gdpGrowth.latestValue > 2) {
-      score += 10; // Sağlıklı büyüme
-      details.push(`GDP %${fredData.gdpGrowth.latestValue} (güçlü)`);
-    } else if (fredData.gdpGrowth.latestValue < 0) {
-      score -= 20; // Resesyon riski → risk-off
-      details.push(`GDP %${fredData.gdpGrowth.latestValue} (resesyon riski)`);
-    }
+  // GDP büyüme — seviye
+  const gdp = fredData.gdpGrowth?.latestValue;
+  if (gdp != null) {
+    dimensionsScored++;
+    if (gdp >= 3)       { score += 15; details.push(`GSYH %${gdp} (güçlü)`); }
+    else if (gdp >= 2)  { score += 10; details.push(`GSYH %${gdp} (sağlıklı)`); }
+    else if (gdp >= 1)  { score += 4;  details.push(`GSYH %${gdp} (ılımlı)`); }
+    else if (gdp >= 0)  { score -= 5;  details.push(`GSYH %${gdp} (zayıf)`); }
+    else                { score -= 20; details.push(`GSYH %${gdp} (daralma)`); }
   }
 
-  // İşsizlik
-  if (fredData.unemployment?.latestValue !== null && fredData.unemployment?.latestValue !== undefined) {
-    if (fredData.unemployment.latestValue > 5) {
-      score -= 10;
-      details.push(`İşsizlik %${fredData.unemployment.latestValue} (yüksek)`);
-    }
+  // İşsizlik — seviye (4-5 sağlıklı, <4 tam istihdam, >5 yumuşama, >6 resesyon riski)
+  const unemp = fredData.unemployment?.latestValue;
+  if (unemp != null) {
+    dimensionsScored++;
+    if (unemp < 4)        { score += 12; details.push(`İşsizlik %${unemp} (tam istihdam)`); }
+    else if (unemp <= 4.5){ score += 8;  details.push(`İşsizlik %${unemp} (sağlıklı)`); }
+    else if (unemp <= 5)  { score += 2;  details.push(`İşsizlik %${unemp} (sağlıklı)`); }
+    else if (unemp <= 6)  { score -= 8;  details.push(`İşsizlik %${unemp} (yumuşama)`); }
+    else                  { score -= 18; details.push(`İşsizlik %${unemp} (resesyon riski)`); }
   }
 
   return {
-    score: clampScore(score),
-    detail: details.join(', ') || 'Yeterli veri yok',
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    detail: dimensionsScored === 0 ? 'Yeterli veri yok' : details.join(', '),
   };
 }
 
