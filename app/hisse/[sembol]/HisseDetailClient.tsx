@@ -84,6 +84,31 @@ function toCompositeResult(analiz: HisseAnalizResponse): CompositeSignalResult {
   };
 }
 
+// ── InfoTooltip — kart başlıklarında kullanılan açıklama ikonu ────────
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span
+      tabIndex={0}
+      className="relative inline-flex group cursor-help focus:outline-none"
+      aria-label={text}
+    >
+      <svg
+        className="h-3 w-3 text-text-muted/60 hover:text-text-secondary transition-colors"
+        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+      >
+        <circle cx="12" cy="12" r="10" strokeWidth="2" />
+        <path strokeWidth="2" strokeLinecap="round" d="M12 16v-4M12 8h.01" />
+      </svg>
+      <span
+        role="tooltip"
+        className="invisible group-hover:visible group-focus-within:visible absolute left-1/2 top-full mt-1.5 -translate-x-1/2 z-50 w-56 rounded-lg border border-border bg-surface px-3 py-2 text-[11px] font-normal normal-case tracking-normal text-text-secondary shadow-xl pointer-events-none whitespace-normal"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
 // ── Bölüm başlığı bileşeni (Bloomberg/Matriks stili) ─────────────────
 function SectionHeader({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -792,6 +817,61 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     return () => { cancelled = true; };
   }, []);
 
+  // ── Yatırım Skoru fetch (çelişki tespiti için) ───────────────────────
+  interface FundamentalScoreData {
+    score: number;
+    rating: 'Çok İyi' | 'İyi' | 'Orta' | 'Zayıf' | 'Kötü' | string;
+    confidence: 'high' | 'medium' | 'low' | string;
+  }
+  const [fundamentalScore, setFundamentalScore] = useState<FundamentalScoreData | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/investment-score?sembol=${encodeURIComponent(sembol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { score?: number; ratingLabel?: string; confidence?: string } | null) => {
+        if (cancelled || !data || typeof data.score !== 'number') return;
+        setFundamentalScore({
+          score: data.score,
+          rating: (data.ratingLabel as FundamentalScoreData['rating']) ?? 'Orta',
+          confidence: data.confidence ?? 'medium',
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sembol]);
+
+  // ── Çelişki tespiti — Teknik vs Temel ───────────────────────────────
+  type SignalConflict = 'tech-strong-fund-weak' | 'tech-weak-fund-strong' | 'aligned-bullish' | 'aligned-bearish' | 'mixed' | null;
+  const conflictAnalysis = useMemo((): {
+    type: SignalConflict;
+    techScore: number | null;
+    fundScore: number | null;
+    techLabel: string;
+    fundLabel: string;
+  } => {
+    const tech = stockScore?.totalScore ?? null;
+    const fund = fundamentalScore?.score ?? null;
+    if (tech === null || fund === null) {
+      return { type: null, techScore: tech, fundScore: fund, techLabel: '', fundLabel: '' };
+    }
+    const techStrong = tech >= 70;
+    const techWeak   = tech <= 40;
+    const fundStrong = fund >= 65;
+    const fundWeak   = fund <= 40;
+
+    const techLabel = techStrong ? 'Güçlü AL' : techWeak ? 'Zayıf' : 'Orta';
+    const fundLabel = fundStrong ? 'Güçlü' : fundWeak ? 'Zayıf' : 'Orta';
+
+    let type: SignalConflict = 'mixed';
+    if (techStrong && fundWeak) type = 'tech-strong-fund-weak';
+    else if (techWeak && fundStrong) type = 'tech-weak-fund-strong';
+    else if (techStrong && fundStrong) type = 'aligned-bullish';
+    else if (techWeak && fundWeak) type = 'aligned-bearish';
+
+    return { type, techScore: tech, fundScore: fund, techLabel, fundLabel };
+  }, [stockScore, fundamentalScore]);
+
   // En iyi sinyal — backtest başarı öne çıkar (W4)
   const bestSignalStat = useMemo(() => {
     if (signals.length === 0 || winRateMap.size === 0) return null;
@@ -1101,6 +1181,152 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               </div>
             </div>
 
+            {/* ── Vade Bazlı Karar Kartı + Çelişki Uyarısı (B planı) ──── */}
+            {conflictAnalysis.type !== null && conflictAnalysis.techScore !== null && conflictAnalysis.fundScore !== null && (
+              <div className="mb-6 space-y-3">
+                {/* Çelişki banner — sadece kritik durumlarda */}
+                {conflictAnalysis.type === 'tech-strong-fund-weak' && (
+                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/8 p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl shrink-0">⚠️</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-amber-300 mb-1">
+                          Karşıt Sinyaller — Dikkatli ol
+                        </p>
+                        <p className="text-xs text-amber-200/90 leading-relaxed">
+                          <strong>Kısa vadeli teknik göstergeler güçlü AL</strong> diyor ancak şirketin
+                          temelleri zayıf. Bu durum genellikle <strong>spekülatif rally</strong> işaretidir —
+                          fiyat hızla yükselebilir ama uzun vadede düşüş riski yüksek.
+                        </p>
+                        <ul className="mt-2 text-[11px] text-amber-200/80 space-y-0.5">
+                          <li>→ Pozisyonu küçük tut</li>
+                          <li>→ Sıkı stop-loss kullan ({signals[0]?.stopLoss ? `${signals[0].stopLoss.toFixed(2)}₺` : 'risk yönetimi sekmesinde'})</li>
+                          <li>→ Uzun vadeli yatırımdan kaçın</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {conflictAnalysis.type === 'tech-weak-fund-strong' && (
+                  <div className="rounded-xl border border-sky-500/40 bg-sky-500/8 p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl shrink-0">💡</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-sky-300 mb-1">
+                          Düşüşten Alım Fırsatı?
+                        </p>
+                        <p className="text-xs text-sky-200/90 leading-relaxed">
+                          <strong>Şirket temelleri güçlü</strong> ancak fiyat şu an zayıf. Uzun vadeli yatırımcı
+                          için <strong>iyi giriş noktası</strong> olabilir — kısa vadede sabır gerekir.
+                        </p>
+                        <ul className="mt-2 text-[11px] text-sky-200/80 space-y-0.5">
+                          <li>→ Aşamalı alım yap (tek seferde değil)</li>
+                          <li>→ 1-3 yıl vadeli düşün</li>
+                          <li>→ Kısa vadeli volatiliteyi kabul et</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {conflictAnalysis.type === 'aligned-bullish' && (
+                  <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/8 p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl shrink-0">🎯</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-emerald-300 mb-1">
+                          Çift Yönlü Güçlü Sinyal
+                        </p>
+                        <p className="text-xs text-emerald-200/90">
+                          Hem teknik göstergeler hem temel veriler güçlü AL diyor —
+                          kısa vadeli rally ile uzun vadeli değer örtüşüyor.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {conflictAnalysis.type === 'aligned-bearish' && (
+                  <div className="rounded-xl border border-red-500/40 bg-red-500/8 p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl shrink-0">🛑</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-red-300 mb-1">
+                          Hem Teknik Hem Temel Zayıf
+                        </p>
+                        <p className="text-xs text-red-200/90">
+                          Bu hisseden uzak durmak makul — kısa vadeli düşüş trendi
+                          ve uzun vadeli zayıf temeller bir arada.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Vade Bazlı Karar Kartı — her zaman göster */}
+                <div className="grid gap-3 md:grid-cols-2">
+                  {/* Kısa Vade — Teknik */}
+                  <div className="rounded-xl border border-border bg-surface/60 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                        Kısa Vade (Teknik)
+                      </p>
+                      <span className="text-[9px] text-text-muted/60">gün/hafta</span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className={`text-2xl font-bold tabular-nums ${
+                        conflictAnalysis.techScore >= 70 ? 'text-emerald-400' :
+                        conflictAnalysis.techScore >= 50 ? 'text-amber-400' :
+                        'text-red-400'
+                      }`}>
+                        {conflictAnalysis.techScore}
+                      </span>
+                      <span className={`text-sm font-semibold ${
+                        conflictAnalysis.techScore >= 70 ? 'text-emerald-400' :
+                        conflictAnalysis.techScore >= 50 ? 'text-amber-400' :
+                        'text-red-400'
+                      }`}>
+                        {conflictAnalysis.techLabel}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-text-muted">
+                      Fiyat momentumu, hacim, RSI, sinyaller
+                    </p>
+                  </div>
+
+                  {/* Uzun Vade — Temel */}
+                  <div className="rounded-xl border border-border bg-surface/60 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                        Uzun Vade (Şirket Sağlığı)
+                      </p>
+                      <span className="text-[9px] text-text-muted/60">ay/yıl</span>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className={`text-2xl font-bold tabular-nums ${
+                        conflictAnalysis.fundScore >= 65 ? 'text-emerald-400' :
+                        conflictAnalysis.fundScore >= 45 ? 'text-amber-400' :
+                        'text-red-400'
+                      }`}>
+                        {conflictAnalysis.fundScore}
+                      </span>
+                      <span className={`text-sm font-semibold ${
+                        conflictAnalysis.fundScore >= 65 ? 'text-emerald-400' :
+                        conflictAnalysis.fundScore >= 45 ? 'text-amber-400' :
+                        'text-red-400'
+                      }`}>
+                        {conflictAnalysis.fundLabel}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-text-muted">
+                      P/E, kâr marjı, borç, büyüme, değerleme
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── Tab Bar ── */}
             <div className="mt-5 flex overflow-x-auto border-b border-border scrollbar-none">
               {([
@@ -1310,8 +1536,12 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 {/* Investable Edge Yatırım Skoru (kompakt) — Temel tab'a yönlendir */}
                 <Card>
                   <CardHeader className="py-2 px-3 pb-0">
-                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                      Yatırım Skoru
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted flex items-center gap-1.5">
+                      Şirket Değer Skoru
+                      <span className="text-[9px] normal-case tracking-normal text-text-muted/60">
+                        (Uzun Vade)
+                      </span>
+                      <InfoTooltip text="Şirketin temel verilerine (P/E, kâr marjı, borç, büyüme) dayalı uzun vadeli yatırım skoru. Kısa vadeli teknik analiz için Teknik Profil'e bakın." />
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-3">
@@ -1333,11 +1563,10 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 {candles.length >= 50 && stockScore && (
                   <Card>
                     <CardHeader className="py-2 px-3 pb-0">
-                      <CardTitle
-                        className="text-xs font-semibold uppercase tracking-widest text-text-muted"
-                        title="5 boyutlu teknik profil — trend/momentum/hacim/sinyal/volatilite. AL/SAT kararı değildir."
-                      >
-                        Teknik Profil <span className="text-[9px] normal-case tracking-normal text-text-muted/60">(karar değil)</span>
+                      <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted flex items-center gap-1.5">
+                        Teknik Profil
+                        <span className="text-[9px] normal-case tracking-normal text-text-muted/60">(Kısa Vade)</span>
+                        <InfoTooltip text="5 boyutlu teknik profil — trend/momentum/hacim/sinyal/volatilite. Fiyat hareketine bakar. Kısa vadeli (gün-hafta) işlemler için. Şirket sağlığı değil!" />
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-3">
@@ -1724,7 +1953,9 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 {/* Investable Edge Yatırım Skoru — deterministik + AI yorum */}
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-3 flex items-center gap-2">
-                    Yatırım Skoru
+                    Şirket Değer Skoru
+                    <span className="text-text-muted/50 normal-case tracking-normal">(Uzun Vade — Temel Veri)</span>
+                    <InfoTooltip text="Şirketin temellerine dayalı uzun vadeli skor. P/E, kâr marjı, borç, büyüme metrikleri. Kısa vadeli alım-satım için Teknik Analiz sekmesine bakın." />
                     <span className="flex-1 h-px bg-border/50" />
                   </p>
                   <InvestableScoreCard sembol={sembol} />
