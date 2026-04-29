@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, lazy, Suspense, useCallback, useMemo } from 'react';
+import { useState, useEffect, lazy, Suspense, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import type { HaberItem } from '@/app/api/haber/route';
@@ -27,6 +27,7 @@ import { MtfSinyalTablosu } from '@/components/MtfSinyalTablosu';
 import { computeTechFairValue } from '@/lib/tech-fair-value';
 import { computeStockScore } from '@/lib/stock-score';
 import type { OHLCVCandle, StockSignal } from '@/types';
+import { getSectorId, SECTOR_REPRESENTATIVES, SECTORS } from '@/lib/sectors';
 import { toast } from 'sonner';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
@@ -233,14 +234,14 @@ function AccordionSignalRow({
             </p>
           )}
         </div>
-        {/* Vade badge */}
+        {/* Vade badge — mobilde de görünür (U8 fix) */}
         {SIGNAL_VADE[sig.type] && (
-          <span className={`shrink-0 hidden sm:inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${SIGNAL_VADE[sig.type]!.color}`}>
+          <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${SIGNAL_VADE[sig.type]!.color}`}>
             {SIGNAL_VADE[sig.type]!.label}
           </span>
         )}
         {sigData?.candlesAgo !== undefined && (
-          <span className="shrink-0 text-[10px] text-text-muted hidden sm:block">
+          <span className="shrink-0 text-[10px] text-text-muted hidden xs:block sm:block">
             {sigData.candlesAgo}g önce
           </span>
         )}
@@ -634,6 +635,138 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [kapSumLoading, setKapSumLoading] = useState(false);
   const [kapUyariMesaj, setKapUyariMesaj] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
+  const [delayBannerDismissed, setDelayBannerDismissed] = useState(false);
+  // Sprint 2 — Özel notlar
+  const [traderNote, setTraderNote] = useState<string>('');
+  const [noteEditing, setNoteEditing] = useState<boolean>(false);
+  const NOTE_KEY = `bistai.hisse.note.${sembol}`;
+  const DELAY_BANNER_KEY = 'bistai.hisse.delayBannerDismissed';
+
+  // Banner dismiss state — localStorage
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(DELAY_BANNER_KEY) === '1') setDelayBannerDismissed(true);
+    } catch { /* ignore */ }
+  }, []);
+
+  const dismissDelayBanner = useCallback(() => {
+    setDelayBannerDismissed(true);
+    try { localStorage.setItem(DELAY_BANNER_KEY, '1'); } catch { /* ignore */ }
+  }, []);
+
+  // Trader notu yükleme
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(NOTE_KEY);
+      if (saved) setTraderNote(saved);
+      else setTraderNote('');
+    } catch { setTraderNote(''); }
+  }, [NOTE_KEY]);
+
+  const saveTraderNote = useCallback((text: string) => {
+    setTraderNote(text);
+    try {
+      if (text.trim()) localStorage.setItem(NOTE_KEY, text);
+      else localStorage.removeItem(NOTE_KEY);
+    } catch { /* ignore */ }
+  }, [NOTE_KEY]);
+
+  // ActiveTab URL persist (U11 fix)
+  const didReadTabRef = useRef(false);
+  useEffect(() => {
+    if (didReadTabRef.current) return;
+    didReadTabRef.current = true;
+    if (typeof window === 'undefined') return;
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'analiz' || tab === 'temel' || tab === 'haberler') {
+      setActiveTab(tab);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!didReadTabRef.current || typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    if (activeTab === 'teknik') sp.delete('tab');
+    else sp.set('tab', activeTab);
+    const qs = sp.toString();
+    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, '', url);
+  }, [activeTab]);
+
+  // Geri butonu — referrer-aware (U10 fix)
+  const backLink = useMemo(() => {
+    const from = searchParams?.get('from');
+    if (from === 'firsatlar')        return { href: '/firsatlar',          label: 'Fırsatlar' };
+    if (from === 'tersportfolyo')    return { href: '/ters-portfolyo',     label: 'Portföy Dışı' };
+    if (from === 'sektorler')        return { href: '/sektorler',          label: 'Sektörler' };
+    if (from === 'screener')         return { href: '/screener',           label: 'Screener' };
+    return { href: '/tarama',                                              label: 'Tarama' };
+  }, [searchParams]);
+
+  // Sprint 2 W1+W8 — Sektör emsalleri (peer comparison)
+  interface PeerData {
+    sembol: string;
+    perf20d: number | null;
+    lastPrice: number | null;
+  }
+  const [peerData, setPeerData] = useState<PeerData[]>([]);
+  const [peerLoading, setPeerLoading] = useState(false);
+
+  const sectorId = useMemo(() => getSectorId(sembol), [sembol]);
+  const sectorInfo = SECTORS[sectorId];
+
+  useEffect(() => {
+    if (!sectorId || sectorId === 'diger') return;
+    const reps = SECTOR_REPRESENTATIVES[sectorId];
+    if (!reps || reps.length === 0) return;
+
+    // Mevcut hisse + ilk 4 farklı temsilci (max 5)
+    const symbolsToFetch = [sembol, ...reps.filter((s) => s !== sembol)].slice(0, 5);
+
+    setPeerLoading(true);
+    let cancelled = false;
+
+    void (async () => {
+      const results = await Promise.allSettled(
+        symbolsToFetch.map(async (s) => {
+          const res = await fetch(`/api/ohlcv?symbol=${s}&days=30`);
+          if (!res.ok) throw new Error('fetch fail');
+          const { candles: cs = [] } = await res.json() as { candles: OHLCVCandle[] };
+          const td = cs.filter((c) => (c.volume ?? 0) > 0);
+          if (td.length < 21) return { sembol: s, perf20d: null, lastPrice: td.length > 0 ? td[td.length - 1]!.close : null };
+          const last = td[td.length - 1]!.close;
+          const base = td[td.length - 21]!.close;
+          if (base === 0) return { sembol: s, perf20d: null, lastPrice: last };
+          const perf = ((last - base) / base) * 100;
+          return { sembol: s, perf20d: parseFloat(perf.toFixed(2)), lastPrice: last };
+        }),
+      );
+
+      if (cancelled) return;
+      const data: PeerData[] = results.map((r) =>
+        r.status === 'fulfilled'
+          ? r.value
+          : { sembol: '?', perf20d: null, lastPrice: null }
+      ).filter((p) => p.sembol !== '?');
+
+      setPeerData(data);
+      setPeerLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sembol, sectorId]);
+
+  // D7 fix — heavy hesaplamalar useMemo
+  const stockScore = useMemo(() => {
+    if (candles.length < 50) return null;
+    return computeStockScore(candles, signals);
+  }, [candles, signals]);
+
+  const fairValue = useMemo(() => {
+    if (candles.length < 50) return null;
+    return computeTechFairValue(candles);
+  }, [candles]);
 
   // Hisse analizi (AI + fiyat hedefleri + hero meta)
   const [analiz, setAnaliz]             = useState<HisseAnalizResponse | null>(null);
@@ -658,6 +791,21 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  // En iyi sinyal — backtest başarı öne çıkar (W4)
+  const bestSignalStat = useMemo(() => {
+    if (signals.length === 0 || winRateMap.size === 0) return null;
+    type SigStat = { sig: StockSignal; rate: number; n: number };
+    const stats: SigStat[] = signals
+      .map((sig) => {
+        const wr = winRateMap.get(sig.type);
+        if (!wr || wr.sampleSize < 10) return null;
+        return { sig, rate: wr.rate, n: wr.sampleSize };
+      })
+      .filter((x): x is SigStat => x !== null);
+    if (stats.length === 0) return null;
+    return stats.sort((a, b) => b.rate - a.rate)[0]!;
+  }, [signals, winRateMap]);
 
   // ── Hisse Analizi (AI, Fiyat Hedefleri, Hero Meta) — timeframe bağımlı ──
   useEffect(() => {
@@ -780,21 +928,37 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
-        {/* Breadcrumb */}
-        <div className="mb-3 flex items-center gap-2 text-text-secondary">
-          <Link href="/tarama" className="hover:text-primary">Tarama</Link>
-          <span>/</span>
+        {/* Breadcrumb — referrer-aware geri butonu (U10 fix) */}
+        <div className="mb-3 flex items-center gap-2 text-sm text-text-secondary">
+          <Link
+            href={backLink.href}
+            className="flex items-center gap-1 hover:text-primary transition-colors"
+            aria-label={`${backLink.label} sayfasına dön`}
+          >
+            <span aria-hidden>←</span>
+            <span>{backLink.label}</span>
+          </Link>
+          <span className="opacity-40">/</span>
           <span className="text-text-primary">{sembol}</span>
         </div>
 
-        {/* Veri gecikme uyarısı */}
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
-          <span className="shrink-0">⚠️</span>
-          <span>
-            <strong>Fiyat ve sinyaller ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
-            Teknik analiz için uygundur; anlık al/sat kararları için broker platformunuzu kullanın.
-          </span>
-        </div>
+        {/* Veri gecikme uyarısı — dismissible (U2 fix) */}
+        {!delayBannerDismissed && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
+            <span className="shrink-0">⚠️</span>
+            <span className="flex-1">
+              <strong>Fiyat ve sinyaller ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
+              Teknik analiz için uygundur; anlık al/sat kararları için broker platformunuzu kullanın.
+            </span>
+            <button
+              onClick={dismissDelayBanner}
+              aria-label="Uyarıyı kapat"
+              className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {loading && (
           <>
@@ -1123,11 +1287,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   </CardContent>
                 </Card>
 
-                {/* Teknik Göstergeler Özeti */}
-                <TeknikGostergelerOzeti candles={candles} timeframe={timeframe} />
-
-                {/* Trend Özeti */}
-                <TrendOzeti candles={candles} timeframe={timeframe} />
+                {/* D2 fix: TeknikGöstergeler ve TrendÖzeti sadece sağ kolonda — duplicate kaldırıldı */}
               </div>
 
               {/* ── SAĞ KOLON: Destek/Direnç + Skor + Göstergeler + Trend ──── */}
@@ -1147,7 +1307,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                   </Card>
                 )}
 
-                {/* Investable Edge Yatırım Skoru (kompakt) — tıkla: Temel tab */}
+                {/* Investable Edge Yatırım Skoru (kompakt) — Temel tab'a yönlendir */}
                 <Card>
                   <CardHeader className="py-2 px-3 pb-0">
                     <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
@@ -1160,34 +1320,229 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                       compact
                       onCompactClick={() => setActiveTab('temel')}
                     />
+                    <p className="mt-2 text-[10px] text-text-muted/70 text-center">
+                      Detaylı analiz için <button
+                        onClick={() => setActiveTab('temel')}
+                        className="text-primary hover:underline"
+                      >Temel Veriler</button> sekmesine git
+                    </p>
                   </CardContent>
                 </Card>
 
                 {/* Teknik Profil (karar değil — 5 boyutlu puan) */}
-                {candles.length >= 50 && (() => {
-                  const stockScore = computeStockScore(candles, signals);
-                  return (
-                    <Card>
-                      <CardHeader className="py-2 px-3 pb-0">
-                        <CardTitle
-                          className="text-xs font-semibold uppercase tracking-widest text-text-muted"
-                          title="5 boyutlu teknik profil — trend/momentum/hacim/sinyal/volatilite. AL/SAT kararı değildir."
-                        >
-                          Teknik Profil <span className="text-[9px] normal-case tracking-normal text-text-muted/60">(karar değil)</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-3">
-                        <HisseSkorKarti result={stockScore} />
-                      </CardContent>
-                    </Card>
-                  );
-                })()}
+                {candles.length >= 50 && stockScore && (
+                  <Card>
+                    <CardHeader className="py-2 px-3 pb-0">
+                      <CardTitle
+                        className="text-xs font-semibold uppercase tracking-widest text-text-muted"
+                        title="5 boyutlu teknik profil — trend/momentum/hacim/sinyal/volatilite. AL/SAT kararı değildir."
+                      >
+                        Teknik Profil <span className="text-[9px] normal-case tracking-normal text-text-muted/60">(karar değil)</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-3">
+                      <HisseSkorKarti result={stockScore} />
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Teknik Göstergeler Özeti */}
                 <TeknikGostergelerOzeti candles={candles} timeframe={timeframe} />
 
                 {/* Trend Özeti */}
                 <TrendOzeti candles={candles} timeframe={timeframe} />
+
+                {/* W4 — En Başarılı Sinyal Rozeti (Backtest öne çıkar) */}
+                {bestSignalStat && (
+                  <Card>
+                    <CardHeader className="py-2 px-3 pb-0">
+                      <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                        🏆 En Güvenilir Sinyal
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-3">
+                      <div className="text-center mb-2">
+                        <div className={`text-3xl font-bold tabular-nums ${
+                          bestSignalStat.rate >= 0.6 ? 'text-emerald-400' :
+                          bestSignalStat.rate >= 0.45 ? 'text-amber-400' : 'text-red-400'
+                        }`}>
+                          %{Math.round(bestSignalStat.rate * 100)}
+                        </div>
+                        <p className="text-[10px] text-text-muted mt-1">
+                          {bestSignalStat.n} geçmiş sinyale göre
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-surface/50 px-3 py-2 text-xs">
+                        <p className="font-semibold text-text-primary truncate">
+                          {bestSignalStat.sig.type}
+                        </p>
+                        <p className="text-[11px] text-text-secondary mt-0.5">
+                          {bestSignalStat.sig.severity} · {bestSignalStat.sig.direction === 'yukari' ? '↑ AL yönlü' : bestSignalStat.sig.direction === 'asagi' ? '↓ SAT yönlü' : 'Nötr'}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-[10px] text-text-muted/70 text-center leading-snug">
+                        Bu hissede aynı sinyal {bestSignalStat.n} kez tetiklendi, %{Math.round(bestSignalStat.rate * 100)} hedefe ulaştı (7 günde).
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* W1+W8 — Sektör Emsalleri */}
+                {sectorInfo && peerData.length > 1 && (() => {
+                  const validPeers = peerData.filter((p) => p.perf20d !== null);
+                  if (validPeers.length === 0) return null;
+                  const sectorAvg = validPeers.reduce((s, p) => s + (p.perf20d ?? 0), 0) / validPeers.length;
+                  const myPerf = peerData.find((p) => p.sembol === sembol)?.perf20d ?? null;
+                  const sortedPeers = [...peerData].sort((a, b) => (b.perf20d ?? -999) - (a.perf20d ?? -999));
+                  const myRank = sortedPeers.findIndex((p) => p.sembol === sembol) + 1;
+
+                  return (
+                    <Card>
+                      <CardHeader className="py-2 px-3 pb-0">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+                          {sectorInfo.shortName} Sektör Emsalleri
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        {/* Sektör ortalaması vs hisse */}
+                        {myPerf !== null && (
+                          <div className="mb-3 rounded-lg bg-surface/50 p-2.5">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="text-text-secondary">{sembol} (1A)</span>
+                              <span className={`font-bold font-mono ${myPerf >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {myPerf >= 0 ? '+' : ''}{myPerf.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-text-muted">Sektör Ort.</span>
+                              <span className={`font-mono ${sectorAvg >= 0 ? 'text-emerald-400/80' : 'text-red-400/80'}`}>
+                                {sectorAvg >= 0 ? '+' : ''}{sectorAvg.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="mt-1.5 text-[10px] text-text-muted text-center">
+                              {myPerf > sectorAvg
+                                ? `Sektör ortalamasının ${(myPerf - sectorAvg).toFixed(1)}% üstünde · Sıra: ${myRank}/${peerData.length}`
+                                : `Sektör ortalamasının ${(sectorAvg - myPerf).toFixed(1)}% altında · Sıra: ${myRank}/${peerData.length}`}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Peer listesi */}
+                        <div className="space-y-1">
+                          {sortedPeers.map((p) => {
+                            const isMe = p.sembol === sembol;
+                            const perf = p.perf20d;
+                            return (
+                              <Link
+                                key={p.sembol}
+                                href={`/hisse/${p.sembol}`}
+                                className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                                  isMe
+                                    ? 'bg-primary/10 border border-primary/30'
+                                    : 'hover:bg-white/5 border border-transparent'
+                                }`}
+                              >
+                                <span className={`font-mono font-semibold ${isMe ? 'text-primary' : 'text-text-primary'}`}>
+                                  {p.sembol} {isMe && <span className="text-[9px] opacity-70">(siz)</span>}
+                                </span>
+                                <span className={`font-mono tabular-nums text-[11px] font-semibold ${
+                                  perf === null ? 'text-text-muted' :
+                                  perf >= 0 ? 'text-emerald-400' : 'text-red-400'
+                                }`}>
+                                  {perf === null ? '—' : `${perf >= 0 ? '+' : ''}${perf.toFixed(1)}%`}
+                                </span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+
+                        {peerLoading && peerData.length === 0 && (
+                          <p className="text-center text-[11px] text-text-muted py-2">Yükleniyor...</p>
+                        )}
+
+                        <p className="mt-3 text-[10px] text-text-muted/70 text-center">
+                          1 ay performans karşılaştırması · Tıkla → hisse detayı
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
+                {/* W7 — Özel Notlar (private, localStorage) */}
+                <Card>
+                  <CardHeader className="py-2 px-3 pb-0">
+                    <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted flex items-center gap-1.5">
+                      <span>📝</span>
+                      Özel Notlarım
+                      <span className="text-[9px] normal-case tracking-normal text-text-muted/60 ml-auto">
+                        Sadece sen görürsün
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    {noteEditing ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={traderNote}
+                          onChange={(e) => setTraderNote(e.target.value)}
+                          placeholder="Bu hisse hakkında düşüncelerini, alış/satış planını yaz..."
+                          rows={5}
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text-primary placeholder:text-text-muted focus:border-primary/60 focus:outline-none resize-none"
+                          maxLength={500}
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-text-muted">
+                            {traderNote.length}/500
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setNoteEditing(false);
+                                // localStorage'a yaz
+                                saveTraderNote(traderNote);
+                              }}
+                              className="rounded-md bg-primary/15 border border-primary/30 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-primary/25 transition-colors"
+                            >
+                              Kaydet
+                            </button>
+                            <button
+                              onClick={() => {
+                                setNoteEditing(false);
+                                // Vazgeçince kaydetmiş olduğunu geri yükle
+                                try {
+                                  const saved = localStorage.getItem(NOTE_KEY);
+                                  setTraderNote(saved ?? '');
+                                } catch { /* ignore */ }
+                              }}
+                              className="rounded-md border border-border px-2.5 py-1 text-[11px] text-text-muted hover:text-text-primary transition-colors"
+                            >
+                              İptal
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : traderNote ? (
+                      <div className="space-y-2">
+                        <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-line">
+                          {traderNote}
+                        </p>
+                        <button
+                          onClick={() => setNoteEditing(true)}
+                          className="text-[11px] text-primary hover:underline"
+                        >
+                          Düzenle
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setNoteEditing(true)}
+                        className="w-full rounded-lg border border-dashed border-border px-3 py-3 text-xs text-text-muted hover:border-primary/40 hover:text-text-primary transition-colors"
+                      >
+                        + Bu hisse için not ekle
+                      </button>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </div>
 
@@ -1304,37 +1659,31 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                       </CardContent>
                     </Card>
                   )}
-                  {candles.length >= 50 && (() => {
-                    const fairValue = computeTechFairValue(candles);
-                    return (
-                      <Card>
-                        <CardHeader className="py-2 px-3 pb-0">
-                          <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">Teknik Adil Değer</CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-3">
-                          <AdilDegerMetre result={fairValue} />
-                        </CardContent>
-                      </Card>
-                    );
-                  })()}
-                  {candles.length >= 50 && (() => {
-                    const stockScore = computeStockScore(candles, signals);
-                    return (
-                      <Card>
-                        <CardHeader className="py-2 px-3 pb-0">
-                          <CardTitle
-                            className="text-xs font-semibold uppercase tracking-widest text-text-muted"
-                            title="5 boyutlu teknik profil — trend/momentum/hacim/sinyal/volatilite. AL/SAT kararı değildir."
-                          >
-                            Teknik Profil <span className="text-[9px] normal-case tracking-normal text-text-muted/60">(karar değil)</span>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-3">
-                          <HisseSkorKarti result={stockScore} />
-                        </CardContent>
-                      </Card>
-                    );
-                  })()}
+                  {fairValue && (
+                    <Card>
+                      <CardHeader className="py-2 px-3 pb-0">
+                        <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">Teknik Adil Değer</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        <AdilDegerMetre result={fairValue} />
+                      </CardContent>
+                    </Card>
+                  )}
+                  {stockScore && (
+                    <Card>
+                      <CardHeader className="py-2 px-3 pb-0">
+                        <CardTitle
+                          className="text-xs font-semibold uppercase tracking-widest text-text-muted"
+                          title="5 boyutlu teknik profil — trend/momentum/hacim/sinyal/volatilite. AL/SAT kararı değildir."
+                        >
+                          Teknik Profil <span className="text-[9px] normal-case tracking-normal text-text-muted/60">(karar değil)</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-3">
+                        <HisseSkorKarti result={stockScore} />
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
 
                 {/* Analizi etkileyen sinyaller */}
