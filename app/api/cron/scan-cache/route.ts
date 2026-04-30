@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
   }> = [];
 
   // signal_performance kayıtları — entry_time günün başına normalize edilir
-  const perfRows: Array<{
+  type PerfRow = {
     user_id: null;
     sembol: string;
     signal_type: string;
@@ -108,7 +108,9 @@ export async function GET(request: NextRequest) {
     target_price: number | null;
     risk_reward_ratio: number | null;
     atr: number | null;
-  }> = [];
+    last_refreshed_at: string;
+  };
+  const perfRows: PerfRow[] = [];
 
   const scannedAt = new Date().toISOString();
   // Günün başı (UTC midnight) — deduplication için
@@ -213,6 +215,7 @@ export async function GET(request: NextRequest) {
             target_price:        sig.targetPrice ?? null,
             risk_reward_ratio:   sig.riskRewardRatio ?? null,
             atr:                 sig.atr ?? null,
+            last_refreshed_at:   scannedAt,
           });
         }
       }
@@ -235,26 +238,99 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // signal_performance insert — günlük unique index ile deduplication
+  // signal_performance YAZMA — gün içi yenilenme bug fix (B planı)
+  //
+  // STRATEJİ:
+  //  - Mevcut kayıt (sembol, signal_type, entry_time) varsa: UPDATE
+  //    (entry_price + entry_time + evaluated + return_* DOKUNULMAZ — backtest doğruluğu)
+  //    confluence_score, stop_loss, target_price, risk_reward_ratio, atr,
+  //    avg_daily_volume_tl, weekly_aligned, regime, last_refreshed_at YENİLENİR
+  //  - Mevcut kayıt yoksa: INSERT (yeni sinyal)
+  //  - evaluated=true olan kayıtlar BACKTEST GEÇMİŞİ — asla dokunma
   let perfInserted = 0;
+  let perfRefreshed = 0;
   if (perfRows.length > 0) {
-    // 100'erli batch'ler halinde insert et (payload limit)
-    const PERF_BATCH = 100;
-    for (let i = 0; i < perfRows.length; i += PERF_BATCH) {
-      const batch = perfRows.slice(i, i + PERF_BATCH);
+    // 1) Mevcut kayıtları toplu çek (bugünkü entry_time için)
+    const todayEntryTime = entryTime;
+    const symbolsToCheck = [...new Set(perfRows.map((r) => r.sembol))];
+
+    type ExistingKey = { id: number; sembol: string; signal_type: string; evaluated: boolean };
+    const { data: existingRows, error: selectError } = await supabase
+      .from('signal_performance')
+      .select('id, sembol, signal_type, evaluated')
+      .eq('entry_time', todayEntryTime)
+      .in('sembol', symbolsToCheck);
+
+    if (selectError) {
+      console.error('[cron/scan-cache] signal_performance SELECT hatası:', selectError.message);
+    }
+
+    // Existing key map: "sembol|signal_type" → row info
+    const existingMap = new Map<string, ExistingKey>();
+    for (const row of (existingRows ?? []) as ExistingKey[]) {
+      existingMap.set(`${row.sembol}|${row.signal_type}`, row);
+    }
+
+    // 2) INSERT'ler ve UPDATE'leri ayır
+    const toInsert: PerfRow[] = [];
+    const toUpdate: Array<{ id: number; row: PerfRow }> = [];
+
+    for (const row of perfRows) {
+      const key = `${row.sembol}|${row.signal_type}`;
+      const existing = existingMap.get(key);
+      if (!existing) {
+        toInsert.push(row);
+      } else if (existing.evaluated) {
+        // Backtest geçmişi — DOKUNMA. Yeniden tetiklendiyse de skip.
+        continue;
+      } else {
+        toUpdate.push({ id: existing.id, row });
+      }
+    }
+
+    // 3) INSERT — toplu
+    if (toInsert.length > 0) {
+      const PERF_BATCH = 100;
+      for (let i = 0; i < toInsert.length; i += PERF_BATCH) {
+        const batch = toInsert.slice(i, i + PERF_BATCH);
+        const { error } = await supabase
+          .from('signal_performance')
+          .insert(batch);
+        if (error) {
+          console.error('[cron/scan-cache] signal_performance INSERT hatası:', error.message);
+        } else {
+          perfInserted += batch.length;
+        }
+      }
+    }
+
+    // 4) UPDATE — sadece dinamik alanlar (entry_price + entry_time + evaluated DOKUNULMAZ)
+    for (const { id, row } of toUpdate) {
       const { error } = await supabase
         .from('signal_performance')
-        .upsert(batch, { onConflict: 'sembol,signal_type,entry_time', ignoreDuplicates: true });
+        .update({
+          confluence_score:    row.confluence_score,
+          avg_daily_volume_tl: row.avg_daily_volume_tl,
+          weekly_aligned:      row.weekly_aligned,
+          stop_loss:           row.stop_loss,
+          target_price:        row.target_price,
+          risk_reward_ratio:   row.risk_reward_ratio,
+          atr:                 row.atr,
+          regime:              row.regime,
+          direction:           row.direction,
+          last_refreshed_at:   row.last_refreshed_at,
+        })
+        .eq('id', id);
       if (error) {
-        console.error('[cron/scan-cache] signal_performance insert hatası:', error.message);
+        console.error('[cron/scan-cache] signal_performance UPDATE hatası:', error.message);
       } else {
-        perfInserted += batch.length;
+        perfRefreshed++;
       }
     }
   }
 
   const durationMs = Date.now() - startedAt;
-  console.log(`[cron/scan-cache] ${scanned}/${symbols.length} tarandı, ${signalsFound} sinyal, ${perfInserted} perf kaydı, ${failed.length} hata, ${durationMs}ms`);
+  console.log(`[cron/scan-cache] ${scanned}/${symbols.length} tarandı, ${signalsFound} sinyal, ${perfInserted} INSERT, ${perfRefreshed} UPDATE, ${failed.length} hata, ${durationMs}ms`);
 
   return NextResponse.json({
     ok: true,
@@ -262,6 +338,7 @@ export async function GET(request: NextRequest) {
     total: symbols.length,
     signalsFound,
     perfInserted,
+    perfRefreshed,
     failed,
     durationMs,
     scannedAt,

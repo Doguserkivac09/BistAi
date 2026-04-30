@@ -119,6 +119,8 @@ export interface FirsatlarResponse {
   toplamSinyal: number;
   /** En yeni sinyalin entry_time değeri — UI'da staleness göstermek için */
   scannedAt:    string | null;
+  /** Cron'un son tetiklenme zamanı (gün içi 3 kez) — "Son güncelleme: 12:03" rozeti için */
+  lastRefreshedAt: string | null;
   /** excludeOwned ile filtrelenmiş hisse sayısı (login varsa) */
   excludedOwnedCount?: number;
   /** Filtre dışında kalan portföy/watchlist sembolleri */
@@ -245,9 +247,10 @@ export async function GET(req: NextRequest) {
       stop_loss: number | null;
       target_price: number | null;
       risk_reward_ratio: number | null;
+      last_refreshed_at: string | null;
     };
 
-    const BASE_SELECT = 'sembol, signal_type, direction, entry_price, entry_time, confluence_score, regime';
+    const BASE_SELECT = 'sembol, signal_type, direction, entry_price, entry_time, confluence_score, regime, last_refreshed_at';
     const FULL_SELECT = `${BASE_SELECT}, avg_daily_volume_tl, weekly_aligned, stop_loss, target_price, risk_reward_ratio`;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -288,6 +291,7 @@ export async function GET(req: NextRequest) {
       stop_loss:           r.stop_loss ?? null,
       target_price:        r.target_price ?? null,
       risk_reward_ratio:   r.risk_reward_ratio ?? null,
+      last_refreshed_at:   r.last_refreshed_at ?? null,
     } satisfies SignalRow));
 
     // Sert filtreler (P0-3, P2-1):
@@ -470,6 +474,14 @@ export async function GET(req: NextRequest) {
       ? firsatlar.reduce((latest, f) => f.entryTime > latest ? f.entryTime : latest, firsatlar[0]!.entryTime)
       : null;
 
+    // En yeni last_refreshed_at — gün içi tazelenme rozeti için
+    // (allRows ham SignalRow listesi; firsatlar gruplama sonrası — ham veriden hesaplıyoruz)
+    let lastRefreshedAt: string | null = null;
+    for (const r of allRows) {
+      const v = r.last_refreshed_at;
+      if (v && (lastRefreshedAt === null || v > lastRefreshedAt)) lastRefreshedAt = v;
+    }
+
     // ── Response-time filters ─────────────────────────────────────────
     let filtered = firsatlar;
     let excludedOwnedCount = 0;
@@ -497,6 +509,7 @@ export async function GET(req: NextRequest) {
       regime,
       toplamSinyal: allRows.length,
       scannedAt,
+      lastRefreshedAt,
       excludedOwnedCount: excludeOwned ? excludedOwnedCount : undefined,
       ownedSymbols:       excludeOwned ? ownedSymbols       : undefined,
     }, {

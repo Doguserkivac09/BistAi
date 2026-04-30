@@ -397,25 +397,36 @@ export default function FirsatlarPage() {
       {/* Sosyal kanıt kartı — geçmiş başarı */}
       {statsSummary.length > 0 && <SosyalKanitKarti stats={statsSummary} />}
 
-      {/* Tarama zamanı rozeti — kullanıcı snapshot olduğunu anlasın */}
-      {data?.scannedAt && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-300/90">
-          <span>📷</span>
-          <span>
-            {new Date(data.scannedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} taraması
-            {' · '}
-            {(() => {
-              const diffMs = Date.now() - new Date(data.scannedAt).getTime();
-              const h = Math.floor(diffMs / 3_600_000);
-              const m = Math.floor((diffMs % 3_600_000) / 60_000);
-              if (h < 1) return `${m} dk önce`;
-              if (h < 24) return `${h} sa ${m} dk önce`;
-              return `${Math.floor(h / 24)} gün önce`;
-            })()}
-          </span>
-          <span className="ml-auto text-[10px] text-amber-300/60">Anlık değildir — karta tıklayınca güncel durum gelir</span>
-        </div>
-      )}
+      {/* Veri tazelenme rozeti — gün içi 3 kez güncelleniyor (07:30, 12:00, 19:00 TRT) */}
+      {(data?.lastRefreshedAt || data?.scannedAt) && (() => {
+        const refreshAt = data.lastRefreshedAt ?? data.scannedAt!;
+        const diffMs = Date.now() - new Date(refreshAt).getTime();
+        const h = Math.floor(diffMs / 3_600_000);
+        const m = Math.floor((diffMs % 3_600_000) / 60_000);
+        const ageText = h < 1 ? `${m} dk önce` : h < 24 ? `${h} sa ${m} dk önce` : `${Math.floor(h / 24)} gün önce`;
+        // Tazelik durumu: 6 saat içinde → fresh (yeşil), 6-24 → orta (amber), 24+ → eski (gri)
+        const fresh = h < 6;
+        const stale = h >= 24;
+        const cls = fresh
+          ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-300/90'
+          : stale
+          ? 'border-zinc-500/25 bg-zinc-500/5 text-zinc-400'
+          : 'border-amber-500/20 bg-amber-500/5 text-amber-300/90';
+
+        return (
+          <div className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${cls}`}>
+            <span>{fresh ? '✓' : stale ? '⏱️' : '🔄'}</span>
+            <span>
+              <strong>Son güncelleme:</strong>{' '}
+              {new Date(refreshAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+              {' · '}{ageText}
+            </span>
+            <span className="ml-auto text-[10px] opacity-70 hidden sm:inline">
+              Veri günde 3× yenilenir (07:30 · 12:00 · 19:00)
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Makro bar */}
       {data && <MakroBar score={data.makroScore} regime={data.regime} />}
