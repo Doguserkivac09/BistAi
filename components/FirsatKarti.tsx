@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { FirsatItem } from '@/app/api/firsatlar/route';
+import { InfoPopover } from '@/components/InfoPopover';
 
 // ── Sinyal güç seviyeleri ────────────────────────────────────────────
 
@@ -271,10 +272,15 @@ export function FirsatKarti({
               inList={inWatchlist}
               onToggle={onWatchlistToggle}
             />
-            <div
-              className={`flex flex-col items-center rounded-xl border px-3 py-1.5 ${confluenceBg(firsat.adjustedScore)}`}
-              title={`Fırsat Skoru — Sinyal confluence × yaş çürümesi × rejim uyumu. Kısa vade anomali yakalar (0-100). Hisse detaydaki 'Yatırım Skoru' (temeller) ve tarama'daki 'Sinyal Skoru' (-100/+100) farklıdır.\n\nHam confluence: ${firsat.confluenceScore} · Yaş: ${firsat.ageHours}s · Net: ${firsat.adjustedScore}`}
-            >
+            <div className={`relative flex flex-col items-center rounded-xl border px-3 py-1.5 ${confluenceBg(firsat.adjustedScore)}`}>
+              <div className="absolute -top-1.5 -right-1.5">
+                <InfoPopover
+                  title="Fırsat Skoru"
+                  description="Aynı anda birden fazla teknik sinyalin örtüştüğü ve henüz tükenmemiş anomalileri puanlar. Yeni sinyallere yüksek, eskiyenlere düşük puan verir; piyasa rejimine göre düzeltilir."
+                  meta={`Confluence × yaş çürümesi × rejim · Aralık 0-100\nHam: ${firsat.confluenceScore} · Yaş: ${firsat.ageHours}s · Net: ${firsat.adjustedScore}`}
+                  size={12}
+                />
+              </div>
               <span className="text-[8px] font-bold uppercase tracking-wider text-text-secondary/60">
                 Fırsat
               </span>

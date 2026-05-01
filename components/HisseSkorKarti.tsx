@@ -1,6 +1,7 @@
 'use client';
 
 import type { StockScoreResult, ScoreDimension } from '@/lib/stock-score';
+import { InfoPopover } from '@/components/InfoPopover';
 
 interface HisseSkorKartiProps {
   result: StockScoreResult;
@@ -21,13 +22,15 @@ const DIMENSION_ICONS: Record<string, string> = {
 export function HisseSkorKarti({ result }: HisseSkorKartiProps) {
   return (
     <div className="space-y-4">
-      {/* Skor sistemi etiketi (kafa karışıklığını önle) */}
-      <div
-        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-secondary/50"
-        title="Teknik Skor — sadece fiyat/hacim göstergeleri (trend, momentum, hacim, sinyal, volatilite). Kısa vade teknik sağlık (0-100). Bu sayfa ayrıca: 'Sinyal Skoru' (-100/+100, makro+sektör dahil) ve 'Yatırım Skoru' (0-100, temeller) gösterir — üçü farklı sorulara cevap."
-      >
+      {/* Skor sistemi etiketi */}
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-secondary/50">
         <span>📈 Teknik Skor</span>
-        <span className="text-text-secondary/30 normal-case font-normal">· 5 boyut ⓘ</span>
+        <span className="text-text-secondary/30 normal-case font-normal">· 5 boyut</span>
+        <InfoPopover
+          title="Teknik Skor"
+          description="Hissenin sadece fiyat ve hacim verisinden çıkarılan teknik sağlığı. Beş boyut ayrı ayrı puanlanıp ortalaması alınır. Yıldız sayısı genel sınıfı özetler."
+          meta="Trend · Momentum · Hacim · Sinyal · Volatilite · Aralık 0-100"
+        />
       </div>
 
       {/* Toplam skor başlık */}

@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { InfoPopover } from '@/components/InfoPopover';
 import type {
   InvestableConfidence,
   InvestableRating,
@@ -217,8 +218,14 @@ function CompactBadge({ data, onClick }: { data: ApiResponse; onClick?: () => vo
           <p className={cn('text-sm font-bold', style.text)}>
             {style.emoji} {data.ratingLabel}
           </p>
-          <p className="text-[10px] text-text-secondary/60 mt-0.5">
-            Yatırım Skoru · {CONFIDENCE_LABEL[data.confidence]}
+          <p className="text-[10px] text-text-secondary/60 mt-0.5 inline-flex items-center gap-1">
+            <span>Yatırım Skoru · {CONFIDENCE_LABEL[data.confidence]}</span>
+            <InfoPopover
+              title="Yatırım Skoru"
+              description="Şirketin uzun vadede yatırımlık olup olmadığını şirketin temellerine bakarak değerlendirir. Dört boyutta deterministik formülle hesaplanır."
+              meta="Değerleme %30 · Büyüme %25 · Kârlılık %20 · Risk %25 · Aralık 0-100"
+              size={12}
+            />
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1">
             {(['valuation', 'growth', 'profitability', 'risk'] as const).map((k) => {
@@ -435,8 +442,13 @@ function FullCard({
           >
             {style.emoji} {data.ratingLabel}
           </motion.p>
-          <p className="text-xs text-text-secondary/60 mt-1">
-            Yatırım Skoru {data.shortName ? `· ${data.shortName}` : ''}
+          <p className="text-xs text-text-secondary/60 mt-1 inline-flex items-center gap-1.5">
+            <span>Yatırım Skoru {data.shortName ? `· ${data.shortName}` : ''}</span>
+            <InfoPopover
+              title="Yatırım Skoru"
+              description="Şirketin uzun vadede yatırımlık olup olmadığını şirketin temellerine bakarak değerlendirir. Dört boyutta deterministik formülle hesaplanır; AI sadece yorum yazar, skoru değiştirmez."
+              meta="Değerleme %30 · Büyüme %25 · Kârlılık %20 · Risk %25 · Aralık 0-100"
+            />
           </p>
 
           {/* Rozetler */}

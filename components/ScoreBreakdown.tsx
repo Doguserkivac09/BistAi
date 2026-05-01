@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { CompositeSignalResult, CompositeDecision } from '@/lib/composite-signal';
+import { InfoPopover } from '@/components/InfoPopover';
 
 // ─── Renk yardımcıları ────────────────────────────────────────────────────────
 
@@ -164,13 +165,15 @@ export function ScoreBreakdown({ result, compact = false }: ScoreBreakdownProps)
           <span>Güçlü alış sinyali — tüm katmanlar aynı yönü gösteriyor.</span>
         </motion.div>
       )}
-      {/* Skor sistemi etiketi (kafa karışıklığını önle) */}
-      <div
-        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-secondary/50"
-        title="Sinyal Skoru — Teknik (%50) + Makro (%30) + Sektör (%20). Kısa vade (gün-hafta) AL/SAT kararı için. Aralık -100/+100. Hisse detayda 'Yatırım Skoru' (0-100) farklıdır — o uzun vade temellere bakar."
-      >
+      {/* Skor sistemi etiketi */}
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-secondary/50">
         <span>📊 Sinyal Skoru</span>
-        <span className="text-text-secondary/30 normal-case font-normal">· kısa vade ⓘ</span>
+        <span className="text-text-secondary/30 normal-case font-normal">· kısa vade</span>
+        <InfoPopover
+          title="Sinyal Skoru"
+          description="Hissenin şu an alınıp alınmayacağına dair kompozit karar. Teknik göstergeler, piyasa makro rüzgarı ve sektör momentumu birleştirilir. Kısa vade (gün-hafta) işlem için."
+          meta="Teknik %50 · Makro %30 · Sektör %20 · Aralık −100 / +100"
+        />
       </div>
 
       {/* Başlık + karar */}
