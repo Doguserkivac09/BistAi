@@ -36,6 +36,7 @@ import { TakasKarti } from '@/components/TakasKarti';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { ScoreBreakdown } from '@/components/ScoreBreakdown';
 import type { CompositeSignalResult } from '@/lib/composite-signal';
+import { InfoPopover } from '@/components/InfoPopover';
 import type { KapDuyuru } from '@/lib/kap';
 
 // Lazy-load chart component (lightweight-charts ~40KB gzipped)
@@ -1084,13 +1085,21 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                       {changePercent !== undefined && changePercent !== null && (
                         <ChangeBadge value={changePercent} />
                       )}
-                      {/* AI Karar Badge */}
+                      {/* AI Karar Badge — Kompozit (teknik + makro + sektör) */}
                       {!analizLoading && analiz && (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                          style={{ color: analiz.color, borderColor: analiz.color + '66', backgroundColor: analiz.color + '18' }}
-                        >
-                          {analiz.emoji} {analiz.decisionTr}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                            style={{ color: analiz.color, borderColor: analiz.color + '66', backgroundColor: analiz.color + '18' }}
+                          >
+                            {analiz.emoji} {analiz.decisionTr}
+                          </span>
+                          <InfoPopover
+                            title="Kompozit Karar"
+                            description="Sayfanın üst köşesindeki bu karar; teknik göstergeleri, piyasa makro rüzgarını ve sektör momentumunu birlikte değerlendirir. Sayfanın alt bölümündeki 'Sadece Teknik' kartı sadece fiyat/hacim'e bakar; bu yüzden ikisi farklı yönü gösterebilir."
+                            meta="Teknik %50 · Makro %30 · Sektör %20 · Kısa vade"
+                            size={13}
+                          />
                         </span>
                       )}
                     </div>
@@ -1266,13 +1275,19 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
                 {/* Vade Bazlı Karar Kartı — her zaman göster */}
                 <div className="grid gap-3 md:grid-cols-2">
-                  {/* Kısa Vade — Teknik */}
+                  {/* Sadece Teknik (5 boyut) */}
                   <div className="rounded-xl border border-border bg-surface/60 p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
-                        Kısa Vade (Teknik)
+                      <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                        <span>Sadece Teknik</span>
+                        <InfoPopover
+                          title="Sadece Teknik"
+                          description="Hissenin sadece fiyat ve hacim verisinden çıkarılan teknik sağlığı. Beş boyut ayrı ayrı puanlanıp ortalaması alınır. Üstteki kompozit karara makro/sektör de katıldığı için bu kart farklı yön gösterebilir."
+                          meta="Trend · Momentum · Hacim · Sinyal · Volatilite · 0-100"
+                          size={12}
+                        />
                       </p>
-                      <span className="text-[9px] text-text-muted/60">gün/hafta</span>
+                      <span className="text-[9px] text-text-muted/60">5 boyut</span>
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className={`text-2xl font-bold tabular-nums ${
@@ -1293,13 +1308,41 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     <p className="mt-1 text-[11px] text-text-muted">
                       Fiyat momentumu, hacim, RSI, sinyaller
                     </p>
+                    {/* Üst kompozit karar ile çelişki uyarısı */}
+                    {analiz && conflictAnalysis.techScore != null && (() => {
+                      const techBullish = conflictAnalysis.techScore >= 70;
+                      const techBearish = conflictAnalysis.techScore <= 40;
+                      const compBullish = analiz.decision === 'BUY' || analiz.decision === 'STRONG_BUY';
+                      const compBearish = analiz.decision === 'SELL' || analiz.decision === 'STRONG_SELL';
+                      if (techBullish && compBearish) {
+                        return (
+                          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-300/90">
+                            ⚠ Teknik momentum güçlü ama makro/sektör baskısı kompozit kararı aşağı çekiyor. Üstteki kompozit kararı önceliklendirin.
+                          </p>
+                        );
+                      }
+                      if (techBearish && compBullish) {
+                        return (
+                          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-300/90">
+                            ⚠ Teknik zayıf ama makro/sektör destekliyor. Bu durumda kompozit alış verir; teknik dipten dönüş arayın.
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
                   {/* Uzun Vade — Temel */}
                   <div className="rounded-xl border border-border bg-surface/60 p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
-                        Uzun Vade (Şirket Sağlığı)
+                      <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                        <span>Uzun Vade (Şirket Sağlığı)</span>
+                        <InfoPopover
+                          title="Şirket Sağlığı"
+                          description="Şirketin uzun vadede yatırımlık olup olmadığını şirketin temellerine bakarak değerlendirir. Dört boyutta deterministik formülle hesaplanır."
+                          meta="Değerleme %30 · Büyüme %25 · Kârlılık %20 · Risk %25 · 0-100"
+                          size={12}
+                        />
                       </p>
                       <span className="text-[9px] text-text-muted/60">ay/yıl</span>
                     </div>
