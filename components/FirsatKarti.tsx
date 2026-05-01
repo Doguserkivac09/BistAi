@@ -273,8 +273,11 @@ export function FirsatKarti({
             />
             <div
               className={`flex flex-col items-center rounded-xl border px-3 py-1.5 ${confluenceBg(firsat.adjustedScore)}`}
-              title={`Ham confluence: ${firsat.confluenceScore} · Yaş: ${firsat.ageHours}s · Net: ${firsat.adjustedScore}`}
+              title={`Fırsat Skoru — Sinyal confluence × yaş çürümesi × rejim uyumu. Kısa vade anomali yakalar (0-100). Hisse detaydaki 'Yatırım Skoru' (temeller) ve tarama'daki 'Sinyal Skoru' (-100/+100) farklıdır.\n\nHam confluence: ${firsat.confluenceScore} · Yaş: ${firsat.ageHours}s · Net: ${firsat.adjustedScore}`}
             >
+              <span className="text-[8px] font-bold uppercase tracking-wider text-text-secondary/60">
+                Fırsat
+              </span>
               <span className={`text-xl font-bold leading-none ${confluenceColor(firsat.adjustedScore)}`}>
                 {firsat.adjustedScore}
               </span>

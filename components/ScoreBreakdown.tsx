@@ -164,6 +164,15 @@ export function ScoreBreakdown({ result, compact = false }: ScoreBreakdownProps)
           <span>Güçlü alış sinyali — tüm katmanlar aynı yönü gösteriyor.</span>
         </motion.div>
       )}
+      {/* Skor sistemi etiketi (kafa karışıklığını önle) */}
+      <div
+        className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-secondary/50"
+        title="Sinyal Skoru — Teknik (%50) + Makro (%30) + Sektör (%20). Kısa vade (gün-hafta) AL/SAT kararı için. Aralık -100/+100. Hisse detayda 'Yatırım Skoru' (0-100) farklıdır — o uzun vade temellere bakar."
+      >
+        <span>📊 Sinyal Skoru</span>
+        <span className="text-text-secondary/30 normal-case font-normal">· kısa vade ⓘ</span>
+      </div>
+
       {/* Başlık + karar */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -191,7 +200,7 @@ export function ScoreBreakdown({ result, compact = false }: ScoreBreakdownProps)
           >
             {compositeScore > 0 ? '+' : ''}{compositeScore}
           </motion.p>
-          <p className="text-[10px] text-text-secondary/40 font-mono">/ 100</p>
+          <p className="text-[10px] text-text-secondary/40 font-mono">−100 / +100</p>
         </div>
       </div>
 
