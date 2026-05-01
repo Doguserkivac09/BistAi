@@ -175,8 +175,10 @@ export async function fetchPolicyRate(): Promise<TurkeyIndicator | null> {
 
   const data = await fetchEvdsSeries(code, startDate, endDate);
   if (data.length === 0) {
-    // Fallback: son bilinen TCMB politika faizi (2026 Nisan itibarıyla ~%37)
-    return createFallbackIndicator(name, 37, unit, 'hardcoded-fallback');
+    // Fallback: TCMB son PPK kararı — Mart 2026'da %7'de sabit tutuldu
+    // (Aralık 2025: %8 → Mart 2026: %7 — 5 ardışık indirim sonrası ilk sabit)
+    // Manuel güncelleme: 8 PPK toplantısı/yıl, kontrol → tcmb.gov.tr/wps/wcm/connect/tr/tcmb+tr/main+menu/temel+faaliyetler/para+politikasi/ppk
+    return createFallbackIndicator(name, 7, unit, 'hardcoded-fallback');
   }
 
   const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
@@ -198,8 +200,9 @@ export async function fetchTurkeyInflation(): Promise<TurkeyIndicator | null> {
 
   const data = await fetchEvdsSeries(code, startDate, endDate);
   if (data.length === 0) {
-    // Fallback: TÜİK son açıklanan TÜFE yıllık (2026 itibarıyla ~%30.9)
-    return createFallbackIndicator(name, 30.9, unit, 'tuik-hardcoded-fallback');
+    // Fallback: TÜİK Mart 2026 TÜFE yıllık %30.87 (Nisan 4 Mayıs'ta açıklanır)
+    // Manuel güncelleme: aylık, kontrol → data.tuik.gov.tr (Tüketici Fiyat Endeksi bülteni)
+    return createFallbackIndicator(name, 30.87, unit, 'tuik-hardcoded-fallback');
   }
 
   const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
@@ -208,8 +211,37 @@ export async function fetchTurkeyInflation(): Promise<TurkeyIndicator | null> {
 }
 
 /**
+ * doviz.com'dan TR 10Y tahvil faizini scraping ile çeker.
+ * Sayfada `data-socket-key="TAHVIL10Y" data-socket-attr="s">DEĞER` pattern'i var.
+ * EVDS yedek olarak kalır.
+ */
+async function fetchTr10yFromDoviz(): Promise<number | null> {
+  try {
+    const res = await fetch('https://www.doviz.com/tahvil/tr-10-yillik-tahvil', {
+      cache: 'no-store',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; InvestableEdge/1.0)',
+        'Accept': 'text/html',
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    // <span data-socket-key="TAHVIL10Y" data-socket-attr="s">33,89</span>
+    const match = html.match(/data-socket-key="TAHVIL10Y"[^>]*>([0-9.,]+)/);
+    if (!match) return null;
+    // Türkçe formatı: "33,89" → 33.89
+    const value = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
+    if (!isFinite(value) || value <= 0 || value > 200) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Türkiye 10 yıllık gösterge devlet tahvili faizi.
- * EVDS serisi mevcut değilse fallback (~%40 — 2026 itibarıyla tipik seviye).
+ * Sırayla: doviz.com scrape → EVDS → hardcoded fallback.
  */
 export async function fetchTurkey10YBond(): Promise<TurkeyIndicator | null> {
   const cacheKey = 'turkey:bond10y';
@@ -217,17 +249,37 @@ export async function fetchTurkey10YBond(): Promise<TurkeyIndicator | null> {
   if (cached) return cached;
 
   const { code, name, unit } = TCMB_SERIES.BOND_10Y;
-  const endDate = formatDateEvds(new Date());
-  const startDate = formatDateEvds(monthsAgo(6));
 
-  const data = await fetchEvdsSeries(code, startDate, endDate);
-  if (data.length === 0) {
-    return createFallbackIndicator(name, 40, unit, 'hardcoded-fallback');
+  // 1. doviz.com scrape (en güvenilir kaynak — EVDS sorunlu)
+  const dovizValue = await fetchTr10yFromDoviz();
+  if (dovizValue != null) {
+    const indicator: TurkeyIndicator = {
+      name,
+      value: dovizValue,
+      previousValue: null,
+      change: null,
+      changeDirection: 'flat',
+      unit,
+      source: 'doviz.com (scrape)',
+      updatedAt: new Date().toISOString(),
+      history: [],
+    };
+    setTurkeyCache(cacheKey, indicator);
+    return indicator;
   }
 
-  const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
-  if (indicator) setTurkeyCache(cacheKey, indicator);
-  return indicator;
+  // 2. EVDS (yedek — şu an çalışmıyor ama gelecekte düzelirse)
+  const endDate = formatDateEvds(new Date());
+  const startDate = formatDateEvds(monthsAgo(6));
+  const data = await fetchEvdsSeries(code, startDate, endDate);
+  if (data.length > 0) {
+    const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
+    if (indicator) setTurkeyCache(cacheKey, indicator);
+    return indicator;
+  }
+
+  // 3. Son çare: hardcoded fallback (Mayıs 2026 piyasa seviyesi ~%33-35)
+  return createFallbackIndicator(name, 33.5, unit, 'hardcoded-fallback');
 }
 
 /**
