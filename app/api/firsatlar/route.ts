@@ -42,10 +42,14 @@ const MIN_RR            = 1.5;        // 1.5 altı R/R sinyaller elenir (P2-1)
 const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'> = {
   'Altın Çapraz':           'return_30d',
   'Ölüm Çaprazı':            'return_30d',
+  'Altın Çapraz Yaklaşıyor': 'return_30d', // pre-signal
   'Trend Başlangıcı':        'return_14d',
   'Destek/Direnç Kırılımı':  'return_14d',
-  'Higher Lows':             'return_14d',  // yapı tabanlı, orta vade
+  'Higher Lows':             'return_14d',
+  'Trend Olgunlaşıyor':      'return_14d', // pre-signal
+  'Direnç Testi':            'return_14d', // pre-signal
   'MACD Kesişimi':           'return_7d',
+  'MACD Daralıyor':          'return_7d',  // pre-signal
   'RSI Uyumsuzluğu':         'return_7d',
   'Bollinger Sıkışması':     'return_7d',
   'RSI Seviyesi':            'return_3d',

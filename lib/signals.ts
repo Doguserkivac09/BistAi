@@ -101,6 +101,11 @@ const SIGNAL_ATR_PARAMS: Record<string, { stopMult: number; targetMult: number }
   'Trend Başlangıcı':          { stopMult: 1.8, targetMult: 3.0 },  // 14g vade — geniş
   'Higher Lows':               { stopMult: 1.5, targetMult: 3.0 },  // 14g vade — yapı tabanlı, geniş
   'Altın Çapraz':              { stopMult: 2.0, targetMult: 4.0 },  // 30g vade — çok geniş
+  // Pre-signals — daha sıkı stop (henüz kesişim yok), aynı hedef
+  'Altın Çapraz Yaklaşıyor':   { stopMult: 1.8, targetMult: 4.0 },  // ana sinyalin pre'si
+  'Trend Olgunlaşıyor':        { stopMult: 1.5, targetMult: 3.0 },
+  'Direnç Testi':              { stopMult: 1.3, targetMult: 3.0 },  // sıkı stop — kırılım başarısız olabilir
+  'MACD Daralıyor':            { stopMult: 1.4, targetMult: 2.5 },
 };
 
 /**
@@ -685,6 +690,217 @@ export function detectBollingerSqueeze(sembol: string, candles: OHLCVCandle[]): 
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// PRE-SIGNALS (Erken Uyarı Sinyalleri) — mevcut lagging sinyalleri
+// "yaklaşma" durumunda yakalar. Klasik kesişim oluşmadan önce uyarır.
+// ═══════════════════════════════════════════════════════════════════════
+
+// --- Altın Çapraz Yaklaşıyor (Pre-Signal) ---
+//
+// Altın Çapraz EMA50 EMA200'ü kesişim — fiyat genelde %30+ yükseldikten
+// sonra oluşur (çok lagging). Pre-signal: EMA50 EMA200'e %3 mesafede
+// VE EMA50 yukarı eğimli VE EMA200 yatay/yukarı.
+export function detectGoldenCrossApproaching(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 210) return null;
+  const closes = candles.map((c) => c.close);
+  const ema50 = calculateEMA(closes, 50);
+  const ema200 = calculateEMA(closes, 200);
+
+  const e50Now = ema50[ema50.length - 1]!;
+  const e200Now = ema200[ema200.length - 1]!;
+  const e50Prev10 = ema50[ema50.length - 11];
+  const e200Prev10 = ema200[ema200.length - 11];
+
+  if (e50Prev10 === undefined || e200Prev10 === undefined) return null;
+
+  // EMA50 EMA200'ün ALTINDA (yani henüz Altın Çapraz olmamış)
+  if (e50Now >= e200Now) return null;
+
+  // EMA50 yukarı eğimli (son 10 gün)
+  const ema50SlopePct = ((e50Now - e50Prev10) / e50Prev10) * 100;
+  if (ema50SlopePct < 1) return null;
+
+  // EMA200 yatay veya yukarı (son 10 gün > -0.5%)
+  const ema200SlopePct = ((e200Now - e200Prev10) / e200Prev10) * 100;
+  if (ema200SlopePct < -0.5) return null;
+
+  // Mesafe yüzdesi: EMA50 EMA200'ün ne kadar altında?
+  const gapPct = ((e200Now - e50Now) / e200Now) * 100;
+  // %0.5 - %3 arası "yaklaşıyor" — daha az ise zaten kesişim çok yakın, daha fazla ise uzak
+  if (gapPct > 3 || gapPct < 0.3) return null;
+
+  // Pre-signal: yaklaşıyor
+  // Severity: gap düşükse + slope yüksekse → güçlü
+  const severity: SignalSeverity =
+    gapPct <= 1 && ema50SlopePct >= 3 ? 'güçlü' :
+    gapPct <= 2                       ? 'orta'  : 'zayıf';
+
+  return {
+    type: 'Altın Çapraz Yaklaşıyor',
+    sembol,
+    severity,
+    direction: 'yukari',
+    data: {
+      ema50: parseFloat(e50Now.toFixed(2)),
+      ema200: parseFloat(e200Now.toFixed(2)),
+      gapPct: parseFloat(gapPct.toFixed(2)),
+      ema50SlopePct: parseFloat(ema50SlopePct.toFixed(2)),
+    },
+  };
+}
+
+// --- Trend Olgunlaşıyor (Pre-Signal) ---
+//
+// Trend Başlangıcı EMA9-21 kesişimi. Pre-signal: EMA9 EMA21'e %1 mesafede
+// + EMA9 yukarı eğimli + son hacim ortalama üstünde (hacim onayı).
+export function detectTrendApproaching(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 35) return null;
+  const closes = candles.map((c) => c.close);
+  const ema9 = calculateEMA(closes, 9);
+  const ema21 = calculateEMA(closes, 21);
+
+  const e9Now = ema9[ema9.length - 1]!;
+  const e21Now = ema21[ema21.length - 1]!;
+  const e9Prev3 = ema9[ema9.length - 4];
+  if (e9Prev3 === undefined) return null;
+
+  // EMA9 EMA21'ün ALTINDA (henüz kesişim olmamış)
+  if (e9Now >= e21Now) return null;
+
+  // EMA9 son 3 günde yukarı
+  const ema9Slope = ((e9Now - e9Prev3) / e9Prev3) * 100;
+  if (ema9Slope < 0.5) return null;
+
+  // Mesafe yüzdesi
+  const gapPct = ((e21Now - e9Now) / e21Now) * 100;
+  if (gapPct > 1.5 || gapPct < 0.1) return null;
+
+  // Hacim onayı — son mum ortalama üstünde
+  const last = candles[candles.length - 1]!;
+  const avgVol = averageVolume(candles, 20);
+  const volRatio = avgVol > 0 ? last.volume / avgVol : 0;
+
+  // Hacim onayı yoksa yine pre-signal verelim ama severity düşük
+  const severity: SignalSeverity =
+    volRatio >= 1.2 && gapPct <= 0.5 ? 'güçlü' :
+    volRatio >= 1.0                  ? 'orta'  : 'zayıf';
+
+  return {
+    type: 'Trend Olgunlaşıyor',
+    sembol,
+    severity,
+    direction: 'yukari',
+    data: {
+      ema9: parseFloat(e9Now.toFixed(2)),
+      ema21: parseFloat(e21Now.toFixed(2)),
+      gapPct: parseFloat(gapPct.toFixed(2)),
+      ema9Slope: parseFloat(ema9Slope.toFixed(2)),
+      volRatio: parseFloat(volRatio.toFixed(2)),
+    },
+  };
+}
+
+// --- Direnç Testi (Pre-Signal) ---
+//
+// Destek/Direnç Kırılımı, fiyat dirençi aştıktan sonra tetiklenir.
+// Pre-signal: fiyat 50g direncin %2 içinde + hacim biriktiriyor (son 5g
+// ortalama, son 20g ortalamanın üstünde).
+export function detectResistanceTest(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 55) return null;
+
+  const lookback = 50;
+  const reference = candles.slice(-lookback - 1, -1);
+  const last = candles[candles.length - 1]!;
+  const highN = Math.max(...reference.map((c) => c.high));
+
+  // Fiyat zaten direnç üstünde mi? → Bu pre-signal değil, kırılım sinyali
+  if (last.close > highN) return null;
+
+  // Direnç testi: fiyat dirençin %2 içinde
+  const distancePct = ((highN - last.close) / highN) * 100;
+  if (distancePct > 2 || distancePct < 0) return null;
+
+  // Hacim biriktirmesi — son 5g vs son 20g ortalaması
+  const last5 = candles.slice(-5);
+  const last20 = candles.slice(-21, -1);
+  if (last5.length < 5 || last20.length < 20) return null;
+  const avg5 = last5.reduce((s, c) => s + c.volume, 0) / 5;
+  const avg20 = last20.reduce((s, c) => s + c.volume, 0) / 20;
+  if (avg20 === 0) return null;
+  const volTrend = avg5 / avg20;
+
+  // Hacim biriktirmesi yoksa zayıf — yine de sinyal ver, tetkik için
+  if (volTrend < 0.8) return null;
+
+  const severity: SignalSeverity =
+    distancePct <= 0.5 && volTrend >= 1.3 ? 'güçlü' :
+    distancePct <= 1                       ? 'orta'  : 'zayıf';
+
+  return {
+    type: 'Direnç Testi',
+    sembol,
+    severity,
+    direction: 'yukari',
+    data: {
+      resistance: parseFloat(highN.toFixed(2)),
+      lastPrice: parseFloat(last.close.toFixed(2)),
+      distancePct: parseFloat(distancePct.toFixed(2)),
+      volTrend: parseFloat(volTrend.toFixed(2)),
+    },
+  };
+}
+
+// --- MACD Daralıyor (Pre-Signal) ---
+//
+// MACD Kesişimi, MACD line signal line'ı keser. Pre-signal: histogram
+// negatiften pozitife dönüyor (daralıyor) — kesişim 1-3 mum içinde olabilir.
+export function detectMACDNarrowing(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 35) return null;
+  const closes = candles.map((c) => c.close);
+  const ema12 = calculateEMA(closes, 12);
+  const ema26 = calculateEMA(closes, 26);
+  const macdLine = ema12.map((v, i) => v - ema26[i]!);
+  const signalLine = calculateEMA(macdLine, 9);
+  const histogram = macdLine.map((v, i) => v - signalLine[i]!);
+
+  if (histogram.length < 4) return null;
+
+  const hLast = histogram[histogram.length - 1]!;
+  const hPrev1 = histogram[histogram.length - 2]!;
+  const hPrev2 = histogram[histogram.length - 3]!;
+  const hPrev3 = histogram[histogram.length - 4]!;
+
+  // Bullish narrowing: histogram negatif ama daralıyor (sıfıra yaklaşıyor)
+  // hPrev3 < hPrev2 < hPrev1 < hLast < 0 yapısı
+  const bullishNarrowing = hLast < 0 && hLast > hPrev1 && hPrev1 > hPrev2 && hPrev2 > hPrev3;
+
+  // Bearish narrowing: histogram pozitif ama daralıyor (sıfıra yaklaşıyor)
+  const bearishNarrowing = hLast > 0 && hLast < hPrev1 && hPrev1 < hPrev2 && hPrev2 < hPrev3;
+
+  if (!bullishNarrowing && !bearishNarrowing) return null;
+
+  // Sıfıra yakınlığa göre severity (kesişim yakınlığı)
+  const distanceFromZero = Math.abs(hLast);
+  const avgAbsHist = histogram.slice(-20).reduce((s, v) => s + Math.abs(v), 0) / Math.min(20, histogram.length);
+  const proximityRatio = avgAbsHist > 0 ? distanceFromZero / avgAbsHist : 1;
+
+  const severity: SignalSeverity =
+    proximityRatio < 0.2 ? 'güçlü' :
+    proximityRatio < 0.5 ? 'orta'  : 'zayıf';
+
+  return {
+    type: 'MACD Daralıyor',
+    sembol,
+    severity,
+    direction: bullishNarrowing ? 'yukari' : 'asagi',
+    data: {
+      histogram: parseFloat(hLast.toFixed(4)),
+      previousHistogram: parseFloat(hPrev1.toFixed(4)),
+      proximityRatio: parseFloat(proximityRatio.toFixed(2)),
+    },
+  };
+}
+
 // --- Higher Lows / Lower Highs (LEADING — trend dönüşü öncesi yapı) ---
 //
 // EMA tabanlı sinyaller (Trend Başlangıcı, Altın Çapraz) doğal olarak GEÇ kalır
@@ -934,6 +1150,11 @@ export function detectAllSignals(
   if (want('Altın Çapraz'))           { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
   if (want('Bollinger Sıkışması'))    { const s = detectBollingerSqueeze(sembol, candles);        if (s) signals.push(s); }
   if (want('Higher Lows'))            { const s = detectHigherLows(sembol, candles);              if (s) signals.push(s); }
+  // Pre-signals (erken uyarı)
+  if (want('Altın Çapraz Yaklaşıyor')) { const s = detectGoldenCrossApproaching(sembol, candles); if (s) signals.push(s); }
+  if (want('Trend Olgunlaşıyor'))      { const s = detectTrendApproaching(sembol, candles);       if (s) signals.push(s); }
+  if (want('Direnç Testi'))            { const s = detectResistanceTest(sembol, candles);         if (s) signals.push(s); }
+  if (want('MACD Daralıyor'))          { const s = detectMACDNarrowing(sembol, candles);          if (s) signals.push(s); }
 
   // ── Likidite kontrolü ────────────────────────────────────────────────────────
   // Ortalama TL hacim: son 20 günlük (close × volume ortalaması)
@@ -974,6 +1195,11 @@ const SIGNAL_CATEGORY: Record<string, string> = {
   'Destek/Direnç Kırılımı': 'yapı',
   'Bollinger Sıkışması':    'yapı',
   'Higher Lows':            'yapı',  // leading — fiyat yapı dönüşü (HL/LH pattern)
+  // Pre-signals (yaklaşma sinyalleri) — kategorileri ana sinyalleriyle aynı
+  'Altın Çapraz Yaklaşıyor': 'trend',
+  'Trend Olgunlaşıyor':      'trend',
+  'Direnç Testi':            'yapı',
+  'MACD Daralıyor':          'trend',
 };
 
 const SEVERITY_POINTS: Record<string, number> = { güçlü: 35, orta: 22, zayıf: 12 };

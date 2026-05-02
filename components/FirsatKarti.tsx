@@ -27,6 +27,11 @@ const SINYAL_GUC: Record<string, 'guclu' | 'orta' | 'destekleyici'> = {
   'RSI Seviyesi':            'orta',
   'Hacim Anomalisi':         'destekleyici',
   'Bollinger Sıkışması':     'destekleyici',
+  // Pre-signals — orta güçte (kesişim henüz olmadı)
+  'Altın Çapraz Yaklaşıyor': 'orta',
+  'Trend Olgunlaşıyor':      'orta',
+  'Direnç Testi':            'orta',
+  'MACD Daralıyor':          'destekleyici',
 };
 
 const SINYAL_KISALT: Record<string, string> = {
@@ -38,7 +43,12 @@ const SINYAL_KISALT: Record<string, string> = {
   'RSI Seviyesi':            'RSI',
   'Altın Çapraz':            'Altın Çpz.',
   'Bollinger Sıkışması':     'BB Sık.',
-  'Higher Lows':             '⚡ HL/LH',  // leading — erken sinyal
+  'Higher Lows':             '⚡ HL/LH',
+  // Pre-signals — ⚡ ile vurgu
+  'Altın Çapraz Yaklaşıyor': '⚡ AÇ Yakın',
+  'Trend Olgunlaşıyor':      '⚡ Trend Olg.',
+  'Direnç Testi':            '⚡ Direnç Test',
+  'MACD Daralıyor':          '⚡ MACD Dar.',
 };
 
 export function sinyalEtiket(sinyal: string) {

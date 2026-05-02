@@ -162,6 +162,11 @@ const SIGNAL_VADE: Record<string, { label: string; color: string }> = {
   'Bollinger Sıkışması':      { label: '7g vade',  color: 'text-cyan-400   border-cyan-500/30   bg-cyan-500/10'   },
   'RSI Seviyesi':              { label: '3g vade',  color: 'text-amber-400  border-amber-500/30  bg-amber-500/10'  },
   'Hacim Anomalisi':           { label: '3g vade',  color: 'text-amber-400  border-amber-500/30  bg-amber-500/10'  },
+  // Pre-signals — yeşil + ⚡ pre vurgu (klasik kesişimden önce uyarır)
+  'Altın Çapraz Yaklaşıyor':  { label: '30g · ⚡ pre',  color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+  'Trend Olgunlaşıyor':        { label: '14g · ⚡ pre',  color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+  'Direnç Testi':              { label: '14g · ⚡ pre',  color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+  'MACD Daralıyor':            { label: '7g · ⚡ pre',   color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
 };
 
 // ── Haftalık uyum rozeti (multi-timeframe) ─────────────────────────────

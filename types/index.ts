@@ -112,7 +112,12 @@ export type SignalTypeFilter =
   | 'RSI Seviyesi'
   | 'Altın Çapraz'
   | 'Bollinger Sıkışması'
-  | 'Higher Lows';
+  | 'Higher Lows'
+  // Pre-signals (erken uyarı)
+  | 'Altın Çapraz Yaklaşıyor'
+  | 'Trend Olgunlaşıyor'
+  | 'Direnç Testi'
+  | 'MACD Daralıyor';
 
 export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
 
