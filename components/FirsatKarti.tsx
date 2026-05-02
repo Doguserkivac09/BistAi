@@ -21,6 +21,7 @@ const SINYAL_GUC: Record<string, 'guclu' | 'orta' | 'destekleyici'> = {
   'Altın Çapraz':            'guclu',
   'Trend Başlangıcı':        'guclu',
   'Destek/Direnç Kırılımı':  'guclu',
+  'Higher Lows':             'guclu',  // leading — erken pattern
   'RSI Uyumsuzluğu':         'orta',
   'MACD Kesişimi':           'orta',
   'RSI Seviyesi':            'orta',
@@ -37,6 +38,7 @@ const SINYAL_KISALT: Record<string, string> = {
   'RSI Seviyesi':            'RSI',
   'Altın Çapraz':            'Altın Çpz.',
   'Bollinger Sıkışması':     'BB Sık.',
+  'Higher Lows':             '⚡ HL/LH',  // leading — erken sinyal
 };
 
 export function sinyalEtiket(sinyal: string) {
@@ -259,11 +261,24 @@ export function FirsatKarti({
                   <TrendingDown className="h-3 w-3" /> SAT
                 </span>
               )}
-              <span className="flex items-center gap-0.5 text-[10px] text-text-muted">
+              <span className={`flex items-center gap-0.5 text-[10px] ${
+                firsat.ageHours > 120 ? 'text-orange-400 font-semibold' :
+                firsat.ageHours > 72  ? 'text-amber-400' : 'text-text-muted'
+              }`}>
                 <Clock className="h-2.5 w-2.5" />
                 {sinyalYasi(firsat.entryTime)}
+                {firsat.ageHours > 120 && (
+                  <span className="ml-0.5" title="Sinyal 5+ gün eski — fiyat hareketi başlamış olabilir">
+                    🐌
+                  </span>
+                )}
               </span>
             </div>
+            {firsat.ageHours > 120 && (
+              <p className="mt-1.5 text-[10px] text-orange-400/80 leading-snug">
+                ⚠️ Geç sinyal — fiyat hareketi muhtemelen başlamış, dikkatli ol
+              </p>
+            )}
           </div>
 
           <div className="flex items-start gap-2 shrink-0">

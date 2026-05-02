@@ -97,6 +97,7 @@ const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return
   'Ölüm Çaprazı':            'return_30d',
   'Trend Başlangıcı':        'return_14d',
   'Destek/Direnç Kırılımı':  'return_14d',
+  'Higher Lows':             'return_14d',
   'MACD Kesişimi':           'return_7d',
   'RSI Uyumsuzluğu':         'return_7d',
   'Bollinger Sıkışması':     'return_7d',

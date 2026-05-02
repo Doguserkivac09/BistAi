@@ -99,6 +99,7 @@ const SIGNAL_ATR_PARAMS: Record<string, { stopMult: number; targetMult: number }
   'Bollinger Sıkışması':       { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
   'Destek/Direnç Kırılımı':    { stopMult: 1.5, targetMult: 3.0 },  // 14g vade — geniş hedef
   'Trend Başlangıcı':          { stopMult: 1.8, targetMult: 3.0 },  // 14g vade — geniş
+  'Higher Lows':               { stopMult: 1.5, targetMult: 3.0 },  // 14g vade — yapı tabanlı, geniş
   'Altın Çapraz':              { stopMult: 2.0, targetMult: 4.0 },  // 30g vade — çok geniş
 };
 
@@ -684,6 +685,100 @@ export function detectBollingerSqueeze(sembol: string, candles: OHLCVCandle[]): 
   };
 }
 
+// --- Higher Lows / Lower Highs (LEADING — trend dönüşü öncesi yapı) ---
+//
+// EMA tabanlı sinyaller (Trend Başlangıcı, Altın Çapraz) doğal olarak GEÇ kalır
+// — fiyat zaten %5-30 hareket ettikten sonra kesişim oluşur.
+//
+// Higher Lows pattern fiyat yapısına bakar:
+//  - Son 30 mumda LOCAL DİP'leri (5-mum penceresinde minimum) bul
+//  - Her dip bir öncekinden YÜKSEKSE → trend dönüyor (bullish HL)
+//  - Her tepe bir öncekinden ALÇAKSA → trend bozuluyor (bearish LH)
+//
+// Bu, momentum oluşmadan ÖNCE yapısal değişim sinyali verir.
+export function detectHigherLows(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  const WINDOW = 30; // son 30 mum
+  const PIVOT_K = 2; // local pivot için 2 mum sağ + 2 mum sol
+  if (candles.length < WINDOW + PIVOT_K * 2) return null;
+
+  const slice = candles.slice(-WINDOW);
+  const lows = slice.map((c) => c.low);
+  const highs = slice.map((c) => c.high);
+
+  // Local pivot tespit — ortadaki mum, +/-PIVOT_K mum içindeki min/max ise pivot
+  const pivotLows: Array<{ idx: number; price: number }> = [];
+  const pivotHighs: Array<{ idx: number; price: number }> = [];
+
+  for (let i = PIVOT_K; i < slice.length - PIVOT_K; i++) {
+    const low = lows[i]!;
+    let isMinPivot = true;
+    let isMaxPivot = true;
+    for (let k = 1; k <= PIVOT_K; k++) {
+      if (lows[i - k]! <= low || lows[i + k]! <= low) isMinPivot = false;
+      if (highs[i - k]! >= highs[i]! || highs[i + k]! >= highs[i]!) isMaxPivot = false;
+    }
+    if (isMinPivot) pivotLows.push({ idx: i, price: low });
+    if (isMaxPivot) pivotHighs.push({ idx: i, price: highs[i]! });
+  }
+
+  // Higher Lows: en az 2 dip + her sonraki dip öncekinden yüksek
+  if (pivotLows.length >= 2) {
+    const lastTwo = pivotLows.slice(-2);
+    const [a, b] = lastTwo;
+    if (a && b && b.price > a.price) {
+      const liftPct = ((b.price - a.price) / a.price) * 100;
+      // Sıçrama %1+ olmalı, gürültü değil
+      if (liftPct >= 1) {
+        const severity: SignalSeverity =
+          pivotLows.length >= 3 && liftPct >= 3 ? 'güçlü' :
+          pivotLows.length >= 3 || liftPct >= 2  ? 'orta'  : 'zayıf';
+        return {
+          type: 'Higher Lows',
+          sembol,
+          severity,
+          direction: 'yukari',
+          data: {
+            pivotCount: pivotLows.length,
+            firstLow: parseFloat(a.price.toFixed(2)),
+            lastLow: parseFloat(b.price.toFixed(2)),
+            liftPct: parseFloat(liftPct.toFixed(2)),
+            candlesAgo: WINDOW - 1 - b.idx,
+          },
+        };
+      }
+    }
+  }
+
+  // Lower Highs: en az 2 tepe + her sonraki tepe öncekinden alçak
+  if (pivotHighs.length >= 2) {
+    const lastTwo = pivotHighs.slice(-2);
+    const [a, b] = lastTwo;
+    if (a && b && b.price < a.price) {
+      const dropPct = ((a.price - b.price) / a.price) * 100;
+      if (dropPct >= 1) {
+        const severity: SignalSeverity =
+          pivotHighs.length >= 3 && dropPct >= 3 ? 'güçlü' :
+          pivotHighs.length >= 3 || dropPct >= 2  ? 'orta'  : 'zayıf';
+        return {
+          type: 'Higher Lows',
+          sembol,
+          severity,
+          direction: 'asagi',
+          data: {
+            pivotCount: pivotHighs.length,
+            firstHigh: parseFloat(a.price.toFixed(2)),
+            lastHigh: parseFloat(b.price.toFixed(2)),
+            dropPct: parseFloat(dropPct.toFixed(2)),
+            candlesAgo: WINDOW - 1 - b.idx,
+          },
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 // --- Golden Cross / Death Cross (EMA50 vs EMA200) ---
 export function detectGoldenCross(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
   // EMA200 için en az 205 mum gerekli — tarama sayfası 252 gün çeker
@@ -838,6 +933,7 @@ export function detectAllSignals(
   if (want('RSI Seviyesi'))           { const s = detectRsiLevel(sembol, candles);                if (s) signals.push(s); }
   if (want('Altın Çapraz'))           { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
   if (want('Bollinger Sıkışması'))    { const s = detectBollingerSqueeze(sembol, candles);        if (s) signals.push(s); }
+  if (want('Higher Lows'))            { const s = detectHigherLows(sembol, candles);              if (s) signals.push(s); }
 
   // ── Likidite kontrolü ────────────────────────────────────────────────────────
   // Ortalama TL hacim: son 20 günlük (close × volume ortalaması)
@@ -877,6 +973,7 @@ const SIGNAL_CATEGORY: Record<string, string> = {
   'Hacim Anomalisi':        'hacim',
   'Destek/Direnç Kırılımı': 'yapı',
   'Bollinger Sıkışması':    'yapı',
+  'Higher Lows':            'yapı',  // leading — fiyat yapı dönüşü (HL/LH pattern)
 };
 
 const SEVERITY_POINTS: Record<string, number> = { güçlü: 35, orta: 22, zayıf: 12 };

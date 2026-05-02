@@ -111,7 +111,8 @@ export type SignalTypeFilter =
   | 'MACD Kesişimi'
   | 'RSI Seviyesi'
   | 'Altın Çapraz'
-  | 'Bollinger Sıkışması';
+  | 'Bollinger Sıkışması'
+  | 'Higher Lows';
 
 export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
 

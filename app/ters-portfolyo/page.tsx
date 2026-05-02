@@ -71,6 +71,7 @@ export default function TersPortfolyoPage() {
   const [minRR,     setMinRR]     = useState<number>(0);
   const [mtfOnly,   setMtfOnly]   = useState<boolean>(false);
   const [hideKap,   setHideKap]   = useState<boolean>(false);
+  const [freshOnly, setFreshOnly] = useState<boolean>(true); // YENİ — geç sinyalleri varsayılan gizle
 
   // AI analiz
   const [aiAnaliz,  setAiAnaliz]  = useState('');
@@ -230,8 +231,14 @@ export default function TersPortfolyoPage() {
     if (minRR > 0 && (f.riskRewardRatio === null || f.riskRewardRatio < minRR)) return false;
     if (mtfOnly && f.weeklyAligned !== true) return false;
     if (hideKap && f.kapUyarisi?.var) return false;
+    if (freshOnly && f.ageHours > 48) return false; // YENİ
     return true;
-  }), [data, dirFilter, minScore, minRR, mtfOnly, hideKap]);
+  }), [data, dirFilter, minScore, minRR, mtfOnly, hideKap, freshOnly]);
+
+  const lateSignalCount = useMemo(
+    () => (data?.firsatlar ?? []).filter((f) => f.ageHours > 48).length,
+    [data],
+  );
 
   // Sektör gruplama (top 5 + "Tümünü gör")
   const sektorGruplari = useMemo(() => {
@@ -639,6 +646,20 @@ export default function TersPortfolyoPage() {
                 ))}
               </div>
             </div>
+
+            {/* YENİ: Yeni Sinyal toggle */}
+            <button
+              onClick={() => setFreshOnly((v) => !v)}
+              aria-pressed={freshOnly}
+              title="Son 48 saat içinde tetiklenmiş sinyalleri göster — fiyat hareketi henüz başlamamış olabilir"
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                freshOnly
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                  : 'border-border text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              ⚡ Yeni {freshOnly ? `(${lateSignalCount} gizli)` : 'Hepsini Göster'}
+            </button>
 
             {/* MTF */}
             <button

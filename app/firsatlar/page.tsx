@@ -263,6 +263,9 @@ export default function FirsatlarPage() {
   const [minRR,        setMinRR]        = useState<number>(0);     // 0 = tümü, 1.5, 2, 3
   const [mtfOnly,      setMtfOnly]      = useState<boolean>(false); // haftalık uyum şartı
   const [hideKap,      setHideKap]      = useState<boolean>(false); // KAP event olanları gizle
+  // YENİ — "Sadece Yeni Sinyal" filtresi (default açık)
+  // ageHours <= 48 → son 2 gün içinde tetiklenmiş (henüz fiyat hareketi başlamamış olabilir)
+  const [freshOnly,    setFreshOnly]    = useState<boolean>(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -359,8 +362,16 @@ export default function FirsatlarPage() {
     if (minRR > 0 && (f.riskRewardRatio === null || f.riskRewardRatio < minRR)) return false;
     if (mtfOnly && f.weeklyAligned !== true) return false;
     if (hideKap && f.kapUyarisi?.var) return false;
+    // YENİ: "Sadece Yeni Sinyal" — son 48 saat içinde tetiklenmiş
+    if (freshOnly && f.ageHours > 48) return false;
     return true;
-  }), [data, dirFilter, minScore, sektorFilter, minRR, mtfOnly, hideKap]);
+  }), [data, dirFilter, minScore, sektorFilter, minRR, mtfOnly, hideKap, freshOnly]);
+
+  // Geç sinyal sayısı — "Yeni Sinyal" toggle açıkken gizlenen kart sayısını kullanıcıya göster
+  const lateSignalCount = useMemo(
+    () => (data?.firsatlar ?? []).filter((f) => f.ageHours > 48).length,
+    [data],
+  );
 
   const alSayisi  = (data?.firsatlar ?? []).filter((f) => f.direction === 'yukari').length;
   const satSayisi = (data?.firsatlar ?? []).filter((f) => f.direction === 'asagi').length;
@@ -490,6 +501,20 @@ export default function FirsatlarPage() {
                 ))}
               </div>
             </div>
+
+            {/* YENİ: Yeni Sinyal toggle — geç sinyalleri gizler */}
+            <button
+              onClick={() => setFreshOnly((v) => !v)}
+              aria-pressed={freshOnly}
+              title="Son 48 saat içinde tetiklenmiş sinyalleri göster — fiyat hareketi henüz başlamamış olabilir"
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                freshOnly
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                  : 'border-border text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              ⚡ Yeni {freshOnly ? `(${lateSignalCount} gizli)` : 'Hepsini Göster'}
+            </button>
 
             {/* MTF uyum toggle */}
             <button

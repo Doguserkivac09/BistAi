@@ -156,6 +156,7 @@ const SIGNAL_VADE: Record<string, { label: string; color: string }> = {
   'Ölüm Çaprazı':            { label: '30g vade', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' },
   'Trend Başlangıcı':        { label: '14g vade', color: 'text-blue-400   border-blue-500/30   bg-blue-500/10'   },
   'Destek/Direnç Kırılımı':  { label: '14g vade', color: 'text-blue-400   border-blue-500/30   bg-blue-500/10'   },
+  'Higher Lows':             { label: '14g · ⚡ erken', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
   'MACD Kesişimi':            { label: '7g vade',  color: 'text-cyan-400   border-cyan-500/30   bg-cyan-500/10'   },
   'RSI Uyumsuzluğu':          { label: '7g vade',  color: 'text-cyan-400   border-cyan-500/30   bg-cyan-500/10'   },
   'Bollinger Sıkışması':      { label: '7g vade',  color: 'text-cyan-400   border-cyan-500/30   bg-cyan-500/10'   },
