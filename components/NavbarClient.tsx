@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,7 @@ const navItems = [
       { href: '/backtesting', label: 'Backtest',   icon: Activity },
       { href: '/topluluk',    label: 'Topluluk',   icon: Users },
       { href: '/dashboard',   label: 'Dashboard',  icon: LayoutDashboard },
+      { href: '/yardim',      label: 'Eğitim Merkezi', icon: BookOpen },
     ],
   },
 ];

@@ -280,14 +280,30 @@ function AccordionSignalRow({
             {SIGNAL_VADE[sig.type]!.label}
           </span>
         )}
-        {/* Formasyon ise grafik toggle ipucu */}
+        {/* Formasyon ise: grafik ipucu + eğitim linki */}
         {['Çift Dip','Çift Tepe','Bull Flag','Bear Flag','Cup & Handle','Ters Omuz-Baş-Omuz','Yükselen Üçgen'].includes(sig.type) && (
-          <span
-            title='Grafikte "📐 Formasyon" toggle ile görselleştir'
-            className="shrink-0 text-[10px] text-orange-400/70"
-          >
-            📐
-          </span>
+          <>
+            <span
+              title='Grafikte "📐 Formasyon" toggle ile görselleştir'
+              className="shrink-0 text-[10px] text-orange-400/70"
+            >📐</span>
+            <Link
+              href={`/yardim/formasyonlar/${
+                sig.type === 'Çift Dip'              ? 'cift-dip'       :
+                sig.type === 'Çift Tepe'             ? 'cift-tepe'      :
+                sig.type === 'Bull Flag'             ? 'bull-flag'      :
+                sig.type === 'Bear Flag'             ? 'bear-flag'      :
+                sig.type === 'Cup & Handle'          ? 'cup-handle'     :
+                sig.type === 'Ters Omuz-Baş-Omuz'   ? 'ters-obo'       :
+                'yukselen-ucgen'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+              title="Bu formasyonu öğren"
+              className="shrink-0 text-[10px] text-text-muted hover:text-primary transition-colors"
+            >
+              ⓘ
+            </Link>
+          </>
         )}
         {sigData?.candlesAgo !== undefined && (
           <span className="shrink-0 text-[10px] text-text-muted hidden xs:block sm:block">
