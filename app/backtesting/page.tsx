@@ -31,6 +31,15 @@ interface RandomBaseline {
   signalEdge: number | null;
 }
 
+/** Stage-bazlı win rate (formasyonlar için) */
+interface StageStats {
+  signalType: string;
+  total:   { winRate: number | null; avgReturn: number | null; n: number };
+  olusum:  { winRate: number | null; avgReturn: number | null; n: number };
+  kirilim: { winRate: number | null; avgReturn: number | null; n: number };
+  horizon: '3d' | '7d' | '14d' | '30d';
+}
+
 interface BacktestingData {
   summary: BacktestResult;
   matrix: PerformanceMatrixRow[];
@@ -39,6 +48,7 @@ interface BacktestingData {
   equityCurve: EquityPoint[];
   benchmark: BenchmarkData;
   randomBaseline: RandomBaseline;
+  stageStats: StageStats[];
 }
 
 // ── Sabitler ────────────────────────────────────────────────────────
@@ -749,6 +759,94 @@ function SummaryCards({
 
 // ── Random Baseline Bar ─────────────────────────────────────────────
 
+// ─── Formasyon Stage Analizi (oluşum vs kırılım win rate) ──────────────
+
+function FormationStageAnalysis({ stats }: { stats: StageStats[] }) {
+  // Veri olan formasyonları öne çıkar (n>0 olan)
+  const sorted = [...stats].sort((a, b) => b.total.n - a.total.n);
+  // Kırılım win rate'inin oluşum'dan iyi olduğu sıralı olsun (gerçek alpha tespiti)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-6 rounded-xl border border-border bg-surface p-5"
+    >
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-base">📐</span>
+        <h3 className="text-sm font-semibold text-text-primary">Formasyon Stage Analizi</h3>
+      </div>
+      <p className="text-[11px] text-text-muted mb-4">
+        Aynı formasyonun <strong>oluşum</strong> aşamasında giriş ile <strong>kırılım sonrası</strong> giriş
+        win rate'leri farklıdır. Genelde kırılım sonrası daha güvenilir ama biraz geç olur.
+      </p>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-xs">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="px-3 py-2 text-left text-text-secondary font-medium">Formasyon</th>
+              <th className="px-3 py-2 text-center text-text-secondary font-medium">Vade</th>
+              <th className="px-3 py-2 text-center text-text-secondary font-medium">Toplam</th>
+              <th className="px-3 py-2 text-center text-text-secondary font-medium">📐 Oluşum</th>
+              <th className="px-3 py-2 text-center text-text-secondary font-medium">🚨 Kırılım</th>
+              <th className="px-3 py-2 text-center text-text-secondary font-medium">Edge</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((s) => {
+              const renderCell = (data: { winRate: number | null; n: number }) => {
+                if (data.n === 0) return <span className="text-text-muted">—</span>;
+                if (data.n < 10) return (
+                  <span className="text-amber-400" title={`Yetersiz örneklem (n=${data.n})`}>
+                    %{data.winRate?.toFixed(0)} <span className="text-[9px] opacity-60">⚠️</span>
+                  </span>
+                );
+                const wr = data.winRate ?? 0;
+                const cls = wr >= 60 ? 'text-emerald-400 font-bold' :
+                            wr >= 50 ? 'text-amber-400' :
+                            wr >= 40 ? 'text-orange-400' : 'text-red-400';
+                return (
+                  <span className={cls}>
+                    %{wr.toFixed(0)}
+                    <span className="text-[9px] opacity-60 ml-0.5">n={data.n}</span>
+                  </span>
+                );
+              };
+
+              // Edge: kırılım winRate - oluşum winRate
+              const edge = (s.kirilim.winRate !== null && s.olusum.winRate !== null)
+                ? s.kirilim.winRate - s.olusum.winRate
+                : null;
+              const edgeCls = edge === null ? 'text-text-muted' :
+                              edge > 5 ? 'text-emerald-400 font-bold' :
+                              edge > 0 ? 'text-emerald-400' :
+                              edge < -5 ? 'text-red-400' : 'text-text-muted';
+
+              return (
+                <tr key={s.signalType} className="border-b border-border/40 hover:bg-surface/50">
+                  <td className="px-3 py-2.5 font-medium text-text-primary">{s.signalType}</td>
+                  <td className="px-3 py-2.5 text-center text-text-secondary">{s.horizon}</td>
+                  <td className="px-3 py-2.5 text-center">{renderCell(s.total)}</td>
+                  <td className="px-3 py-2.5 text-center">{renderCell(s.olusum)}</td>
+                  <td className="px-3 py-2.5 text-center">{renderCell(s.kirilim)}</td>
+                  <td className={`px-3 py-2.5 text-center text-[11px] tabular-nums ${edgeCls}`}>
+                    {edge === null ? '—' : `${edge > 0 ? '+' : ''}${edge.toFixed(1)}%`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-[10px] text-text-muted/60">
+        <strong>Edge:</strong> kırılım win rate − oluşum win rate. Pozitif = kırılım beklemek değer katar.
+        n &lt; 10 yetersiz örneklem (⚠️). Komisyon: %0.4 round-trip dahil.
+      </p>
+    </motion.div>
+  );
+}
+
 function RandomBaselineBar({ baseline, signalWinRate }: { baseline: RandomBaseline; signalWinRate: number | null }) {
   if (baseline.randomWinRate === null || signalWinRate === null) return null;
 
@@ -1250,6 +1348,11 @@ export default function BacktestingPage() {
               strategyReturn={data.summary.avgReturns['7d']}
               benchmark={data.benchmark}
             />
+          )}
+
+          {/* Formasyon Stage Analizi — oluşum vs kırılım win rate */}
+          {data.stageStats && data.stageStats.length > 0 && (
+            <FormationStageAnalysis stats={data.stageStats} />
           )}
 
           {/* Performans matrisi */}

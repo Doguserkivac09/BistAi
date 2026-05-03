@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
     risk_reward_ratio: number | null;
     atr: number | null;
     last_refreshed_at: string;
+    stage: string | null;
   };
   const perfRows: PerfRow[] = [];
 
@@ -198,6 +199,14 @@ export async function GET(request: NextRequest) {
       if (lastClose && lastClose > 0 && signals.length > 0 && stockConfluence) {
         const confluence = stockConfluence;
         for (const sig of signals) {
+          // Formasyon stage'i (signal.data.stage) → 'oluşum' veya 'kırılım'
+          // Klasik indikatörlerde stage yok → null (CHECK constraint kabul eder)
+          const sigData = sig.data as Record<string, unknown> | undefined;
+          const stageRaw = sigData?.stage;
+          const stage = typeof stageRaw === 'string' && (stageRaw === 'oluşum' || stageRaw === 'kırılım')
+            ? stageRaw
+            : null;
+
           perfRows.push({
             user_id:             null,
             sembol,
@@ -216,6 +225,7 @@ export async function GET(request: NextRequest) {
             risk_reward_ratio:   sig.riskRewardRatio ?? null,
             atr:                 sig.atr ?? null,
             last_refreshed_at:   scannedAt,
+            stage,
           });
         }
       }
@@ -305,6 +315,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 4) UPDATE — sadece dinamik alanlar (entry_price + entry_time + evaluated DOKUNULMAZ)
+    // stage de yenilenir: formasyon oluşumdan kırılıma geçebilir
     for (const { id, row } of toUpdate) {
       const { error } = await supabase
         .from('signal_performance')
@@ -319,6 +330,7 @@ export async function GET(request: NextRequest) {
           regime:              row.regime,
           direction:           row.direction,
           last_refreshed_at:   row.last_refreshed_at,
+          stage:               row.stage,
         })
         .eq('id', id);
       if (error) {

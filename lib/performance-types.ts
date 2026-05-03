@@ -15,6 +15,8 @@ export interface SignalPerformanceRecord {
   evaluated: boolean;
   regime?: string | null;
   confluence_score?: number | null;
+  /** Formasyon stage'i — 'oluşum' | 'kırılım' | null (klasik indikatör) */
+  stage?: 'oluşum' | 'kırılım' | null;
   created_at: string;
 }
 
