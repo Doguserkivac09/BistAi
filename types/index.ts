@@ -121,7 +121,11 @@ export type SignalTypeFilter =
   // Formasyonlar
   | 'Çift Dip'
   | 'Çift Tepe'
-  | 'Bull Flag';
+  | 'Bull Flag'
+  | 'Bear Flag'
+  | 'Cup & Handle'
+  | 'Ters Omuz-Baş-Omuz'
+  | 'Yükselen Üçgen';
 
 export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
 

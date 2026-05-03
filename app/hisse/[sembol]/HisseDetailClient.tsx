@@ -171,6 +171,10 @@ const SIGNAL_VADE: Record<string, { label: string; color: string }> = {
   'Çift Dip':                  { label: '14g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
   'Çift Tepe':                 { label: '14g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
   'Bull Flag':                 { label: '14g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
+  'Bear Flag':                 { label: '14g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
+  'Cup & Handle':              { label: '30g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
+  'Ters Omuz-Baş-Omuz':        { label: '30g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
+  'Yükselen Üçgen':            { label: '14g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
 };
 
 // ── Haftalık uyum rozeti (multi-timeframe) ─────────────────────────────

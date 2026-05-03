@@ -51,6 +51,10 @@ const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return
   'Çift Dip':                'return_14d', // formasyon
   'Çift Tepe':               'return_14d', // formasyon
   'Bull Flag':               'return_14d', // formasyon (devam)
+  'Bear Flag':               'return_14d', // formasyon (devam — bearish)
+  'Cup & Handle':            'return_30d', // uzun vadeli formasyon
+  'Ters Omuz-Baş-Omuz':      'return_30d', // güçlü reversal — uzun vadeli
+  'Yükselen Üçgen':          'return_14d', // sıkışma kırılımı
   'MACD Kesişimi':           'return_7d',
   'MACD Daralıyor':          'return_7d',  // pre-signal
   'RSI Uyumsuzluğu':         'return_7d',

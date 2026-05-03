@@ -110,6 +110,10 @@ const SIGNAL_ATR_PARAMS: Record<string, { stopMult: number; targetMult: number }
   'Çift Dip':                  { stopMult: 1.5, targetMult: 3.5 },  // yapı tabanlı, neckline'a göre stop
   'Çift Tepe':                 { stopMult: 1.5, targetMult: 3.5 },  // bearish — short kurulum
   'Bull Flag':                 { stopMult: 1.3, targetMult: 3.0 },  // sıkı stop — flag kırılırsa hızlı çıkış
+  'Bear Flag':                 { stopMult: 1.3, targetMult: 3.0 },
+  'Cup & Handle':              { stopMult: 1.5, targetMult: 4.0 },  // uzun vadeli, geniş hedef
+  'Ters Omuz-Baş-Omuz':        { stopMult: 1.5, targetMult: 4.0 },  // güçlü reversal
+  'Yükselen Üçgen':            { stopMult: 1.4, targetMult: 3.0 },  // sıkışma sonrası kırılım
 };
 
 /**
@@ -1189,6 +1193,383 @@ export function detectBullFlag(sembol: string, candles: OHLCVCandle[]): StockSig
   };
 }
 
+// --- Bear Flag (Düşen Bayrak — bearish devam formasyonu) ---
+//
+// Bull Flag'ın tam tersi. Düşüş trendinde sıkışma sonrası devam.
+// Flagpole: güçlü düşüş (en az %15)
+// Flag: dar konsolidasyon (5-15 mum, max %10 yükseliş)
+// Tetik: lastClose < flagLow → düşüş devamı
+export function detectBearFlag(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 30) return null;
+
+  const slice = candles.slice(-30);
+  const closes = slice.map((c) => c.close);
+
+  let bestFlagpole: { startIdx: number; endIdx: number; startPrice: number; endPrice: number; dropPct: number } | null = null;
+
+  for (let startIdx = 0; startIdx <= 14; startIdx++) {
+    const startPrice = closes[startIdx]!;
+    if (startPrice === 0) continue;
+
+    for (let endIdx = startIdx + 5; endIdx <= startIdx + 15 && endIdx < slice.length - 4; endIdx++) {
+      const endPrice = closes[endIdx]!;
+      const dropPct = (startPrice - endPrice) / startPrice;
+      if (dropPct < 0.15) continue;
+
+      if (!bestFlagpole || dropPct > bestFlagpole.dropPct) {
+        bestFlagpole = { startIdx, endIdx, startPrice, endPrice, dropPct };
+      }
+    }
+  }
+
+  if (!bestFlagpole) return null;
+
+  const flagStart = bestFlagpole.endIdx + 1;
+  const flagSlice = slice.slice(flagStart);
+  if (flagSlice.length < 5) return null;
+
+  const flagHigh = Math.max(...flagSlice.map((c) => c.high));
+  const flagLow = Math.min(...flagSlice.map((c) => c.low));
+
+  // Flag toparlama %10'u geçmemeli — geçerse trend dönüşü olmuş
+  const flagBouncePct = (flagHigh - bestFlagpole.endPrice) / bestFlagpole.endPrice;
+  if (flagBouncePct > 0.10) return null;
+  // Çok geniş flag'ı ele
+  const flagRange = flagHigh - flagLow;
+  if (flagRange / bestFlagpole.endPrice > 0.15) return null;
+
+  const lastClose = closes[closes.length - 1]!;
+
+  // Tetik: kırılım = lastClose flagLow altında
+  const isBreakout = lastClose < flagLow;
+  const inFlag = lastClose >= flagLow * 0.995 && lastClose <= flagHigh;
+
+  if (!isBreakout && !inFlag) return null;
+
+  let severity: SignalSeverity;
+  if (isBreakout) {
+    const breakStrength = (flagLow - lastClose) / flagLow;
+    severity = breakStrength >= 0.02 && bestFlagpole.dropPct >= 0.25 ? 'güçlü' :
+               breakStrength >= 0.01 ? 'orta' : 'zayıf';
+  } else {
+    severity = flagSlice.length >= 5 && flagSlice.length <= 15 && bestFlagpole.dropPct >= 0.20 ? 'orta' : 'zayıf';
+  }
+
+  return {
+    type: 'Bear Flag',
+    sembol,
+    severity,
+    direction: 'asagi',
+    data: {
+      stage: isBreakout ? 'kırılım' : 'oluşum',
+      flagpoleDrop: parseFloat((bestFlagpole.dropPct * 100).toFixed(2)),
+      flagHigh: parseFloat(flagHigh.toFixed(2)),
+      flagLow: parseFloat(flagLow.toFixed(2)),
+      lastPrice: parseFloat(lastClose.toFixed(2)),
+      flagDays: flagSlice.length,
+    },
+  };
+}
+
+// --- Cup & Handle (Kupa-Kulp — uzun vadeli en güvenilir bullish devam) ---
+//
+// O'Neil/Bulkowski klasik formasyonu — "U" şekilli yumuşak dip + küçük kulp
+// 60-90 mum pencere
+//
+// Yapı:
+//  1. Sol kenar (kupa rim) — yüksek nokta
+//  2. Yumuşak yuvarlak dip — V değil U (gradient kontrolü)
+//  3. Sağ kenar (kupa rim) — sol kenar ile yaklaşık eşit (~%5 tolerans)
+//  4. KULP — son 5-15 mumda küçük geri çekilme (kupa derinliğinin maks %33'ü)
+//  5. Tetik: lastClose >= kulp tepesi → kırılım
+export function detectCupAndHandle(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  const WINDOW = 80; // ~4 ay (haftalık 16 hafta)
+  if (candles.length < WINDOW + 5) return null;
+
+  const slice = candles.slice(-WINDOW);
+  const closes = slice.map((c) => c.close);
+  const highs = slice.map((c) => c.high);
+  const lows = slice.map((c) => c.low);
+
+  // Kupa kısmı: ilk %75 (60 mum), Kulp kısmı: son %25 (20 mum)
+  const cupEndIdx = Math.floor(WINDOW * 0.75);
+  const cupSlice = slice.slice(0, cupEndIdx);
+  const handleSlice = slice.slice(cupEndIdx);
+
+  // 1) Kupa sol kenarı = ilk 10 mumun en yüksek
+  const leftRimSlice = cupSlice.slice(0, 10);
+  const leftRim = Math.max(...leftRimSlice.map((c) => c.high));
+  const leftRimIdx = leftRimSlice.findIndex((c) => c.high === leftRim);
+
+  // 2) Kupa dip = sol kenardan sonraki en düşük
+  const cupAfterLeft = cupSlice.slice(leftRimIdx + 5);
+  if (cupAfterLeft.length < 30) return null;
+  const cupBottom = Math.min(...cupAfterLeft.map((c) => c.low));
+  const cupBottomLocalIdx = cupAfterLeft.findIndex((c) => c.low === cupBottom);
+  if (cupBottomLocalIdx < 5) return null;
+
+  // 3) Kupa sağ kenarı = dipten sonraki en yüksek (kupa kısmı içinde)
+  const cupAfterBottom = cupAfterLeft.slice(cupBottomLocalIdx + 5);
+  if (cupAfterBottom.length < 5) return null;
+  const rightRim = Math.max(...cupAfterBottom.map((c) => c.high));
+
+  // 4) Sol & sağ kenar yaklaşık eşit (~%5 tolerans)
+  const rimDiffPct = Math.abs(leftRim - rightRim) / leftRim;
+  if (rimDiffPct > 0.06) return null;
+
+  // 5) Kupa derinliği — en az %12 olmalı (anlamlı kupa)
+  const cupAvgRim = (leftRim + rightRim) / 2;
+  const cupDepthPct = (cupAvgRim - cupBottom) / cupAvgRim;
+  if (cupDepthPct < 0.12 || cupDepthPct > 0.50) return null;
+
+  // 6) Yumuşaklık kontrolü — kupa içinde keskin V dipler olmamalı
+  // Kupa içindeki günlük max düşüş < %8 olmalı
+  let maxDailyDrop = 0;
+  for (let i = 1; i < cupAfterLeft.length; i++) {
+    const drop = (cupAfterLeft[i - 1]!.close - cupAfterLeft[i]!.close) / cupAfterLeft[i - 1]!.close;
+    if (drop > maxDailyDrop) maxDailyDrop = drop;
+  }
+  if (maxDailyDrop > 0.08) return null; // V dip değil, U dip olmalı
+
+  // 7) KULP — son %25
+  const handleHigh = Math.max(...handleSlice.map((c) => c.high));
+  const handleLow = Math.min(...handleSlice.map((c) => c.low));
+  const handleDepthPct = (handleHigh - handleLow) / handleHigh;
+
+  // Kulp derinliği max kupa derinliğinin 1/3'ü (klasik kural)
+  if (handleDepthPct > cupDepthPct / 3) return null;
+
+  // Kulp en az 5 en fazla 20 mum
+  if (handleSlice.length < 5 || handleSlice.length > 25) return null;
+
+  // 8) Tetik: lastClose
+  const lastClose = closes[closes.length - 1]!;
+  const breakLevel = handleHigh; // kulp tepesi = breakout level
+
+  const isBreakout = lastClose >= breakLevel;
+  const inHandle = lastClose >= handleLow && lastClose < breakLevel;
+
+  if (!isBreakout && !inHandle) return null;
+
+  // Severity
+  let severity: SignalSeverity;
+  if (isBreakout) {
+    const breakStrength = (lastClose - breakLevel) / breakLevel;
+    severity = breakStrength >= 0.02 ? 'güçlü' : 'orta';
+  } else {
+    // Kulp içinde: simetri + derinlik kontrolü
+    severity = rimDiffPct < 0.03 && cupDepthPct >= 0.15 && handleDepthPct < 0.05 ? 'orta' : 'zayıf';
+  }
+
+  return {
+    type: 'Cup & Handle',
+    sembol,
+    severity,
+    direction: 'yukari',
+    data: {
+      stage: isBreakout ? 'kırılım' : 'oluşum',
+      leftRim: parseFloat(leftRim.toFixed(2)),
+      cupBottom: parseFloat(cupBottom.toFixed(2)),
+      rightRim: parseFloat(rightRim.toFixed(2)),
+      handleHigh: parseFloat(handleHigh.toFixed(2)),
+      handleLow: parseFloat(handleLow.toFixed(2)),
+      cupDepthPct: parseFloat((cupDepthPct * 100).toFixed(2)),
+      handleDepthPct: parseFloat((handleDepthPct * 100).toFixed(2)),
+      lastPrice: parseFloat(lastClose.toFixed(2)),
+    },
+  };
+}
+
+// --- Inverse Head & Shoulders (Ters Omuz-Baş-Omuz — bullish reversal) ---
+//
+// 3 dip: sol omuz, baş (en derin), sağ omuz
+// Yapı:
+//  1. Sol omuz dipi
+//  2. Toparlama → omuz tepesi (neckline 1. test)
+//  3. Baş dipi (sol omuz dipinden DAHA derin)
+//  4. Toparlama → omuz tepesi (neckline 2. test)
+//  5. Sağ omuz dipi (sol omuza yakın seviye, baştan AZ derin)
+//  6. Tetik: lastClose >= neckline → bullish kırılım
+export function detectInverseHeadShoulders(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  const WINDOW = 60;
+  const PIVOT_K = 3;
+  if (candles.length < WINDOW + PIVOT_K * 2) return null;
+
+  const slice = candles.slice(-WINDOW);
+  const lows = slice.map((c) => c.low);
+  const highs = slice.map((c) => c.high);
+
+  // Local minimum pivot'ları bul
+  const pivotLows: Array<{ idx: number; price: number }> = [];
+  for (let i = PIVOT_K; i < slice.length - PIVOT_K; i++) {
+    const low = lows[i]!;
+    let isMin = true;
+    for (let k = 1; k <= PIVOT_K; k++) {
+      if (lows[i - k]! <= low || lows[i + k]! <= low) { isMin = false; break; }
+    }
+    if (isMin) pivotLows.push({ idx: i, price: low });
+  }
+
+  if (pivotLows.length < 3) return null;
+
+  // Son 3 pivot — sol omuz, baş, sağ omuz
+  const right = pivotLows[pivotLows.length - 1]!;
+  const head = pivotLows[pivotLows.length - 2]!;
+  const left = pivotLows[pivotLows.length - 3]!;
+
+  // 1. Baş, sol ve sağ omuzdan DAHA DERİN olmalı
+  if (head.price >= left.price || head.price >= right.price) return null;
+
+  // 2. Sol ve sağ omuz aynı seviyede (~%5 tolerans)
+  const minShoulder = Math.min(left.price, right.price);
+  const maxShoulder = Math.max(left.price, right.price);
+  const shoulderDiffPct = (maxShoulder - minShoulder) / minShoulder;
+  if (shoulderDiffPct > 0.05) return null;
+
+  // 3. Baş, omuzlardan en az %3 daha derin
+  const headDepthVsShoulders = (Math.min(left.price, right.price) - head.price) / Math.min(left.price, right.price);
+  if (headDepthVsShoulders < 0.03) return null;
+
+  // 4. Pivot aralıkları — 3-15 mum tipik
+  const leftHeadGap = head.idx - left.idx;
+  const headRightGap = right.idx - head.idx;
+  if (leftHeadGap < 3 || leftHeadGap > 25) return null;
+  if (headRightGap < 3 || headRightGap > 25) return null;
+
+  // 5. Neckline: sol omuz ile baş arası ve baş ile sağ omuz arası tepe ortalaması
+  const leftHeadHighs = highs.slice(left.idx + 1, head.idx);
+  const headRightHighs = highs.slice(head.idx + 1, right.idx);
+  if (leftHeadHighs.length === 0 || headRightHighs.length === 0) return null;
+  const leftPeak = Math.max(...leftHeadHighs);
+  const rightPeak = Math.max(...headRightHighs);
+  const neckline = (leftPeak + rightPeak) / 2;
+
+  // 6. Mevcut fiyat
+  const lastClose = slice[slice.length - 1]!.close;
+  const candlesAfterRight = slice.length - 1 - right.idx;
+
+  const isBreakout = lastClose >= neckline;
+  // Sağ omuz oluştuktan sonraki 1-15 mum arası "oluşum"
+  const isFormed = candlesAfterRight >= 1 && candlesAfterRight <= 15;
+  if (!isBreakout && !isFormed) return null;
+
+  let severity: SignalSeverity;
+  if (isBreakout) {
+    const breakStrength = (lastClose - neckline) / neckline;
+    severity = breakStrength >= 0.02 ? 'güçlü' : 'orta';
+  } else {
+    severity = shoulderDiffPct < 0.025 && headDepthVsShoulders >= 0.06 ? 'orta' : 'zayıf';
+  }
+
+  return {
+    type: 'Ters Omuz-Baş-Omuz',
+    sembol,
+    severity,
+    direction: 'yukari',
+    data: {
+      stage: isBreakout ? 'kırılım' : 'oluşum',
+      leftShoulder: parseFloat(left.price.toFixed(2)),
+      head: parseFloat(head.price.toFixed(2)),
+      rightShoulder: parseFloat(right.price.toFixed(2)),
+      neckline: parseFloat(neckline.toFixed(2)),
+      lastPrice: parseFloat(lastClose.toFixed(2)),
+      headDepthPct: parseFloat((headDepthVsShoulders * 100).toFixed(2)),
+      candlesAgo: candlesAfterRight,
+    },
+  };
+}
+
+// --- Ascending Triangle (Yükselen Üçgen — bullish devam genelde) ---
+//
+// Yapı:
+//  - Düz yatay üst direnç — en az 2 tepe aynı seviyede
+//  - Yükselen alt destek — Higher Lows
+//  - Sıkışma yakın → kırılım
+//
+// Tetik: lastClose >= üst direnç → bullish breakout
+export function detectAscendingTriangle(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  const WINDOW = 40;
+  const PIVOT_K = 3;
+  if (candles.length < WINDOW + PIVOT_K * 2) return null;
+
+  const slice = candles.slice(-WINDOW);
+  const highs = slice.map((c) => c.high);
+  const lows = slice.map((c) => c.low);
+
+  // Pivot tepe ve dipler
+  const pivotHighs: Array<{ idx: number; price: number }> = [];
+  const pivotLows: Array<{ idx: number; price: number }> = [];
+
+  for (let i = PIVOT_K; i < slice.length - PIVOT_K; i++) {
+    const h = highs[i]!;
+    const l = lows[i]!;
+    let isMax = true;
+    let isMin = true;
+    for (let k = 1; k <= PIVOT_K; k++) {
+      if (highs[i - k]! >= h || highs[i + k]! >= h) isMax = false;
+      if (lows[i - k]! <= l || lows[i + k]! <= l) isMin = false;
+    }
+    if (isMax) pivotHighs.push({ idx: i, price: h });
+    if (isMin) pivotLows.push({ idx: i, price: l });
+  }
+
+  // En az 2 tepe + 2 dip gerek
+  if (pivotHighs.length < 2 || pivotLows.length < 2) return null;
+
+  // 1. Tepelerin yatay olduğunu kontrol et — son 2-3 tepe aynı seviyede
+  const lastTwoHighs = pivotHighs.slice(-2);
+  const minHigh = Math.min(...lastTwoHighs.map((h) => h.price));
+  const maxHigh = Math.max(...lastTwoHighs.map((h) => h.price));
+  const highDiffPct = (maxHigh - minHigh) / minHigh;
+  if (highDiffPct > 0.03) return null; // %3'ten fazla farklıysa yatay direnç değil
+
+  const resistance = (lastTwoHighs[0]!.price + lastTwoHighs[1]!.price) / 2;
+
+  // 2. Diplerin yükseldiğini kontrol et (Higher Lows)
+  const lastTwoLows = pivotLows.slice(-2);
+  const [lowA, lowB] = lastTwoLows;
+  if (!lowA || !lowB) return null;
+  if (lowB.price <= lowA.price) return null; // yükselen değilse triangle değil
+
+  const lowSlope = (lowB.price - lowA.price) / lowA.price;
+  if (lowSlope < 0.01) return null; // %1'den az yükselişte değer yok
+
+  // 3. Tetik: lastClose
+  const lastClose = slice[slice.length - 1]!.close;
+  const distancePct = (resistance - lastClose) / resistance;
+
+  const isBreakout = lastClose >= resistance;
+  // Oluşum: lastClose direncin %3 içindeyse
+  const inTriangle = !isBreakout && distancePct <= 0.03 && distancePct >= 0;
+
+  if (!isBreakout && !inTriangle) return null;
+
+  let severity: SignalSeverity;
+  if (isBreakout) {
+    const breakStrength = (lastClose - resistance) / resistance;
+    severity = breakStrength >= 0.02 && pivotHighs.length >= 3 ? 'güçlü' :
+               breakStrength >= 0.01 ? 'orta' : 'zayıf';
+  } else {
+    // Oluşum aşaması: çok pivot + yüksek slope → orta
+    severity = pivotHighs.length >= 3 && lowSlope >= 0.03 ? 'orta' : 'zayıf';
+  }
+
+  return {
+    type: 'Yükselen Üçgen',
+    sembol,
+    severity,
+    direction: 'yukari',
+    data: {
+      stage: isBreakout ? 'kırılım' : 'oluşum',
+      resistance: parseFloat(resistance.toFixed(2)),
+      pivotCount: pivotHighs.length + pivotLows.length,
+      lowSlope: parseFloat((lowSlope * 100).toFixed(2)),
+      lastPrice: parseFloat(lastClose.toFixed(2)),
+      distancePct: parseFloat((distancePct * 100).toFixed(2)),
+    },
+  };
+}
+
 // --- Higher Lows / Lower Highs (LEADING — trend dönüşü öncesi yapı) ---
 //
 // EMA tabanlı sinyaller (Trend Başlangıcı, Altın Çapraz) doğal olarak GEÇ kalır
@@ -1447,6 +1828,10 @@ export function detectAllSignals(
   if (want('Çift Dip'))                { const s = detectDoubleBottom(sembol, candles);           if (s) signals.push(s); }
   if (want('Çift Tepe'))               { const s = detectDoubleTop(sembol, candles);              if (s) signals.push(s); }
   if (want('Bull Flag'))               { const s = detectBullFlag(sembol, candles);               if (s) signals.push(s); }
+  if (want('Bear Flag'))               { const s = detectBearFlag(sembol, candles);               if (s) signals.push(s); }
+  if (want('Cup & Handle'))            { const s = detectCupAndHandle(sembol, candles);           if (s) signals.push(s); }
+  if (want('Ters Omuz-Baş-Omuz'))      { const s = detectInverseHeadShoulders(sembol, candles);   if (s) signals.push(s); }
+  if (want('Yükselen Üçgen'))          { const s = detectAscendingTriangle(sembol, candles);      if (s) signals.push(s); }
 
   // ── Likidite kontrolü ────────────────────────────────────────────────────────
   // Ortalama TL hacim: son 20 günlük (close × volume ortalaması)
@@ -1496,6 +1881,10 @@ const SIGNAL_CATEGORY: Record<string, string> = {
   'Çift Dip':                'formasyon',
   'Çift Tepe':               'formasyon',
   'Bull Flag':               'formasyon',
+  'Bear Flag':               'formasyon',
+  'Cup & Handle':            'formasyon',
+  'Ters Omuz-Baş-Omuz':      'formasyon',
+  'Yükselen Üçgen':          'formasyon',
 };
 
 const SEVERITY_POINTS: Record<string, number> = { güçlü: 35, orta: 22, zayıf: 12 };

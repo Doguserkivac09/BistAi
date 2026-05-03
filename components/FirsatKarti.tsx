@@ -36,6 +36,10 @@ const SINYAL_GUC: Record<string, 'guclu' | 'orta' | 'destekleyici'> = {
   'Çift Dip':                'guclu',
   'Çift Tepe':               'guclu',
   'Bull Flag':               'guclu',
+  'Bear Flag':               'guclu',
+  'Cup & Handle':            'guclu',
+  'Ters Omuz-Baş-Omuz':      'guclu',
+  'Yükselen Üçgen':          'guclu',
 };
 
 const SINYAL_KISALT: Record<string, string> = {
@@ -57,6 +61,10 @@ const SINYAL_KISALT: Record<string, string> = {
   'Çift Dip':                '📐 Çift Dip',
   'Çift Tepe':               '📐 Çift Tepe',
   'Bull Flag':               '📐 Bull Flag',
+  'Bear Flag':               '📐 Bear Flag',
+  'Cup & Handle':            '📐 Kupa-Kulp',
+  'Ters Omuz-Baş-Omuz':      '📐 Ters OBO',
+  'Yükselen Üçgen':          '📐 Yks. Üçgen',
 };
 
 export function sinyalEtiket(sinyal: string) {
