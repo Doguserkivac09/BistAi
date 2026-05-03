@@ -33,6 +33,7 @@ interface Profile {
 }
 
 const ALL_SIGNAL_TYPES = [
+  // Klasik göstergeler
   'RSI Uyumsuzluğu',
   'Hacim Anomalisi',
   'Trend Başlangıcı',
@@ -41,7 +42,21 @@ const ALL_SIGNAL_TYPES = [
   'RSI Seviyesi',
   'Altın Çapraz',
   'Bollinger Sıkışması',
+  // Formasyonlar (kırılım/oluşum bildirimleri)
+  'Çift Dip',
+  'Çift Tepe',
+  'Bull Flag',
+  'Bear Flag',
+  'Cup & Handle',
+  'Ters Omuz-Baş-Omuz',
+  'Yükselen Üçgen',
 ] as const;
+
+/** Formasyon mu? Profil sayfasında grup etiketinde kullanılır */
+const FORMATION_SIGNAL_TYPES = new Set([
+  'Çift Dip', 'Çift Tepe', 'Bull Flag', 'Bear Flag',
+  'Cup & Handle', 'Ters Omuz-Baş-Omuz', 'Yükselen Üçgen',
+]);
 
 const TIER_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   free:    { label: 'Ücretsiz', color: 'text-gray-400',   bg: 'from-gray-500/20 to-gray-600/10 border-gray-500/30',  icon: '🆓' },
@@ -759,8 +774,11 @@ export default function ProfilPage() {
               </div>
 
               {emailEnabled && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  {ALL_SIGNAL_TYPES.map((t) => {
+                <div className="space-y-3">
+                  {/* Grup başlıkları */}
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Klasik Göstergeler</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-3">
+                  {ALL_SIGNAL_TYPES.filter((t) => !FORMATION_SIGNAL_TYPES.has(t)).map((t) => {
                     const checked = signalTypes.length === 0 || signalTypes.includes(t);
                     return (
                       <label
@@ -803,6 +821,58 @@ export default function ProfilPage() {
                       </label>
                     );
                   })}
+                  </div>
+
+                  {/* Formasyonlar grubu */}
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                    📐 Formasyonlar
+                    <span className="text-[9px] normal-case tracking-normal font-normal text-text-muted/70">— kırılım ve oluşum için ayrı bildirim</span>
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {ALL_SIGNAL_TYPES.filter((t) => FORMATION_SIGNAL_TYPES.has(t)).map((t) => {
+                    const checked = signalTypes.length === 0 || signalTypes.includes(t);
+                    return (
+                      <label
+                        key={t}
+                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 cursor-pointer transition-all ${
+                          checked
+                            ? 'border-orange-500/40 bg-orange-500/5 text-text-primary'
+                            : 'border-border bg-background/30 text-text-muted hover:border-border/80'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            let next: string[];
+                            if (signalTypes.length === 0) {
+                              next = ALL_SIGNAL_TYPES.filter((x) => x !== t);
+                            } else if (checked) {
+                              next = signalTypes.filter((x) => x !== t);
+                              if (next.length === 0) next = [];
+                            } else {
+                              next = [...signalTypes, t];
+                              if (next.length === ALL_SIGNAL_TYPES.length) next = [];
+                            }
+                            setSignalTypes(next);
+                            savePref(emailEnabled, minSeverity, next);
+                          }}
+                          className="sr-only"
+                        />
+                        <span className={`h-3.5 w-3.5 shrink-0 rounded border flex items-center justify-center transition-colors ${
+                          checked ? 'border-orange-500 bg-orange-500' : 'border-border bg-background'
+                        }`}>
+                          {checked && (
+                            <svg viewBox="0 0 10 8" fill="none" className="h-2 w-2">
+                              <path d="M1 4l2.5 2.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </span>
+                        <span className="text-[11px] leading-tight">{t}</span>
+                      </label>
+                    );
+                  })}
+                  </div>
                 </div>
               )}
             </div>

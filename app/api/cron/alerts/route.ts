@@ -16,7 +16,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals } from '@/lib/signals';
-import { sendSignalAlert } from '@/lib/email-service';
+import { sendSignalAlert, sendFormationAlert, isFormationSignalEmail } from '@/lib/email-service';
+import type { FormationGroup } from '@/lib/email-service';
 import { sendPush } from '@/lib/push';
 import type { StockSignal } from '@/types';
 
@@ -135,11 +136,12 @@ export async function GET(req: NextRequest) {
 
   const prefsMap = new Map((allPrefs ?? []).map((p) => [p.user_id, p]));
 
-  // Bugün gönderilenleri user bazında grupla
+  // Bugün gönderilenleri user bazında grupla — stage dahil key
   const historyMap = new Map<string, Set<string>>();
   for (const row of allHistory ?? []) {
     if (!historyMap.has(row.user_id)) historyMap.set(row.user_id, new Set());
-    historyMap.get(row.user_id)!.add(`${row.sembol}::${row.signal_type}`);
+    const stage = (row as Record<string, string | null>).stage ?? null;
+    historyMap.get(row.user_id)!.add(`${row.sembol}::${row.signal_type}::${stage ?? 'null'}`);
   }
 
   // ── 6. Bildirim gönder ─────────────────────────────────────────────────────
@@ -168,24 +170,55 @@ export async function GET(req: NextRequest) {
     const semboller = userSymbols[userId] ?? [];
 
     const stocksToSend: Array<{ sembol: string; signals: StockSignal[] }> = [];
-    const newHistoryRows: Array<{ user_id: string; sembol: string; signal_type: string }> = [];
+    // Formasyon sinyalleri ayrı gruplarda: kırılım ve oluşum
+    const formationKirilim: FormationGroup[] = [];
+    const formationOlusum:  FormationGroup[] = [];
+    const newHistoryRows: Array<{ user_id: string; sembol: string; signal_type: string; stage: string | null }> = [];
 
     for (const sembol of semboller) {
-      const signals = (signalMap[sembol] ?? []).filter(
-        (sig) =>
-          meetsMinSeverity(sig, minSeverity) &&
-          !sentSet.has(`${sembol}::${sig.type}`) &&
-          (allowedTypes.length === 0 || allowedTypes.includes(sig.type))
-      );
-      if (signals.length > 0) {
-        stocksToSend.push({ sembol, signals });
-        for (const sig of signals) {
-          newHistoryRows.push({ user_id: userId, sembol, signal_type: sig.type });
+      const signals = (signalMap[sembol] ?? []).filter((sig) => {
+        if (!meetsMinSeverity(sig, minSeverity)) return false;
+        if (allowedTypes.length > 0 && !allowedTypes.includes(sig.type)) return false;
+
+        // Formasyon sinyalleri stage dahil deduplication
+        // 'kırılım' bildirimi geldiyse bugün aynı sembol için 'oluşum' da gönderilmez (override)
+        const sigData = sig.data as Record<string, string> | undefined;
+        const stage = sigData?.stage ?? null;
+        const dedupKey = `${sembol}::${sig.type}::${stage ?? 'null'}`;
+        return !sentSet.has(dedupKey);
+      });
+
+      if (signals.length === 0) continue;
+
+      for (const sig of signals) {
+        const sigData = sig.data as Record<string, string | number> | undefined;
+        const stage = (sigData?.stage as string) ?? null;
+
+        if (isFormationSignalEmail(sig.type)) {
+          // Formasyon — kırılım veya oluşum grubuna ekle
+          const currentPrice = typeof sigData?.lastPrice === 'number' ? sigData.lastPrice : undefined;
+          const group: FormationGroup = {
+            sembol,
+            signal: sig,
+            stage: (stage === 'kırılım' ? 'kırılım' : 'oluşum') as 'kırılım' | 'oluşum',
+            currentPrice,
+          };
+          if (stage === 'kırılım') formationKirilim.push(group);
+          else formationOlusum.push(group);
+        } else {
+          // Klasik sinyal — mevcut stocksToSend grubuna
+          const existing = stocksToSend.find((s) => s.sembol === sembol);
+          if (existing) existing.signals.push(sig);
+          else stocksToSend.push({ sembol, signals: [sig] });
         }
+
+        // History kaydı
+        newHistoryRows.push({ user_id: userId, sembol, signal_type: sig.type, stage: stage ?? null });
       }
     }
 
-    if (!stocksToSend.length) continue;
+    const hasSomething = stocksToSend.length > 0 || formationKirilim.length > 0 || formationOlusum.length > 0;
+    if (!hasSomething) continue;
 
     let notified = false;
 
@@ -193,11 +226,30 @@ export async function GET(req: NextRequest) {
     if (emailEnabled) {
       const email = emailMap.get(userId);
       if (email) {
-        try {
-          const result = await sendSignalAlert({ to: email, stocks: stocksToSend });
-          if (result?.success) notified = true;
-        } catch (emailErr) {
-          console.error(`[cron/alerts] E-posta gönderilemedi (${userId}):`, emailErr);
+        // 1. Formasyon kırılım — yüksek öncelikli, ayrı email
+        if (formationKirilim.length > 0) {
+          try {
+            const r = await sendFormationAlert({ to: email, groups: formationKirilim, stage: 'kırılım' });
+            if (r?.success) notified = true;
+          } catch (e) { console.error(`[cron/alerts] Formasyon kırılım emaili gönderilemedi (${userId}):`, e); }
+        }
+
+        // 2. Formasyon oluşum — bilgilendirici, sabahki cron'da gönderilebilir
+        if (formationOlusum.length > 0) {
+          try {
+            const r = await sendFormationAlert({ to: email, groups: formationOlusum, stage: 'oluşum' });
+            if (r?.success) notified = true;
+          } catch (e) { console.error(`[cron/alerts] Formasyon oluşum emaili gönderilemedi (${userId}):`, e); }
+        }
+
+        // 3. Klasik sinyaller
+        if (stocksToSend.length > 0) {
+          try {
+            const result = await sendSignalAlert({ to: email, stocks: stocksToSend });
+            if (result?.success) notified = true;
+          } catch (emailErr) {
+            console.error(`[cron/alerts] E-posta gönderilemedi (${userId}):`, emailErr);
+          }
         }
       }
     }
@@ -237,7 +289,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Geçmişe kaydet ───────────────────────────────────────────────────────
+    // ── Geçmişe kaydet (stage dahil) ─────────────────────────────────────────
     if (notified) {
       await admin.from('alert_history').insert(newHistoryRows);
       sentCount++;
