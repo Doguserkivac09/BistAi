@@ -117,7 +117,11 @@ export type SignalTypeFilter =
   | 'Altın Çapraz Yaklaşıyor'
   | 'Trend Olgunlaşıyor'
   | 'Direnç Testi'
-  | 'MACD Daralıyor';
+  | 'MACD Daralıyor'
+  // Formasyonlar
+  | 'Çift Dip'
+  | 'Çift Tepe'
+  | 'Bull Flag';
 
 export type DirectionFilter = 'Tümü' | 'Yukarı' | 'Aşağı';
 

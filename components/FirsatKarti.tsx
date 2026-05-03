@@ -32,6 +32,10 @@ const SINYAL_GUC: Record<string, 'guclu' | 'orta' | 'destekleyici'> = {
   'Trend Olgunlaşıyor':      'orta',
   'Direnç Testi':            'orta',
   'MACD Daralıyor':          'destekleyici',
+  // Formasyonlar — klasik teknik analiz, güçlü
+  'Çift Dip':                'guclu',
+  'Çift Tepe':               'guclu',
+  'Bull Flag':               'guclu',
 };
 
 const SINYAL_KISALT: Record<string, string> = {
@@ -49,6 +53,10 @@ const SINYAL_KISALT: Record<string, string> = {
   'Trend Olgunlaşıyor':      '⚡ Trend Olg.',
   'Direnç Testi':            '⚡ Direnç Test',
   'MACD Daralıyor':          '⚡ MACD Dar.',
+  // Formasyonlar — 📐 ile vurgu
+  'Çift Dip':                '📐 Çift Dip',
+  'Çift Tepe':               '📐 Çift Tepe',
+  'Bull Flag':               '📐 Bull Flag',
 };
 
 export function sinyalEtiket(sinyal: string) {

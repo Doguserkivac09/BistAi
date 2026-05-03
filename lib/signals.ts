@@ -106,6 +106,10 @@ const SIGNAL_ATR_PARAMS: Record<string, { stopMult: number; targetMult: number }
   'Trend Olgunlaşıyor':        { stopMult: 1.5, targetMult: 3.0 },
   'Direnç Testi':              { stopMult: 1.3, targetMult: 3.0 },  // sıkı stop — kırılım başarısız olabilir
   'MACD Daralıyor':            { stopMult: 1.4, targetMult: 2.5 },
+  // Formasyonlar — yapı tabanlı, geniş hedef
+  'Çift Dip':                  { stopMult: 1.5, targetMult: 3.5 },  // yapı tabanlı, neckline'a göre stop
+  'Çift Tepe':                 { stopMult: 1.5, targetMult: 3.5 },  // bearish — short kurulum
+  'Bull Flag':                 { stopMult: 1.3, targetMult: 3.0 },  // sıkı stop — flag kırılırsa hızlı çıkış
 };
 
 /**
@@ -901,6 +905,290 @@ export function detectMACDNarrowing(sembol: string, candles: OHLCVCandle[]): Sto
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// FORMASYON ANALİZİ — Klasik teknik analiz pattern'leri
+// EMA tabanlı sinyallerden FARKLI: fiyat YAPISI'na bakar.
+// "Aşama C" — Cup & Handle, Head & Shoulders, Wedge sonraki sprint'ler.
+// ═══════════════════════════════════════════════════════════════════════
+
+// --- Çift Dip / Çift Tepe (Double Bottom / Double Top — W/M formasyonu) ---
+//
+// EN GÜVENİLİR FORMASYON (Bulkowski rankings: %95 başarı oranı klasik).
+//
+// Mantık:
+//  - 60 gün pencere (yeterli zaman dilimi için)
+//  - 2 belirgin dip (veya tepe) aynı seviyede (~%3 tolerans)
+//  - Aralarında belirgin orta tepe/dip (en az %5 mesafe)
+//  - 2. dip 1. dip'ten en az 10 gün sonra (gürültü değil)
+//
+// Tetiklenme:
+//  - 'oluşum': 2. dip oluştu, kırılım bekleniyor (LEADING — gerçek değer burada)
+//  - 'kırılım': fiyat orta tepenin üstüne çıktı (boyun kırıldı, klasik tetikleme)
+export function detectDoubleBottom(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  const WINDOW = 60;
+  const PIVOT_K = 3; // local pivot için 3 mum sağ + 3 mum sol
+  const TOLERANCE = 0.03; // dip seviyeleri %3 tolerans
+  const MIN_HEIGHT = 0.05; // orta tepe en az %5 yükselişte olmalı
+  const MIN_GAP = 10; // 2 dip arası en az 10 mum
+
+  if (candles.length < WINDOW + PIVOT_K * 2) return null;
+
+  const slice = candles.slice(-WINDOW);
+  const lows = slice.map((c) => c.low);
+  const highs = slice.map((c) => c.high);
+
+  // Local minimum pivot'ları bul
+  const pivotLows: Array<{ idx: number; price: number }> = [];
+  for (let i = PIVOT_K; i < slice.length - PIVOT_K; i++) {
+    const low = lows[i]!;
+    let isMin = true;
+    for (let k = 1; k <= PIVOT_K; k++) {
+      if (lows[i - k]! <= low || lows[i + k]! <= low) { isMin = false; break; }
+    }
+    if (isMin) pivotLows.push({ idx: i, price: low });
+  }
+
+  if (pivotLows.length < 2) return null;
+
+  // Son 2 dip'i incele
+  const second = pivotLows[pivotLows.length - 1]!;
+  // En son dip'ten önceki, MIN_GAP koşulunu sağlayan en yakın dip'i bul
+  let first: { idx: number; price: number } | null = null;
+  for (let i = pivotLows.length - 2; i >= 0; i--) {
+    if (second.idx - pivotLows[i]!.idx >= MIN_GAP) {
+      first = pivotLows[i]!;
+      break;
+    }
+  }
+  if (!first) return null;
+
+  // Diplerin tolerans içinde aynı seviyede olduğunu kontrol et
+  const minDip = Math.min(first.price, second.price);
+  const maxDip = Math.max(first.price, second.price);
+  const dipDiffPct = (maxDip - minDip) / minDip;
+  if (dipDiffPct > TOLERANCE) return null;
+
+  // Aradaki en yüksek tepe (orta tepe, "neckline")
+  const middleSlice = highs.slice(first.idx + 1, second.idx);
+  if (middleSlice.length === 0) return null;
+  const middleHigh = Math.max(...middleSlice);
+
+  // Orta tepe diplerden en az MIN_HEIGHT yüksekte olmalı
+  const heightPct = (middleHigh - minDip) / minDip;
+  if (heightPct < MIN_HEIGHT) return null;
+
+  // Mevcut fiyat
+  const lastClose = slice[slice.length - 1]!.close;
+
+  // Severity:
+  //  - 'kırılım': lastClose >= middleHigh (boyun kırıldı, klasik tetikleme)
+  //  - 'oluşum': 2. dip yeni oluştu, kırılım yakın (en az 5 mum geçmiş olmalı)
+  //  - değilse null (henüz oluşmamış)
+  const candlesAfterSecond = slice.length - 1 - second.idx;
+  const isBreakout = lastClose >= middleHigh;
+  const isFormed = candlesAfterSecond >= 1 && candlesAfterSecond <= 15;
+
+  if (!isBreakout && !isFormed) return null;
+
+  // Severity
+  let severity: SignalSeverity;
+  if (isBreakout) {
+    // Kırılım sonrası %2+ ilerlemiş → güçlü
+    const breakStrength = (lastClose - middleHigh) / middleHigh;
+    severity = breakStrength >= 0.02 ? 'güçlü' : 'orta';
+  } else {
+    // Oluşum aşaması — pivot belirginliğine ve dipler arası simetriye göre
+    severity = dipDiffPct < 0.01 && heightPct >= 0.10 ? 'orta' : 'zayıf';
+  }
+
+  return {
+    type: 'Çift Dip',
+    sembol,
+    severity,
+    direction: 'yukari',
+    data: {
+      stage: isBreakout ? 'kırılım' : 'oluşum',
+      firstDip: parseFloat(first.price.toFixed(2)),
+      secondDip: parseFloat(second.price.toFixed(2)),
+      neckline: parseFloat(middleHigh.toFixed(2)),
+      lastPrice: parseFloat(lastClose.toFixed(2)),
+      heightPct: parseFloat((heightPct * 100).toFixed(2)),
+      candlesAgo: candlesAfterSecond,
+    },
+  };
+}
+
+// Çift Tepe — Çift Dip'in tersi (M formasyonu, bearish reversal)
+export function detectDoubleTop(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  const WINDOW = 60;
+  const PIVOT_K = 3;
+  const TOLERANCE = 0.03;
+  const MIN_HEIGHT = 0.05;
+  const MIN_GAP = 10;
+
+  if (candles.length < WINDOW + PIVOT_K * 2) return null;
+
+  const slice = candles.slice(-WINDOW);
+  const highs = slice.map((c) => c.high);
+  const lows = slice.map((c) => c.low);
+
+  const pivotHighs: Array<{ idx: number; price: number }> = [];
+  for (let i = PIVOT_K; i < slice.length - PIVOT_K; i++) {
+    const high = highs[i]!;
+    let isMax = true;
+    for (let k = 1; k <= PIVOT_K; k++) {
+      if (highs[i - k]! >= high || highs[i + k]! >= high) { isMax = false; break; }
+    }
+    if (isMax) pivotHighs.push({ idx: i, price: high });
+  }
+
+  if (pivotHighs.length < 2) return null;
+
+  const second = pivotHighs[pivotHighs.length - 1]!;
+  let first: { idx: number; price: number } | null = null;
+  for (let i = pivotHighs.length - 2; i >= 0; i--) {
+    if (second.idx - pivotHighs[i]!.idx >= MIN_GAP) {
+      first = pivotHighs[i]!;
+      break;
+    }
+  }
+  if (!first) return null;
+
+  const minTop = Math.min(first.price, second.price);
+  const maxTop = Math.max(first.price, second.price);
+  const topDiffPct = (maxTop - minTop) / minTop;
+  if (topDiffPct > TOLERANCE) return null;
+
+  const middleSlice = lows.slice(first.idx + 1, second.idx);
+  if (middleSlice.length === 0) return null;
+  const middleLow = Math.min(...middleSlice);
+
+  const heightPct = (maxTop - middleLow) / middleLow;
+  if (heightPct < MIN_HEIGHT) return null;
+
+  const lastClose = slice[slice.length - 1]!.close;
+  const candlesAfterSecond = slice.length - 1 - second.idx;
+  const isBreakout = lastClose <= middleLow; // bearish kırılım = neckline'ın altına düştü
+  const isFormed = candlesAfterSecond >= 1 && candlesAfterSecond <= 15;
+
+  if (!isBreakout && !isFormed) return null;
+
+  let severity: SignalSeverity;
+  if (isBreakout) {
+    const breakStrength = (middleLow - lastClose) / middleLow;
+    severity = breakStrength >= 0.02 ? 'güçlü' : 'orta';
+  } else {
+    severity = topDiffPct < 0.01 && heightPct >= 0.10 ? 'orta' : 'zayıf';
+  }
+
+  return {
+    type: 'Çift Tepe',
+    sembol,
+    severity,
+    direction: 'asagi',
+    data: {
+      stage: isBreakout ? 'kırılım' : 'oluşum',
+      firstTop: parseFloat(first.price.toFixed(2)),
+      secondTop: parseFloat(second.price.toFixed(2)),
+      neckline: parseFloat(middleLow.toFixed(2)),
+      lastPrice: parseFloat(lastClose.toFixed(2)),
+      heightPct: parseFloat((heightPct * 100).toFixed(2)),
+      candlesAgo: candlesAfterSecond,
+    },
+  };
+}
+
+// --- Bull Flag (Yükselen Bayrak — devam formasyonu) ---
+//
+// Mantık:
+//  1. FLAGPOLE — son 30 günde güçlü yükseliş (en az %15 toplam, 5-15 mum)
+//  2. FLAG — sonrasında 5-15 mum süren dar konsolidasyon (max %5 düşüş)
+//  3. Trade tetiği: konsolidasyondan kırılım veya yakın
+//
+// Bear Flag — düşüş trendinde devam formasyonu (tersi)
+export function detectBullFlag(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 30) return null;
+
+  const slice = candles.slice(-30);
+  const closes = slice.map((c) => c.close);
+  const highs = slice.map((c) => c.high);
+  const lows = slice.map((c) => c.low);
+
+  // Flagpole: ilk 5-15 mumda güçlü yükseliş ara
+  // En düşük başlangıç → en yüksek bir noktaya yükseliş
+  let bestFlagpole: { startIdx: number; endIdx: number; startPrice: number; endPrice: number; risePct: number } | null = null;
+
+  for (let startIdx = 0; startIdx <= 14; startIdx++) {
+    const startPrice = closes[startIdx]!;
+    if (startPrice === 0) continue;
+
+    // Flagpole minimum 5 maks 15 mum
+    for (let endIdx = startIdx + 5; endIdx <= startIdx + 15 && endIdx < slice.length - 4; endIdx++) {
+      const endPrice = closes[endIdx]!;
+      const risePct = (endPrice - startPrice) / startPrice;
+      if (risePct < 0.15) continue; // min %15 yükseliş
+
+      // Bu flagpole'u kaydet (en güçlü olanı seç)
+      if (!bestFlagpole || risePct > bestFlagpole.risePct) {
+        bestFlagpole = { startIdx, endIdx, startPrice, endPrice, risePct };
+      }
+    }
+  }
+
+  if (!bestFlagpole) return null;
+
+  // Flag: flagpole sonrası 5+ mum konsolidasyon
+  const flagStart = bestFlagpole.endIdx + 1;
+  const flagSlice = slice.slice(flagStart);
+  if (flagSlice.length < 5) return null;
+
+  const flagHigh = Math.max(...flagSlice.map((c) => c.high));
+  const flagLow = Math.min(...flagSlice.map((c) => c.low));
+
+  // Flag dar olmalı (flagpole'un %50'sinden az çekilme)
+  const flagRange = flagHigh - flagLow;
+  const flagDrawdownPct = (bestFlagpole.endPrice - flagLow) / bestFlagpole.endPrice;
+  if (flagDrawdownPct > 0.10) return null; // %10'dan fazla düşmüşse flag değil
+  if (flagRange / bestFlagpole.endPrice > 0.15) return null; // çok geniş
+
+  // Mevcut fiyat
+  const lastClose = closes[closes.length - 1]!;
+
+  // Tetikleme:
+  //  - 'kırılım': fiyat flagHigh'ı geçti
+  //  - 'oluşum': flag içinde sıkışıyor, kırılım bekleniyor
+  const isBreakout = lastClose > flagHigh;
+  const inFlag = lastClose >= flagLow && lastClose <= flagHigh * 1.005;
+
+  if (!isBreakout && !inFlag) return null;
+
+  // Severity
+  let severity: SignalSeverity;
+  if (isBreakout) {
+    const breakStrength = (lastClose - flagHigh) / flagHigh;
+    severity = breakStrength >= 0.02 && bestFlagpole.risePct >= 0.25 ? 'güçlü' :
+               breakStrength >= 0.01 ? 'orta' : 'zayıf';
+  } else {
+    // Oluşum: flag süresi 5-15 mum arası ideal
+    severity = flagSlice.length >= 5 && flagSlice.length <= 15 && bestFlagpole.risePct >= 0.20 ? 'orta' : 'zayıf';
+  }
+
+  return {
+    type: 'Bull Flag',
+    sembol,
+    severity,
+    direction: 'yukari',
+    data: {
+      stage: isBreakout ? 'kırılım' : 'oluşum',
+      flagpoleRise: parseFloat((bestFlagpole.risePct * 100).toFixed(2)),
+      flagHigh: parseFloat(flagHigh.toFixed(2)),
+      flagLow: parseFloat(flagLow.toFixed(2)),
+      lastPrice: parseFloat(lastClose.toFixed(2)),
+      flagDays: flagSlice.length,
+    },
+  };
+}
+
 // --- Higher Lows / Lower Highs (LEADING — trend dönüşü öncesi yapı) ---
 //
 // EMA tabanlı sinyaller (Trend Başlangıcı, Altın Çapraz) doğal olarak GEÇ kalır
@@ -1155,6 +1443,10 @@ export function detectAllSignals(
   if (want('Trend Olgunlaşıyor'))      { const s = detectTrendApproaching(sembol, candles);       if (s) signals.push(s); }
   if (want('Direnç Testi'))            { const s = detectResistanceTest(sembol, candles);         if (s) signals.push(s); }
   if (want('MACD Daralıyor'))          { const s = detectMACDNarrowing(sembol, candles);          if (s) signals.push(s); }
+  // Formasyonlar (klasik teknik analiz pattern'leri)
+  if (want('Çift Dip'))                { const s = detectDoubleBottom(sembol, candles);           if (s) signals.push(s); }
+  if (want('Çift Tepe'))               { const s = detectDoubleTop(sembol, candles);              if (s) signals.push(s); }
+  if (want('Bull Flag'))               { const s = detectBullFlag(sembol, candles);               if (s) signals.push(s); }
 
   // ── Likidite kontrolü ────────────────────────────────────────────────────────
   // Ortalama TL hacim: son 20 günlük (close × volume ortalaması)
@@ -1200,6 +1492,10 @@ const SIGNAL_CATEGORY: Record<string, string> = {
   'Trend Olgunlaşıyor':      'trend',
   'Direnç Testi':            'yapı',
   'MACD Daralıyor':          'trend',
+  // Formasyonlar — fiyat yapısı pattern'leri
+  'Çift Dip':                'formasyon',
+  'Çift Tepe':               'formasyon',
+  'Bull Flag':               'formasyon',
 };
 
 const SEVERITY_POINTS: Record<string, number> = { güçlü: 35, orta: 22, zayıf: 12 };

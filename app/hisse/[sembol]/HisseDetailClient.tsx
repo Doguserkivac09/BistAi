@@ -167,6 +167,10 @@ const SIGNAL_VADE: Record<string, { label: string; color: string }> = {
   'Trend Olgunlaşıyor':        { label: '14g · ⚡ pre',  color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
   'Direnç Testi':              { label: '14g · ⚡ pre',  color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
   'MACD Daralıyor':            { label: '7g · ⚡ pre',   color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+  // Formasyonlar — turuncu + 📐 vurgu (klasik teknik analiz pattern)
+  'Çift Dip':                  { label: '14g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
+  'Çift Tepe':                 { label: '14g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
+  'Bull Flag':                 { label: '14g · 📐 form', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
 };
 
 // ── Haftalık uyum rozeti (multi-timeframe) ─────────────────────────────

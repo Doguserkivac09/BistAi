@@ -48,6 +48,9 @@ const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return
   'Higher Lows':             'return_14d',
   'Trend Olgunlaşıyor':      'return_14d', // pre-signal
   'Direnç Testi':            'return_14d', // pre-signal
+  'Çift Dip':                'return_14d', // formasyon
+  'Çift Tepe':               'return_14d', // formasyon
+  'Bull Flag':               'return_14d', // formasyon (devam)
   'MACD Kesişimi':           'return_7d',
   'MACD Daralıyor':          'return_7d',  // pre-signal
   'RSI Uyumsuzluğu':         'return_7d',
