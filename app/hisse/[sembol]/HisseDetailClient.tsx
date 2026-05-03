@@ -280,6 +280,15 @@ function AccordionSignalRow({
             {SIGNAL_VADE[sig.type]!.label}
           </span>
         )}
+        {/* Formasyon ise grafik toggle ipucu */}
+        {['Çift Dip','Çift Tepe','Bull Flag','Bear Flag','Cup & Handle','Ters Omuz-Baş-Omuz','Yükselen Üçgen'].includes(sig.type) && (
+          <span
+            title='Grafikte "📐 Formasyon" toggle ile görselleştir'
+            className="shrink-0 text-[10px] text-orange-400/70"
+          >
+            📐
+          </span>
+        )}
         {sigData?.candlesAgo !== undefined && (
           <span className="shrink-0 text-[10px] text-text-muted hidden xs:block sm:block">
             {sigData.candlesAgo}g önce
@@ -1465,7 +1474,12 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                           <span className="text-sm text-text-secondary">Grafik yükleniyor...</span>
                         </div>
                       }>
-                        <StockChart candles={candles} height={360} signals={signals} />
+                        <StockChart
+                          candles={candles}
+                          height={360}
+                          signals={signals}
+                          patterns={signals}
+                        />
                       </Suspense>
                     </div>
                     {/* Sinyal chips */}

@@ -13,6 +13,7 @@ import {
 } from 'lightweight-charts';
 import type { OHLCVCandle, StockSignal } from '@/types';
 import { calculateSRLevels } from '@/lib/support-resistance';
+import { buildPatternOverlays } from '@/lib/pattern-overlay';
 
 function calculateEMA(values: number[], period: number): number[] {
   const k = 2 / (period + 1);
@@ -71,9 +72,11 @@ interface StockChartProps {
   className?: string;
   /** Grafikte marker olarak gösterilecek sinyaller */
   signals?: StockSignal[];
+  /** Formasyon overlay'ları için sinyal listesi (buildPatternOverlays kullanır) */
+  patterns?: StockSignal[];
 }
 
-export function StockChart({ candles, showRsi, height, className, signals }: StockChartProps) {
+export function StockChart({ candles, showRsi, height, className, signals, patterns }: StockChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef     = useRef<IChartApi | null>(null);
 
@@ -85,11 +88,15 @@ export function StockChart({ candles, showRsi, height, className, signals }: Sto
   const ema50SeriesRef       = useRef<ISeriesApi<'Line'> | null>(null);
   const ema200SeriesRef      = useRef<ISeriesApi<'Line'> | null>(null);
   const srLinesRef           = useRef<IPriceLine[]>([]);
+  // Formasyon overlay refs — temizleme için
+  const patternSeriesRef     = useRef<ISeriesApi<'Line'>[]>([]);
+  const patternPriceLinesRef = useRef<IPriceLine[]>([]);
 
   const [legend, setLegend]           = useState<LegendData>({});
   const [showBB, setShowBB]           = useState(false);
   const [showEMA50200, setShowEMA50200] = useState(false);
   const [showSR, setShowSR]           = useState(false);
+  const [showPatterns, setShowPatterns] = useState(false);
 
   const computedHeight = height ?? (typeof window !== 'undefined' && window.innerWidth < 640 ? 300 : 400);
 
@@ -405,6 +412,101 @@ export function StockChart({ candles, showRsi, height, className, signals }: Sto
     }]);
   }, [signals, showRsi]);
 
+  // ── Effect 6: Formasyon Pattern Overlay ──────────────────────────────
+  useEffect(() => {
+    const chart = chartRef.current;
+    const cdlSeries = candlestickSeriesRef.current;
+    const nc = normalizedRef.current;
+    if (!chart || !cdlSeries || showRsi) return;
+
+    // Önceki overlay'ları temizle
+    for (const series of patternSeriesRef.current) {
+      try { chart.removeSeries(series); } catch { /* ignore */ }
+    }
+    for (const pl of patternPriceLinesRef.current) {
+      try { cdlSeries.removePriceLine(pl); } catch { /* ignore */ }
+    }
+    patternSeriesRef.current = [];
+    patternPriceLinesRef.current = [];
+
+    if (!showPatterns || !patterns?.length || !nc.length) return;
+
+    const overlays = buildPatternOverlays(patterns, nc);
+    const newSeries: ISeriesApi<'Line'>[] = [];
+    const newPriceLines: IPriceLine[] = [];
+
+    for (const overlay of overlays) {
+      // 1) Zaman bazlı çizgiler (trendline, kanal kenarları)
+      for (const line of overlay.lines) {
+        if (line.points.length < 2) continue;
+        try {
+          const series = chart.addLineSeries({
+            color: line.color,
+            lineWidth: line.lineWidth as 1 | 2 | 3 | 4,
+            lineStyle: line.lineStyle,
+            title: '',
+            lastValueVisible: false,
+            priceLineVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          series.setData(
+            line.points
+              .filter((p) => p.time && p.value != null)
+              .map((p) => ({ time: p.time as Time, value: p.value }))
+          );
+          newSeries.push(series);
+        } catch { /* ignore */ }
+      }
+
+      // 2) Yatay fiyat çizgileri (neckline, direnç, destek)
+      for (const hl of overlay.horizontals) {
+        try {
+          const pl = cdlSeries.createPriceLine({
+            price: hl.price,
+            color: hl.color,
+            lineWidth: hl.lineWidth as 1 | 2 | 3 | 4,
+            lineStyle: hl.lineStyle,
+            axisLabelVisible: true,
+            title: hl.label ?? '',
+          });
+          newPriceLines.push(pl);
+        } catch { /* ignore */ }
+      }
+    }
+
+    // 3) Marker'ları: mevcut sinyal marker'larıyla birleştir
+    const existingMarkers: SeriesMarker<Time>[] = [];
+    const patternMarkers: SeriesMarker<Time>[] = overlays
+      .flatMap((o) => o.markers)
+      .filter((m) => m.time)
+      .map((m) => ({
+        time: m.time as Time,
+        position: m.position,
+        shape: m.shape,
+        color: m.color,
+        text: m.text ?? '',
+        size: m.size ?? 1,
+      }));
+
+    // Mevcut marker'ları al ve formasyon marker'larıyla birleştir
+    cdlSeries.setMarkers([...existingMarkers, ...patternMarkers]);
+
+    patternSeriesRef.current = newSeries;
+    patternPriceLinesRef.current = newPriceLines;
+
+    // Cleanup: effect yeniden çalışınca veya component unmount'ta temizle
+    return () => {
+      for (const series of newSeries) {
+        try { chart.removeSeries(series); } catch { /* ignore */ }
+      }
+      for (const pl of newPriceLines) {
+        try { cdlSeries.removePriceLine(pl); } catch { /* ignore */ }
+      }
+      patternSeriesRef.current = [];
+      patternPriceLinesRef.current = [];
+    };
+  }, [showPatterns, patterns, showRsi]);
+
   if (!candles.length) return null;
 
   const rsiVal = legend.rsi ? parseFloat(legend.rsi) : 50;
@@ -438,6 +540,17 @@ export function StockChart({ candles, showRsi, height, className, signals }: Sto
           >
             Destek/Direnç
           </button>
+          {/* Formasyon toggle — sadece formasyon sinyali varsa göster */}
+          {patterns && patterns.some((s) => ['Çift Dip','Çift Tepe','Bull Flag','Bear Flag','Cup & Handle','Ters Omuz-Baş-Omuz','Yükselen Üçgen'].includes(s.type)) && (
+            <button
+              type="button"
+              onClick={() => setShowPatterns((v) => !v)}
+              title="Formasyon pattern'larını grafik üzerinde göster"
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${showPatterns ? 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/50' : 'text-text-secondary hover:text-text-primary hover:bg-surface-alt'}`}
+            >
+              📐 Formasyon
+            </button>
+          )}
 
           <div className="ml-auto flex items-center gap-3 text-[10px] text-text-secondary/60 select-none">
             <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-indigo-400 rounded" />EMA9</span>
@@ -446,6 +559,7 @@ export function StockChart({ candles, showRsi, height, className, signals }: Sto
             {showEMA50200  && <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-emerald-400 rounded" />EMA50</span>}
             {showEMA50200  && <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-rose-400 rounded" />EMA200</span>}
             {showSR        && <span className="flex items-center gap-1"><span className="inline-block h-2 w-0.5 bg-red-400 rounded" /><span className="inline-block h-2 w-0.5 bg-emerald-400 rounded" />D/R</span>}
+            {showPatterns  && <span className="flex items-center gap-1"><span className="text-orange-400">📐</span>Form.</span>}
           </div>
         </div>
       )}
