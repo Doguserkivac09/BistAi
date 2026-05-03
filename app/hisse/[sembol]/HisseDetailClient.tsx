@@ -28,6 +28,7 @@ import { computeTechFairValue } from '@/lib/tech-fair-value';
 import { computeStockScore } from '@/lib/stock-score';
 import type { OHLCVCandle, StockSignal } from '@/types';
 import { getSectorId, SECTOR_REPRESENTATIVES, SECTORS } from '@/lib/sectors';
+import { signalHelpUrl } from '@/lib/signal-content';
 import { toast } from 'sonner';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
@@ -280,31 +281,30 @@ function AccordionSignalRow({
             {SIGNAL_VADE[sig.type]!.label}
           </span>
         )}
-        {/* Formasyon ise: grafik ipucu + eğitim linki */}
-        {['Çift Dip','Çift Tepe','Bull Flag','Bear Flag','Cup & Handle','Ters Omuz-Baş-Omuz','Yükselen Üçgen'].includes(sig.type) && (
-          <>
-            <span
-              title='Grafikte "📐 Formasyon" toggle ile görselleştir'
-              className="shrink-0 text-[10px] text-orange-400/70"
-            >📐</span>
-            <Link
-              href={`/yardim/formasyonlar/${
-                sig.type === 'Çift Dip'              ? 'cift-dip'       :
-                sig.type === 'Çift Tepe'             ? 'cift-tepe'      :
-                sig.type === 'Bull Flag'             ? 'bull-flag'      :
-                sig.type === 'Bear Flag'             ? 'bear-flag'      :
-                sig.type === 'Cup & Handle'          ? 'cup-handle'     :
-                sig.type === 'Ters Omuz-Baş-Omuz'   ? 'ters-obo'       :
-                'yukselen-ucgen'
-              }`}
-              onClick={(e) => e.stopPropagation()}
-              title="Bu formasyonu öğren"
-              className="shrink-0 text-[10px] text-text-muted hover:text-primary transition-colors"
-            >
-              ⓘ
-            </Link>
-          </>
-        )}
+        {/* Tüm sinyaller için ⓘ eğitim ikonu */}
+        {(() => {
+          const helpUrl = signalHelpUrl(sig.type);
+          if (!helpUrl) return null;
+          const isFormation = ['Çift Dip','Çift Tepe','Bull Flag','Bear Flag','Cup & Handle','Ters Omuz-Baş-Omuz','Yükselen Üçgen'].includes(sig.type);
+          return (
+            <>
+              {isFormation && (
+                <span
+                  title='Grafikte "📐 Formasyon" toggle ile görselleştir'
+                  className="shrink-0 text-[10px] text-orange-400/70"
+                >📐</span>
+              )}
+              <Link
+                href={helpUrl}
+                onClick={(e) => e.stopPropagation()}
+                title={`"${sig.type}" sinyalini öğren`}
+                className="shrink-0 text-[11px] text-text-muted/60 hover:text-primary transition-colors"
+              >
+                ⓘ
+              </Link>
+            </>
+          );
+        })()}
         {sigData?.candlesAgo !== undefined && (
           <span className="shrink-0 text-[10px] text-text-muted hidden xs:block sm:block">
             {sigData.candlesAgo}g önce

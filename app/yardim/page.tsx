@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FORMATIONS } from '@/lib/formation-content';
+import { SIGNALS } from '@/lib/signal-content';
 
 export const metadata: Metadata = {
   title: 'Yardım & Eğitim — BistAI',
@@ -70,6 +71,53 @@ export default function YardimPage() {
           </div>
         </section>
 
+        {/* Sinyaller bölümü */}
+        <section className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xl">🔔</span>
+            <h2 className="text-lg font-bold text-text-primary">Sinyal Rehberi</h2>
+          </div>
+          <p className="text-sm text-text-secondary mb-4">
+            13 sinyal türü — her biri ne anlama gelir, güvenilirliği, trade kuralları.
+          </p>
+
+          {/* Öncü (Leading) */}
+          <div className="mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-2">
+              ⚡ Öncü Sinyaller — hareketten önce uyarır
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {SIGNALS.filter(s => s.category === 'leading').map(s => (
+                <SignalCard key={s.id} signal={s} />
+              ))}
+            </div>
+          </div>
+
+          {/* Klasik */}
+          <div className="mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted mb-2">
+              📊 Klasik Sinyaller — onay sinyalleri
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {SIGNALS.filter(s => s.category === 'klasik').map(s => (
+                <SignalCard key={s.id} signal={s} />
+              ))}
+            </div>
+          </div>
+
+          {/* Pre-signal */}
+          <div className="mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary mb-2">
+              ⚡ Pre-Sinyaller — klasik sinyallerden önce uyarır
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {SIGNALS.filter(s => s.category === 'pre-signal').map(s => (
+                <SignalCard key={s.id} signal={s} />
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Diğer konular */}
         <section className="grid gap-4 sm:grid-cols-3">
           <QuickLink
@@ -98,6 +146,31 @@ export default function YardimPage() {
         </p>
       </main>
     </div>
+  );
+}
+
+function SignalCard({ signal }: { signal: (typeof SIGNALS)[0] }) {
+  const reliabilityColor =
+    signal.reliability === 'leading'    ? 'text-emerald-400' :
+    signal.reliability === 'coincident' ? 'text-amber-400' :
+    'text-orange-400';
+
+  return (
+    <Link
+      href={`/yardim/sinyaller/${signal.id}`}
+      className="group flex items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 hover:border-primary/40 hover:bg-surface/80 transition-all"
+    >
+      <span className="text-lg shrink-0">{signal.emoji}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-text-primary group-hover:text-primary transition-colors truncate">
+          {signal.name}
+        </p>
+        <p className={`text-[10px] ${reliabilityColor}`}>
+          {signal.reliabilityLabel.split('—')[0].trim()}
+        </p>
+      </div>
+      <span className="text-[10px] text-text-muted shrink-0">→</span>
+    </Link>
   );
 }
 
