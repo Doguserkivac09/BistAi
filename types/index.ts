@@ -139,14 +139,15 @@ export const BIST_SYMBOLS = [
   'AKBNK', 'GARAN', 'HALKB', 'ISCTR', 'VAKBN', 'YKBNK', 'SKBNK', 'ALBRK', 'TSKB',
   'ICBCT', 'GEDIK', 'GARFA', 'GSDHO', 'GSDDE', 'VAKFN',
   // Sigorta & Finansal Hizmetler
-  'HEKTS', 'ANHYT', 'AGROT', 'ISMEN', 'ANSGR', 'AKGRT', 'RAYSG', 'ISFIN',
+  'HEKTS', 'ANHYT', 'AGROT', 'ISMEN', 'ANSGR', 'AKGRT', 'RAYSG', 'ISFIN', 'ATLAS',
   // Holding & Yatırım
   'KCHOL', 'SAHOL', 'DOHOL', 'TAVHL', 'TKFEN', 'IHLAS', 'GOZDE', 'IEYHO', 'NTHOL', 'POLHO', 'POLTK',
+  'YYLGD',
   // Havacılık & Savunma
   'THYAO', 'PGSUS', 'ASELS',
   // Enerji & Petrol
   'TUPRS', 'AKSEN', 'AKENR', 'AKSA', 'ENKAI', 'ODAS', 'KONTR', 'ENJSA', 'ORGE', 'NATEN', 'AYDEM',
-  'SASA', 'AYEN', 'AYCES', 'BIOEN', 'EUPWR', 'ZOREN', 'CWENE',
+  'SASA', 'AYEN', 'AYCES', 'BIOEN', 'EUPWR', 'ZOREN', 'CWENE', 'EGEGY', 'BASGZ',
   // Otomotiv & Makine
   'FROTO', 'TOASO', 'OTKAR', 'DOAS', 'TTRAK', 'KATMR', 'JANTS', 'KAREL', 'MAKIM',
   'ASUZU', 'BFREN', 'DITAS', 'GOODY', 'DMSAS', 'ERBOS', 'EMKEL', 'KAPLM', 'KNFRT',
@@ -171,6 +172,7 @@ export const BIST_SYMBOLS = [
   'NIBAS', 'OSTIM', 'OYLUM',
   'AKSGY', 'AKMGY', 'AKFGY', 'MRGYO', 'SNGYO', 'VKGYO', 'RYGYO', 'DGGYO',
   'NUGYO', 'EYGYO', 'MSGYO', 'DZGYO', 'FZLGY', 'OZKGY', 'IDGYO',
+  'ASGYO', 'MTRYO', 'TDGYO',
   // Sanayi & Üretim
   'ARCLK', 'VESBE', 'VESTL', 'BRISA', 'OYAKC', 'GESAN', 'EGEEN', 'SANEL', 'GEREL',
   'PRKAB', 'SKTAS',
@@ -178,7 +180,7 @@ export const BIST_SYMBOLS = [
   'MNDRS', 'SUWEN', 'SONME', 'YUNSA', 'DAGI', 'EDIP',
   'ATEKS', 'BOSSA', 'DESA', 'HATEK', 'USAK',
   // Ulaştırma & Lojistik
-  'CLEBI', 'RYSAS', 'AGHOL', 'HRKET', 'ONRYT',
+  'CLEBI', 'RYSAS', 'AGHOL', 'HRKET', 'ONRYT', 'ULUFA',
   // Sağlık & İlaç
   'SELEC', 'DEVA', 'ONCSM',
   // Medya & Yayıncılık
@@ -197,7 +199,7 @@ export const BIST_SYMBOLS = [
   'IHEVA', 'IHGZT', 'IHLGM', 'IMASM', 'IZFAS', 'KLMSN', 'KUYAS',
   'LIDFA', 'MAKTK', 'MEKAG', 'NTGAZ', 'PATEK', 'PRDGS', 'PRKME',
   'PRZMA', 'PSDTC', 'ROYAL', 'RTALB', 'SAYAS', 'SEYKM', 'SNICA', 'SNPAM',
-  'TRCAS', 'VERTU', 'VKING', 'YEOTK', 'YGYO', 'YKSLN',
+  'TRCAS', 'VERTU', 'VKING', 'YEOTK', 'YGYO', 'YKSLN', 'TRILC',
 ] as const;
 
 export type BistSymbol = (typeof BIST_SYMBOLS)[number];
