@@ -593,6 +593,46 @@ export default function WatchlistPage() {
       <div className="mx-auto max-w-5xl">
 
         {/* Başlık */}
+        {/* Günlük Performans Özeti — Watchlist değer üretimi */}
+        {items.length > 0 && Object.keys(fiyatlar).length > 0 && (() => {
+          const guncelHisseler = items.filter((i) => fiyatlar[i.sembol]);
+          const pozitifler = guncelHisseler.filter((i) => (fiyatlar[i.sembol]?.degisim ?? 0) > 0);
+          const negatifler = guncelHisseler.filter((i) => (fiyatlar[i.sembol]?.degisim ?? 0) < 0);
+          const enIyi = [...guncelHisseler].sort((a, b) => (fiyatlar[b.sembol]?.degisim ?? 0) - (fiyatlar[a.sembol]?.degisim ?? 0))[0];
+          const enKotu = [...guncelHisseler].sort((a, b) => (fiyatlar[a.sembol]?.degisim ?? 0) - (fiyatlar[b.sembol]?.degisim ?? 0))[0];
+
+          return (
+            <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-border bg-surface p-3 text-center">
+                <p className="text-[10px] text-text-muted uppercase tracking-wide mb-1">Takip Edilen</p>
+                <p className="text-xl font-bold text-text-primary">{items.length}</p>
+              </div>
+              <div className={`rounded-xl border p-3 text-center ${pozitifler.length > negatifler.length ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-red-500/25 bg-red-500/5'}`}>
+                <p className="text-[10px] text-text-muted uppercase tracking-wide mb-1">Bugün</p>
+                <p className="text-sm font-bold">
+                  <span className="text-emerald-400">▲ {pozitifler.length}</span>
+                  <span className="text-text-muted mx-1.5">/</span>
+                  <span className="text-red-400">▼ {negatifler.length}</span>
+                </p>
+              </div>
+              {enIyi && fiyatlar[enIyi.sembol] && (
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-center">
+                  <p className="text-[10px] text-text-muted uppercase tracking-wide mb-1">🏆 En İyi</p>
+                  <p className="text-sm font-bold text-emerald-400">{enIyi.sembol}</p>
+                  <p className="text-[11px] text-emerald-400">+{fiyatlar[enIyi.sembol]!.degisim.toFixed(2)}%</p>
+                </div>
+              )}
+              {enKotu && fiyatlar[enKotu.sembol] && (enKotu.sembol !== enIyi?.sembol) && (
+                <div className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 text-center">
+                  <p className="text-[10px] text-text-muted uppercase tracking-wide mb-1">⚠️ En Düşük</p>
+                  <p className="text-sm font-bold text-red-400">{enKotu.sembol}</p>
+                  <p className="text-[11px] text-red-400">{fiyatlar[enKotu.sembol]!.degisim.toFixed(2)}%</p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">İzleme Listem</h1>
