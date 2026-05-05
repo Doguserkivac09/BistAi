@@ -610,17 +610,15 @@ function TaramaPageInner() {
     try { localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets)); } catch { /* ignore */ }
   }, []);
 
-  // Filtre değiştikçe URL güncelle (replaceState — history kirliliği yok)
+  // Filtre değiştikçe URL güncelle — searchQuery hariç (her harf çağrısını önler)
+  // MOBİL BUG FIX: searchQuery her harf yazımında replaceState çağrısı yapıyordu →
+  // Mobil Safari'de bu crash/freeze'e sebep olur. searchQuery ayrı debounced effect'te.
   useEffect(() => {
     if (!didReadUrlRef.current || typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
-    // Mevcut bazı paramları koru: sektor, exclude
     const preserved = ['sektor', 'exclude'];
     const next = new URLSearchParams();
-    for (const key of preserved) {
-      const v = sp.get(key);
-      if (v) next.set(key, v);
-    }
+    for (const key of preserved) { const v = sp.get(key); if (v) next.set(key, v); }
     if (signalType !== 'Tümü')   next.set('signal', signalType);
     if (direction !== 'Tümü')    next.set('dir', direction);
     if (sortBy !== 'confluence') next.set('sort', sortBy);
@@ -630,12 +628,26 @@ function TaramaPageInner() {
     if (onlyStrongSectors)       next.set('ss', '1');
     if (onlyKapToday)            next.set('kap', '1');
     if (selectedSector)          next.set('sek', selectedSector);
-    if (searchQuery)             next.set('q', searchQuery);
+    // searchQuery burada YOK — aşağıdaki debounced effect'te
     if (viewMode === 'list')     next.set('v', 'list');
     const qs = next.toString();
     const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     window.history.replaceState(null, '', url);
-  }, [signalType, direction, sortBy, onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, onlyKapToday, selectedSector, searchQuery, viewMode]);
+  }, [signalType, direction, sortBy, onlyWeeklyAligned, onlyStrong, onlyHighConfluence, onlyStrongSectors, onlyKapToday, selectedSector, viewMode]);
+
+  // searchQuery URL persist — 600ms debounce (mobil klavye yazımında spam önlenir)
+  useEffect(() => {
+    if (!didReadUrlRef.current || typeof window === 'undefined') return;
+    const timer = setTimeout(() => {
+      const sp = new URLSearchParams(window.location.search);
+      if (searchQuery) sp.set('q', searchQuery);
+      else sp.delete('q');
+      const qs = sp.toString();
+      const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+      window.history.replaceState(null, '', url);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Load prefs
   useEffect(() => {
@@ -1291,22 +1303,37 @@ function TaramaPageInner() {
 
         {/* ── Row 2: Filter chips ── */}
         <div className="mb-5 flex flex-wrap items-center gap-2">
-          {/* Hisse arama */}
+          {/* Hisse arama — MOBİL FIX:
+              - text-base (16px) → iOS auto-zoom önlenir
+              - onPointerDown + preventDefault → blur race condition önlenir
+              - touch target h-8 w-8 → parmak dokunmasına uygun
+              - inputMode="text" autoCapitalize="characters" → AKBNK kolay yazılır */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted pointer-events-none" />
             <input
               type="text"
+              inputMode="text"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
               placeholder="Hisse ara..."
-              className="w-32 rounded-full border border-border bg-surface pl-8 pr-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none transition-colors"
+              className="w-32 sm:w-36 rounded-full border border-border bg-surface pl-8 pr-8 py-1.5 text-base sm:text-xs text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none transition-colors"
+              style={{ fontSize: '16px' }}
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                onPointerDown={(e) => {
+                  // preventDefault → input'un blur'ını engeller, buton kaybolmaz
+                  e.preventDefault();
+                  setSearchQuery('');
+                }}
+                aria-label="Aramayı temizle"
+                className="absolute right-1 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>

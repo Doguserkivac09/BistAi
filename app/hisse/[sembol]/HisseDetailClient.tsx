@@ -664,8 +664,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     })()}
                   </div>
 
-                  {/* Sağ: Butonlar */}
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                  {/* Sağ: Butonlar — mobilde 2 satır, masaüstünde tek satır */}
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end sm:gap-2">
                     <PortfolyoEkleButton sembol={sembol} defaultFiyat={lastCandle?.close} />
                     <WatchlistButton sembol={sembol} isInWatchlist={isInWatchlist} />
                     <PriceAlertButton sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
@@ -911,22 +911,24 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             {/* ── Tab Bar ── */}
             <div className="mt-5 flex overflow-x-auto border-b border-border scrollbar-none">
               {([
-                { key: 'teknik',   label: 'Teknik Analiz', icon: '📊', badge: 0 },
-                { key: 'analiz',   label: 'AI Analiz',      icon: '🤖', badge: 0 },
-                { key: 'temel',    label: 'Temel Veriler',  icon: '📋', badge: 0 },
-                { key: 'haberler', label: 'Haberler',       icon: '📰', badge: bugunHaberSayi },
+                { key: 'teknik',   label: 'Teknik', labelFull: 'Teknik Analiz', icon: '📊', badge: 0 },
+                { key: 'analiz',   label: 'AI',     labelFull: 'AI Analiz',      icon: '🤖', badge: 0 },
+                { key: 'temel',    label: 'Temel',  labelFull: 'Temel Veriler',  icon: '📋', badge: 0 },
+                { key: 'haberler', label: 'Haber',  labelFull: 'Haberler',       icon: '📰', badge: bugunHaberSayi },
               ] as const).map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 pb-3 pt-1 text-sm font-medium transition-colors ${
+                  className={`flex shrink-0 items-center gap-1 border-b-2 px-3 sm:px-4 pb-3 pt-1 text-xs sm:text-sm font-medium transition-colors ${
                     activeTab === tab.key
                       ? 'border-primary text-primary'
                       : 'border-transparent text-text-muted hover:text-text-primary'
                   }`}
                 >
                   <span>{tab.icon}</span>
-                  <span>{tab.label}</span>
+                  {/* Mobilde kısa, masaüstünde tam label */}
+                  <span className="sm:hidden">{tab.label}</span>
+                  <span className="hidden sm:inline">{tab.labelFull}</span>
                   {tab.badge > 0 && (
                     <span className="inline-flex items-center justify-center h-4 min-w-[16px] rounded-full bg-primary/20 text-primary text-[10px] font-bold px-1">
                       {tab.badge}
