@@ -51,7 +51,17 @@ self.addEventListener('fetch', (event) => {
         }
         return res;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => {
+        // FIX: caches.match() undefined dönebilir → "Failed to convert to Response" hatası
+        // undefined yerine her zaman geçerli bir Response dön
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        // Cache'te de yoksa minimal offline response
+        return new Response('Çevrimdışı — internet bağlantısını kontrol edin.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      })
   );
 });
 

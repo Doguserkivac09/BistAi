@@ -1318,7 +1318,7 @@ function TaramaPageInner() {
               autoComplete="off"
               spellCheck={false}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Hisse ara..."
               className="w-32 sm:w-36 rounded-full border border-border bg-surface pl-8 pr-8 py-1.5 text-base sm:text-xs text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none transition-colors"
               style={{ fontSize: '16px' }}
