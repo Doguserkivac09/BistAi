@@ -199,7 +199,7 @@ export const BIST_SYMBOLS = [
   'IHEVA', 'IHGZT', 'IHLGM', 'IMASM', 'IZFAS', 'KLMSN', 'KUYAS',
   'LIDFA', 'MAKTK', 'MEKAG', 'NTGAZ', 'PATEK', 'PRDGS', 'PRKME',
   'PRZMA', 'PSDTC', 'ROYAL', 'RTALB', 'SAYAS', 'SEYKM', 'SNICA', 'SNPAM',
-  'TRCAS', 'VERTU', 'VKING', 'YEOTK', 'YGYO', 'YKSLN', 'TRILC',
+  'TRCAS', 'VERTU', 'VKING', 'YEOTK', 'YGYO', 'YKSLN', 'TRILC', 'TERA',
 ] as const;
 
 export type BistSymbol = (typeof BIST_SYMBOLS)[number];
