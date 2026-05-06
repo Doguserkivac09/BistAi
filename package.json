@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --import tsx --test lib/__tests__/*.test.ts"
+    "test": "node --import tsx --test lib/__tests__/*.test.ts",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:smoke": "playwright test e2e/04-sayfa-sagligi.spec.ts",
+    "e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^2.1.80",
@@ -40,6 +44,7 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

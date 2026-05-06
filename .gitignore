@@ -33,3 +33,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 .claude/worktrees/
+
+# Playwright E2E
+playwright-report/
+test-results/
+e2e/.auth/
