@@ -1,29 +1,34 @@
 /**
- * Haftanın Seçimleri Cron
+ * Haftanın Seçimleri Cron — v2 (Dip Katılım Algoritması)
  *
  * GET /api/cron/weekly-picks
- * Schedule: Her Pazartesi 05:30 UTC (08:30 TRT) — piyasa açılmadan önce
+ * Schedule: Her Pazartesi 05:30 UTC (08:30 TRT)
  *
- * Seçim kriterleri (sıralı ağırlık):
- *  1. confluence_score ≥ 55 (sinyal kalitesi)
- *  2. avg_daily_volume_tl ≥ 10M₺ (likidite)
- *  3. weekly_aligned = true varsa bonus (MTF uyum)
- *  4. Son 90 günde win_rate ≥ 50% (geçmiş başarı)
- *  5. Sinyal 48 saatlik taze (geç kalma önleme)
- *  6. Sektör çeşitlendirme: aynı sektörden max 2 hisse
+ * YENİ ALGORİTMA: 4 Piyasa Aşaması Sistemi
+ *
+ *  Aşama 1 — Dip (RSI 20-35): Erken giriş, küçük pozisyon
+ *  Aşama 2 — Birikim (RSI 35-55): Optimal giriş ← en çok puan
+ *  Aşama 3 — Rally (RSI 55-75): Momentum devam ediyor
+ *  Aşama 4 — Aşırı Alım (RSI 75+): Dikkatli, küçük pozisyon
+ *
+ * "Dip Katılım Skoru" = dipten çıkmış + hacim birikiyor + henüz patlamadı
+ *
+ * Hedef: Her aşamadan seçim yaparak çeşitlendirilmiş ama yüksek kaliteli
+ *        haftalık portföy oluşturmak.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { getSector } from '@/lib/sectors';
+import { calcDipCatchScore, detectPhase } from '@/lib/market-phase';
 
-const CRON_SECRET = process.env.CRON_SECRET;
-const PICK_COUNT  = 7;   // Seçilecek hisse sayısı
-const MIN_CONFLUENCE = 50;
-const MIN_ADV_TL     = 10_000_000; // 10M₺
+const CRON_SECRET    = process.env.CRON_SECRET;
+const PICK_COUNT     = 7;
+const MIN_CONFLUENCE = 45;
+const MIN_ADV_TL     = 8_000_000;  // 8M₺ (önceki 10M'den biraz gevşettik)
 const MAX_PER_SECTOR = 2;
-const SIGNAL_MAX_HOURS = 72; // 3 günden eski sinyal alınmaz
+const SIGNAL_MAX_HOURS = 72;
 
 function createAdmin() {
   return createClient(
@@ -33,18 +38,18 @@ function createAdmin() {
   );
 }
 
-/** ISO hafta numarasını hesapla */
 function getISOWeek(date: Date): { week: number; year: number } {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
   const week1 = new Date(d.getFullYear(), 0, 4);
-  const weekNum = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+  const weekNum = 1 + Math.round(
+    ((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
+  );
   return { week: weekNum, year: d.getFullYear() };
 }
 
 export async function GET(req: NextRequest) {
-  // Auth
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   const token = req.headers.get('authorization')?.replace('Bearer ', '').trim();
   if (!isVercelCron && !(CRON_SECRET && token === CRON_SECRET)) {
@@ -52,10 +57,10 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = createAdmin();
-  const now   = new Date();
+  const now = new Date();
   const { week: weekNumber, year } = getISOWeek(now);
 
-  // Bu hafta zaten seçim yapılmış mı?
+  // Bu hafta zaten yapıldı mı?
   const { data: existing } = await admin
     .from('weekly_picks')
     .select('id')
@@ -71,49 +76,88 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // signal_performance'dan taze + güçlü sinyalleri çek
+  // ── Adım 1: scan_cache'den RSI + hacim + 52H verisini çek ─────────────
+  const { data: cacheData } = await admin
+    .from('scan_cache')
+    .select('sembol, rsi, rel_vol5, pct_from_52w_high, pct_from_52w_low, signals_json, last_volume, confluence_score')
+    .not('rsi', 'is', null)
+    .gte('last_volume', MIN_ADV_TL / 50) // kabaca hacim filtresi
+    .order('scanned_at', { ascending: false });
+
+  const scanMap = new Map<string, {
+    rsi: number;
+    relVol5: number | null;
+    pctFromHigh: number | null;
+    pctFromLow: number | null;
+    hasHigherLows: boolean;
+    hasBollingerSqueeze: boolean;
+    hasPreSignal: boolean;
+    confluenceScore: number | null;
+  }>();
+
+  const PRE_SIGNAL_TYPES = ['Altın Çapraz Yaklaşıyor', 'Trend Olgunlaşıyor', 'Direnç Testi', 'MACD Daralıyor'];
+  const SQUEEZE_TYPES = ['Bollinger Sıkışması'];
+  const HL_TYPES = ['Higher Lows'];
+
+  for (const row of cacheData ?? []) {
+    if (!row.rsi) continue;
+    const sigs = (row.signals_json ?? []) as Array<{ type: string }>;
+    scanMap.set(row.sembol, {
+      rsi: row.rsi,
+      relVol5: row.rel_vol5 ?? null,
+      pctFromHigh: row.pct_from_52w_high ?? null,
+      pctFromLow: row.pct_from_52w_low ?? null,
+      hasHigherLows: sigs.some((s) => HL_TYPES.includes(s.type)),
+      hasBollingerSqueeze: sigs.some((s) => SQUEEZE_TYPES.includes(s.type)),
+      hasPreSignal: sigs.some((s) => PRE_SIGNAL_TYPES.includes(s.type)),
+      confluenceScore: row.confluence_score ?? null,
+    });
+  }
+
+  // ── Adım 2: signal_performance'dan taze AL sinyallerini çek ───────────
   const cutoff = new Date(now.getTime() - SIGNAL_MAX_HOURS * 60 * 60 * 1000);
 
-  const { data: signals, error } = await admin
+  const { data: signals } = await admin
     .from('signal_performance')
-    .select('sembol, signal_type, direction, entry_price, entry_time, confluence_score, avg_daily_volume_tl, weekly_aligned, regime')
+    .select('sembol, signal_type, direction, entry_price, entry_time, confluence_score, avg_daily_volume_tl, weekly_aligned')
     .eq('evaluated', false)
-    .eq('direction', 'yukari')  // Sadece AL sinyalleri
+    .eq('direction', 'yukari')
     .gte('entry_time', cutoff.toISOString())
     .gte('confluence_score', MIN_CONFLUENCE)
     .gte('avg_daily_volume_tl', MIN_ADV_TL)
     .order('confluence_score', { ascending: false })
-    .limit(100);
+    .limit(150);
 
-  if (error || !signals?.length) {
-    return NextResponse.json({
-      ok: false,
-      error: error?.message ?? 'Uygun sinyal bulunamadı',
-      week: weekNumber,
-      year,
-    }, { status: 500 });
+  if (!signals?.length) {
+    return NextResponse.json({ ok: false, error: 'Uygun sinyal bulunamadı' }, { status: 500 });
   }
 
-  // Geçmiş win rate'leri çek (son 90 gün)
+  // ── Adım 3: Geçmiş win rate'leri hesapla ──────────────────────────────
   const ninety = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
   const { data: perfData } = await admin
     .from('signal_performance')
-    .select('sembol, signal_type, return_7d')
+    .select('sembol, return_7d')
     .eq('evaluated', true)
     .gte('entry_time', ninety.toISOString());
 
-  // Sembol bazında win rate hesapla
   const winRateMap = new Map<string, { wins: number; total: number }>();
   for (const r of perfData ?? []) {
-    const key = r.sembol;
-    const cur = winRateMap.get(key) ?? { wins: 0, total: 0 };
+    const cur = winRateMap.get(r.sembol) ?? { wins: 0, total: 0 };
     cur.total++;
-    if ((r.return_7d ?? 0) > 0.004) cur.wins++; // komisyon üstü getiri
-    winRateMap.set(key, cur);
+    if ((r.return_7d ?? 0) > 0.004) cur.wins++;
+    winRateMap.set(r.sembol, cur);
   }
 
-  // Her sembol için skor hesapla
-  interface ScoredSignal {
+  // ── Adım 4: Sembol bazında en güçlüyü al + Dip Katılım Skoru hesapla ──
+  const sembolMap = new Map<string, typeof signals[0]>();
+  for (const sig of signals) {
+    const ex = sembolMap.get(sig.sembol);
+    if (!ex || (sig.confluence_score ?? 0) > (ex.confluence_score ?? 0)) {
+      sembolMap.set(sig.sembol, sig);
+    }
+  }
+
+  interface ScoredPick {
     sembol: string;
     signal_type: string;
     entry_price: number;
@@ -122,75 +166,102 @@ export async function GET(req: NextRequest) {
     avg_daily_volume_tl: number | null;
     weekly_aligned: boolean | null;
     win_rate: number | null;
-    composite: number;
+    dip_score: number;       // Dip Katılım Skoru
+    phase: number;           // 1-4
+    phase_label: string;
     sector_id: string;
     sector_name: string;
   }
 
-  // Sembol başına en yüksek confluence'ı al (tekrar olmasın)
-  const sembolMap = new Map<string, typeof signals[0]>();
-  for (const sig of signals) {
-    const existing = sembolMap.get(sig.sembol);
-    if (!existing || (sig.confluence_score ?? 0) > (existing.confluence_score ?? 0)) {
-      sembolMap.set(sig.sembol, sig);
-    }
-  }
+  const scored: ScoredPick[] = [];
 
-  const scored: ScoredSignal[] = [];
   for (const [sembol, sig] of sembolMap) {
+    const scan = scanMap.get(sembol);
     const sec = getSector(sembol);
     const wr = winRateMap.get(sembol);
     const winRate = wr && wr.total >= 5 ? wr.wins / wr.total : null;
+    const phaseResult = detectPhase(scan?.rsi ?? null);
 
-    // Composite skor
-    let composite = sig.confluence_score ?? 0;
-    if (sig.weekly_aligned) composite += 10;    // MTF bonus
-    if (winRate !== null) composite += winRate * 20; // Win rate bonus (0-20 puan)
-    const advBonus = Math.min((sig.avg_daily_volume_tl ?? 0) / 10_000_000, 5); // Likidite bonus (0-5)
-    composite += advBonus;
+    const dipScore = calcDipCatchScore({
+      rsi:                  scan?.rsi ?? null,
+      pctFrom52wLow:        scan?.pctFromLow ?? null,
+      pctFrom52wHigh:       scan?.pctFromHigh ?? null,
+      relVol5:              scan?.relVol5 ?? null,
+      hasHigherLows:        scan?.hasHigherLows ?? false,
+      hasBollingerSqueeze:  scan?.hasBollingerSqueeze ?? false,
+      hasPreSignal:         scan?.hasPreSignal ?? false,
+      weeklyAligned:        sig.weekly_aligned ?? null,
+      confluenceScore:      sig.confluence_score ?? null,
+      winRate,
+    });
 
     scored.push({
       sembol,
-      signal_type: sig.signal_type ?? '',
-      entry_price: sig.entry_price ?? 0,
-      entry_time: sig.entry_time ?? now.toISOString(),
-      confluence_score: sig.confluence_score ?? 0,
+      signal_type:         sig.signal_type ?? '',
+      entry_price:         sig.entry_price ?? 0,
+      entry_time:          sig.entry_time ?? now.toISOString(),
+      confluence_score:    sig.confluence_score ?? 0,
       avg_daily_volume_tl: sig.avg_daily_volume_tl ?? null,
-      weekly_aligned: sig.weekly_aligned ?? null,
-      win_rate: winRate,
-      composite,
-      sector_id: sec.id,
-      sector_name: sec.shortName,
+      weekly_aligned:      sig.weekly_aligned ?? null,
+      win_rate:            winRate,
+      dip_score:           dipScore,
+      phase:               phaseResult?.phase ?? 2,
+      phase_label:         phaseResult?.shortLabel ?? 'Birikim',
+      sector_id:           sec.id,
+      sector_name:         sec.shortName,
     });
   }
 
-  // Skor sıralı
-  scored.sort((a, b) => b.composite - a.composite);
+  // ── Adım 5: Dip Katılım Skoru'na göre sırala ──────────────────────────
+  scored.sort((a, b) => b.dip_score - a.dip_score);
 
-  // Sektör çeşitlendirmesi: aynı sektörden max MAX_PER_SECTOR
-  const picks: ScoredSignal[] = [];
+  // ── Adım 6: Sektör çeşitlendirmesi + HER AŞAMADAN seçim ──────────────
+  const picks: ScoredPick[] = [];
   const sectorCount = new Map<string, number>();
+  const phaseCount  = new Map<number, number>();
+
+  // Her aşamadan en az 1 hisse dahil etmeye çalış (mümkünse)
+  const MAX_PER_PHASE: Record<number, number> = { 1: 2, 2: 3, 3: 2, 4: 1 };
 
   for (const sig of scored) {
     if (picks.length >= PICK_COUNT) break;
-    const cnt = sectorCount.get(sig.sector_id) ?? 0;
-    if (cnt >= MAX_PER_SECTOR) continue;
+
+    const sectorCnt = sectorCount.get(sig.sector_id) ?? 0;
+    if (sectorCnt >= MAX_PER_SECTOR) continue;
+
+    const phaseCnt = phaseCount.get(sig.phase) ?? 0;
+    const maxPhase = MAX_PER_PHASE[sig.phase] ?? 2;
+    if (phaseCnt >= maxPhase) continue;
+
     picks.push(sig);
-    sectorCount.set(sig.sector_id, cnt + 1);
+    sectorCount.set(sig.sector_id, sectorCnt + 1);
+    phaseCount.set(sig.phase, phaseCnt + 1);
   }
 
-  if (picks.length === 0) {
-    return NextResponse.json({ ok: false, error: 'Çeşitlendirme sonrası seçim kalmadı' }, { status: 500 });
+  // Eğer yeterli hisse dolmadıysa, kalan slotları en iyi skordan doldur
+  if (picks.length < PICK_COUNT) {
+    for (const sig of scored) {
+      if (picks.length >= PICK_COUNT) break;
+      if (picks.some((p) => p.sembol === sig.sembol)) continue;
+      const sectorCnt = sectorCount.get(sig.sector_id) ?? 0;
+      if (sectorCnt >= MAX_PER_SECTOR) continue;
+      picks.push(sig);
+      sectorCount.set(sig.sector_id, sectorCnt + 1);
+    }
   }
 
-  // BIST referans fiyatı (XU100)
+  if (!picks.length) {
+    return NextResponse.json({ ok: false, error: 'Seçim yapılamadı' }, { status: 500 });
+  }
+
+  // ── Adım 7: BIST referans fiyatı ──────────────────────────────────────
   let bistEntry: number | null = null;
   try {
     const { candles } = await fetchOHLCV('XU100', 3);
     bistEntry = candles[candles.length - 1]?.close ?? null;
   } catch { /* opsiyonel */ }
 
-  // DB'ye yaz
+  // ── Adım 8: DB'ye yaz ─────────────────────────────────────────────────
   const rows = picks.map((p) => ({
     week_number:     weekNumber,
     year,
@@ -204,29 +275,37 @@ export async function GET(req: NextRequest) {
     weekly_aligned:  p.weekly_aligned,
     bist_entry:      bistEntry,
     is_closed:       false,
+    notes:           `Aşama ${p.phase} — ${p.phase_label} | Dip Skor: ${p.dip_score}`,
   }));
 
-  const { error: insertErr } = await admin
-    .from('weekly_picks')
-    .insert(rows);
+  const { error: insertErr } = await admin.from('weekly_picks').insert(rows);
 
   if (insertErr) {
     console.error('[weekly-picks] Insert hatası:', insertErr.message);
     return NextResponse.json({ ok: false, error: insertErr.message }, { status: 500 });
   }
 
-  console.log(`[weekly-picks] Hafta ${weekNumber}/${year}: ${picks.length} hisse seçildi`);
+  // Aşama dağılımı
+  const phaseDist = picks.reduce((acc, p) => {
+    acc[`Aşama${p.phase}`] = (acc[`Aşama${p.phase}`] ?? 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  console.log(`[weekly-picks] Hafta ${weekNumber}/${year}: ${picks.length} hisse | ${JSON.stringify(phaseDist)}`);
 
   return NextResponse.json({
     ok: true,
     week: weekNumber,
     year,
+    phaseDist,
     picks: picks.map((p) => ({
-      sembol: p.sembol,
-      sector: p.sector_name,
+      sembol:    p.sembol,
+      sector:    p.sector_name,
+      phase:     p.phase,
+      phaseLabel: p.phase_label,
+      dipScore:  p.dip_score,
       confluence: p.confluence_score,
-      winRate: p.win_rate !== null ? `%${Math.round(p.win_rate * 100)}` : 'Yetersiz veri',
-      composite: Math.round(p.composite),
+      winRate:   p.win_rate !== null ? `%${Math.round(p.win_rate * 100)}` : '—',
     })),
   });
 }

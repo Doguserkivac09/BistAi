@@ -9,11 +9,12 @@
 
 import { motion } from 'framer-motion';
 import {
-  TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Users, Clock, Star,
+  TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Users, Clock, Star, Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { FirsatItem } from '@/app/api/firsatlar/route';
 import { InfoPopover } from '@/components/InfoPopover';
+import { detectPhase } from '@/lib/market-phase';
 
 // ── Sinyal güç seviyeleri ────────────────────────────────────────────
 
@@ -386,9 +387,48 @@ export function FirsatKarti({
           </div>
         )}
 
+        {/* Hedef fiyat satırı — öne çıkarıldı */}
+        {firsat.targetPrice && firsat.riskRewardRatio && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-1.5 text-[11px]">
+            <span className="text-emerald-400 font-semibold shrink-0">🎯 Hedef</span>
+            <span className="text-emerald-400 font-bold tabular-nums">{firsat.targetPrice.toFixed(2)}₺</span>
+            <span className="text-text-muted">·</span>
+            <span className="text-emerald-400/80">
+              +{(((firsat.targetPrice - firsat.entryPrice) / firsat.entryPrice) * 100).toFixed(1)}%
+            </span>
+            <span className="ml-auto text-text-muted text-[10px]">
+              R/R {firsat.riskRewardRatio.toFixed(1)}:1
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <SektorBadge sektorAdi={firsat.sektorAdi} sektorSinyalSayisi={firsat.sektorSinyalSayisi} />
+
+            {/* Piyasa Aşaması Rozeti */}
+            {(() => {
+              // ageHours'dan RSI'yi tahmin edemeyiz, sadece sinyal tazeyse Birikim ikonunu göster
+              // Gerçek RSI FirsatItem'da yok — sadece taze sinyal uyarısı
+              return null; // Şimdilik — hisse detay sayfasında gösterilecek
+            })()}
+
+            {/* ⭐ ÇİFT ONAY: Teknik güçlü + Temel güçlü */}
+            {(() => {
+              const teknikGuclu = firsat.adjustedScore >= 70;
+              const temelGuclu  = firsat.investmentScore && firsat.investmentScore.score >= 60;
+              if (!teknikGuclu || !temelGuclu) return null;
+              return (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[9px] font-bold text-amber-300"
+                  title={`Çift Onay: Teknik ${firsat.adjustedScore} + Temel ${firsat.investmentScore?.score}/100 — her iki perspektif uyumlu`}
+                >
+                  <Zap className="h-2.5 w-2.5" />
+                  ÇİFT ONAY
+                </span>
+              );
+            })()}
+
             {firsat.avgDailyVolumeTL !== null && (
               <span
                 className="rounded-full bg-white/5 border border-border px-2 py-0.5 text-[9px] text-text-muted"
@@ -408,7 +448,7 @@ export function FirsatKarti({
             {firsat.investmentScore && (
               <span
                 className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold ${investmentScoreBadge(firsat.investmentScore.score)}`}
-                title={`Yatırım Skoru (temel veri): ${firsat.investmentScore.score}/100 → ${firsat.investmentScore.rating} · Güven: ${firsat.investmentScore.confidence}${firsat.investmentScore.inflationAdjusted ? ' · TÜFE düzeltmeli' : ''}`}
+                title={`Yatırım Skoru: ${firsat.investmentScore.score}/100 → ${firsat.investmentScore.rating}`}
               >
                 YS {firsat.investmentScore.score}
               </span>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { TrendingUp, TrendingDown, RefreshCw, Trophy, BarChart2, Target, Star } from 'lucide-react';
+import { detectPhase, PHASE_CONFIG } from '@/lib/market-phase';
 
 interface Pick {
   id: string;
@@ -67,10 +68,29 @@ function ReturnBadge({ value, size = 'sm' }: { value: number | null | undefined;
   );
 }
 
+function PhaseBadge({ notes }: { notes?: string | null }) {
+  // Notes formatı: "Aşama 2 — Birikim | Dip Skor: 45"
+  if (!notes) return null;
+  const match = notes.match(/Aşama (\d)/);
+  if (!match) return null;
+  const phase = parseInt(match[1]) as 1 | 2 | 3 | 4;
+  const cfg = PHASE_CONFIG[phase];
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cfg.bgColor} ${cfg.color} ${cfg.borderColor}`}>
+      {cfg.emoji} {cfg.shortLabel}
+    </span>
+  );
+}
+
 function PickCard({ pick }: { pick: Pick }) {
   const currentReturn = pick.is_closed ? pick.return_pct : (pick.live_return_pct ?? null);
   const currentPrice  = pick.is_closed ? pick.close_price : (pick.live_price ?? null);
   const isPos = (currentReturn ?? 0) >= 0;
+
+  // notes'tan trade önerisini çıkar
+  const phaseMatch = (pick as Pick & { notes?: string }).notes?.match?.(/Aşama (\d)/);
+  const phase = phaseMatch ? parseInt(phaseMatch[1]) as 1 | 2 | 3 | 4 : null;
+  const phaseConfig = phase ? PHASE_CONFIG[phase] : null;
 
   return (
     <Link
@@ -84,12 +104,22 @@ function PickCard({ pick }: { pick: Pick }) {
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <p className="text-base font-bold text-text-primary">{pick.sembol}</p>
-          {pick.sector_name && (
-            <p className="text-[11px] text-text-muted">{pick.sector_name}</p>
-          )}
+          <div className="flex items-center gap-2 mt-0.5">
+            {pick.sector_name && (
+              <p className="text-[11px] text-text-muted">{pick.sector_name}</p>
+            )}
+            {phase && <PhaseBadge notes={(pick as Pick & { notes?: string }).notes} />}
+          </div>
         </div>
         <ReturnBadge value={currentReturn} size="lg" />
       </div>
+
+      {/* Aşama trade önerisi */}
+      {phaseConfig && (
+        <p className={`text-[11px] mb-2 ${phaseConfig.color} opacity-80`}>
+          {phaseConfig.positionSizeHint} pozisyon önerisi · {phaseConfig.riskLevel === 'low' ? 'Düşük Risk' : phaseConfig.riskLevel === 'medium' ? 'Orta Risk' : 'Yüksek Risk'}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
         <div>
