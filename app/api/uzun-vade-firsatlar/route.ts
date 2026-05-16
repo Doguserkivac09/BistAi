@@ -17,6 +17,7 @@ import { fetchYahooFundamentals } from '@/lib/yahoo-fundamentals';
 import { computeInvestableScore, DEFAULT_WEIGHTS } from '@/lib/investment-score';
 import { fetchTurkeyInflation } from '@/lib/turkey-macro';
 import { getSector, getSectorId } from '@/lib/sectors';
+import { calcInstitutionalTarget, type ValuationResult } from '@/lib/valuation';
 
 function createAdmin() {
   return createClient(
@@ -25,6 +26,9 @@ function createAdmin() {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 }
+
+// ValuationResult'u re-export
+export type { ValuationResult };
 
 // ── Sabit Likit Hisse Listesi ─────────────────────────────────────────
 // BIST'in en likit ve büyük hisseleri — scan_cache sıralamasından bağımsız.
@@ -80,74 +84,6 @@ const MIN_SCORE = 50;
 // Temettü bazlı:
 //   Eğer şirket düzenli temettü ödüyorsa DDM yaklaşımı kullanılır.
 
-// BIST sektör ortalama F/K referansları (2024-2025 BIST verileri)
-const SECTOR_AVG_PE: Record<string, number> = {
-  banka:                   6.5,
-  enerji:                 12.0,
-  holding:                 8.0,
-  havacılık_savunma:      18.0,
-  otomotiv:               10.0,
-  perakende:              14.0,
-  telekom_teknoloji:      13.0,
-  demir_celik_madencilik:  8.0,
-  cam_kimya:              11.0,
-  insaat_gyo:              9.0,
-  sanayi:                 12.0,
-  saglik:                 16.0,
-  default:                11.0,
-};
-
-function calcLongTermTarget(params: {
-  currentPrice: number | null;
-  eps: number | null;
-  peRatio: number | null;
-  bookValue: number | null;
-  dividendYield: number | null;
-  sectorId: string;
-}): {
-  target: number | null;
-  upside: number | null;
-  method: string;
-} {
-  const { currentPrice, eps, peRatio, bookValue, dividendYield, sectorId } = params;
-  if (!currentPrice || currentPrice <= 0) return { target: null, upside: null, method: '' };
-
-  const sectorPE = SECTOR_AVG_PE[sectorId] ?? SECTOR_AVG_PE.default;
-
-  // Yöntem 1: F/K bazlı (EPS varsa ve makul F/K'dan düşükse)
-  if (eps && eps > 0 && sectorPE > 0) {
-    const target = eps * sectorPE;
-    if (target > currentPrice * 0.5 && target < currentPrice * 5) {
-      const upside = ((target - currentPrice) / currentPrice) * 100;
-      return { target: parseFloat(target.toFixed(2)), upside: parseFloat(upside.toFixed(1)), method: 'F/K Bazlı' };
-    }
-  }
-
-  // Yöntem 2: Mevcut F/K'dan sektör F/K'ya normalize
-  if (peRatio && peRatio > 0 && peRatio < 100 && sectorPE > 0) {
-    const normFactor = sectorPE / peRatio;
-    // Sadece %50+ potansiyel varsa hedef göster (mantıklı yönde)
-    if (normFactor > 1.1 && normFactor < 4) {
-      const target = currentPrice * normFactor;
-      const upside = ((target - currentPrice) / currentPrice) * 100;
-      return { target: parseFloat(target.toFixed(2)), upside: parseFloat(upside.toFixed(1)), method: 'F/K Normalize' };
-    }
-  }
-
-  // Yöntem 3: Temettü verimi bazlı (düzenli temettü ödeyen için)
-  if (dividendYield && dividendYield > 0.03) {
-    // Hedef verim = BIST tarihsel temettü verimi ortalaması ~%4.5
-    const TARGET_YIELD = 0.045;
-    const annualDiv = currentPrice * dividendYield;
-    const target = annualDiv / TARGET_YIELD;
-    if (target > currentPrice * 1.05) {
-      const upside = ((target - currentPrice) / currentPrice) * 100;
-      return { target: parseFloat(target.toFixed(2)), upside: parseFloat(upside.toFixed(1)), method: 'Temettü Verimi' };
-    }
-  }
-
-  return { target: null, upside: null, method: '' };
-}
 
 export interface LongTermResult {
   sembol: string;
@@ -163,12 +99,19 @@ export interface LongTermResult {
   marketCap: number | null;
   bookValue: number | null;
   eps: number | null;
-  // Uzun vade hedef fiyat
-  longTermTarget: number | null;
-  longTermUpside: number | null;
-  longTermTargetMethod: string;
-  // Takas (yabancı sahiplik) — takasbank verisi
+  // Kurumsal değerleme (yeni — 5 yöntemli)
+  valuation: ValuationResult | null;
+  // Kurumsal sahiplik
   foreignOwnership: number | null;
+  insidersOwnership: number | null;
+  shortRatio: number | null;
+  // Temel metrikler
+  returnOnEquity: number | null;
+  debtToEquity: number | null;
+  freeCashflow: number | null;
+  revenueGrowth: number | null;
+  earningsGrowth: number | null;
+  beta: number | null;
   category: 'cift_onay' | 'deger_firsati' | 'guclu_temel';
 }
 
@@ -229,19 +172,17 @@ export async function GET() {
           const techScore = scanData?.confluenceScore ?? null;
           const price     = scanData?.lastPrice ?? null;
 
-          // Uzun vade hedef fiyat
-          const { target, upside, method } = calcLongTermTarget({
-            currentPrice:  price,
-            eps:           fundamentals.eps,
-            peRatio:       fundamentals.peRatio,
-            bookValue:     fundamentals.bookValue,
-            dividendYield: fundamentals.dividendYield,
-            sectorId,
-          });
+          // Kurumsal değerleme — 5 yöntemli profesyonel model
+          const valuation = price
+            ? calcInstitutionalTarget(fundamentals, price, sectorId, inv.score)
+            : null;
 
-          // Kurumsal/yabancı sahiplik — Yahoo fundamentals'tan (institutionsPercentHeld)
+          // Sahiplik verileri
           const foreignOwnership = fundamentals.institutionsPercentHeld != null
             ? parseFloat((fundamentals.institutionsPercentHeld * 100).toFixed(1))
+            : null;
+          const insidersOwnership = fundamentals.insidersPercentHeld != null
+            ? parseFloat((fundamentals.insidersPercentHeld * 100).toFixed(1))
             : null;
 
           // Kategori
@@ -269,10 +210,16 @@ export async function GET() {
             marketCap:              fundamentals.marketCap,
             bookValue:              fundamentals.bookValue,
             eps:                    fundamentals.eps,
-            longTermTarget:         target,
-            longTermUpside:         upside,
-            longTermTargetMethod:   method,
+            valuation,
             foreignOwnership,
+            insidersOwnership,
+            shortRatio:       fundamentals.shortRatio,
+            returnOnEquity:   fundamentals.returnOnEquity != null ? parseFloat((fundamentals.returnOnEquity * 100).toFixed(1)) : null,
+            debtToEquity:     fundamentals.debtToEquity,
+            freeCashflow:     fundamentals.freeCashflow,
+            revenueGrowth:    fundamentals.revenueGrowth != null ? parseFloat((fundamentals.revenueGrowth * 100).toFixed(1)) : null,
+            earningsGrowth:   fundamentals.earningsGrowth != null ? parseFloat((fundamentals.earningsGrowth * 100).toFixed(1)) : null,
+            beta:             fundamentals.beta,
             category,
           } satisfies LongTermResult;
         } catch {
