@@ -134,8 +134,26 @@ function UzunVadeKart({ r }: { r: LongTermResult }) {
         </div>
       )}
 
+      {/* Uzun Vade Hedef Fiyat */}
+      {r.longTermTarget !== null && r.lastPrice !== null && (
+        <div className={`mb-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] ${
+          (r.longTermUpside ?? 0) > 0
+            ? 'border-emerald-500/20 bg-emerald-500/5'
+            : 'border-red-500/20 bg-red-500/5'
+        }`}>
+          <span className="text-text-muted shrink-0">🎯 Uzun Vade Hedef</span>
+          <span className={`font-bold tabular-nums ${(r.longTermUpside ?? 0) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {r.longTermTarget.toFixed(2)}₺
+          </span>
+          <span className={`tabular-nums ${(r.longTermUpside ?? 0) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            ({(r.longTermUpside ?? 0) > 0 ? '+' : ''}{r.longTermUpside?.toFixed(1)}%)
+          </span>
+          <span className="ml-auto text-text-muted text-[10px] shrink-0">{r.longTermTargetMethod}</span>
+        </div>
+      )}
+
       {/* Metrikler */}
-      <div className="grid grid-cols-3 gap-2 text-[10px]">
+      <div className="grid grid-cols-4 gap-1.5 text-[10px]">
         {r.peRatio !== null && (
           <div className="rounded-md bg-surface/50 px-2 py-1">
             <p className="text-text-muted">F/K</p>
@@ -159,9 +177,18 @@ function UzunVadeKart({ r }: { r: LongTermResult }) {
             <p className="font-semibold text-text-secondary tabular-nums">{fmtB(r.marketCap)}</p>
           </div>
         )}
+        {r.foreignOwnership !== null && (
+          <div className="rounded-md bg-surface/50 px-2 py-1">
+            <p className="text-text-muted">Yabancı</p>
+            <p className={`font-semibold tabular-nums ${
+              r.foreignOwnership > 50 ? 'text-emerald-400' :
+              r.foreignOwnership > 25 ? 'text-amber-400' : 'text-text-secondary'
+            }`}>%{r.foreignOwnership.toFixed(0)}</p>
+          </div>
+        )}
       </div>
 
-      <p className="mt-2.5 text-[10px] text-text-muted/70 leading-snug">
+      <p className="mt-2 text-[10px] text-text-muted/70 leading-snug">
         {catCfg.desc}
       </p>
     </Link>
