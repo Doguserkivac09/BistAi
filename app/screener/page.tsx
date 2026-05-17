@@ -11,6 +11,7 @@ import { SECTORS } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
 import { createClient } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { calcTavanScore } from '@/lib/tavan-score';
 
 // ── Tipler ────────────────────────────────────────────────────────────────────
 
@@ -1036,6 +1037,15 @@ function ScreenerRow({
 }) {
   const { sembol, signals, changePercent, rsi, lastVolume, lastClose, sectorName, confluenceScore, dominantDir, anyMtf, relVol5, pctFrom52wHigh, pctFrom52wLow } = result;
 
+  // Tavan / Taban hesapla
+  const tavan = calcTavanScore({
+    changePercent,
+    relVol5,
+    confluenceScore,
+    rsi,
+    weeklyAligned: null,
+  });
+
   const changePct = changePercent;
   const effectivePct = changePct ?? 0;
   const changeColor = effectivePct > 0 ? 'text-emerald-400' : effectivePct < 0 ? 'text-red-400' : 'text-text-muted';
@@ -1071,11 +1081,22 @@ function ScreenerRow({
 
         {/* Sembol + sektör + yön */}
         <div className="w-20 shrink-0">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <p className="font-semibold text-text-primary">{sembol}</p>
             {dominantDir === 'yukari' && <span className="text-[10px] text-emerald-400" title="Yukarı yönlü sinyaller">↑</span>}
             {dominantDir === 'asagi'  && <span className="text-[10px] text-red-400"     title="Aşağı yönlü sinyaller">↓</span>}
             {dominantDir === 'karisik' && <span className="text-[10px] text-text-muted" title="Karışık yön">≷</span>}
+            {tavan.isTavan && (
+              <span title="Bugün tavan" className="text-[9px] font-bold text-emerald-300 bg-emerald-500/15 rounded px-1">🚀</span>
+            )}
+            {tavan.isTaban && (
+              <span title="Bugün taban" className="text-[9px] font-bold text-red-300 bg-red-500/15 rounded px-1">🔻</span>
+            )}
+            {!tavan.isTavan && !tavan.isTaban && (tavan.label === 'kritik' || tavan.label === 'yuksek') && (
+              <span title={`Tavan İhtimali: ${tavan.tavanScore}/100`} className="text-[9px] font-bold text-amber-300 bg-amber-500/10 rounded px-1">
+                🔥{tavan.tavanScore}
+              </span>
+            )}
           </div>
           {sectorName && (
             <p className="text-[10px] text-text-muted truncate">{sectorName}</p>

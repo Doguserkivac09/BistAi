@@ -15,6 +15,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
 import { getSector, getSectorId } from '@/lib/sectors';
+import { calcTavanScore, type TavanResult } from '@/lib/tavan-score';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 import { fetchKapDuyurular } from '@/lib/kap';
 import {
@@ -113,6 +114,20 @@ export interface FirsatItem {
     mtfAlign:   number;  // ± puan (haftalık uyum)
     kapEvent:   number;  // ± puan (KAP event riski)
   };
+  // ── Tavan / Taban ────────────────────────────────────────────────────
+  /** 0-100 tavan ihtimal skoru */
+  tavanScore:      number | null;
+  /** Bugün tavan yaptı mı? */
+  isTavan:         boolean;
+  /** Bugün taban yaptı mı? */
+  isTaban:         boolean;
+  /** Tavana yaklaşıyor mu? (+%7-9.5) */
+  tavanYaklasıyor: boolean;
+  /** Tavan ihtimal etiketi */
+  tavanLabel:      TavanResult['label'];
+  /** Bugünkü % değişim */
+  changePercent:   number | null;
+
   /**
    * Kaç gün önce de bu sinyal fırsatlar sayfasında vardı.
    * null = yeni sinyal (ilk kez görünüyor)
@@ -232,8 +247,8 @@ export async function GET(req: NextRequest) {
     const statsCutoff = new Date();
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);
 
-    // Paralel çek: geçmiş win rate verisi + makro + KAP duyuruları + TÜFE
-    const [statsRes, macroRes, kapRes, tufeRes] = await Promise.allSettled([
+    // Paralel çek: geçmiş win rate verisi + makro + KAP duyuruları + TÜFE + scan_cache
+    const [statsRes, macroRes, kapRes, tufeRes, scanCacheRes] = await Promise.allSettled([
       supabase
         .from('signal_performance')
         .select('signal_type, direction, return_3d, return_7d, return_14d, return_30d')
@@ -243,6 +258,11 @@ export async function GET(req: NextRequest) {
       getMacroFull(),
       fetchKapDuyurular(200), // son 200 KAP duyurusu (cache'li, 15dk TTL)
       fetchTurkeyInflation(), // TÜFE YoY — Investment Score enflasyon düzeltmesi
+      // scan_cache: change_percent, rel_vol5, rsi — tavan skoru için
+      supabase
+        .from('scan_cache')
+        .select('sembol, change_percent, rel_vol5, rsi')
+        .gte('scanned_at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
     ]);
 
     // TÜFE bağlamı (yoksa global formül)
@@ -365,6 +385,16 @@ export async function GET(req: NextRequest) {
       const sektorId = getSectorId(sembol);
       if (!sektorSayaci.has(sektorId)) sektorSayaci.set(sektorId, new Set());
       sektorSayaci.get(sektorId)!.add(sembol);
+    }
+
+    // ── Tavan Skoru — scan_cache'den change_percent + rel_vol5 + rsi ────
+    type ScanCacheRow = { sembol: string; change_percent: number | null; rel_vol5: number | null; rsi: number | null };
+    const scanCacheMap = new Map<string, ScanCacheRow>();
+    if (scanCacheRes.status === 'fulfilled' && !scanCacheRes.value.error) {
+      for (const row of (scanCacheRes.value.data ?? []) as ScanCacheRow[]) {
+        // En yeni kaydı koru (aynı sembole birden fazla row varsa)
+        if (!scanCacheMap.has(row.sembol)) scanCacheMap.set(row.sembol, row);
+      }
     }
 
     // ── B: Sinyal kalıcılığı — "Hâlâ Geçerli" badge ────────────────────
@@ -503,6 +533,25 @@ export async function GET(req: NextRequest) {
         },
         decision,
         investmentScore: investmentScoreMap.get(sembol) ?? null,
+        // ── Tavan / Taban ──────────────────────────────────────────────
+        ...(() => {
+          const sc = scanCacheMap.get(sembol);
+          const tavan = calcTavanScore({
+            changePercent:   sc?.change_percent ?? null,
+            relVol5:         sc?.rel_vol5       ?? null,
+            confluenceScore: baseScore,
+            rsi:             sc?.rsi            ?? null,
+            weeklyAligned:   best.weekly_aligned ?? null,
+          });
+          return {
+            tavanScore:      tavan.label ? tavan.tavanScore : null,
+            isTavan:         tavan.isTavan,
+            isTaban:         tavan.isTaban,
+            tavanYaklasıyor: tavan.yaklasıyor,
+            tavanLabel:      tavan.label,
+            changePercent:   sc?.change_percent ?? null,
+          };
+        })(),
         persistedDays: (() => {
           // En az bir sinyalin 3-10 gün önce de var olup olmadığına bak
           const days = uniqueSinyaller

@@ -9,7 +9,7 @@
 
 import { motion } from 'framer-motion';
 import {
-  TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Users, Clock, Star, Zap, Bookmark, BookmarkCheck,
+  TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Users, Clock, Star, Zap, Bookmark, BookmarkCheck, Flame, ArrowDownToLine,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useCallback } from 'react';
@@ -339,6 +339,42 @@ export function FirsatKarti({
                   </span>
                 )}
               </span>
+              {/* Tavan badge */}
+              {firsat.isTavan && (
+                <span title="Bugün tavan yaptı — günlük limit dolu"
+                  className="flex items-center gap-0.5 rounded-full border border-emerald-400/50 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                  🚀 TAVAN
+                </span>
+              )}
+              {/* Taban badge */}
+              {firsat.isTaban && (
+                <span title="Bugün taban yaptı — günlük limit dolu"
+                  className="flex items-center gap-0.5 rounded-full border border-red-400/50 bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-300">
+                  <ArrowDownToLine className="h-2.5 w-2.5" /> TABAN
+                </span>
+              )}
+              {/* Tavan ihtimali badge */}
+              {!firsat.isTavan && !firsat.isTaban && firsat.tavanLabel && (
+                <span
+                  title={`Tavan İhtimali: ${firsat.tavanScore}/100\nBugün: ${firsat.changePercent != null ? `${firsat.changePercent > 0 ? '+' : ''}${firsat.changePercent.toFixed(1)}%` : '—'}`}
+                  className={`flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                    firsat.tavanLabel === 'kritik' ? 'border-orange-400/50 bg-orange-500/15 text-orange-300' :
+                    firsat.tavanLabel === 'yuksek' ? 'border-amber-400/40 bg-amber-500/10 text-amber-300' :
+                    'border-yellow-400/30 bg-yellow-500/8 text-yellow-400'
+                  }`}>
+                  <Flame className="h-2.5 w-2.5" />
+                  {firsat.tavanLabel === 'kritik' ? `Tavan: ${firsat.tavanScore}` :
+                   firsat.tavanLabel === 'yuksek' ? `Tavan: ${firsat.tavanScore}` :
+                   `Tavan: ${firsat.tavanScore}`}
+                </span>
+              )}
+              {/* Tavana yaklaşıyor badge */}
+              {firsat.tavanYaklasıyor && !firsat.isTavan && (
+                <span title={`Tavana yaklaşıyor: ${firsat.changePercent?.toFixed(1)}%`}
+                  className="flex items-center gap-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/8 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                  ⚡ Tavana Yakın
+                </span>
+              )}
               {/* B: Hâlâ Geçerli badge */}
               {firsat.persistedDays != null && (
                 <span
