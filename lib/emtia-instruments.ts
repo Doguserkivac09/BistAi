@@ -6,8 +6,8 @@
 export type InstrumentCategory = 'endeks' | 'emtia' | 'doviz';
 
 export const INSTRUMENTS = [
-  { symbol: '^XU100.IS', name: 'BIST 100',     nameShort: 'XU100',   category: 'endeks' as InstrumentCategory, currency: 'TRY', icon: '📈', desc: 'Borsa İstanbul 100 Endeksi' },
-  { symbol: '^XU030.IS', name: 'BIST 30',      nameShort: 'XU030',   category: 'endeks' as InstrumentCategory, currency: 'TRY', icon: '📊', desc: 'Borsa İstanbul 30 Endeksi' },
+  { symbol: 'XU100.IS',  name: 'BIST 100',     nameShort: 'XU100',   category: 'endeks' as InstrumentCategory, currency: 'TRY', icon: '📈', desc: 'Borsa İstanbul 100 Endeksi' },
+  { symbol: 'XU030.IS',  name: 'BIST 30',      nameShort: 'XU030',   category: 'endeks' as InstrumentCategory, currency: 'TRY', icon: '📊', desc: 'Borsa İstanbul 30 Endeksi' },
   { symbol: 'GC=F',      name: 'Altın',        nameShort: 'XAU/USD', category: 'emtia'  as InstrumentCategory, currency: 'USD', icon: '🥇', desc: 'Altın Vadeli ($/Ons)' },
   { symbol: 'SI=F',      name: 'Gümüş',        nameShort: 'XAG/USD', category: 'emtia'  as InstrumentCategory, currency: 'USD', icon: '🥈', desc: 'Gümüş Vadeli ($/Ons)' },
   { symbol: 'BZ=F',      name: 'Brent Petrol', nameShort: 'BRENT',   category: 'emtia'  as InstrumentCategory, currency: 'USD', icon: '🛢️', desc: 'Brent Ham Petrol ($/Varil)' },
