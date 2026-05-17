@@ -22,7 +22,8 @@ const navItems = [
       { href: '/portfolyo',       label: 'Portföyüm',      icon: Briefcase },
       { href: '/watchlist',       label: 'Watchlist',      icon: Star },
       { href: '/firsatlar',           label: 'Kısa Vade Fırsatlar', icon: Compass },
-      { href: '/gecmis-firsatlar',    label: 'Geçmiş Fırsatlar',    icon: History },
+      // /gecmis-firsatlar — veri henüz yetersiz (backfill kaynaklı, tüm returnlar ~0%)
+      // Gerçek günlük tarama verisi 1-2 ay birikince navbar'a geri ekle
       { href: '/sinyal-takip',        label: 'Sinyal Takipçisi',     icon: Bookmark },
       { href: '/uzun-vade-firsatlar', label: 'Uzun Vade Fırsatlar', icon: Diamond },
       { href: '/ters-portfolyo',      label: 'Portföy Dışı',        icon: Zap },
