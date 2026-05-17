@@ -9,9 +9,11 @@
 
 import { motion } from 'framer-motion';
 import {
-  TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Users, Clock, Star, Zap,
+  TrendingUp, TrendingDown, AlertTriangle, ChevronRight, Users, Clock, Star, Zap, Bookmark, BookmarkCheck,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import type { FirsatItem } from '@/app/api/firsatlar/route';
 import { InfoPopover } from '@/components/InfoPopover';
 import { detectPhase } from '@/lib/market-phase';
@@ -257,11 +259,48 @@ export function FirsatKarti({
   index: number;
   inWatchlist: boolean;
   onWatchlistToggle: (sembol: string, currentState: boolean) => void;
-  /** Hangi sayfadan navigation geldi? snapshot delta banner için kullanılır */
   source?: 'firsatlar' | 'tersportfolyo';
 }) {
   const isAl  = firsat.direction === 'yukari';
   const isSat = firsat.direction === 'asagi';
+
+  // ── C: Sinyal takipçisi state ───────────────────────────────────────
+  const [tracked, setTracked]   = useState(false);
+  const [tracking, setTracking] = useState(false);
+
+  const handleTrack = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (tracking) return;
+    setTracking(true);
+    try {
+      if (tracked) {
+        const params = new URLSearchParams({ sembol: firsat.sembol, signal_type: firsat.sinyaller[0] ?? '' });
+        await fetch(`/api/signal-tracker?${params}`, { method: 'DELETE' });
+        setTracked(false);
+        toast.success(`${firsat.sembol} takipten çıkarıldı`);
+      } else {
+        await fetch('/api/signal-tracker', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sembol:           firsat.sembol,
+            signal_type:      firsat.sinyaller[0] ?? '',
+            direction:        firsat.direction,
+            entry_price:      firsat.entryPrice,
+            confluence_score: firsat.confluenceScore,
+            sector_name:      firsat.sektorAdi,
+          }),
+        });
+        setTracked(true);
+        toast.success(`${firsat.sembol} takibe alındı — fiyat hareketi bildirilecek`);
+      }
+    } catch {
+      toast.error('İşlem başarısız');
+    } finally {
+      setTracking(false);
+    }
+  }, [firsat, tracked, tracking]);
 
   return (
     <motion.div
@@ -300,6 +339,14 @@ export function FirsatKarti({
                   </span>
                 )}
               </span>
+              {/* B: Hâlâ Geçerli badge */}
+              {firsat.persistedDays != null && (
+                <span
+                  title={`Bu sinyal ${firsat.persistedDays} gün önce de fırsatlar sayfasındaydı — kalıcı momentum`}
+                  className="flex items-center gap-0.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-400">
+                  🔁 {firsat.persistedDays}g Geçerli
+                </span>
+              )}
             </div>
             {firsat.ageHours > 120 && (
               <p className="mt-1.5 text-[10px] text-orange-400/80 leading-snug">
@@ -309,6 +356,21 @@ export function FirsatKarti({
           </div>
 
           <div className="flex items-start gap-2 shrink-0">
+            {/* C: Takibe Al butonu */}
+            <button
+              onClick={handleTrack}
+              disabled={tracking}
+              title={tracked ? 'Takipten çıkar' : 'Takibe al — fiyat hareketi bildirilir'}
+              className={`rounded-lg border p-1.5 transition-colors disabled:opacity-50 ${
+                tracked
+                  ? 'border-violet-500/40 bg-violet-500/10 text-violet-400'
+                  : 'border-border text-text-muted hover:border-violet-500/30 hover:text-violet-400'
+              }`}
+            >
+              {tracked
+                ? <BookmarkCheck className="h-3.5 w-3.5" />
+                : <Bookmark className="h-3.5 w-3.5" />}
+            </button>
             <MiniWatchlistBtn
               sembol={firsat.sembol}
               inList={inWatchlist}

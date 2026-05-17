@@ -113,6 +113,12 @@ export interface FirsatItem {
     mtfAlign:   number;  // ± puan (haftalık uyum)
     kapEvent:   number;  // ± puan (KAP event riski)
   };
+  /**
+   * Kaç gün önce de bu sinyal fırsatlar sayfasında vardı.
+   * null = yeni sinyal (ilk kez görünüyor)
+   * 3 = 3 gün önce de aynı sinyal mevcuttu → "Hâlâ Geçerli"
+   */
+  persistedDays:   number | null;
   /** Birleşik karar motoru çıktısı — hisse detay ile aynı format */
   decision: DecisionOutput;
   /** Yatırım Skoru (deterministik, temel veriye dayalı) — null = veri çekilemedi */
@@ -361,6 +367,28 @@ export async function GET(req: NextRequest) {
       sektorSayaci.get(sektorId)!.add(sembol);
     }
 
+    // ── B: Sinyal kalıcılığı — "Hâlâ Geçerli" badge ────────────────────
+    // 3-10 gün önce aynı sembol+signal_type signal_performance'da var mıydı?
+    const persistenceMap = new Map<string, number>(); // key: sembol_signalType → daysAgo
+    {
+      const since10d = new Date(Date.now() - 10 * 86_400_000).toISOString();
+      const before3d  = new Date(Date.now() - 3  * 86_400_000).toISOString();
+      const { data: oldSigs } = await supabase
+        .from('signal_performance')
+        .select('sembol, signal_type, entry_time')
+        .gte('entry_time', since10d)
+        .lte('entry_time', before3d)
+        .is('user_id', null)
+        .gte('confluence_score', MIN_CONFLUENCE)
+        .in('sembol', Array.from(gruplar.keys()));
+      for (const sig of oldSigs ?? []) {
+        const key = `${sig.sembol}_${sig.signal_type}`;
+        const daysAgo = Math.floor((Date.now() - new Date(sig.entry_time).getTime()) / 86_400_000);
+        const prev = persistenceMap.get(key);
+        if (prev == null || daysAgo < prev) persistenceMap.set(key, daysAgo);
+      }
+    }
+
     // ── Yatırım Skoru (deterministik, ham temel veri → 0-100) ───────────
     // Yahoo fundamentals 24h in-memory cache'li → çağrı maliyeti çok düşük.
     // Hata olursa null döner; o sembolde rozet gösterilmez.
@@ -475,6 +503,13 @@ export async function GET(req: NextRequest) {
         },
         decision,
         investmentScore: investmentScoreMap.get(sembol) ?? null,
+        persistedDays: (() => {
+          // En az bir sinyalin 3-10 gün önce de var olup olmadığına bak
+          const days = uniqueSinyaller
+            .map((st) => persistenceMap.get(`${sembol}_${st}`))
+            .filter((d): d is number => d != null);
+          return days.length > 0 ? Math.min(...days) : null;
+        })(),
       });
     }
 
