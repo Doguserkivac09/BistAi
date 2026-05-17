@@ -21,13 +21,14 @@ import {
   evaluatePosition,
   calcPositionSize,
   calcLevels,
-  updateTrailingStop,
+  calcDynamicTrailingStop,
   calcSectorExposure,
   portfolioHealthCheck,
   type PortfolioPosition,
   type MarketData,
   INITIAL_CAPITAL,
   MAX_POSITION_PCT,
+  MIN_ENTRY_SCORE,
 } from '@/lib/ai-portfolio-engine';
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -132,8 +133,8 @@ export async function GET(req: NextRequest) {
     const currentPrice = scan?.last_close ?? pos.current_price ?? pos.entry_price;
     const techScore = scan?.confluence_score ?? null;
 
-    // Trailing stop güncelle
-    const newTrailing = updateTrailingStop(pos.entry_price, currentPrice, pos.trailing_stop);
+    // Trailing stop güncelle (dinamik — kâr büyüdükçe sıkılaşır)
+    const newTrailing = calcDynamicTrailingStop(pos.entry_price, currentPrice, pos.trailing_stop);
     if (newTrailing > pos.trailing_stop) {
       await admin.from('ai_portfolio_positions').update({ trailing_stop: newTrailing }).eq('id', pos.id);
     }
@@ -275,7 +276,10 @@ export async function GET(req: NextRequest) {
       const dipMatch = (pick.notes ?? '').match(/Dip Skor: (\d+)/);
       const dipScore = dipMatch ? parseInt(dipMatch[1]) : 30;
 
-      const positionSize = calcPositionSize(currentCash, totalValue, 0.60, 2.0, dipScore);
+      // Confluence skoru MIN_ENTRY_SCORE altındaysa atla
+      if ((pick.confluence_score ?? 0) < MIN_ENTRY_SCORE) continue;
+
+      const positionSize = calcPositionSize(currentCash, totalValue, 0.62, 3.0, dipScore, macroScore);
       const cappedSize = Math.min(positionSize, health.maxNewPosition);
       if (cappedSize < 1000) continue;
 
