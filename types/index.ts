@@ -200,6 +200,68 @@ export const BIST_SYMBOLS = [
   'LIDFA', 'MAKTK', 'MEKAG', 'NTGAZ', 'PATEK', 'PRDGS', 'PRKME',
   'PRZMA', 'PSDTC', 'ROYAL', 'RTALB', 'SAYAS', 'SEYKM', 'SNICA', 'SNPAM',
   'TRCAS', 'VERTU', 'VKING', 'YEOTK', 'YGYO', 'YKSLN', 'TRILC', 'TERA',
+
+  // ── 2026-05-17: Bigpara BIST TÜM listesinden eklenenler (~250 yeni) ──
+  // Bankacılık & Finans (ek)
+  'QNBFK', 'QNBTR', 'VAKFA', 'ISBIR', 'ISGLK', 'ISGSY',
+  // Sigorta & Emeklilik (ek)
+  'AGESA',
+  // Holding & Yatırım (ek)
+  'AVHOL', 'EUHOL', 'GRTHO', 'KLRHO', 'LYDHO', 'MZHLD', 'PAHOL', 'RALYH', 'TRHOL', 'VANGD',
+  // Havacılık, Savunma & Ulaştırma (ek)
+  'AVTUR', 'ATAGY', 'ATAKP', 'AHSGY', 'BAHKM', 'BESLR', 'HOROZ',
+  // Enerji & Yenilenebilir (ek)
+  'AKFYE', 'AKYHO', 'ENERY', 'ENPRA', 'ENSRI', 'ENTRA', 'EUKYO', 'EUREN',
+  'GWIND', 'RUZYE', 'TATEN', 'TGSAS', 'ZERGY',
+  // Otomotiv & Makine (ek)
+  'ALCAR', 'EPLAS', 'KBORU', 'KLKIM', 'KONKA', 'KOPOL', 'KRONT', 'KUTPO',
+  'MNDTR', 'MTRKS', 'OTTO', 'TEZOL', 'TMPOL', 'TRMET', 'TUREX',
+  // Perakende & Tüketici (ek)
+  'ADESE', 'AYGAZ', 'BIGCH', 'KOTON', 'LILAK', 'MARKA', 'MERIT', 'MEYSU',
+  'PENTA', 'PKENT', 'SMART', 'SOKE', 'TABGD', 'TBORG', 'UNLU',
+  // Gıda & İçecek (ek)
+  'BALAT', 'BALSU', 'CASA', 'ETYAT', 'HATSN', 'KRVGD', 'MERKO', 'MOPAS',
+  'PNLSN', 'PNSUT', 'SELVA', 'SUMAS', 'TNZTP', 'TUCLK',
+  // Teknoloji & Yazılım (ek)
+  'ARTMS', 'BLCYT', 'DCTTR', 'EDATA', 'EKOS', 'ESCOM', 'INGRM', 'INTEK',
+  'INVES', 'LINK', 'LMKDC', 'NETCD', 'OBASE', 'PCILT', 'SDTTR', 'SEGMN',
+  'SKYMD', 'TLMAN', 'TURGG', 'VBTYZ', 'VSNMD',
+  // Demir-Çelik & Maden (ek)
+  'ALVES', 'BMSTL', 'CELHA', 'CVKMD', 'DOCO', 'ERCB', 'ISDMR', 'KRDMB',
+  'MAALT', 'OZATD', 'TRALT', 'UCAYM', 'ZGOLD',
+  // Çimento & Yapı Malzemeleri (ek)
+  'BASCM', 'BYDNR', 'CEMZY', 'CMBTN', 'KOCMT', 'KTSKR', 'MARMR', 'SODSN',
+  // Cam, Kimya & Plastik (ek)
+  'ALKLC', 'ALTNY', 'AZTEK', 'CRDFA', 'EFOR', 'ESCAR', 'ETILR',
+  'KIMMR', 'KLNMA', 'SANKO', 'TARKM', 'ULAS',
+  // GYO & İnşaat (ek)
+  'AAGYO', 'ADGYO', 'AGYO', 'AVGYO', 'AVPGY', 'BEGYO', 'DARDL', 'DGNMO',
+  'EUYO', 'GATEG', 'GLCVY', 'GRNYO', 'IZINV',
+  'KGYO', 'KRGYO', 'KZBGY', 'KZGYO', 'LXGYO', 'MHRGY', 'OFSYM', 'OPTGY',
+  'ORCAY', 'OSMEN', 'OYAYO', 'OYYAT', 'OZRDN', 'OZSUB', 'OZYSR',
+  'PSGYO', 'SAFKR', 'SEGYO', 'SRVGY', 'SVGYO', 'TEHOL',
+  'TSGYO', 'VKFYO', 'VRGYO', 'YGGYO', 'YYAPI', 'ZEDUR', 'ZELOT', 'ZGYO', 'ZRGYO',
+  // Sanayi & Üretim (ek)
+  'ANELE', 'ANGEN', 'ARASE', 'ARENA', 'ARFYE', 'ARMGD', 'ARSAN', 'ATSYH',
+  'BEYAZ', 'BIENY', 'BIGEN', 'BIGTK', 'BINBN', 'BINHO', 'BLUME', 'BMSCH',
+  'BOBET', 'BORSK', 'BRKO', 'BRKSN', 'BRKVY', 'BRLSM', 'BRYAT', 'BULGS',
+  'CATES', 'CEOEM', 'CGCAM', 'DERHL', 'DESPC', 'DMRGD', 'DOFER', 'DOFRB',
+  'DOGUB', 'DUNYH', 'DURDO', 'DURKN', 'EBEBK', 'ECOGR', 'EGEPO', 'EGGUB',
+  'EGPRO', 'EKIZ', 'EKSUN', 'EMPAE', 'ENDAE', 'FMIZP', 'FORTE', 'FRIGO',
+  'FRMPL', 'GENKM', 'GENTS', 'GIPTA', 'GLDTR', 'GLRMK', 'GMSTR', 'GOKNR',
+  'GZNMI', 'HKTM', 'HUBVC', 'ICUGS', 'IHAAS', 'IZENR', 'IZMDC',
+  'KAYSE', 'KCAER', 'KERVN', 'KFEIN', 'KLSER', 'KLSYN', 'KLYPV', 'KRPLS',
+  'KRSTL', 'KRTEK', 'KSTUR', 'KTLEV', 'KUVVA', 'LRSHO', 'LYDYE', 'MACKO',
+  'MAGEN', 'MANAS', 'MARBL', 'MCARD', 'MEGMT', 'MEPET', 'MERCN', 'MIATK',
+  'MMCAS', 'MOGAN', 'ODINE', 'ORMA', 'PAMEL', 'PAPIL', 'REEDR', 'RNPOL',
+  'RUBNS', 'SANFM', 'SEKFK', 'SEKUR', 'SERNT', 'SKYLP', 'SMRVA', 'SUNTK',
+  'SURGY', 'TCKRC', 'TRENJ', 'ULUSE', 'YAPRK', 'YAYLA', 'YBTAS', 'YESIL', 'YIGIT',
+  // Tekstil (ek)
+  'BESTE',
+  // Sağlık & İlaç (ek)
+  'ATATP', 'ATATR',
+  // Finans Teknoloji & Diğer (ek)
+  'A1CAP', 'A1YEN', 'AKFIS', 'AKSUE',
 ] as const;
 
 export type BistSymbol = (typeof BIST_SYMBOLS)[number];
