@@ -335,6 +335,136 @@ const SYMBOL_SECTOR_MAP: Record<string, SectorId> = {
 
   // ── Diğer (Spor Kulüpleri vb.) ────────────────────────────────────
   BJKAS: 'diger', FENER: 'diger', GSRAY: 'diger', TSPOR: 'diger',
+
+  // ── 2026-05-17: Yeni eklenen tüm semboller ──────────────────────────
+
+  // Bankacılık & Finans
+  QNBFK: 'banka', QNBTR: 'banka', ICBCT: 'banka', GEDIK: 'banka',
+  GARFA: 'banka', GSDHO: 'banka', GSDDE: 'banka', VAKFN: 'banka',
+  VAKFA: 'sigorta_finans', ISBIR: 'sigorta_finans',
+  ISGLK: 'sigorta_finans', ISGSY: 'sigorta_finans',
+  A1CAP: 'sigorta_finans', A1YEN: 'sigorta_finans',
+  AKFIS: 'sigorta_finans', AKSUE: 'sigorta_finans', ATLAS: 'sigorta_finans',
+  AGESA: 'sigorta_finans',
+
+  // Holding & Yatırım
+  AVHOL: 'holding', EUHOL: 'holding', GRTHO: 'holding', GOZDE: 'holding',
+  IEYHO: 'holding', KLRHO: 'holding', LYDHO: 'holding', MZHLD: 'holding',
+  NTHOL: 'holding', PAHOL: 'holding', POLHO: 'holding', POLTK: 'holding',
+  RALYH: 'holding', TRHOL: 'holding', VANGD: 'holding', YYLGD: 'holding',
+
+  // Havacılık & Savunma
+  ATAGY: 'havacilik_savunma', ATAKP: 'havacilik_savunma', AVTUR: 'havacilik_savunma',
+
+  // Enerji & Yenilenebilir
+  AKFYE: 'enerji', AKYHO: 'enerji', AYEN: 'enerji',
+  AYCES: 'enerji', AYGAZ: 'enerji', BASGZ: 'enerji',
+  BIOEN: 'enerji', EGEGY: 'enerji', ENERY: 'enerji', ENPRA: 'enerji',
+  ENSRI: 'enerji', ENTRA: 'enerji', EUKYO: 'enerji', EUREN: 'enerji',
+  GWIND: 'enerji', RUZYE: 'enerji', SASA: 'enerji', TATEN: 'enerji',
+  TGSAS: 'enerji', ZERGY: 'enerji',
+
+  // Otomotiv & Makine
+  ALCAR: 'otomotiv', ASUZU: 'otomotiv', BFREN: 'otomotiv', DITAS: 'otomotiv',
+  DMSAS: 'otomotiv', EMKEL: 'otomotiv', EPLAS: 'otomotiv', ERBOS: 'otomotiv',
+  GOODY: 'otomotiv', KAPLM: 'otomotiv', KBORU: 'otomotiv', KLKIM: 'otomotiv',
+  KNFRT: 'otomotiv', KONKA: 'otomotiv', KOPOL: 'otomotiv', KRONT: 'otomotiv',
+  KUTPO: 'otomotiv', MNDTR: 'otomotiv', MTRKS: 'otomotiv', OTTO: 'otomotiv',
+  TEZOL: 'otomotiv', TMPOL: 'otomotiv', TRMET: 'otomotiv', TUREX: 'otomotiv',
+
+  // Perakende & Tüketici
+  ADESE: 'perakende', BIGCH: 'perakende', KOTON: 'perakende', LILAK: 'perakende',
+  MARKA: 'perakende', MERIT: 'perakende', MEYSU: 'perakende', PENTA: 'perakende',
+  PKENT: 'perakende', SMART: 'perakende', SOKE: 'perakende', TABGD: 'perakende',
+  TBORG: 'perakende', UNLU: 'perakende',
+  // Gida
+  BALAT: 'perakende', BALSU: 'perakende', CASA: 'perakende', ETYAT: 'perakende',
+  HATSN: 'perakende', KRVGD: 'perakende', MERKO: 'perakende', MOPAS: 'perakende',
+  PNLSN: 'perakende', PNSUT: 'perakende', SELVA: 'perakende', SUMAS: 'perakende',
+  TNZTP: 'perakende', TUCLK: 'perakende',
+
+  // Telekomünikasyon & Teknoloji
+  ARTMS: 'telekom_teknoloji', BLCYT: 'telekom_teknoloji', DCTTR: 'telekom_teknoloji',
+  EDATA: 'telekom_teknoloji', EKOS: 'telekom_teknoloji', ESCOM: 'telekom_teknoloji',
+  INGRM: 'telekom_teknoloji', INTEK: 'telekom_teknoloji', INVES: 'telekom_teknoloji',
+  LINK: 'telekom_teknoloji', LMKDC: 'telekom_teknoloji', NETCD: 'telekom_teknoloji',
+  OBASE: 'telekom_teknoloji', PCILT: 'telekom_teknoloji', SDTTR: 'telekom_teknoloji',
+  SEGMN: 'telekom_teknoloji', SKYMD: 'telekom_teknoloji', TLMAN: 'telekom_teknoloji',
+  TURGG: 'telekom_teknoloji', VBTYZ: 'telekom_teknoloji', VSNMD: 'telekom_teknoloji',
+
+  // Demir-Çelik & Madencilik
+  ALVES: 'demir_celik_madencilik', BMSTL: 'demir_celik_madencilik',
+  CELHA: 'demir_celik_madencilik', CVKMD: 'demir_celik_madencilik',
+  DOCO: 'demir_celik_madencilik', ERCB: 'demir_celik_madencilik',
+  ISDMR: 'demir_celik_madencilik', KRDMB: 'demir_celik_madencilik',
+  MAALT: 'demir_celik_madencilik', OZATD: 'demir_celik_madencilik',
+  TRALT: 'demir_celik_madencilik', UCAYM: 'demir_celik_madencilik',
+  ZGOLD: 'demir_celik_madencilik',
+
+  // Çimento & Yapı → Sanayi
+  BASCM: 'sanayi', BYDNR: 'sanayi', CEMZY: 'sanayi', CMBTN: 'sanayi',
+  KOCMT: 'sanayi', KTSKR: 'sanayi', MARMR: 'sanayi', SODSN: 'sanayi',
+
+  // Cam, Kimya & Plastik
+  ALKLC: 'cam_kimya', ALTNY: 'cam_kimya', AZTEK: 'cam_kimya',
+  CRDFA: 'cam_kimya', EFOR: 'cam_kimya', ESCAR: 'cam_kimya',
+  ETILR: 'cam_kimya', KIMMR: 'cam_kimya', KLNMA: 'cam_kimya',
+  SANKO: 'cam_kimya', TARKM: 'cam_kimya', ULAS: 'cam_kimya',
+
+  // GYO & İnşaat
+  AAGYO: 'insaat_gyo', ADGYO: 'insaat_gyo', AGYO: 'insaat_gyo',
+  AVGYO: 'insaat_gyo', AVPGY: 'insaat_gyo', BEGYO: 'insaat_gyo',
+  DARDL: 'insaat_gyo', DGNMO: 'insaat_gyo', EUYO: 'insaat_gyo',
+  GATEG: 'insaat_gyo', GLCVY: 'insaat_gyo', GRNYO: 'insaat_gyo',
+  IZINV: 'insaat_gyo', KGYO: 'insaat_gyo', KRGYO: 'insaat_gyo',
+  KZBGY: 'insaat_gyo', KZGYO: 'insaat_gyo', LXGYO: 'insaat_gyo',
+  MHRGY: 'insaat_gyo', OFSYM: 'insaat_gyo', OPTGY: 'insaat_gyo',
+  ORCAY: 'insaat_gyo', OSMEN: 'insaat_gyo', OYAYO: 'insaat_gyo',
+  OYYAT: 'insaat_gyo', OZRDN: 'insaat_gyo', OZSUB: 'insaat_gyo',
+  OZYSR: 'insaat_gyo', PSGYO: 'insaat_gyo', SAFKR: 'insaat_gyo',
+  SEGYO: 'insaat_gyo', SRVGY: 'insaat_gyo', SVGYO: 'insaat_gyo',
+  TEHOL: 'insaat_gyo', TSGYO: 'insaat_gyo', VKFYO: 'insaat_gyo',
+  VRGYO: 'insaat_gyo', YGGYO: 'insaat_gyo', YYAPI: 'insaat_gyo',
+  ZEDUR: 'insaat_gyo', ZELOT: 'insaat_gyo', ZGYO: 'insaat_gyo', ZRGYO: 'insaat_gyo',
+
+  // Ulaştırma & Lojistik
+  AHSGY: 'ulastirma', BAHKM: 'ulastirma', BESLR: 'ulastirma', HOROZ: 'ulastirma',
+
+  // Sağlık & İlaç
+  ATATP: 'saglik', ATATR: 'saglik', MIATK: 'saglik',
+
+  // Medya & Yayın
+  DNISI: 'diger', HURGZ: 'diger', IHYAY: 'diger',
+
+  // Sanayi & Üretim (geniş)
+  ANELE: 'sanayi', ANGEN: 'sanayi', ARASE: 'sanayi', ARENA: 'sanayi',
+  ARFYE: 'sanayi', ARMGD: 'sanayi', ARSAN: 'sanayi', ATSYH: 'sanayi',
+  BESTE: 'sanayi', BEYAZ: 'sanayi', BIENY: 'sanayi', BIGEN: 'sanayi',
+  BIGTK: 'sanayi', BINBN: 'sanayi', BINHO: 'sanayi', BLUME: 'sanayi',
+  BMSCH: 'sanayi', BOBET: 'sanayi', BORSK: 'sanayi', BRKO: 'sanayi',
+  BRKSN: 'sanayi', BRKVY: 'sanayi', BRLSM: 'sanayi', BRYAT: 'sanayi',
+  BULGS: 'sanayi', CATES: 'sanayi', CEOEM: 'sanayi', CGCAM: 'sanayi',
+  DERHL: 'sanayi', DESPC: 'sanayi', DMRGD: 'sanayi', DOFER: 'sanayi',
+  DOFRB: 'sanayi', DOGUB: 'sanayi', DUNYH: 'sanayi', DURDO: 'sanayi',
+  DURKN: 'sanayi', EBEBK: 'sanayi', ECOGR: 'sanayi', EGEPO: 'sanayi',
+  EGGUB: 'sanayi', EGPRO: 'sanayi', EKIZ: 'sanayi', EKSUN: 'sanayi',
+  EMPAE: 'sanayi', ENDAE: 'sanayi', FMIZP: 'sanayi', FORTE: 'sanayi',
+  FRIGO: 'sanayi', FRMPL: 'sanayi', GENKM: 'sanayi', GENTS: 'sanayi',
+  GIPTA: 'sanayi', GLDTR: 'sanayi', GLRMK: 'sanayi', GMSTR: 'sanayi',
+  GOKNR: 'sanayi', GZNMI: 'sanayi', HKTM: 'sanayi', HUBVC: 'sanayi',
+  ICUGS: 'sanayi', IHAAS: 'sanayi', IZENR: 'sanayi', IZMDC: 'sanayi',
+  KAYSE: 'sanayi', KCAER: 'sanayi', KERVN: 'sanayi', KFEIN: 'sanayi',
+  KLSER: 'sanayi', KLSYN: 'sanayi', KLYPV: 'sanayi', KRPLS: 'sanayi',
+  KRSTL: 'sanayi', KRTEK: 'sanayi', KSTUR: 'sanayi', KTLEV: 'sanayi',
+  KUVVA: 'sanayi', LRSHO: 'sanayi', LYDYE: 'sanayi', MACKO: 'sanayi',
+  MAGEN: 'sanayi', MANAS: 'sanayi', MARBL: 'sanayi', MCARD: 'sanayi',
+  MEGMT: 'sanayi', MEPET: 'sanayi', MERCN: 'sanayi', MMCAS: 'sanayi',
+  MOGAN: 'sanayi', ODINE: 'sanayi', PAMEL: 'sanayi', PAPIL: 'sanayi',
+  REEDR: 'sanayi', RNPOL: 'sanayi', RUBNS: 'sanayi', SANFM: 'sanayi',
+  SEKFK: 'sanayi', SEKUR: 'sanayi', SERNT: 'sanayi', SKYLP: 'sanayi',
+  SMRVA: 'sanayi', SUNTK: 'sanayi', SURGY: 'sanayi', TCKRC: 'sanayi',
+  TRENJ: 'sanayi', ULUSE: 'sanayi', YAPRK: 'sanayi', YAYLA: 'sanayi',
+  YBTAS: 'sanayi', YESIL: 'sanayi', YIGIT: 'sanayi',
 };
 
 // ── Public API ──────────────────────────────────────────────────────
