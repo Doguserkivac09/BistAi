@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/scan-cache",
-      "schedule": "0 16 * * 1-5"
+      "schedule": "50 14 * * 1-5"
     },
     {
       "path": "/api/cron/alerts",
@@ -50,7 +50,7 @@
     },
     {
       "path": "/api/cron/ai-portfolio",
-      "schedule": "0 6 * * 1"
+      "schedule": "50 14 * * 5"
     }
   ]
 }
