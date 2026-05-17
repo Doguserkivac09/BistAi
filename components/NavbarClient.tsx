@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond, Brain,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,7 +45,8 @@ const navItems = [
       { href: '/topluluk',    label: 'Topluluk',   icon: Users },
       { href: '/dashboard',   label: 'Dashboard',  icon: LayoutDashboard },
       { href: '/yardim',              label: 'Eğitim Merkezi',    icon: BookOpen },
-      { href: '/haftalik-secimler',  label: 'Haftanın Seçimleri', icon: Trophy },
+      { href: '/haftalik-secimler',   label: 'Haftanın Seçimleri',  icon: Trophy },
+      { href: '/yapay-zeka-portfoyu', label: 'AI Portföyü',          icon: Brain },
     ],
   },
 ];
