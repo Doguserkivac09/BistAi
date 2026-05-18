@@ -60,17 +60,28 @@ export async function GET(req: NextRequest) {
   const admin = createAdmin();
   const now = new Date();
   const { week: weekNumber, year } = getISOWeek(now);
+  const dayOfWeek = now.getUTCDay(); // 1=Pazartesi, 5=Cuma
 
-  // Bu hafta zaten karar verildi mi?
-  const { data: existingDecisions } = await admin
-    .from('ai_portfolio_decisions')
-    .select('id')
-    .eq('week_number', weekNumber)
-    .eq('year', year)
-    .limit(1);
+  // ── Mod tespiti ────────────────────────────────────────────────────
+  // Pazartesi → BUY modu: weekly_picks'ten yeni pozisyon aç
+  // Cuma → EVAL modu: mevcut pozisyonları stop/TP için değerlendir
+  // Diğer günler → her ikisi de yapılabilir (manuel tetikleme)
+  const isMondayRun = dayOfWeek === 1;
+  const isFridayRun = dayOfWeek === 5;
 
-  if (existingDecisions && existingDecisions.length > 0) {
-    return NextResponse.json({ ok: true, message: `Hafta ${weekNumber}/${year} kararı zaten verilmiş`, skipped: true });
+  // Pazartesi çalışmasında: bu hafta zaten BUY yapıldıysa atla
+  if (isMondayRun) {
+    const { data: existingBuys } = await admin
+      .from('ai_portfolio_decisions')
+      .select('id')
+      .eq('week_number', weekNumber)
+      .eq('year', year)
+      .eq('action', 'BUY')
+      .limit(1);
+
+    if (existingBuys && existingBuys.length > 0) {
+      return NextResponse.json({ ok: true, message: `Hafta ${weekNumber}/${year} BUY kararı zaten verilmiş`, skipped: true });
+    }
   }
 
   // ── 1. Son portföy durumunu çek ────────────────────────────────────
