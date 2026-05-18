@@ -51,6 +51,7 @@ const navItems = [
       { href: '/yardim',              label: 'Eğitim Merkezi',    icon: BookOpen },
       { href: '/haftalik-secimler',   label: 'Haftanın Seçimleri',  icon: Trophy },
       { href: '/yapay-zeka-portfoyu', label: 'AI Portföyü',          icon: Brain },
+      { href: '/apex-portfoyu',       label: 'APEX Portföyü 🔥',    icon: Zap },
     ],
   },
 ];
