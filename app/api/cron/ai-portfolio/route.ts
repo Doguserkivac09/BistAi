@@ -287,6 +287,13 @@ export async function GET(req: NextRequest) {
   });
 
   // ── 7. Yeni fırsatlar — weekly_picks'ten ────────────────────────────
+  // Cross-portfolio çakışma: APEX'te açık olan hisseler burada da açılmasın
+  const { data: apexOpen } = await admin
+    .from('apex_portfolio_positions')
+    .select('sembol')
+    .eq('is_open', true);
+  const apexOpenSet = new Set((apexOpen ?? []).map((p) => p.sembol));
+
   let openedCount = 0;
 
   if (health.canBuy && macroScore > -30 && !circuitBreakerActive) {
@@ -305,8 +312,12 @@ export async function GET(req: NextRequest) {
       if (openedCount >= 3) break;
       if (!health.canBuy || currentCash < 3000) break;
 
-      // Zaten bu hissede pozisyon var mı?
+      // Zaten bu hissede pozisyon var mı? (bu portföy + APEX cross-check)
       if (remainingPositions.some((p) => p.sembol === pick.sembol)) continue;
+      if (apexOpenSet.has(pick.sembol)) {
+        console.log(`[ai-portfolio] ${pick.sembol} APEX'te açık — çakışma önlendi`);
+        continue;
+      }
 
       // Sektör limiti
       const sectorExp = sectorExposure.get(pick.sector_id ?? '') ?? 0;

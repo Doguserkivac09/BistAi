@@ -227,16 +227,27 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 7. Yeni pozisyon aç ────────────────────────────────────────────
+  // Cross-portfolio: AI portföyde açık olan hisseler burada da açılmasın
+  const { data: aiOpen } = await db
+    .from('ai_portfolio_positions')
+    .select('sembol')
+    .eq('is_open', true);
+  const aiOpenSet = new Set((aiOpen ?? []).map((p) => p.sembol));
+
   const health = apexHealthCheck(totalValue, cash, remainingPositions.length, sectorMap);
   let openedCount = 0;
 
   if (health.canBuy && !circuitBreakerActive && !drawdownBlockNew) {
     for (const cand of candidates) {
-      if (openedCount >= 2) break; // günde max 2 yeni pozisyon
+      if (openedCount >= 2) break;
       if (!health.canBuy || cash < 3000) break;
 
-      // Bu hissede zaten pozisyon var mı?
+      // Bu hissede zaten pozisyon var mı? (bu portföy + AI cross-check)
       if (remainingPositions.some((p) => p.sembol === cand.sembol)) continue;
+      if (aiOpenSet.has(cand.sembol)) {
+        console.log(`[apex] ${cand.sembol} AI portföyde açık — çakışma önlendi`);
+        continue;
+      }
 
       // Sektör limiti (%40)
       if ((sectorMap.get(cand.sector ?? 'diger') ?? 0) >= 0.40) continue;

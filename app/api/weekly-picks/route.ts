@@ -51,30 +51,51 @@ export async function GET(req: NextRequest) {
     (p) => p.week_number === currentWeek && p.year === currentYear,
   );
 
-  // Canlı fiyat güncelle — sadece açık pozisyonlar
+  // Canlı fiyat — önce scan_cache'den dene (hızlı), fallback: Yahoo
   const openPicks = thisWeek.filter((p) => !p.is_closed);
   if (openPicks.length > 0) {
     const uniqueSymbols = [...new Set(openPicks.map((p) => p.sembol as string))];
-    const priceMap = new Map<string, number>();
+    const priceMap = new Map<string, { price: number; changeToday: number | null; confluence: number | null }>();
 
-    await Promise.allSettled(
-      uniqueSymbols.map(async (sembol) => {
-        try {
-          const { candles } = await fetchOHLCV(sembol, 3);
-          const last = candles[candles.length - 1]?.close;
-          if (last) priceMap.set(sembol, last);
-        } catch { /* ignore */ }
-      }),
-    );
+    // 1. scan_cache'den toplu çek (tek DB sorgusu)
+    const { data: scanRows } = await admin
+      .from('scan_cache')
+      .select('sembol, last_close, change_percent, confluence_score')
+      .in('sembol', uniqueSymbols);
 
-    // Canlı return hesapla
+    for (const row of scanRows ?? []) {
+      if (row.last_close) {
+        priceMap.set(row.sembol, {
+          price: row.last_close,
+          changeToday: row.change_percent ?? null,
+          confluence: row.confluence_score ?? null,
+        });
+      }
+    }
+
+    // 2. scan_cache'de bulunamayanlar için Yahoo fallback
+    const missing = uniqueSymbols.filter((s) => !priceMap.has(s));
+    if (missing.length > 0) {
+      await Promise.allSettled(
+        missing.map(async (sembol) => {
+          try {
+            const { candles } = await fetchOHLCV(sembol, 3);
+            const last = candles[candles.length - 1]?.close;
+            if (last) priceMap.set(sembol, { price: last, changeToday: null, confluence: null });
+          } catch { /* ignore */ }
+        }),
+      );
+    }
+
+    // Canlı return + ek veri ekle
     for (const pick of openPicks) {
-      const live = priceMap.get(pick.sembol);
-      if (live && pick.entry_price) {
-        (pick as Record<string, unknown>).live_price = live;
-        (pick as Record<string, unknown>).live_return_pct = parseFloat(
-          (((live - pick.entry_price) / pick.entry_price) * 100).toFixed(2),
-        );
+      const data = priceMap.get(pick.sembol);
+      if (data && pick.entry_price) {
+        const liveReturn = ((data.price - pick.entry_price) / pick.entry_price) * 100;
+        (pick as Record<string, unknown>).live_price      = data.price;
+        (pick as Record<string, unknown>).live_return_pct = parseFloat(liveReturn.toFixed(2));
+        (pick as Record<string, unknown>).change_today    = data.changeToday;
+        (pick as Record<string, unknown>).scan_confluence = data.confluence;
       }
     }
   }

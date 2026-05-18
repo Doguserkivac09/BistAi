@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { RefreshCw, TrendingUp, TrendingDown, Zap, ShoppingCart,
-         LogOut, Pause, RotateCcw, Flame, Target, AlertTriangle, Activity } from 'lucide-react';
+import { RefreshCw, Zap, ShoppingCart, LogOut, Pause, RotateCcw,
+         AlertTriangle, Activity, Flame } from 'lucide-react';
 import { APEX_INITIAL_CAPITAL, APEX_STOP_LOSS_PCT, APEX_MIN_CONFLUENCE, APEX_MIN_REL_VOL } from '@/lib/apex-engine';
 
 // ── Tipler ───────────────────────────────────────────────────────────
@@ -13,6 +13,11 @@ interface Position {
   shares: number; entry_price: number; current_price: number | null;
   stop_loss: number; trailing_stop: number; cost_basis: number;
   entry_date: string; entry_confluence: number | null; entry_rel_vol5: number | null;
+  // Canlı veriler (API tarafından eklenir)
+  live_return_pct: number | null; live_pnl: number | null;
+  stop_distance_pct: number | null; trail_distance_pct: number | null;
+  scan_confluence: number | null; scan_rel_vol5: number | null;
+  change_today: number | null; signal_strength: string | null;
 }
 interface HistoryRow {
   snapshot_date: string; total_value: number; cash: number;
@@ -32,6 +37,8 @@ interface Summary {
   positionCount: number; dailyReturn: number; winRate: number | null;
   winRate30d: number | null; totalTrades: number;
   bestTrade: number | null; worstTrade: number | null;
+  stopAlert: string | null; weakSignals: string[] | null;
+  lastPriceUpdate: string;
 }
 
 // ── Yardımcılar ──────────────────────────────────────────────────────
@@ -164,6 +171,30 @@ export default function ApexPortfoyuPage() {
         {!loading && s && (
           <div className="space-y-5">
 
+            {/* Risk Uyarıları */}
+            {(s.stopAlert || (s.weakSignals && s.weakSignals.length > 0)) && (
+              <div className="space-y-2">
+                {s.stopAlert && (
+                  <div className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-500/8 px-4 py-3">
+                    <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+                    <p className="text-sm text-red-300 font-semibold">⚠️ {s.stopAlert}</p>
+                  </div>
+                )}
+                {s.weakSignals && s.weakSignals.length > 0 && (
+                  <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+                    <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                    <p className="text-sm text-amber-300">Sinyal zayıflıyor: <strong>{s.weakSignals.join(', ')}</strong> — yarın değerlendirme yapılacak</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Fiyat kaynağı */}
+            <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+              <Activity className="h-3 w-3" />
+              <span>Fiyat: <span className={s.lastPriceUpdate === 'scan_cache' ? 'text-emerald-400' : 'text-amber-400'}>{s.lastPriceUpdate === 'scan_cache' ? 'Canlı (scan_cache)' : 'Snapshot'}</span></span>
+            </div>
+
             {/* Stat kartları */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {/* Portföy değeri */}
@@ -238,24 +269,48 @@ export default function ApexPortfoyuPage() {
                     Açık pozisyon yok — sonraki tarama bekleniyor (17:45 TRT)
                   </div>
                 ) : positions.map((pos) => {
-                  const cp  = pos.current_price ?? pos.entry_price;
-                  const ret = ((cp - pos.entry_price) / pos.entry_price) * 100;
-                  const pnl = (cp - pos.entry_price) * pos.shares;
-                  const isPos = ret >= 0;
-                  const stopDist    = ((cp - pos.stop_loss) / cp) * 100;
-                  const trailDist   = ((cp - pos.trailing_stop) / cp) * 100;
+                  const cp       = pos.current_price ?? pos.entry_price;
+                  const ret      = pos.live_return_pct ?? ((cp - pos.entry_price) / pos.entry_price) * 100;
+                  const pnl      = pos.live_pnl        ?? (cp - pos.entry_price) * pos.shares;
+                  const isPos    = ret >= 0;
+                  const stopDist = pos.stop_distance_pct  ?? ((cp - pos.stop_loss)    / cp) * 100;
+                  const trailDist = pos.trail_distance_pct ?? ((cp - pos.trailing_stop) / cp) * 100;
+                  const stopDanger   = stopDist < 2.5;
+                  const signalWeak   = pos.signal_strength === 'zayıf';
                   return (
-                    <div key={pos.id} className={`rounded-xl border p-4 ${isPos ? 'border-orange-500/20 bg-orange-500/3' : 'border-red-500/20 bg-red-500/3'}`}>
+                    <div key={pos.id} className={`rounded-xl border p-4 ${stopDanger ? 'border-red-500/50' : signalWeak ? 'border-amber-500/30' : isPos ? 'border-orange-500/20 bg-orange-500/3' : 'border-red-500/20 bg-red-500/3'}`}>
+                      {/* Uyarı satırı */}
+                      {(stopDanger || signalWeak) && (
+                        <div className={`flex items-center gap-1.5 mb-2 text-[10px] font-semibold ${stopDanger ? 'text-red-400' : 'text-amber-400'}`}>
+                          <AlertTriangle className="h-3 w-3" />
+                          {stopDanger ? `APEX stop'a -%${stopDist.toFixed(1)} uzakta — tehlike bölgesi` : `Sinyal zayıflıyor (conf: ${pos.scan_confluence}) — rotasyon adayı`}
+                        </div>
+                      )}
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
-                          <Link href={`/hisse/${pos.sembol}`}
-                            className="text-base font-black text-text-primary hover:text-orange-400 transition-colors">
-                            {pos.sembol}
-                          </Link>
-                          <p className="text-[10px] text-text-muted">
-                            {pos.sector_name} · Giriş: {fmtDate(pos.entry_date)}
-                            {pos.entry_confluence && <span className="ml-1">· Conf: {pos.entry_confluence}</span>}
-                            {pos.entry_rel_vol5 && <span className="ml-1">· Vol: {pos.entry_rel_vol5.toFixed(1)}x</span>}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link href={`/hisse/${pos.sembol}`}
+                              className="text-base font-black text-text-primary hover:text-orange-400 transition-colors">
+                              {pos.sembol}
+                            </Link>
+                            {pos.change_today != null && (
+                              <span className={`text-[10px] font-bold ${pos.change_today >= 0 ? 'text-orange-400' : 'text-red-400'}`}>
+                                {pos.change_today >= 0 ? '+' : ''}{pos.change_today.toFixed(1)}%
+                              </span>
+                            )}
+                            {pos.scan_confluence != null && (
+                              <span className={`text-[9px] border rounded px-1 ${pos.scan_confluence >= 75 ? 'border-orange-500/30 text-orange-400' : pos.scan_confluence >= 55 ? 'border-amber-500/30 text-amber-400' : 'border-red-500/30 text-red-400'}`}>
+                                Conf: {pos.scan_confluence}
+                              </span>
+                            )}
+                            {pos.scan_rel_vol5 != null && pos.scan_rel_vol5 >= 2 && (
+                              <span className="text-[9px] border border-violet-500/30 text-violet-400 rounded px-1">
+                                Vol: {pos.scan_rel_vol5.toFixed(1)}x
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-text-muted mt-0.5">
+                            {pos.sector_name} · {fmtDate(pos.entry_date)} · Giriş conf: {pos.entry_confluence ?? '—'}
                           </p>
                         </div>
                         <div className="text-right">

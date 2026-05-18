@@ -59,6 +59,18 @@
     {
       "path": "/api/cron/apex-portfolio",
       "schedule": "55 14 * * 1-5"
+    },
+    {
+      "path": "/api/cron/portfolio-alerts",
+      "schedule": "35 7 * * 1-5"
+    },
+    {
+      "path": "/api/cron/portfolio-alerts",
+      "schedule": "5 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/portfolio-alerts",
+      "schedule": "58 14 * * 1-5"
     }
   ]
 }
