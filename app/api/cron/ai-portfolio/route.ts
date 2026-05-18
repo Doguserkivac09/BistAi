@@ -62,6 +62,35 @@ export async function GET(req: NextRequest) {
   const { week: weekNumber, year } = getISOWeek(now);
   const dayOfWeek = now.getUTCDay(); // 1=Pazartesi, 5=Cuma
 
+  // ── Devre kesici: XU100 bugün %3'ten fazla düştüyse yeni giriş yok ──
+  let circuitBreakerActive = false;
+  try {
+    const { candles: xu100 } = await import('@/lib/yahoo').then((m) => m.fetchOHLCV('XU100', 3));
+    if (xu100.length >= 2) {
+      const todayChange = ((xu100[xu100.length-1]!.close - xu100[xu100.length-2]!.close) / xu100[xu100.length-2]!.close) * 100;
+      if (todayChange < -3.0) {
+        circuitBreakerActive = true;
+        console.log(`[ai-portfolio] Devre kesici aktif — XU100 bugün ${todayChange.toFixed(1)}%`);
+      }
+    }
+  } catch { /* devre kesici çalışmazsa devam et */ }
+
+  // ── Dinamik Kelly: gerçek sinyal performansından win rate ─────────────
+  let dynamicWinRate = 0.62; // fallback
+  try {
+    const ninety = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    const { data: perfHist } = await admin
+      .from('signal_performance')
+      .select('return_7d')
+      .eq('evaluated', true)
+      .gte('entry_time', ninety);
+    const evaluated = (perfHist ?? []).filter((r) => r.return_7d != null);
+    if (evaluated.length >= 30) {
+      const wins = evaluated.filter((r) => (r.return_7d ?? 0) > 0.4);
+      dynamicWinRate = wins.length / evaluated.length;
+    }
+  } catch { /* fallback değer kullan */ }
+
   // ── Mod tespiti ────────────────────────────────────────────────────
   // Pazartesi → BUY modu: weekly_picks'ten yeni pozisyon aç
   // Cuma → EVAL modu: mevcut pozisyonları stop/TP için değerlendir
@@ -260,7 +289,7 @@ export async function GET(req: NextRequest) {
   // ── 7. Yeni fırsatlar — weekly_picks'ten ────────────────────────────
   let openedCount = 0;
 
-  if (health.canBuy && macroScore > -30) {
+  if (health.canBuy && macroScore > -30 && !circuitBreakerActive) {
     const { data: weeklyPicks } = await admin
       .from('weekly_picks')
       .select('sembol, sector_id, sector_name, entry_price, confluence_score, notes')
@@ -290,7 +319,7 @@ export async function GET(req: NextRequest) {
       // Confluence skoru MIN_ENTRY_SCORE altındaysa atla
       if ((pick.confluence_score ?? 0) < MIN_ENTRY_SCORE) continue;
 
-      const positionSize = calcPositionSize(currentCash, totalValue, 0.62, 3.0, dipScore, macroScore);
+      const positionSize = calcPositionSize(currentCash, totalValue, dynamicWinRate, 3.0, dipScore, macroScore);
       const cappedSize = Math.min(positionSize, health.maxNewPosition);
       if (cappedSize < 1000) continue;
 

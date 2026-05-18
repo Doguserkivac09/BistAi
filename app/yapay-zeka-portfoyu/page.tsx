@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { RefreshCw, TrendingUp, TrendingDown, Brain, BarChart2, ShoppingCart, LogOut, Pause, AlertTriangle } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Brain, BarChart2, ShoppingCart, LogOut, Pause, AlertTriangle, Shield, Activity } from 'lucide-react';
 
 interface Position {
   id: string; sembol: string; sector_name: string | null;
   shares: number; entry_price: number; current_price: number | null;
-  stop_loss: number; take_profit: number;
+  stop_loss: number; take_profit: number; trailing_stop: number | null;
   cost_basis: number; entry_week: number; entry_year: number;
 }
 interface HistoryRow {
@@ -25,8 +25,17 @@ interface DecisionRow {
   macro_context: string | null; reason_short: string;
 }
 interface ApiData {
-  summary: { totalValue: number; cash: number; positionsValue: number; totalReturn: number; initialCapital: number; maxDrawdown: number; positionCount: number; weeklyReturn: number; alpha: number };
-  positions: Position[];
+  summary: {
+    totalValue: number; cash: number; positionsValue: number;
+    totalReturn: number; initialCapital: number; maxDrawdown: number;
+    positionCount: number; weeklyReturn: number; alpha: number;
+    riskAlert: string | null; lastPriceUpdate: string;
+  };
+  positions: (Position & {
+    live_return_pct: number; live_pnl: number;
+    stop_distance_pct: number | null; trail_distance_pct: number | null;
+    scan_confluence: number | null; change_today: number | null;
+  })[];
   history: HistoryRow[];
   decisions: DecisionRow[];
 }
@@ -149,6 +158,21 @@ export default function YapayZekaPortfoyuPage() {
 
         {!loading && data?.summary && (
           <div className="space-y-5">
+
+            {/* Risk Uyarısı Banner */}
+            {data.summary.riskAlert && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+                <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                <p className="text-sm text-amber-300 font-medium">{data.summary.riskAlert}</p>
+              </div>
+            )}
+
+            {/* Fiyat güncelleme kaynağı */}
+            <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+              <Activity className="h-3 w-3" />
+              <span>Fiyat kaynağı: <span className={data.summary.lastPriceUpdate === 'scan_cache' ? 'text-emerald-400' : 'text-amber-400'}>{data.summary.lastPriceUpdate === 'scan_cache' ? 'Canlı (scan_cache)' : 'Snapshot (eski)'}</span></span>
+            </div>
+
             {/* Ana metrikler */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="sm:col-span-2 lg:col-span-1">
@@ -192,19 +216,42 @@ export default function YapayZekaPortfoyuPage() {
                     Henüz açık pozisyon yok — Pazartesi kararları bekleniyor
                   </div>
                 ) : data.positions.map((pos) => {
-                  const cp = pos.current_price ?? pos.entry_price;
-                  const ret = ((cp - pos.entry_price) / pos.entry_price) * 100;
-                  const pnl = (cp - pos.entry_price) * pos.shares;
+                  const cp  = pos.current_price ?? pos.entry_price;
+                  const ret = pos.live_return_pct ?? ((cp - pos.entry_price) / pos.entry_price) * 100;
+                  const pnl = pos.live_pnl       ?? (cp - pos.entry_price) * pos.shares;
                   const isPos = ret >= 0;
-                  const stopDist = ((cp - pos.stop_loss) / cp) * 100;
-                  const targetDist = ((pos.take_profit - cp) / cp) * 100;
+                  const stopDist  = pos.stop_distance_pct  ?? ((cp - pos.stop_loss) / cp) * 100;
+                  const trailDist = pos.trail_distance_pct ?? (pos.trailing_stop != null ? ((cp - pos.trailing_stop) / cp) * 100 : 0);
+                  // Stop'a çok yakın uyarı
+                  const stopDanger = stopDist < 3;
                   return (
-                    <div key={pos.id} className="rounded-xl border border-border bg-surface p-4">
+                    <div key={pos.id} className={`rounded-xl border bg-surface p-4 ${stopDanger ? 'border-red-500/40' : 'border-border'}`}>
+                      {/* Stop tehlike uyarısı */}
+                      {stopDanger && (
+                        <div className="flex items-center gap-1.5 mb-2 text-[10px] text-red-400 font-semibold">
+                          <AlertTriangle className="h-3 w-3" />
+                          Stop seviyesine çok yakın — -%{stopDist.toFixed(1)}
+                        </div>
+                      )}
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
-                          <Link href={`/hisse/${pos.sembol}`} className="text-base font-bold text-text-primary hover:text-primary transition-colors">
-                            {pos.sembol}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link href={`/hisse/${pos.sembol}`} className="text-base font-bold text-text-primary hover:text-primary transition-colors">
+                              {pos.sembol}
+                            </Link>
+                            {/* Bugünkü değişim */}
+                            {pos.change_today != null && (
+                              <span className={`text-[10px] font-semibold ${pos.change_today >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {pos.change_today >= 0 ? '+' : ''}{pos.change_today.toFixed(1)}% bugün
+                              </span>
+                            )}
+                            {/* Sinyal gücü */}
+                            {pos.scan_confluence != null && (
+                              <span className={`text-[9px] border rounded px-1 ${pos.scan_confluence >= 65 ? 'border-emerald-500/30 text-emerald-400' : pos.scan_confluence >= 45 ? 'border-amber-500/30 text-amber-400' : 'border-red-500/30 text-red-400'}`}>
+                                Conf: {pos.scan_confluence}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[11px] text-text-muted">{pos.sector_name} · Hafta {pos.entry_week}/{pos.entry_year}</p>
                         </div>
                         <div className="text-right">
@@ -225,15 +272,15 @@ export default function YapayZekaPortfoyuPage() {
                           <p className="text-text-muted">Mevcut</p>
                           <p className="font-mono font-semibold tabular-nums">{cp.toFixed(2)}₺</p>
                         </div>
-                        <div className="rounded-md bg-red-500/5 border border-red-500/20 px-2 py-1">
+                        <div className={`rounded-md px-2 py-1 border ${stopDanger ? 'bg-red-500/15 border-red-500/50' : 'bg-red-500/5 border-red-500/20'}`}>
                           <p className="text-red-400/70">Stop</p>
                           <p className="font-mono font-semibold text-red-400 tabular-nums">{pos.stop_loss.toFixed(2)}₺</p>
-                          <p className="text-[9px] text-red-400/50">-%{stopDist.toFixed(1)}</p>
+                          <p className={`text-[9px] ${stopDanger ? 'text-red-400 font-bold' : 'text-red-400/50'}`}>-%{stopDist.toFixed(1)}</p>
                         </div>
-                        <div className="rounded-md bg-emerald-500/5 border border-emerald-500/20 px-2 py-1">
-                          <p className="text-emerald-400/70">Hedef</p>
-                          <p className="font-mono font-semibold text-emerald-400 tabular-nums">{pos.take_profit.toFixed(2)}₺</p>
-                          <p className="text-[9px] text-emerald-400/50">+%{targetDist.toFixed(1)}</p>
+                        <div className="rounded-md bg-violet-500/5 border border-violet-500/20 px-2 py-1">
+                          <p className="text-violet-400/70">Trailing</p>
+                          <p className="font-mono font-semibold text-violet-400 tabular-nums">{pos.trailing_stop?.toFixed(2) ?? '—'}₺</p>
+                          <p className="text-[9px] text-violet-400/50">-%{trailDist.toFixed(1)}</p>
                         </div>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-[10px] text-text-muted">

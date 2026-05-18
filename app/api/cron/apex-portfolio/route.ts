@@ -54,12 +54,55 @@ export async function GET(req: NextRequest) {
   // ── 1. Portföy durumu ──────────────────────────────────────────────
   const { data: snapshot } = await db
     .from('apex_portfolio_history')
-    .select('total_value, cash')
+    .select('total_value, cash, total_return')
     .order('snapshot_date', { ascending: false })
     .limit(1);
 
-  let cash       = snapshot?.[0]?.cash       ?? APEX_INITIAL_CAPITAL;
-  let totalValue = snapshot?.[0]?.total_value ?? APEX_INITIAL_CAPITAL;
+  let cash         = snapshot?.[0]?.cash         ?? APEX_INITIAL_CAPITAL;
+  let totalValue   = snapshot?.[0]?.total_value   ?? APEX_INITIAL_CAPITAL;
+  const totalReturnPct = snapshot?.[0]?.total_return ?? 0;
+
+  // ── Devre kesici: XU100 bugün %3'ten fazla düştüyse yeni giriş yok ──
+  let circuitBreakerActive = false;
+  try {
+    const { fetchOHLCV } = await import('@/lib/yahoo');
+    const { candles: xu100 } = await fetchOHLCV('XU100', 3);
+    if (xu100.length >= 2) {
+      const todayChange = ((xu100[xu100.length-1]!.close - xu100[xu100.length-2]!.close) / xu100[xu100.length-2]!.close) * 100;
+      if (todayChange < -3.0) {
+        circuitBreakerActive = true;
+        console.log(`[apex] Devre kesici aktif — XU100 bugün ${todayChange.toFixed(1)}%`);
+      }
+    }
+  } catch { /* devre kesici çalışmazsa devam et */ }
+
+  // ── Drawdown koruması ──────────────────────────────────────────────
+  // -%10: pozisyon boyutu yarıya iner   -%15: yeni giriş durur
+  let drawdownSizeMult = 1.0;
+  let drawdownBlockNew = false;
+  if (totalReturnPct < -15) {
+    drawdownBlockNew = true;
+    console.log(`[apex] Drawdown -%15 aşıldı (${totalReturnPct.toFixed(1)}%) — yeni giriş durduruldu`);
+  } else if (totalReturnPct < -10) {
+    drawdownSizeMult = 0.5;
+    console.log(`[apex] Drawdown -%10 aşıldı (${totalReturnPct.toFixed(1)}%) — pozisyon boyutu yarıya indirildi`);
+  }
+
+  // ── Dinamik Kelly: gerçek sinyal performansı ────────────────────────
+  let dynamicWinRate = 0.65; // APEX varsayılan
+  try {
+    const ninety = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    const { data: perfHist } = await db
+      .from('signal_performance')
+      .select('return_7d')
+      .eq('evaluated', true)
+      .gte('entry_time', ninety);
+    const evaluated = (perfHist ?? []).filter((r) => r.return_7d != null);
+    if (evaluated.length >= 30) {
+      const wins = evaluated.filter((r) => (r.return_7d ?? 0) > 0.4);
+      dynamicWinRate = Math.max(0.50, wins.length / evaluated.length); // min %50
+    }
+  } catch { /* fallback */ }
 
   // ── 2. Açık pozisyonlar ────────────────────────────────────────────
   const { data: rawPos } = await db
@@ -187,7 +230,7 @@ export async function GET(req: NextRequest) {
   const health = apexHealthCheck(totalValue, cash, remainingPositions.length, sectorMap);
   let openedCount = 0;
 
-  if (health.canBuy) {
+  if (health.canBuy && !circuitBreakerActive && !drawdownBlockNew) {
     for (const cand of candidates) {
       if (openedCount >= 2) break; // günde max 2 yeni pozisyon
       if (!health.canBuy || cash < 3000) break;
@@ -198,7 +241,8 @@ export async function GET(req: NextRequest) {
       // Sektör limiti (%40)
       if ((sectorMap.get(cand.sector ?? 'diger') ?? 0) >= 0.40) continue;
 
-      const posSize  = apexPositionSize(cash, totalValue, cand.confluence_score, cand.rel_vol5, macroScore);
+      const rawSize  = apexPositionSize(cash, totalValue, cand.confluence_score, cand.rel_vol5, macroScore);
+      const posSize  = rawSize * drawdownSizeMult; // drawdown varsa küçült
       const capped   = Math.min(posSize, health.maxSize);
       if (capped < 1500) continue;
 

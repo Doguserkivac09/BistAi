@@ -148,6 +148,34 @@ export async function GET(req: NextRequest) {
     winRateMap.set(r.sembol, cur);
   }
 
+  // ── Adım 3.5: KAP kritik olay filtresi (son 48s) ─────────────────────
+  const kapBlacklist = new Set<string>();
+  try {
+    const { fetchKapDuyurular } = await import('@/lib/kap');
+    const kapItems = await fetchKapDuyurular(100);
+    const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+    const KRITIK_KEYWORDS = ['iflas', 'konkord', 'temerrüt', 'icra', 'haciz', 'esas faaliyeti', 'delisted', 'fon çekimi', 'yönetim kurulu istifa'];
+    for (const item of kapItems) {
+      const ts = new Date(item.tarih).getTime();
+      if (ts < cutoff48h) continue;
+      const baslik = item.baslik?.toLowerCase() ?? '';
+      if (KRITIK_KEYWORDS.some((k) => baslik.includes(k))) {
+        if (item.sembol) kapBlacklist.add(item.sembol.toUpperCase());
+      }
+    }
+  } catch { /* KAP verisi alınamazsa filtre atla */ }
+
+  // ── Devre kesici: XU100 bugün %3'ten düştüyse confluence barını yükselt ─
+  let effectiveMinConfluence = MIN_CONFLUENCE;
+  try {
+    const { fetchOHLCV } = await import('@/lib/yahoo');
+    const { candles: xu100 } = await fetchOHLCV('XU100', 3);
+    if (xu100.length >= 2) {
+      const todayChg = ((xu100[xu100.length-1]!.close - xu100[xu100.length-2]!.close) / xu100[xu100.length-2]!.close) * 100;
+      if (todayChg < -3.0) effectiveMinConfluence = 65; // kötü günde daha katı filtre
+    }
+  } catch { /* devam */ }
+
   // ── Adım 4: Sembol bazında en güçlüyü al + Dip Katılım Skoru hesapla ──
   const sembolMap = new Map<string, typeof signals[0]>();
   for (const sig of signals) {
@@ -176,6 +204,11 @@ export async function GET(req: NextRequest) {
   const scored: ScoredPick[] = [];
 
   for (const [sembol, sig] of sembolMap) {
+    // KAP kara liste filtresi
+    if (kapBlacklist.has(sembol)) continue;
+    // Devre kesici durumunda confluence barını yükselt
+    if ((sig.confluence_score ?? 0) < effectiveMinConfluence) continue;
+
     const scan = scanMap.get(sembol);
     const sec = getSector(sembol);
     const wr = winRateMap.get(sembol);
