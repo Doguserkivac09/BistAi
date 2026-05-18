@@ -58,7 +58,7 @@
     },
     {
       "path": "/api/cron/apex-portfolio",
-      "schedule": "45 14 * * 1-5"
+      "schedule": "10 15 * * 1-5"
     }
   ]
 }
