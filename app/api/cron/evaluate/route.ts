@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runEvaluateEngine } from '@/lib/evaluate-engine';
+import { bistGuard } from '@/lib/bist-guard';
 
 /**
  * Cron endpoint: Sinyal performans değerlendirmesi.
@@ -24,6 +25,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
     }
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const result = await runEvaluateEngine();
 

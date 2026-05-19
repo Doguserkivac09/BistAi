@@ -17,6 +17,7 @@ import { getMarketRegime } from '@/lib/regime-engine';
 import { getSectorId } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
 import type { OHLCVCandle } from '@/types';
+import { bistGuard } from '@/lib/bist-guard';
 
 /** RSI(14) — son değeri döndürür */
 function calcLastRSI(candles: OHLCVCandle[], period = 14): number | null {
@@ -60,6 +61,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
     }
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const supabase = createAdminClient();
   const startedAt = Date.now();

@@ -19,6 +19,7 @@ import {
   APEX_INITIAL_CAPITAL, APEX_MIN_CONFLUENCE, APEX_MIN_REL_VOL,
   type ApexPosition,
 } from '@/lib/apex-engine';
+import { bistGuard } from '@/lib/bist-guard';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -36,6 +37,9 @@ export async function GET(req: NextRequest) {
   if (!isVercel && !(CRON_SECRET && token === CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const db  = admin();
   const now = new Date();

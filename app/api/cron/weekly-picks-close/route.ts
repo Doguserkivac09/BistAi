@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
+import { bistGuard } from '@/lib/bist-guard';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -27,6 +28,9 @@ export async function GET(req: NextRequest) {
   if (!isVercelCron && !(CRON_SECRET && token === CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const admin = createAdmin();
 

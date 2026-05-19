@@ -189,6 +189,47 @@ export function getLastBusinessDay(
 }
 
 /**
+ * BIST cron'larının çalışıp çalışmaması gerektiğini belirler.
+ *
+ * Kural:
+ *  - Cumartesi           → ATLA (piyasa kesinlikle kapalı)
+ *  - Pazar               → ÇALIŞ (Pazartesi açılışı için veri hazır olsun)
+ *  - Normal iş günü      → ÇALIŞ
+ *  - Tatil günü, yarın borsa açılıyor → ÇALIŞ (tatil son günü, güncel analiz lazım)
+ *  - Tatil günü, yarın da tatil/hafta sonu → ATLA
+ */
+export function shouldRunBistCron(now?: Date): { shouldRun: boolean; reason: string } {
+  const d = now ?? new Date();
+  const trNow = toTRTime(d);
+  const day = trNow.getDay();
+  const dateStr = formatDate(trNow);
+
+  if (day === 6) {
+    return { shouldRun: false, reason: `Cumartesi — BIST kapalı (${dateStr})` };
+  }
+  if (day === 0) {
+    return { shouldRun: true, reason: `Pazar — Pazartesi açılışı için hazırlık` };
+  }
+  if (!TR_HOLIDAYS_2026.includes(dateStr)) {
+    return { shouldRun: true, reason: `Normal iş günü (${dateStr})` };
+  }
+
+  // Tatil günü: yarın trading day mi?
+  const tomorrowUTC = new Date(d.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowTR = toTRTime(tomorrowUTC);
+  const tomorrowDay = tomorrowTR.getDay();
+  const tomorrowStr = formatDate(tomorrowTR);
+  const tomorrowIsTradingDay =
+    tomorrowDay !== 0 && tomorrowDay !== 6 && !TR_HOLIDAYS_2026.includes(tomorrowStr);
+
+  if (tomorrowIsTradingDay) {
+    return { shouldRun: true, reason: `Tatil son günü — yarın (${tomorrowStr}) BIST açılıyor` };
+  }
+
+  return { shouldRun: false, reason: `Tatil — ${dateStr} (yarın da kapalı)` };
+}
+
+/**
  * Farklı frekanstaki verileri aynı zaman aralığına hizalar.
  * Örn: günlük OHLCV + aylık FRED → günlük verinin her satırına
  * o tarihte geçerli olan FRED değerini eşleştirir.
