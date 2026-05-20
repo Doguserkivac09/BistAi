@@ -70,6 +70,109 @@ const SINYAL_KISALT: Record<string, string> = {
   'Yükselen Üçgen':          '📐 Yks. Üçgen',
 };
 
+// ── Hisse Tipi ───────────────────────────────────────────────────────
+
+type HisseTipi = 'karma' | 'momentum' | 'deger' | 'spekulatif';
+
+function calcHisseTipi(f: FirsatItem): HisseTipi {
+  const techStrong = f.adjustedScore >= 65;
+  const fundStrong = f.investmentScore !== null && f.investmentScore.score >= 55;
+  if (techStrong && fundStrong) return 'karma';
+  if (techStrong)               return 'momentum';
+  if (fundStrong)               return 'deger';
+  return 'spekulatif';
+}
+
+const HISSE_TIPI_CFG: Record<HisseTipi, { label: string; cls: string; title: string }> = {
+  karma:      { label: 'KARMA',    cls: 'border-amber-500/40 bg-amber-500/10 text-amber-300',    title: 'Teknik ve temel her ikisi güçlü — dual onay' },
+  momentum:   { label: 'MOMENTUM', cls: 'border-violet-500/40 bg-violet-500/10 text-violet-300', title: 'Teknik sinyal güçlü, kısa vadeli fiyat hareketi bekleniyor' },
+  deger:      { label: 'DEĞER',    cls: 'border-sky-500/40 bg-sky-500/10 text-sky-300',          title: 'Temel sağlam, teknik henüz olgunlaşıyor — sabır gerekir' },
+  spekulatif: { label: 'SPEK.',    cls: 'border-orange-500/40 bg-orange-500/10 text-orange-400', title: 'Teknik sinyal var ama temel destek zayıf — risk yüksek' },
+};
+
+// ── Bileşik Risk Skoru ────────────────────────────────────────────────
+
+type RiskLevel = 'dusuk' | 'orta' | 'yuksek';
+
+interface RiskResult { level: RiskLevel; label: string; score: number }
+
+function calcRiskScore(f: FirsatItem): RiskResult {
+  let s = 0;
+
+  // Stop uzaklığı
+  if (f.stopLoss && f.entryPrice) {
+    const stopDist = Math.abs((f.entryPrice - f.stopLoss) / f.entryPrice) * 100;
+    if      (stopDist > 15) s += 30;
+    else if (stopDist > 10) s += 18;
+    else if (stopDist > 7)  s += 8;
+  } else {
+    s += 20; // stop bilinmiyor
+  }
+
+  // R/R
+  if      (f.riskRewardRatio === null) s += 15;
+  else if (f.riskRewardRatio < 1.5)    s += 20;
+  else if (f.riskRewardRatio < 2)      s += 5;
+  else if (f.riskRewardRatio >= 3)     s -= 12;
+
+  // KAP event
+  if (f.kapUyarisi?.var) s += 25;
+
+  // MTF uyum
+  if (f.weeklyAligned === false) s += 10;
+  else if (f.weeklyAligned === true) s -= 10;
+
+  // Likidite
+  if (f.avgDailyVolumeTL !== null) {
+    if      (f.avgDailyVolumeTL < 20_000_000)  s += 15;
+    else if (f.avgDailyVolumeTL > 100_000_000) s -= 5;
+  }
+
+  // Temel destek
+  if (f.investmentScore) {
+    if      (f.investmentScore.score >= 70) s -= 12;
+    else if (f.investmentScore.score >= 55) s -= 5;
+    else if (f.investmentScore.score < 40)  s += 10;
+  }
+
+  const final = Math.min(100, Math.max(0, 30 + s));
+  if (final <= 40) return { level: 'dusuk',  label: 'Düşük Risk',   score: final };
+  if (final <= 65) return { level: 'orta',   label: 'Orta Risk',    score: final };
+  return              { level: 'yuksek', label: 'Yüksek Risk',  score: final };
+}
+
+const RISK_CFG: Record<RiskLevel, { cls: string; dot: string }> = {
+  dusuk:  { cls: 'border-emerald-500/30 bg-emerald-500/8 text-emerald-400',  dot: 'bg-emerald-400' },
+  orta:   { cls: 'border-yellow-500/30 bg-yellow-500/8 text-yellow-400',     dot: 'bg-yellow-400'  },
+  yuksek: { cls: 'border-red-500/30 bg-red-500/8 text-red-400',              dot: 'bg-red-400'     },
+};
+
+// ── Pozisyon Büyüklüğü (ATR/%1 risk kuralı) ──────────────────────────
+
+interface PosSizing { lotCount: number; totalTL: number; portfolioPct: number }
+
+function calcPositionSize(f: FirsatItem): PosSizing | null {
+  if (!f.stopLoss || !f.entryPrice) return null;
+  const isAl = f.direction === 'yukari';
+  const riskPerShare = isAl
+    ? f.entryPrice - f.stopLoss
+    : f.stopLoss - f.entryPrice;
+  if (riskPerShare <= 0) return null;
+  const PORTFOLIO  = 100_000;
+  const RISK_TL    = PORTFOLIO * 0.01; // %1 risk
+  const lotCount   = Math.floor(RISK_TL / riskPerShare);
+  if (lotCount <= 0) return null;
+  const totalTL    = lotCount * f.entryPrice;
+  const portfolioPct = (totalTL / PORTFOLIO) * 100;
+  return { lotCount, totalTL, portfolioPct };
+}
+
+function fmtTL(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M₺`;
+  if (v >= 1_000)     return `${(v / 1_000).toFixed(0)}K₺`;
+  return `${v.toFixed(0)}₺`;
+}
+
 export function sinyalEtiket(sinyal: string) {
   const guc = SINYAL_GUC[sinyal] ?? 'destekleyici';
   const kisalt = SINYAL_KISALT[sinyal] ?? sinyal;
@@ -327,6 +430,16 @@ export function FirsatKarti({
                   <TrendingDown className="h-3 w-3" /> SAT
                 </span>
               )}
+              {/* Hisse Tipi */}
+              {(() => {
+                const tip = calcHisseTipi(firsat);
+                const cfg = HISSE_TIPI_CFG[tip];
+                return (
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${cfg.cls}`} title={cfg.title}>
+                    {cfg.label}
+                  </span>
+                );
+              })()}
               <span className={`flex items-center gap-0.5 text-[10px] ${
                 firsat.ageHours > 120 ? 'text-orange-400 font-semibold' :
                 firsat.ageHours > 72  ? 'text-amber-400' : 'text-text-muted'
@@ -500,6 +613,26 @@ export function FirsatKarti({
           </div>
         )}
 
+        {/* Pozisyon Büyüklüğü — %1 risk kuralı, 100K₺ portföy baz */}
+        {(() => {
+          const pos = calcPositionSize(firsat);
+          if (!pos) return null;
+          return (
+            <div className="mb-2 flex items-center gap-2 rounded-md border border-border/40 bg-surface/20 px-2.5 py-1.5 text-[10px]">
+              <span className="shrink-0 text-text-muted font-medium">📐 %1 Risk</span>
+              <span className="font-mono font-bold text-text-primary tabular-nums">{pos.lotCount} lot</span>
+              <span className="text-border">·</span>
+              <span className="font-mono text-text-secondary tabular-nums">{fmtTL(pos.totalTL)}</span>
+              <span className="text-border">·</span>
+              <span className={`font-semibold tabular-nums ${
+                pos.portfolioPct > 25 ? 'text-amber-400' :
+                pos.portfolioPct > 12 ? 'text-text-primary' : 'text-emerald-400'
+              }`}>%{pos.portfolioPct.toFixed(1)}</span>
+              <span className="ml-auto text-text-muted opacity-60">100K₺ baz</span>
+            </div>
+          );
+        })()}
+
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <SektorBadge sektorAdi={firsat.sektorAdi} sektorSinyalSayisi={firsat.sektorSinyalSayisi} />
@@ -551,6 +684,20 @@ export function FirsatKarti({
                 YS {firsat.investmentScore.score}
               </span>
             )}
+            {/* Bileşik Risk Skoru */}
+            {(() => {
+              const risk = calcRiskScore(firsat);
+              const cfg  = RISK_CFG[risk.level];
+              return (
+                <span
+                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${cfg.cls}`}
+                  title={`Risk Skoru: ${risk.score}/100\nStop uzaklığı + R/R + KAP + MTF + likidite + temel baz alınır`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+                  {risk.label}
+                </span>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-text-muted">
             <span className="font-semibold text-text-secondary">{firsat.entryPrice.toFixed(2)} ₺</span>

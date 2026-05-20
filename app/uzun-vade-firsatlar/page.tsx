@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RefreshCw, Diamond, Star, Zap, BarChart2, Filter, TrendingUp, TrendingDown, Shield, Target, AlertTriangle } from 'lucide-react';
 import type { LongTermResult, ValuationResult } from '@/app/api/uzun-vade-firsatlar/route';
+import { MiniChart } from '@/components/MiniChart';
 
 type Category = 'tumu' | 'cift_onay' | 'deger_firsati' | 'guclu_temel';
 
@@ -185,6 +186,18 @@ function UzunVadeKart({ r }: { r: LongTermResult }) {
           }`}>{r.technicalScore}</span>
         </div>
       )}
+
+      {/* Sparkline — son 60 günlük fiyat trendi */}
+      {r.candles && r.candles.length >= 20 && (() => {
+        const last  = r.candles[r.candles.length - 1]?.close;
+        const prev20 = r.candles[r.candles.length - 20]?.close;
+        const isPositive = last && prev20 ? last > prev20 : undefined;
+        return (
+          <div className="overflow-hidden rounded-lg border border-border/30">
+            <MiniChart data={r.candles} height={44} positive={isPositive} />
+          </div>
+        );
+      })()}
 
       {/* Kurumsal Hedef Fiyat */}
       {val && r.lastPrice && <TargetBar val={val} currentPrice={r.lastPrice} />}
