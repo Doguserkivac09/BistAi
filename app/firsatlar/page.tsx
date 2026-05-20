@@ -10,7 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import type { SignalStatsSummaryResponse } from '@/app/api/signal-stats-summary/route';
+import type { GununSecimiData } from '@/app/api/gunun-secimi/route';
 import { FirsatKarti } from '@/components/FirsatKarti';
+import { SecimiKart } from '@/components/SecimiKart';
 
 // Geçmiş başarı kartı için kullanılan kısaltmalar (yerel kopya — komponentle senkron)
 const SINYAL_KISALT: Record<string, string> = {
@@ -254,7 +256,8 @@ export default function FirsatlarPage() {
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
   const [statsSummary, setStatsSummary] = useState<SignalStatsSummaryResponse['stats']>([]);
   const [watchlist,    setWatchlist]    = useState<Set<string>>(new Set());
-  const [watchlistIds, setWatchlistIds] = useState<Map<string, string>>(new Map()); // sembol → id
+  const [watchlistIds, setWatchlistIds] = useState<Map<string, string>>(new Map());
+  const [gununSecimi,  setGununSecimi]  = useState<GununSecimiData | null>(null); // sembol → id
 
   // Filtreler
   const [dirFilter,    setDirFilter]    = useState<'tumu' | 'yukari' | 'asagi'>('tumu');
@@ -304,11 +307,22 @@ export default function FirsatlarPage() {
     } catch { /* sessizce geç — kart gizlenir */ }
   }, []);
 
+  // Günün Seçimi — ai_cache'den okur, cron yoksa null
+  const fetchGununSecimi = useCallback(async () => {
+    try {
+      const res  = await fetch('/api/gunun-secimi');
+      if (!res.ok) return;
+      const json = await res.json() as { ok: boolean; data: GununSecimiData | null };
+      setGununSecimi(json.data ?? null);
+    } catch { /* gösterilemezse gizlenir */ }
+  }, []);
+
   useEffect(() => {
     void fetchData();
     void fetchWatchlist();
     void fetchStats();
-  }, [fetchData, fetchWatchlist, fetchStats]);
+    void fetchGununSecimi();
+  }, [fetchData, fetchWatchlist, fetchStats, fetchGununSecimi]);
 
   // Watchlist toggle
   const handleWatchlistToggle = useCallback(async (sembol: string, currentState: boolean) => {
@@ -404,6 +418,9 @@ export default function FirsatlarPage() {
           </button>
         </div>
       </div>
+
+      {/* Günün Seçimi — pinned kart */}
+      {gununSecimi && <SecimiKart type="gunluk" data={gununSecimi} />}
 
       {/* Sosyal kanıt kartı — geçmiş başarı */}
       {statsSummary.length > 0 && <SosyalKanitKarti stats={statsSummary} />}

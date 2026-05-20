@@ -71,6 +71,14 @@
     {
       "path": "/api/cron/portfolio-alerts",
       "schedule": "58 14 * * 1-5"
+    },
+    {
+      "path": "/api/cron/gunun-secimi",
+      "schedule": "15 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/haftanin-secimi-uzun",
+      "schedule": "45 6 * * 1"
     }
   ]
 }

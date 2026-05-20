@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RefreshCw, Diamond, Star, Zap, BarChart2, Filter, TrendingUp, TrendingDown, Shield, Target, AlertTriangle } from 'lucide-react';
 import type { LongTermResult, ValuationResult } from '@/app/api/uzun-vade-firsatlar/route';
+import type { HaftaninSecimiData } from '@/app/api/haftanin-secimi/route';
 import { MiniChart } from '@/components/MiniChart';
+import { SecimiKart } from '@/components/SecimiKart';
 
 type Category = 'tumu' | 'cift_onay' | 'deger_firsati' | 'guclu_temel';
 
@@ -303,6 +305,7 @@ export default function UzunVadeFirsatlarPage() {
   const [loading,  setLoading]  = useState(true);
   const [category, setCategory] = useState<Category>('tumu');
   const [sortBy,   setSortBy]   = useState<'score' | 'upside' | 'pe' | 'divYield'>('score');
+  const [haftaninSecimi, setHaftaninSecimi] = useState<HaftaninSecimiData | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -314,7 +317,19 @@ export default function UzunVadeFirsatlarPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { void fetchData(); }, []);
+  const fetchHaftaninSecimi = async () => {
+    try {
+      const res  = await fetch('/api/haftanin-secimi');
+      if (!res.ok) return;
+      const json = await res.json() as { ok: boolean; data: HaftaninSecimiData | null };
+      setHaftaninSecimi(json.data ?? null);
+    } catch { /* gösterilemezse gizlenir */ }
+  };
+
+  useEffect(() => {
+    void fetchData();
+    void fetchHaftaninSecimi();
+  }, []);
 
   const filtered = data
     .filter((r) => category === 'tumu' || r.category === category)
@@ -360,6 +375,9 @@ export default function UzunVadeFirsatlarPage() {
             Yenile (6sa cache)
           </button>
         </div>
+
+        {/* Haftanın Seçimi — pinned kart */}
+        {haftaninSecimi && <SecimiKart type="haftalik" data={haftaninSecimi} />}
 
         {/* İstatistik özeti */}
         {!loading && data.length > 0 && (
