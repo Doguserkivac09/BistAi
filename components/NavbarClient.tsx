@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/tarama', label: 'Tarama' },
-  { href: '/screener', label: 'Screener' },
   {
     label: 'Portföy',
     dropdown: [

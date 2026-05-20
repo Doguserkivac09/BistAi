@@ -5,7 +5,7 @@
  * Her scan_cache güncellemesinden sonra çalışır (günde 3 kez):
  *  - 07:35 UTC (10:35 TRT) — sabah kontrolü
  *  - 09:05 UTC (12:05 TRT) — öğle kontrolü
- *  - 14:55 UTC (17:55 TRT) — kapanış öncesi kontrolü
+ *  - 14:58 UTC (17:58 TRT) — kapanış öncesi kontrolü
  *
  * Kontrol eder:
  *  1. Stop'a yakın pozisyonlar (<%3 mesafe) — alert email

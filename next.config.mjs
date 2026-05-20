@@ -18,6 +18,20 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
     serverComponentsExternalPackages: ['yahoo-finance2'],
   },
+  async redirects() {
+    return [
+      {
+        source: '/screener',
+        destination: '/tarama',
+        permanent: true,
+      },
+      {
+        source: '/screener/:path*',
+        destination: '/tarama',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
