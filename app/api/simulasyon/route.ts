@@ -29,15 +29,51 @@ const RATE_LIMIT = 10;
 const WINDOW_MS  = 60_000;
 const CACHE_TTL  = 6 * 60 * 60 * 1000; // 6 saat
 
+// Günlük senaryo limiti
+const DAILY_LIMITS: Record<string, number> = { free: 2, pro: Infinity, premium: Infinity };
+
 const simCache = new Map<string, { result: string; ts: number }>();
 
-function simCacheKey(scenario: { type: string; magnitude: string; customNote?: string }): string {
-  const date = new Date().toISOString().slice(0, 10);
-  // customNote varsa cache'e dahil et — farklı bağlam = farklı yanıt
-  const noteHash = scenario.customNote
-    ? `:${scenario.customNote.trim().slice(0, 40).replace(/\s+/g, '_')}`
+// Cache key: portföy bağlamı varsa user-scoped, yoksa public (paylaşımlı)
+function simCacheKey(
+  scenario: { type: string; magnitude: string; customNote?: string },
+  userId: string,
+  hasPortfolio: boolean,
+): string {
+  const date      = new Date().toISOString().slice(0, 10);
+  const scope     = hasPortfolio ? `u:${userId.slice(0, 12)}` : 'public';
+  const noteHash  = scenario.customNote
+    ? `:${scenario.customNote.trim().slice(0, 30).replace(/\s+/g, '_')}`
     : '';
-  return `sim:${date}:${scenario.type}:${scenario.magnitude}${noteHash}`;
+  return `sim:${date}:${scenario.type}:${scenario.magnitude}:${scope}${noteHash}`;
+}
+
+// Günlük kullanım sayacı (ai_cache tablosunda)
+async function getDailyUsage(userId: string): Promise<number> {
+  try {
+    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const key = `sim_daily:${userId}:${new Date().toISOString().slice(0, 10)}`;
+    const { data } = await admin.from('ai_cache').select('hit_count').eq('cache_key', key).maybeSingle();
+    return data?.hit_count ?? 0;
+  } catch { return 0; }
+}
+
+async function incrementDailyUsage(userId: string): Promise<void> {
+  try {
+    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const key = `sim_daily:${userId}:${new Date().toISOString().slice(0, 10)}`;
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    const current = await getDailyUsage(userId);
+    await admin.from('ai_cache').upsert({
+      cache_key:   key,
+      explanation: 'sim_daily_counter',
+      version:     98,
+      hit_count:   current + 1,
+      expires_at:  tomorrow.toISOString(),
+    }, { onConflict: 'cache_key' });
+  } catch { /* sessizce geç */ }
 }
 
 async function getDbCache(key: string): Promise<string | null> {
@@ -225,19 +261,14 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Tier gate — sadece Pro/Premium
+  // Tier + günlük limit kontrolü
   const { data: profile } = await supabase
     .from('profiles')
     .select('tier')
     .eq('id', user.id)
     .single();
-  const tier = (profile?.tier as string) ?? 'free';
-  if (tier === 'free') {
-    return new Response(JSON.stringify({
-      error: 'Makro Simülatör Pro ve Premium planlarda kullanılabilir.',
-      upgrade: true,
-    }), { status: 403, headers: { 'Content-Type': 'application/json' } });
-  }
+  const tier       = (profile?.tier as string) ?? 'free';
+  const dailyLimit = DAILY_LIMITS[tier] ?? 2;
 
   // Global günlük bütçe kontrolü
   const budget = await checkAndRecordAiBudget();
@@ -288,8 +319,10 @@ export async function POST(request: NextRequest) {
     getLiveMacroContext(),
   ]);
 
+  const hasPortfolio = Boolean(portfolioStr && portfolioStr !== 'Portföy bilgisi yok.');
+
   // Cache kontrolü (customNote yoksa cache'lenebilir)
-  const cKey = !scenario.customNote ? simCacheKey(scenario) : null;
+  const cKey = !scenario.customNote ? simCacheKey(scenario, user.id, hasPortfolio) : null;
   if (cKey) {
     const mem = simCache.get(cKey);
     const cached = mem && Date.now() - mem.ts < CACHE_TTL ? mem.result : null;
@@ -297,10 +330,15 @@ export async function POST(request: NextRequest) {
     const cachedResult = cached ?? dbCached;
     if (cachedResult) {
       if (dbCached) simCache.set(cKey, { result: cachedResult, ts: Date.now() });
-      // Cache'den dönerken de SSE formatında dön — frontend her zaman stream okur
+      // Cache hit — günlük limiti saymaz, meta bilgisi ile birlikte dön
+      const dailyUsage   = await getDailyUsage(user.id);
+      const metaPayload  = dailyLimit === Infinity
+        ? { remaining: null, limit: null, tier, cached: true }
+        : { remaining: Math.max(0, dailyLimit - dailyUsage), limit: dailyLimit, tier, cached: true };
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta: metaPayload })}\n\n`));
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: cachedResult })}\n\n`));
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
           controller.close();
@@ -312,12 +350,33 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Günlük limit kontrolü (sadece gerçek API çağrılarında)
+  const dailyUsage = await getDailyUsage(user.id);
+  if (dailyLimit !== Infinity && dailyUsage >= dailyLimit) {
+    return new Response(JSON.stringify({
+      error: `Günlük senaryo limitinize ulaştınız (${dailyLimit}/${dailyLimit}). Yarın yenilenir veya Premium'a geçin.`,
+      limitReached: true,
+      remaining: 0,
+      limit: dailyLimit,
+      tier,
+    }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Kullanımı say (fire-and-forget)
+  incrementDailyUsage(user.id).catch(() => {});
+
   const prompt = buildPrompt(scenario, portfolioStr, macroContext);
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();
 
+  // Meta bilgisi (remaining = bu çağrıdan sonraki kalan)
+  const metaAfterCall = dailyLimit === Infinity
+    ? { remaining: null, limit: null, tier, cached: false }
+    : { remaining: Math.max(0, dailyLimit - dailyUsage - 1), limit: dailyLimit, tier, cached: false };
+
   const stream = new ReadableStream({
     async start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta: metaAfterCall })}\n\n`));
       try {
         let acc = '';
         const s = client.messages.stream({
