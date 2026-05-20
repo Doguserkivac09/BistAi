@@ -1639,7 +1639,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 )}
                 {!kapLoading && kapDuyurular.length > 6 && (
                   <div className="mt-2 text-right">
-                    <Link href="/kap" className="text-xs text-primary hover:underline">Tüm KAP duyurularını gör →</Link>
+                    <Link href="/haberler?tab=kap" className="text-xs text-primary hover:underline">Tüm KAP duyurularını gör →</Link>
                   </div>
                 )}
               </div>
