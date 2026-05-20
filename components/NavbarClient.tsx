@@ -43,14 +43,12 @@ const navItems = [
   {
     label: 'Keşfet',
     dropdown: [
-      { href: '/sohbet',      label: 'AI Asistan', icon: Bot },
-      { href: '/backtesting', label: 'Backtest',   icon: Activity },
-      { href: '/topluluk',    label: 'Topluluk',   icon: Users },
-      { href: '/dashboard',   label: 'Dashboard',  icon: LayoutDashboard },
-      { href: '/yardim',              label: 'Eğitim Merkezi',    icon: BookOpen },
-      { href: '/haftalik-secimler',   label: 'Haftanın Seçimleri',  icon: Trophy },
-      { href: '/yapay-zeka-portfoyu', label: 'AI Portföyü',          icon: Brain },
-      { href: '/apex-portfoyu',       label: 'APEX Portföyü 🔥',    icon: Zap },
+      { href: '/sohbet',       label: 'AI Asistan',    icon: Bot },
+      { href: '/backtesting',  label: 'Backtest',      icon: Activity },
+      { href: '/topluluk',     label: 'Topluluk',      icon: Users },
+      { href: '/dashboard',    label: 'Dashboard',     icon: LayoutDashboard },
+      { href: '/yardim',       label: 'Eğitim Merkezi', icon: BookOpen },
+      { href: '/ai-portfoyler', label: 'AI Portföyler', icon: Trophy },
     ],
   },
 ];
