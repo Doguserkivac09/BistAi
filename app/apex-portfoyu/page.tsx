@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { RefreshCw, Zap, ShoppingCart, LogOut, Pause, RotateCcw,
-         AlertTriangle, Activity, Flame } from 'lucide-react';
+         AlertTriangle, Activity, Flame, Info } from 'lucide-react';
 import { APEX_INITIAL_CAPITAL, APEX_STOP_LOSS_PCT, APEX_MIN_CONFLUENCE, APEX_MIN_REL_VOL } from '@/lib/apex-engine';
 
 // ── Tipler ───────────────────────────────────────────────────────────
@@ -30,6 +30,7 @@ interface Decision {
   shares: number | null; theoretical_price: number; cost_or_proceeds: number;
   confluence_score: number | null; rel_vol5: number | null;
   stop_loss: number | null; reason_short: string;
+  outcome_return: number | null; // kapanış sonrası net getiri %
 }
 interface Summary {
   totalValue: number; cash: number; positionsValue: number;
@@ -126,6 +127,15 @@ export default function ApexPortfoyuPage() {
 
   const s = summary;
 
+  // Günlük TL P&L — pozisyonlardan gerçek zamanlı
+  const dailyPnlTL = positions.reduce((sum, p) => {
+    if (p.change_today == null) return sum;
+    const cp = p.current_price ?? p.entry_price;
+    return sum + (p.change_today / 100) * cp * p.shares;
+  }, 0);
+  const dailyPnlPct = s ? (dailyPnlTL / s.totalValue) * 100 : 0;
+  const dailyIsPos  = dailyPnlTL >= 0;
+
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto max-w-5xl px-4 py-8">
@@ -195,26 +205,46 @@ export default function ApexPortfoyuPage() {
               <span>Fiyat: <span className={s.lastPriceUpdate === 'scan_cache' ? 'text-emerald-400' : 'text-amber-400'}>{s.lastPriceUpdate === 'scan_cache' ? 'Canlı (scan_cache)' : 'Snapshot'}</span></span>
             </div>
 
-            {/* Stat kartları */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Portföy değeri */}
-              <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5 text-center sm:col-span-2 lg:col-span-1">
-                <p className="text-[10px] text-orange-400/60 uppercase tracking-widest mb-1">Portföy</p>
-                <p className="text-3xl font-black text-text-primary tabular-nums">{fmtTL(s.totalValue)}</p>
-                <p className={`text-base font-bold mt-1 tabular-nums ${s.totalReturn >= 0 ? 'text-orange-400' : 'text-red-400'}`}>
+            {/* ── Günlük P&L şeridi ── */}
+            <div className={`rounded-xl border px-5 py-4 flex items-center gap-6 ${
+              dailyIsPos ? 'border-orange-500/25 bg-orange-500/5' : 'border-red-500/25 bg-red-500/5'
+            }`}>
+              <div>
+                <p className="text-[10px] text-text-muted uppercase tracking-wider mb-0.5">Bugün</p>
+                <p className={`text-3xl font-black tabular-nums ${dailyIsPos ? 'text-orange-400' : 'text-red-400'}`}>
+                  {dailyIsPos ? '+' : ''}{fmtTL(dailyPnlTL)}
+                </p>
+                <p className={`text-sm font-bold tabular-nums ${dailyIsPos ? 'text-orange-400/70' : 'text-red-400/70'}`}>
+                  {dailyIsPos ? '+' : ''}{dailyPnlPct.toFixed(2)}%
+                </p>
+              </div>
+              <div className="w-px h-12 bg-border/50" />
+              <div>
+                <p className="text-[10px] text-text-muted uppercase tracking-wider mb-0.5">Toplam</p>
+                <p className={`text-xl font-bold tabular-nums ${s.totalReturn >= 0 ? 'text-orange-400' : 'text-red-400'}`}>
                   {s.totalReturn >= 0 ? '▲' : '▼'} {fmtPct(s.totalReturn)}
                 </p>
-                <p className="text-[10px] text-text-muted mt-0.5">Başlangıç: {fmtTL(APEX_INITIAL_CAPITAL)}</p>
+                <p className="text-[10px] text-text-muted mt-0.5">{fmtTL(s.totalValue)} · Başlangıç: {fmtTL(APEX_INITIAL_CAPITAL)}</p>
               </div>
+              <div className="ml-auto text-right hidden sm:block">
+                <p className="text-[10px] text-text-muted uppercase tracking-wider mb-0.5">Win Rate (30G)</p>
+                <p className={`text-xl font-bold tabular-nums ${(s.winRate30d ?? 0) >= 55 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {s.winRate30d != null ? `%${s.winRate30d.toFixed(0)}` : '—'}
+                </p>
+                <p className="text-[10px] text-text-muted">{s.totalTrades} toplam işlem</p>
+              </div>
+            </div>
 
+            {/* İkincil stat kartları */}
+            <div className="grid gap-3 sm:grid-cols-3">
               {[
-                { label: 'Bugün', val: fmtPct(s.dailyReturn), sub: `${s.positionCount} açık pozisyon`, pos: (s.dailyReturn ?? 0) >= 0 },
-                { label: 'Win Rate (30G)', val: s.winRate30d != null ? `%${s.winRate30d.toFixed(0)}` : '—', sub: `${s.totalTrades} toplam işlem`, pos: (s.winRate30d ?? 0) >= 55 },
-                { label: 'Max Drawdown', val: fmtPct(s.maxDrawdown), sub: `En iyi: ${s.bestTrade != null ? fmtPct(s.bestTrade) : '—'}`, pos: (s.maxDrawdown ?? 0) > -15 },
+                { label: 'Nakit', val: fmtTL(s.cash), sub: `%${((s.cash / s.totalValue) * 100).toFixed(0)} nakit`, pos: true },
+                { label: 'Max Drawdown', val: fmtPct(s.maxDrawdown), sub: `En iyi işlem: ${s.bestTrade != null ? fmtPct(s.bestTrade) : '—'}`, pos: (s.maxDrawdown ?? 0) > -15 },
+                { label: 'Açık Pozisyon', val: `${s.positionCount}`, sub: `Bugün ${positions.filter(p => p.change_today != null).length} fiyat güncel`, pos: true },
               ].map((card) => (
                 <div key={card.label} className="rounded-xl border border-border bg-surface p-4">
                   <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">{card.label}</p>
-                  <p className={`text-2xl font-bold tabular-nums ${card.pos ? 'text-emerald-400' : 'text-red-400'}`}>{card.val}</p>
+                  <p className={`text-2xl font-bold tabular-nums ${card.pos ? 'text-text-primary' : 'text-red-400'}`}>{card.val}</p>
                   <p className="text-[10px] text-text-muted mt-0.5">{card.sub}</p>
                 </div>
               ))}
@@ -248,7 +278,7 @@ export default function ApexPortfoyuPage() {
             <div className="flex border-b border-border">
               {([
                 { key: 'pozisyon',  label: `Açık Pozisyonlar (${s.positionCount})` },
-                { key: 'karar',     label: 'Karar Akışı' },
+                { key: 'karar',     label: 'İşlem Akışı' },
                 { key: 'performans',label: 'Günlük Performans' },
               ] as const).map((t) => (
                 <button key={t.key} onClick={() => setTab(t.key)}
@@ -264,17 +294,28 @@ export default function ApexPortfoyuPage() {
             {tab === 'pozisyon' && (
               <div className="space-y-3">
                 {positions.length === 0 ? (
-                  <div className="rounded-xl border border-border bg-surface/20 p-6 text-center text-text-muted text-sm">
-                    <Activity className="mx-auto h-8 w-8 mb-2 opacity-40" />
-                    Açık pozisyon yok — sonraki tarama bekleniyor (17:45 TRT)
+                  <div className="rounded-xl border border-orange-500/15 bg-orange-500/3 p-6 text-center">
+                    <Activity className="mx-auto h-8 w-8 text-orange-400/40 mb-3" />
+                    <p className="text-sm font-semibold text-text-muted mb-2">Açık pozisyon yok</p>
+                    <p className="text-xs text-text-muted/60 mb-3">
+                      Sonraki tarama: 17:55 TRT · APEX her iş günü kapanışa 15 dk kala çalışır
+                    </p>
+                    <div className="inline-flex flex-col items-start gap-1 rounded-lg border border-border bg-surface/50 px-4 py-2.5 text-left text-[11px]">
+                      <p className="text-text-muted font-medium mb-0.5">Giriş kriterleri (ikisi aynı anda):</p>
+                      <p className="text-orange-400/80">Confluence ≥ {APEX_MIN_CONFLUENCE}</p>
+                      <p className="text-orange-400/80">Relative Volume ≥ {APEX_MIN_REL_VOL}x (5G ortalaması)</p>
+                      <p className="text-text-muted/50 mt-1">Bu kriterler BIST'te nadir — uzun süre pozisyonsuz kalınabilir.</p>
+                    </div>
                   </div>
                 ) : positions.map((pos) => {
-                  const cp       = pos.current_price ?? pos.entry_price;
-                  const ret      = pos.live_return_pct ?? ((cp - pos.entry_price) / pos.entry_price) * 100;
-                  const pnl      = pos.live_pnl        ?? (cp - pos.entry_price) * pos.shares;
-                  const isPos    = ret >= 0;
-                  const stopDist = pos.stop_distance_pct  ?? ((cp - pos.stop_loss)    / cp) * 100;
+                  const cp        = pos.current_price ?? pos.entry_price;
+                  const ret       = pos.live_return_pct ?? ((cp - pos.entry_price) / pos.entry_price) * 100;
+                  const pnl       = pos.live_pnl        ?? (cp - pos.entry_price) * pos.shares;
+                  const isPos     = ret >= 0;
+                  const stopDist  = pos.stop_distance_pct  ?? ((cp - pos.stop_loss)    / cp) * 100;
                   const trailDist = pos.trail_distance_pct ?? ((cp - pos.trailing_stop) / cp) * 100;
+                  const dailyPosTL = pos.change_today != null
+                    ? (pos.change_today / 100) * cp * pos.shares : null;
                   const stopDanger   = stopDist < 2.5;
                   const signalWeak   = pos.signal_strength === 'zayıf';
                   return (
@@ -295,7 +336,10 @@ export default function ApexPortfoyuPage() {
                             </Link>
                             {pos.change_today != null && (
                               <span className={`text-[10px] font-bold ${pos.change_today >= 0 ? 'text-orange-400' : 'text-red-400'}`}>
-                                {pos.change_today >= 0 ? '+' : ''}{pos.change_today.toFixed(1)}%
+                                {pos.change_today >= 0 ? '+' : ''}{pos.change_today.toFixed(1)}% bugün
+                                {dailyPosTL != null && (
+                                  <span className="opacity-70"> ({dailyPosTL >= 0 ? '+' : ''}{fmtTL(dailyPosTL)})</span>
+                                )}
                               </span>
                             )}
                             {pos.scan_confluence != null && (
@@ -323,8 +367,11 @@ export default function ApexPortfoyuPage() {
                         </div>
                       </div>
                       <div className="grid grid-cols-4 gap-2 text-[10px]">
-                        <div className="rounded-md bg-surface/60 px-2 py-1.5">
-                          <p className="text-text-muted">Alım</p>
+                        <div
+                          className="rounded-md bg-surface/60 px-2 py-1.5 cursor-help"
+                          title="Karar anındaki scan_cache kapanış fiyatıdır. BIST'te fiili giriş ertesi açılışta olur — gerçek dünyada %0.3–1.0 slippage olabilir."
+                        >
+                          <p className="text-text-muted flex items-center gap-0.5">Alım <Info className="h-2.5 w-2.5 opacity-40" /></p>
                           <p className="font-mono font-bold tabular-nums">{pos.entry_price.toFixed(2)}₺</p>
                         </div>
                         <div className="rounded-md bg-surface/60 px-2 py-1.5">
@@ -352,42 +399,70 @@ export default function ApexPortfoyuPage() {
               </div>
             )}
 
-            {/* Karar Akışı */}
+            {/* İşlem Akışı — tradedesk */}
             {tab === 'karar' && (
-              <div className="space-y-2">
-                {decisions.length === 0 && (
-                  <p className="text-center text-text-muted text-sm py-8">Henüz karar yok</p>
-                )}
-                {decisions.map((d) => {
-                  const cfg = ACTION_CFG[d.action] ?? ACTION_CFG.HOLD!;
-                  const Icon = cfg.icon;
+              <div>
+                {decisions.length > 0 && (() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const todayCount = decisions.filter(d => d.decision_date?.startsWith(today)).length;
                   return (
-                    <div key={d.id} className={`flex items-start gap-3 rounded-xl border p-3 ${cfg.cls}`}>
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={`/hisse/${d.sembol}`}
-                            className="font-black text-text-primary hover:text-orange-400 text-sm transition-colors">
-                            {d.sembol}
-                          </Link>
-                          <span className="text-[10px] font-bold">{cfg.label}</span>
-                          {d.shares && <span className="text-[10px] text-text-muted">{d.shares.toFixed(0)} adet · {d.theoretical_price.toFixed(2)}₺</span>}
-                          <span className="text-[10px] text-text-muted ml-auto">{fmtDate(d.decision_date)}</span>
-                        </div>
-                        <p className="text-[11px] text-text-secondary mt-0.5 leading-snug">{d.reason_short}</p>
-                        {(d.confluence_score || d.rel_vol5) && (
-                          <div className="flex gap-2 mt-1 text-[10px] text-text-muted">
-                            {d.confluence_score && <span>Conf: {d.confluence_score}</span>}
-                            {d.rel_vol5 && <span>Vol: {d.rel_vol5.toFixed(1)}x</span>}
-                            {d.stop_loss && <span>Stop: {d.stop_loss.toFixed(2)}₺</span>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <p className="text-[11px] text-text-muted mb-3">
+                      Son {decisions.length} işlem
+                      {todayCount > 0 && <span className="ml-2 text-orange-400 font-semibold">· Bugün {todayCount} karar</span>}
+                    </p>
                   );
-                })}
+                })()}
+                <div className="rounded-xl border border-border overflow-hidden divide-y divide-border/40">
+                  {decisions.length === 0 ? (
+                    <p className="text-center text-text-muted text-sm py-8">Henüz karar yok</p>
+                  ) : decisions.map((d) => {
+                    const cfg   = ACTION_CFG[d.action] ?? ACTION_CFG.HOLD!;
+                    const isBuy  = d.action === 'BUY' || d.action === 'ROTATE_IN';
+                    const isSell = d.action === 'SELL' || d.action === 'ROTATE_OUT';
+                    const hasOutcome = d.outcome_return != null;
+                    const outcomeTL  = hasOutcome && d.shares != null
+                      ? (d.outcome_return! / 100) * d.theoretical_price * d.shares : null;
+                    return (
+                      <div key={d.id} className="flex items-start gap-3 px-4 py-3 hover:bg-white/2 transition-colors">
+                        <div className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${cfg.dot}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${cfg.cls.split(' ')[0]}`}>
+                              {cfg.label}
+                            </span>
+                            <Link href={`/hisse/${d.sembol}`}
+                              className="font-black text-sm text-text-primary hover:text-orange-400 transition-colors">
+                              {d.sembol}
+                            </Link>
+                            {d.shares != null && (
+                              <span className="text-[10px] text-text-muted">
+                                {d.shares.toFixed(0)} lot · @{d.theoretical_price.toFixed(2)}₺
+                              </span>
+                            )}
+                            {/* Kapalı işlem sonucu */}
+                            {hasOutcome && (
+                              <span className={`text-[10px] font-bold ml-1 ${(d.outcome_return ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {(d.outcome_return ?? 0) >= 0 ? '↑' : '↓'} {(d.outcome_return ?? 0) >= 0 ? '+' : ''}{d.outcome_return!.toFixed(1)}%
+                                {outcomeTL != null && (
+                                  <span className="opacity-70"> · {outcomeTL >= 0 ? '+' : ''}{fmtTL(outcomeTL)}</span>
+                                )}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-text-muted/50 ml-auto">{fmtDate(d.decision_date)}</span>
+                          </div>
+                          <p className="text-[11px] text-text-secondary mt-0.5 leading-snug">{d.reason_short}</p>
+                          {(d.confluence_score != null || d.rel_vol5 != null) && (
+                            <div className="flex gap-2 mt-1 text-[10px] text-text-muted/60">
+                              {d.confluence_score != null && <span>Conf: {d.confluence_score}</span>}
+                              {d.rel_vol5 != null && <span>Vol: {d.rel_vol5.toFixed(1)}x</span>}
+                              {d.stop_loss != null && <span>Stop: {d.stop_loss.toFixed(2)}₺</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

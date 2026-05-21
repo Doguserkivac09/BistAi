@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Trophy, Brain, Flame, TrendingUp, TrendingDown,
-  ChevronRight, Activity, Clock, Target, Zap, Shield,
+  ChevronRight, Activity, Target, Zap, Shield,
 } from 'lucide-react';
 
 // ── Tipler ───────────────────────────────────────────────────────────
@@ -181,8 +181,8 @@ function ComparisonTable() {
                 Haftanın Seçimleri
               </th>
               <th className="text-center px-4 py-3 text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
-                <Brain className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
-                AI Portföy
+                <Shield className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
+                Aegis Portföy
               </th>
               <th className="text-center px-4 py-3 text-[11px] font-semibold text-orange-400 uppercase tracking-wider">
                 <Flame className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
@@ -275,9 +275,9 @@ export default function AiPortfoylerPage() {
     },
     {
       cfg: {
-        icon:      Brain,
-        name:      'AI Portföy',
-        tagline:   '100.000₺ sanal sermaye. Kelly Criterion pozisyon boyutu, -%8 stop-loss, +%15/+%25 kâr alma. Claude haftalık AL/SAT/TUT kararları verir.',
+        icon:      Shield,
+        name:      'Aegis Portföy',
+        tagline:   'Sermayeyi koruyarak büyüt. 100.000₺ sanal sermaye, Kelly Criterion, -%8 stop-loss, Claude haftalık kararları. Disiplinli, orta vadeli.',
         whoFor:    'Sistematik, orta vadeli strateji izlemek isteyen dengeli yatırımcılar için.',
         riskLabel: 'Haftalık · Orta Risk',
         riskCls:   'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
