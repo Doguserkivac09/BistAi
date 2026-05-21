@@ -257,7 +257,8 @@ export default function FirsatlarPage() {
   const [statsSummary, setStatsSummary] = useState<SignalStatsSummaryResponse['stats']>([]);
   const [watchlist,    setWatchlist]    = useState<Set<string>>(new Set());
   const [watchlistIds, setWatchlistIds] = useState<Map<string, string>>(new Map());
-  const [gununSecimi,  setGununSecimi]  = useState<GununSecimiData | null>(null); // sembol → id
+  const [gununSecimi,  setGununSecimi]  = useState<GununSecimiData | null>(null);
+  const [market,       setMarket]       = useState<'BIST' | 'US'>('BIST');
 
   // Filtreler
   const [dirFilter,    setDirFilter]    = useState<'tumu' | 'yukari' | 'asagi'>('tumu');
@@ -274,7 +275,8 @@ export default function FirsatlarPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/firsatlar');
+      const endpoint = market === 'US' ? '/api/firsatlar-us' : '/api/firsatlar';
+      const res = await fetch(endpoint);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: FirsatlarResponse = await res.json();
       setData(json);
@@ -323,6 +325,9 @@ export default function FirsatlarPage() {
     void fetchStats();
     void fetchGununSecimi();
   }, [fetchData, fetchWatchlist, fetchStats, fetchGununSecimi]);
+
+  // Market değişince yeniden çek
+  useEffect(() => { void fetchData(); }, [market]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Watchlist toggle
   const handleWatchlistToggle = useCallback(async (sembol: string, currentState: boolean) => {
@@ -396,13 +401,32 @@ export default function FirsatlarPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
+
           <Zap className="h-8 w-8 text-yellow-400" />
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">Fırsatlar</h1>
-            <p className="text-sm text-text-secondary">Yüksek kaliteli, güncel sinyaller</p>
+            <h1 className="text-2xl font-bold text-text-primary">
+              Fırsatlar {market === 'US' && <span className="text-blue-400">🇺🇸</span>}
+            </h1>
+            <p className="text-sm text-text-secondary">
+              {market === 'US' ? 'ABD hisseleri · scan_cache(US)' : 'Yüksek kaliteli, güncel BIST sinyalleri'}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* Market toggle */}
+          <div className="flex overflow-hidden rounded-lg border border-border">
+            {(['BIST', 'US'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMarket(m)}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  market === m ? 'bg-primary text-white' : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {m === 'BIST' ? '🇹🇷 BIST' : '🇺🇸 ABD'}
+              </button>
+            ))}
+          </div>
           {lastFetch && (
             <span className="text-xs text-text-muted">
               {lastFetch.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
