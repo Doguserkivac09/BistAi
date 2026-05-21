@@ -248,6 +248,7 @@ export default function TaramaPage() {
   const [hasSearched, setHasSearched]   = useState(false);
   const [totalMatched, setTotalMatched] = useState(0);
   const [capped, setCapped]             = useState(false);
+  const [searchQuery, setSearchQuery]   = useState('');
   const [scannedAt, setScannedAt]       = useState<string | null>(null);
   const [showFilters, setShowFilters]   = useState(true);
   const [sortKey, setSortKey]           = useState<SortKey>('confluence');
@@ -404,7 +405,15 @@ export default function TaramaPage() {
   function resetFilters() { setFilters(EMPTY_FILTERS); }
 
   const sortedResults = useMemo(() => {
-    const arr = [...results];
+    let arr = [...results];
+    // Sembol / sektör araması
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toUpperCase();
+      arr = arr.filter((r) =>
+        r.sembol.includes(q) ||
+        (r.sectorName ?? '').toUpperCase().includes(q)
+      );
+    }
     const dirMul = sortDir === 'asc' ? 1 : -1;
     arr.sort((a, b) => {
       const av = pickSortValue(a, sortKey);
@@ -416,7 +425,7 @@ export default function TaramaPage() {
       return ((av as number) - (bv as number)) * dirMul;
     });
     return arr;
-  }, [results, sortKey, sortDir]);
+  }, [results, sortKey, sortDir, searchQuery]);
 
   function handleSort(k: SortKey) {
     if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -650,6 +659,24 @@ export default function TaramaPage() {
 
           {/* ── Sağ: Sonuçlar ── */}
           <div className="flex-1 min-w-0">
+
+            {/* ── Sembol / sektör arama ── */}
+            <div className="mb-3 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Sembol veya sektör ara... (ör: AAPL, Technology)"
+                className="w-full rounded-lg border border-border bg-surface pl-9 pr-4 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/30"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={() => setShowFilters((p) => !p)}

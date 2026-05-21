@@ -286,6 +286,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const sectorInfo = SECTORS[sectorId];
 
   useEffect(() => {
+    if (isUS) return; // US hisseler için BIST sektör karşılaştırması yok
     if (!sectorId || sectorId === 'diger') return;
     const reps = SECTOR_REPRESENTATIVES[sectorId];
     if (!reps || reps.length === 0) return;
@@ -437,7 +438,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     let cancelled = false;
     setAnalizLoading(true);
     setAnaliz(null);
-    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}&timeframe=${timeframe}`)
+    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}&timeframe=${timeframe}${isUS ? '&market=US' : ''}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data: HisseAnalizResponse | null) => {
         if (!cancelled) setAnaliz(data);
@@ -465,8 +466,9 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
   useEffect(() => { loadHaberler(); }, [loadHaberler]);
 
-  // ── KAP Duyuruları ───────────────────────────────────────────────────────────
+  // ── KAP Duyuruları (sadece BIST) ────────────────────────────────────────────
   useEffect(() => {
+    if (isUS) { setKapLoading(false); return; } // US hisseler için KAP yok
     let cancelled = false;
     setKapLoading(true);
     fetch(`/api/kap?sembol=${encodeURIComponent(sembol)}`)
