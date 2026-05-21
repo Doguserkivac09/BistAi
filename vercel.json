@@ -87,6 +87,10 @@
     {
       "path": "/api/cron/apex-us",
       "schedule": "45 20 * * 1-5"
+    },
+    {
+      "path": "/api/cron/aegis-us",
+      "schedule": "30 21 * * 1"
     }
   ]
 }

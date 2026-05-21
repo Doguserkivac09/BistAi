@@ -374,16 +374,15 @@ export default function AiPortfoylerPage() {
         riskCls:   'border-slate-500/30 bg-slate-500/10 text-slate-400',
         borderCls: 'border-slate-500/15',
         headerCls: '',
-        href:      '/yapay-zeka-portfoyu',
-        disabled:  true,
-        comingSoon: 'Aegis US — Yakında',
+        href:      '/aegis-us-portfoyu',
+        disabled:  false,
       },
-      mainNode: <span className="text-lg text-text-muted">Faz 3</span>,
+      mainNode: <span className="text-lg text-text-muted">Veri bekleniyor</span>,
       rows: [
         { label: 'Toplam değer',   value: '—' },
         { label: 'Açık pozisyon',  value: '—' },
-        { label: 'Win rate',       value: '—' },
-        { label: 'Maks. drawdown', value: '—' },
+        { label: 'Haftalık getiri',value: '—' },
+        { label: 'Alpha vs S&P',   value: '—' },
       ],
     },
   ];
@@ -438,6 +437,7 @@ export default function AiPortfoylerPage() {
             { href: '/apex-portfoyu',       label: '🇹🇷 APEX BIST',       cls: 'text-orange-400 hover:text-orange-300' },
             { href: '/apex-us-portfoyu',    label: '🇺🇸 APEX US',          cls: 'text-blue-400 hover:text-blue-300' },
             { href: '/yapay-zeka-portfoyu', label: '🇹🇷 Aegis BIST',       cls: 'text-emerald-400 hover:text-emerald-300' },
+            { href: '/aegis-us-portfoyu',   label: '🇺🇸 Aegis US',         cls: 'text-emerald-400/70 hover:text-emerald-300' },
             { href: '/haftalik-secimler',   label: '→ Haftanın Seçimleri', cls: 'text-sky-400 hover:text-sky-300' },
           ].map((l) => (
             <Link key={l.href} href={l.href} className={`transition-colors ${l.cls}`}>
