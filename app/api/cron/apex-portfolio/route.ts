@@ -149,16 +149,37 @@ export async function GET(req: NextRequest) {
   const macroScore  = macroFull?.macroScore?.score ?? 0;
   const macroCtx    = macroScore > 20 ? 'pozitif' : macroScore < -20 ? 'negatif' : 'nötr';
 
+  // Makro rejim: yeni açma yasağı (≤-20) veya azaltılmış mod (-20 < score ≤-10)
+  const macroBlockNew    = macroScore <= -20;  // yeni pozisyon yok
+  const macroReducedMode = macroScore > -20 && macroScore <= -10; // maks 2 toplam
+  if (macroBlockNew) {
+    console.log(`[apex] Makro rejim filtresi aktif (score=${macroScore}) — yeni açma durduruldu`);
+  } else if (macroReducedMode) {
+    console.log(`[apex] Makro azaltılmış mod (score=${macroScore}) — toplam maks 2 pozisyon`);
+  }
+
   // scan_cache map (güncel fiyat + confluence)
   const scanMap = new Map((scanRows ?? []).map((r) => [r.sembol, r]));
   const allScanMap = new Map<string, { confluence_score: number; rel_vol5: number; last_close: number }>();
   for (const r of scanRows ?? []) allScanMap.set(r.sembol, r);
+
+  // Dominant AL sinyali tipini çıkar (win rate by setup takibi)
+  function getDominantSignalType(signalsJson: unknown): string | null {
+    if (!Array.isArray(signalsJson)) return null;
+    const sigs = (signalsJson as Array<{ type: string; direction: string; severity: string }>)
+      .filter((s) => s.direction === 'yukari');
+    if (sigs.length === 0) return null;
+    const order: Record<string, number> = { 'güçlü': 3, 'orta': 2, 'zayıf': 1 };
+    sigs.sort((a, b) => (order[b.severity] ?? 0) - (order[a.severity] ?? 0));
+    return sigs[0]?.type ?? null;
+  }
 
   const decisions: Array<{
     decision_date: string; sembol: string; action: string;
     shares: number | null; theoretical_price: number; cost_or_proceeds: number;
     confluence_score: number | null; rel_vol5: number | null;
     stop_loss: number | null; reason_short: string;
+    signal_type: string | null;
   }> = [];
 
   let closedCount = 0;
@@ -203,6 +224,7 @@ export async function GET(req: NextRequest) {
         shares: pos.shares, theoretical_price: current, cost_or_proceeds: proceeds,
         confluence_score: confNow, rel_vol5: scan?.rel_vol5 ?? null,
         stop_loss: pos.stop_loss, reason_short: reason,
+        signal_type: null, // çıkış kararında sinyal tipi yok
       });
     } else {
       // HOLD
@@ -217,6 +239,7 @@ export async function GET(req: NextRequest) {
         shares: pos.shares, theoretical_price: current, cost_or_proceeds: 0,
         confluence_score: confNow, rel_vol5: scan?.rel_vol5 ?? null,
         stop_loss: pos.stop_loss, reason_short: reason,
+        signal_type: null,
       });
     }
   }
@@ -241,10 +264,23 @@ export async function GET(req: NextRequest) {
   const health = apexHealthCheck(totalValue, cash, remainingPositions.length, sectorMap);
   let openedCount = 0;
 
-  if (health.canBuy && !circuitBreakerActive && !drawdownBlockNew) {
+  // Sektör başına pozisyon sayısı (konsantrasyon kontrolü)
+  const sectorPositionCount = new Map<string, number>();
+  for (const pos of remainingPositions) {
+    const sid = pos.sector_id ?? 'diger';
+    sectorPositionCount.set(sid, (sectorPositionCount.get(sid) ?? 0) + 1);
+  }
+
+  if (health.canBuy && !circuitBreakerActive && !drawdownBlockNew && !macroBlockNew) {
     for (const cand of candidates) {
       if (openedCount >= 2) break;
       if (!health.canBuy || cash < 3000) break;
+
+      // Makro azaltılmış mod: toplam maks 2 pozisyon
+      if (macroReducedMode && (remainingPositions.length + openedCount) >= 2) {
+        console.log(`[apex] Makro azaltılmış mod — 2 pozisyon dolu, yeni giriş durduruldu`);
+        break;
+      }
 
       // Bu hissede zaten pozisyon var mı? (bu portföy + AI cross-check)
       if (remainingPositions.some((p) => p.sembol === cand.sembol)) continue;
@@ -253,11 +289,16 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Sektör limiti (%40)
-      if ((sectorMap.get(cand.sector ?? 'diger') ?? 0) >= 0.40) continue;
+      // Sektör limiti: %40 değer + maks 2 pozisyon aynı sektörde
+      const sectorId = cand.sector ?? 'diger';
+      if ((sectorMap.get(sectorId) ?? 0) >= 0.40) continue;
+      if ((sectorPositionCount.get(sectorId) ?? 0) >= 2) {
+        console.log(`[apex] ${cand.sembol} — sektör pozisyon limiti (maks 2)`);
+        continue;
+      }
 
       const rawSize  = apexPositionSize(cash, totalValue, cand.confluence_score, cand.rel_vol5, macroScore);
-      const posSize  = rawSize * drawdownSizeMult; // drawdown varsa küçült
+      const posSize  = rawSize * drawdownSizeMult;
       const capped   = Math.min(posSize, health.maxSize);
       if (capped < 1500) continue;
 
@@ -270,8 +311,11 @@ export async function GET(req: NextRequest) {
       const cost = shares * entryPrice;
       const { stopLoss, trailingStop } = apexCalcLevels(entryPrice);
 
+      // Dominant sinyal tipi (win rate by setup)
+      const sigType = getDominantSignalType(cand.signals_json);
+
       await db.from('apex_portfolio_positions').insert({
-        sembol: cand.sembol, sector_id: cand.sector ?? 'diger', sector_name: cand.sector ?? 'Diğer',
+        sembol: cand.sembol, sector_id: sectorId, sector_name: cand.sector ?? 'Diğer',
         shares, entry_price: entryPrice, entry_date: today,
         current_price: entryPrice, stop_loss: stopLoss, trailing_stop: trailingStop,
         cost_basis: cost, is_open: true,
@@ -287,12 +331,13 @@ export async function GET(req: NextRequest) {
         decision_date: today, sembol: cand.sembol, action: 'BUY',
         shares, theoretical_price: entryPrice, cost_or_proceeds: cost,
         confluence_score: cand.confluence_score, rel_vol5: cand.rel_vol5,
-        stop_loss: stopLoss,
-        reason_short: `APEX GİRİŞ: conf ${cand.confluence_score}, relVol5 ${cand.rel_vol5.toFixed(1)}x, bugün ${cand.change_percent?.toFixed(1) ?? '?'}%`,
+        stop_loss: stopLoss, signal_type: sigType,
+        reason_short: `APEX GİRİŞ: conf ${cand.confluence_score}, relVol5 ${cand.rel_vol5.toFixed(1)}x${sigType ? ` [${sigType}]` : ''}, bugün ${cand.change_percent?.toFixed(1) ?? '?'}%`,
       });
 
-      // Sektör haritasını güncelle
-      sectorMap.set(cand.sector ?? 'diger', (sectorMap.get(cand.sector ?? 'diger') ?? 0) + cost / totalValue);
+      // Haritaları güncelle
+      sectorMap.set(sectorId, (sectorMap.get(sectorId) ?? 0) + cost / totalValue);
+      sectorPositionCount.set(sectorId, (sectorPositionCount.get(sectorId) ?? 0) + 1);
     }
   }
 
