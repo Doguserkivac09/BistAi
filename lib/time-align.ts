@@ -164,6 +164,25 @@ export function checkFreshness(
 }
 
 /**
+ * from (dahil değil) ile to (dahil) arasındaki BIST iş günü sayısı.
+ * Whipsaw koruması için kullanılır.
+ */
+export function countTradingDaysBetween(from: Date, to: Date): number {
+  const d = new Date(from);
+  d.setDate(d.getDate() + 1); // from günü hariç, sonrasından başla
+  let count = 0;
+  while (d <= to) {
+    const day     = d.getDay();
+    const dateStr = formatDate(d);
+    if (day !== 0 && day !== 6 && !TR_HOLIDAYS_2026.includes(dateStr)) {
+      count++;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+/**
  * Bir tarih dizisindeki en son iş gününü bulur.
  * Hafta sonu ve tatil günlerini atlar, bir önceki cuma/perşembeye gider.
  */

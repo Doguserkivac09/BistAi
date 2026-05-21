@@ -33,7 +33,7 @@ export async function GET() {
   const { data: scanPrices } = symbols.length > 0
     ? await db
         .from('scan_cache')
-        .select('sembol, last_close, confluence_score, change_percent, rel_vol5')
+        .select('sembol, last_close, confluence_score, change_percent, rel_vol5, rsi')
         .in('sembol', symbols)
     : { data: [] };
 
@@ -62,7 +62,8 @@ export async function GET() {
       trail_distance_pct: trailDistance ? parseFloat(trailDistance.toFixed(2)) : null,
       scan_confluence:    scan?.confluence_score ?? null,
       scan_rel_vol5:      scan?.rel_vol5        ?? null,
-      change_today:       scan?.change_percent   ?? null,
+      scan_rsi:           scan?.rsi             ?? null,
+      change_today:       scan?.change_percent  ?? null,
       signal_strength:    signalStrength,
     };
   });

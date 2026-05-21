@@ -13,7 +13,9 @@ interface Position {
   shares: number; entry_price: number; current_price: number | null;
   stop_loss: number; trailing_stop: number; cost_basis: number;
   entry_date: string; entry_confluence: number | null; entry_rel_vol5: number | null;
+  tp1_hit:    boolean | null;
   // Canlı veriler (API tarafından eklenir)
+  scan_rsi:        number | null;
   live_return_pct: number | null; live_pnl: number | null;
   stop_distance_pct: number | null; trail_distance_pct: number | null;
   scan_confluence: number | null; scan_rel_vol5: number | null;
@@ -56,11 +58,12 @@ function fmtDate(d: string) {
 }
 
 const ACTION_CFG: Record<string, { label: string; icon: React.ElementType; cls: string; dot: string }> = {
-  BUY:        { label: 'GİRİŞ',    icon: ShoppingCart, cls: 'text-orange-300 bg-orange-500/10 border-orange-500/30', dot: 'bg-orange-400' },
-  SELL:       { label: 'ÇIKIŞ',    icon: LogOut,       cls: 'text-red-300 bg-red-500/10 border-red-500/30',         dot: 'bg-red-400' },
-  ROTATE_OUT: { label: 'ROTASYON', icon: RotateCcw,    cls: 'text-violet-300 bg-violet-500/10 border-violet-500/30',dot: 'bg-violet-400' },
-  ROTATE_IN:  { label: 'ROT.GİRİŞ',icon: RotateCcw,   cls: 'text-violet-300 bg-violet-500/10 border-violet-500/30',dot: 'bg-violet-400' },
-  HOLD:       { label: 'TUT',      icon: Pause,        cls: 'text-slate-400 bg-slate-500/10 border-slate-500/20',   dot: 'bg-slate-400' },
+  BUY:          { label: 'GİRİŞ',      icon: ShoppingCart, cls: 'text-orange-300 bg-orange-500/10 border-orange-500/30',   dot: 'bg-orange-400' },
+  SELL:         { label: 'ÇIKIŞ',      icon: LogOut,       cls: 'text-red-300 bg-red-500/10 border-red-500/30',             dot: 'bg-red-400' },
+  PARTIAL_SELL: { label: 'TP1 · %50',  icon: LogOut,       cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30', dot: 'bg-emerald-400' },
+  ROTATE_OUT:   { label: 'ROTASYON',   icon: RotateCcw,    cls: 'text-violet-300 bg-violet-500/10 border-violet-500/30',    dot: 'bg-violet-400' },
+  ROTATE_IN:    { label: 'ROT.GİRİŞ', icon: RotateCcw,    cls: 'text-violet-300 bg-violet-500/10 border-violet-500/30',    dot: 'bg-violet-400' },
+  HOLD:         { label: 'TUT',        icon: Pause,        cls: 'text-slate-400 bg-slate-500/10 border-slate-500/20',       dot: 'bg-slate-400' },
 };
 
 // ── Performans grafiği ────────────────────────────────────────────────
@@ -353,9 +356,41 @@ export default function ApexPortfoyuPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-text-muted mt-0.5">
-                            {pos.sector_name} · {fmtDate(pos.entry_date)} · Giriş conf: {pos.entry_confluence ?? '—'}
-                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <p className="text-[10px] text-text-muted">
+                              {pos.sector_name} · {fmtDate(pos.entry_date)} · Giriş conf: {pos.entry_confluence ?? '—'}
+                            </p>
+                            {pos.tp1_hit && (
+                              <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
+                                Kısmi Çıkış ✓
+                              </span>
+                            )}
+                            {/* Sinyal Sağlığı rozeti — scan verilerinden türetilir */}
+                            {(() => {
+                              const conf  = pos.scan_confluence ?? 100;
+                              const rv    = pos.scan_rel_vol5   ?? 1;
+                              const rsi   = pos.scan_rsi        ?? 50;
+                              let score   = 0;
+                              if (conf >= 70) score += 2; else if (conf >= 55) score += 1; else if (conf < 45) score -= 2; else score -= 1;
+                              if (rv >= 1.5) score += 1; else if (rv < 1.2) score -= 1;
+                              if (rsi > 82) score -= 2; else if (rsi > 75) score -= 1; else if (rsi < 65) score += 1;
+                              const rsiIcon  = rsi > 80 ? '🔴' : rsi > 70 ? '🟡' : '🟢';
+                              const volIcon  = rv >= 1.5 ? '🟢' : rv >= 1.0 ? '🟡' : '🔴';
+                              const trendIcon = conf >= 60 ? '🟢' : conf >= 45 ? '🟡' : '🔴';
+                              const cfg = score >= 4 ? { label: `Güçlü (+${score})`,   cls: 'border-emerald-500/40 bg-emerald-500/8 text-emerald-400' }
+                                        : score >= 1 ? { label: `İzleniyor (+${score})`, cls: 'border-amber-500/35 bg-amber-500/8 text-amber-400' }
+                                        : score >= -2 ? { label: `Zayıf (${score})`,     cls: 'border-orange-500/35 bg-orange-500/8 text-orange-400' }
+                                        : { label: `Bozuldu (${score})`,  cls: 'border-red-500/40 bg-red-500/8 text-red-400' };
+                              return (
+                                <span
+                                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${cfg.cls}`}
+                                  title={`RSI: ${rsiIcon} ${rsi.toFixed(0)}  Hacim: ${volIcon} ${rv.toFixed(1)}x  Trend: ${trendIcon} conf=${conf}`}
+                                >
+                                  {rsiIcon}{volIcon}{trendIcon} {cfg.label}
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </div>
                         <div className="text-right">
                           <p className={`text-xl font-black tabular-nums ${isPos ? 'text-orange-400' : 'text-red-400'}`}>
