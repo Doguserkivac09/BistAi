@@ -286,7 +286,7 @@ export default function FirsatlarPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [market]);  // market değişince yeni endpoint'i kullan
 
   // Watchlist'i çek
   const fetchWatchlist = useCallback(async () => {
@@ -326,8 +326,7 @@ export default function FirsatlarPage() {
     void fetchGununSecimi();
   }, [fetchData, fetchWatchlist, fetchStats, fetchGununSecimi]);
 
-  // Market değişince yeniden çek
-  useEffect(() => { void fetchData(); }, [market]); // eslint-disable-line react-hooks/exhaustive-deps
+  // market değişince fetchData yeniden oluşur (useCallback[market]) → otomatik tetiklenir
 
   // Watchlist toggle
   const handleWatchlistToggle = useCallback(async (sembol: string, currentState: boolean) => {
