@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Trophy, Brain, Flame, TrendingUp, TrendingDown,
-  ChevronRight, Activity, Target, Zap, Shield,
+  ChevronRight, Activity, Target, Zap, Shield, Lock,
 } from 'lucide-react';
 
 // ── Tipler ───────────────────────────────────────────────────────────
@@ -31,6 +31,10 @@ interface PortfolioData {
 
 function fmtTL(v: number): string {
   return v.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + '₺';
+}
+
+function fmtUSD(v: number): string {
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 function ReturnPill({
@@ -67,6 +71,7 @@ function SkeletonLine({ className }: { className?: string }) {
 interface CardConfig {
   icon:        React.ElementType;
   name:        string;
+  flag?:       string;      // '🇹🇷' veya '🇺🇸'
   tagline:     string;
   whoFor:      string;
   riskLabel:   string;
@@ -74,6 +79,8 @@ interface CardConfig {
   borderCls:   string;
   headerCls:   string;
   href:        string;
+  disabled?:   boolean;     // Yakında
+  comingSoon?: string;
 }
 
 function PortfolioCard({
@@ -90,13 +97,25 @@ function PortfolioCard({
   const Icon = cfg.icon;
 
   return (
-    <div className={`flex flex-col rounded-2xl border ${cfg.borderCls} bg-surface/50 overflow-hidden transition-shadow hover:shadow-lg`}>
+    <div className={`relative flex flex-col rounded-2xl border ${cfg.borderCls} bg-surface/50 overflow-hidden transition-shadow ${cfg.disabled ? 'opacity-60' : 'hover:shadow-lg'}`}>
+
+      {/* Disabled overlay */}
+      {cfg.disabled && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/70 backdrop-blur-[2px] rounded-2xl">
+          <Lock className="h-6 w-6 text-text-muted mb-2" />
+          <p className="text-sm font-semibold text-text-muted">{cfg.comingSoon ?? 'Yakında'}</p>
+          <p className="text-xs text-text-muted/60 mt-0.5">Faz 3</p>
+        </div>
+      )}
 
       {/* Başlık alanı */}
       <div className={`px-5 pt-5 pb-4 ${cfg.headerCls}`}>
         <div className="flex items-start justify-between mb-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-            <Icon className="h-5 w-5 text-text-primary" />
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+              <Icon className="h-5 w-5 text-text-primary" />
+            </div>
+            {cfg.flag && <span className="text-xl">{cfg.flag}</span>}
           </div>
           <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${cfg.riskCls}`}>
             {cfg.riskLabel}
@@ -153,13 +172,15 @@ function PortfolioCard({
 // ── Karşılaştırma tablosu ─────────────────────────────────────────────
 
 const TABLE_ROWS = [
-  { label: 'Karar sıklığı',    weekly: 'Haftalık',       ai: 'Haftalık',           apex: 'Günlük'         },
-  { label: 'Kararı veren',     weekly: 'Algoritma',      ai: 'Claude AI',          apex: 'Algoritma'      },
-  { label: 'Stop-loss',        weekly: 'Yok',            ai: '-%8 sabit',          apex: 'ATR + trailing' },
-  { label: 'Pozisyon boyutu',  weekly: 'Eşit ağırlık',  ai: 'Kelly Criterion',    apex: 'Kelly (agresif)' },
-  { label: 'Sermaye',          weekly: '—',              ai: '100.000₺',           apex: '100.000₺'       },
-  { label: 'Maks. hisse',      weekly: '5-7',            ai: '10',                 apex: '5'              },
-  { label: 'Risk seviyesi',    weekly: '🟡 Orta',        ai: '🟢 Düşük–Orta',     apex: '🔴 Yüksek'     },
+  { label: 'Piyasa',           apexBIST: '🇹🇷 BIST',        apexUS: '🇺🇸 ABD',          aegis: '🇹🇷 BIST'        },
+  { label: 'Karar sıklığı',   apexBIST: 'Günlük',          apexUS: 'Günlük',          aegis: 'Haftalık'        },
+  { label: 'Kararı veren',    apexBIST: 'Algoritma',       apexUS: 'Algoritma',       aegis: 'Claude AI'       },
+  { label: 'Stop-loss',       apexBIST: 'ATR + trailing',  apexUS: 'ATR + trailing',  aegis: '-%8 sabit'       },
+  { label: 'Pozisyon boyutu', apexBIST: 'Kelly (agresif)', apexUS: 'Kelly · maks %50',aegis: 'Kelly · maks %25'},
+  { label: 'Sermaye',         apexBIST: '100.000₺',        apexUS: '$2.000',          aegis: '100.000₺'        },
+  { label: 'Kesirli pay',     apexBIST: 'Hayır',           apexUS: 'Evet (0.0001x)',  aegis: 'Hayır'           },
+  { label: 'Haber analizi',   apexBIST: 'Hayır',           apexUS: '4-faktör matris', aegis: 'Hayır'           },
+  { label: 'Risk seviyesi',   apexBIST: '🔴 Yüksek',       apexUS: '🔴 Yüksek',       aegis: '🟢 Düşük–Orta'  },
 ];
 
 function ComparisonTable() {
@@ -167,36 +188,31 @@ function ComparisonTable() {
     <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
       <div className="px-6 py-4 border-b border-border">
         <h2 className="text-sm font-semibold text-text-primary">Strateji Karşılaştırması</h2>
-        <p className="text-xs text-text-muted mt-0.5">Hangisi size uygun?</p>
+        <p className="text-xs text-text-muted mt-0.5">APEX (kısa vade) vs Aegis (orta vade) — BIST ve ABD</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface/30">
-              <th className="text-left px-6 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider w-44">
-                Özellik
+              <th className="text-left px-6 py-3 text-[11px] font-semibold text-text-muted uppercase tracking-wider w-36">Özellik</th>
+              <th className="text-center px-4 py-3 text-[11px] font-semibold text-orange-400 uppercase tracking-wider">
+                <Flame className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />🇹🇷 APEX BIST
               </th>
-              <th className="text-center px-4 py-3 text-[11px] font-semibold text-sky-400 uppercase tracking-wider">
-                <Trophy className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
-                Haftanın Seçimleri
+              <th className="text-center px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wider">
+                <Flame className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />🇺🇸 APEX US
               </th>
               <th className="text-center px-4 py-3 text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
-                <Shield className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
-                Aegis Portföy
-              </th>
-              <th className="text-center px-4 py-3 text-[11px] font-semibold text-orange-400 uppercase tracking-wider">
-                <Flame className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
-                APEX Portföy
+                <Shield className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />🇹🇷 Aegis
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/40">
             {TABLE_ROWS.map((row) => (
               <tr key={row.label} className="hover:bg-surface/50 transition-colors">
-                <td className="px-6 py-3 font-medium text-text-secondary">{row.label}</td>
-                <td className="px-4 py-3 text-center text-text-muted">{row.weekly}</td>
-                <td className="px-4 py-3 text-center text-text-muted">{row.ai}</td>
-                <td className="px-4 py-3 text-center text-text-muted">{row.apex}</td>
+                <td className="px-6 py-2.5 font-medium text-text-secondary text-xs">{row.label}</td>
+                <td className="px-4 py-2.5 text-center text-text-muted text-xs">{row.apexBIST}</td>
+                <td className="px-4 py-2.5 text-center text-text-muted text-xs">{row.apexUS}</td>
+                <td className="px-4 py-2.5 text-center text-text-muted text-xs">{row.aegis}</td>
               </tr>
             ))}
           </tbody>
@@ -209,19 +225,21 @@ function ComparisonTable() {
 // ── Ana sayfa ─────────────────────────────────────────────────────────
 
 export default function AiPortfoylerPage() {
-  const [weeklyData, setWeeklyData] = useState<WeeklyData | null>(null);
-  const [aiData,     setAiData]     = useState<PortfolioData | null>(null);
-  const [apexData,   setApexData]   = useState<PortfolioData | null>(null);
-  const [loading,    setLoading]    = useState(true);
+  const [weeklyData,  setWeeklyData]  = useState<WeeklyData | null>(null);
+  const [aiData,      setAiData]      = useState<PortfolioData | null>(null);
+  const [apexData,    setApexData]    = useState<PortfolioData | null>(null);
+  const [apexUSData,  setApexUSData]  = useState<PortfolioData | null>(null);
+  const [loading,     setLoading]     = useState(true);
 
   useEffect(() => {
     const ctrl = new AbortController();
 
     Promise.allSettled([
-      fetch('/api/weekly-picks', { signal: ctrl.signal }).then((r) => r.json()),
-      fetch('/api/ai-portfolio',  { signal: ctrl.signal }).then((r) => r.json()),
-      fetch('/api/apex-portfolio',{ signal: ctrl.signal }).then((r) => r.json()),
-    ]).then(([weekly, ai, apex]) => {
+      fetch('/api/weekly-picks',       { signal: ctrl.signal }).then((r) => r.json()),
+      fetch('/api/ai-portfolio',       { signal: ctrl.signal }).then((r) => r.json()),
+      fetch('/api/apex-portfolio',     { signal: ctrl.signal }).then((r) => r.json()),
+      fetch('/api/apex-us-portfolio',  { signal: ctrl.signal }).then((r) => r.json()),
+    ]).then(([weekly, ai, apex, apexUS]) => {
       if (weekly.status === 'fulfilled') {
         const d = weekly.value as { stats?: { avgReturn?: number; outperformedRate?: number; totalWeeks?: number }; thisWeek?: unknown[] };
         const rate = d.stats?.outperformedRate;
@@ -239,6 +257,10 @@ export default function AiPortfoylerPage() {
       if (apex.status === 'fulfilled') {
         const s = (apex.value as { summary?: PortfolioData & { dailyReturn?: number; winRate?: number } }).summary;
         if (s) setApexData({ totalValue: s.totalValue, totalReturn: s.totalReturn, positionCount: s.positionCount, dailyReturn: s.dailyReturn, winRate: s.winRate, initialCapital: s.initialCapital, maxDrawdown: s.maxDrawdown });
+      }
+      if (apexUS.status === 'fulfilled') {
+        const s = (apexUS.value as { summary?: PortfolioData & { dailyReturn?: number; winRate?: number } }).summary;
+        if (s) setApexUSData({ totalValue: s.totalValue, totalReturn: s.totalReturn, positionCount: s.positionCount, dailyReturn: s.dailyReturn, winRate: s.winRate, initialCapital: s.initialCapital, maxDrawdown: s.maxDrawdown });
       }
       setLoading(false);
     });
@@ -298,8 +320,9 @@ export default function AiPortfoylerPage() {
     {
       cfg: {
         icon:      Flame,
-        name:      'APEX Portföy',
-        tagline:   'Agresif momentum stratejisi. Confluence ≥75 + RelVol ≥3 filtresi, günlük kararlar, ATR bazlı stop + trailing. Kapanışa 15dk kala hareket eder.',
+        flag:      '🇹🇷',
+        name:      'APEX BIST',
+        tagline:   'Agresif momentum. BIST\'te confluence ≥75 + RelVol ≥3, günlük kararlar, sinyal bazlı kısmi kâr + ATR trailing.',
         whoFor:    'Aktif, kısa vadeli, yüksek volatilite toleransı olan deneyimli yatırımcılar için.',
         riskLabel: 'Günlük · Yüksek Risk',
         riskCls:   'border-orange-500/30 bg-orange-500/10 text-orange-400',
@@ -317,6 +340,52 @@ export default function AiPortfoylerPage() {
         { label: 'Maks. drawdown', value: apexData?.maxDrawdown != null ? `${apexData.maxDrawdown.toFixed(1)}%` : '—' },
       ],
     },
+    {
+      cfg: {
+        icon:      Flame,
+        flag:      '🇺🇸',
+        name:      'APEX US',
+        tagline:   'ABD hisse piyasası agresif momentum. $2.000 başlangıç, kesirli pay, haber fiyatlandırma analizi. 23:45 TRT kapanış sonrası karar.',
+        whoFor:    'ABD borsasını takip eden, kısa vadeli ve yüksek volatilite toleranslı yatırımcılar için.',
+        riskLabel: 'Günlük · Yüksek Risk · USD',
+        riskCls:   'border-blue-500/30 bg-blue-500/10 text-blue-400',
+        borderCls: 'border-blue-500/15 hover:border-blue-500/30',
+        headerCls: '',
+        href:      '/apex-us-portfoyu',
+      },
+      mainNode: apexUSData
+        ? <ReturnPill value={apexUSData.totalReturn} size="xl" />
+        : <span className="text-lg text-text-muted">Portföy başlatılmadı</span>,
+      rows: [
+        { label: 'Toplam değer',   value: apexUSData ? fmtUSD(apexUSData.totalValue) : '—' },
+        { label: 'Açık pozisyon',  value: apexUSData != null ? `${apexUSData.positionCount} hisse` : '—' },
+        { label: 'Win rate',       value: apexUSData?.winRate != null ? `%${apexUSData.winRate.toFixed(0)}` : '—' },
+        { label: 'Maks. drawdown', value: apexUSData?.maxDrawdown != null ? `${apexUSData.maxDrawdown.toFixed(1)}%` : '—' },
+      ],
+    },
+    {
+      cfg: {
+        icon:      Shield,
+        flag:      '🇺🇸',
+        name:      'Aegis US',
+        tagline:   'ABD borsasında haftalık Claude kararları, Kelly Criterion, -%8 stop-loss. Orta vadeli, disiplinli.',
+        whoFor:    'ABD borsasını sistematik ve orta vadeli izlemek isteyen dengeli yatırımcılar için.',
+        riskLabel: 'Haftalık · Orta Risk · USD',
+        riskCls:   'border-slate-500/30 bg-slate-500/10 text-slate-400',
+        borderCls: 'border-slate-500/15',
+        headerCls: '',
+        href:      '/yapay-zeka-portfoyu',
+        disabled:  true,
+        comingSoon: 'Aegis US — Yakında',
+      },
+      mainNode: <span className="text-lg text-text-muted">Faz 3</span>,
+      rows: [
+        { label: 'Toplam değer',   value: '—' },
+        { label: 'Açık pozisyon',  value: '—' },
+        { label: 'Win rate',       value: '—' },
+        { label: 'Maks. drawdown', value: '—' },
+      ],
+    },
   ];
 
   return (
@@ -332,9 +401,9 @@ export default function AiPortfoylerPage() {
           <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight mb-3">
             AI Portföyler
           </h1>
-          <p className="text-text-muted max-w-lg mx-auto text-sm leading-relaxed">
-            Üç farklı strateji, tek platformda. Muhafazakârdan agresife — hangisinin
-            yaklaşımı size uygun?
+          <p className="text-text-muted max-w-xl mx-auto text-sm leading-relaxed">
+            BIST ve ABD borsasında dört algoritmik strateji — muhafazakârdan agresife,
+            Türkiye'den Amerika'ya. Hangisi sizi temsil ediyor?
           </p>
         </div>
 
@@ -347,8 +416,8 @@ export default function AiPortfoylerPage() {
           <Zap className="h-3.5 w-3.5 text-orange-400" />
         </div>
 
-        {/* ── 3 Portföy Kartı ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+        {/* ── 4 Portföy Kartı — 2×2 grid ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-10">
           {cards.map((card) => (
             <PortfolioCard
               key={card.cfg.name}
@@ -366,9 +435,10 @@ export default function AiPortfoylerPage() {
         {/* ── Hızlı bağlantılar ── */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs">
           {[
-            { href: '/haftalik-secimler',   label: '→ Haftanın Seçimleri',  cls: 'text-sky-400 hover:text-sky-300' },
-            { href: '/yapay-zeka-portfoyu', label: '→ AI Portföy Detayı',   cls: 'text-emerald-400 hover:text-emerald-300' },
-            { href: '/apex-portfoyu',       label: '→ APEX Portföy Detayı', cls: 'text-orange-400 hover:text-orange-300' },
+            { href: '/apex-portfoyu',       label: '🇹🇷 APEX BIST',       cls: 'text-orange-400 hover:text-orange-300' },
+            { href: '/apex-us-portfoyu',    label: '🇺🇸 APEX US',          cls: 'text-blue-400 hover:text-blue-300' },
+            { href: '/yapay-zeka-portfoyu', label: '🇹🇷 Aegis BIST',       cls: 'text-emerald-400 hover:text-emerald-300' },
+            { href: '/haftalik-secimler',   label: '→ Haftanın Seçimleri', cls: 'text-sky-400 hover:text-sky-300' },
           ].map((l) => (
             <Link key={l.href} href={l.href} className={`transition-colors ${l.cls}`}>
               {l.label}
