@@ -13,6 +13,7 @@ import { WatchlistButton } from '@/components/WatchlistButton';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
 import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
+import { isUSSymbol } from '@/lib/us-symbols';
 import { detectAllSignals } from '@/lib/signals';
 import { WinRateBadge, type WinRateStat } from '@/components/WinRateBadge';
 import { BrokerLinkButton } from '@/components/BrokerLinkButton';
@@ -173,6 +174,11 @@ function MetaCell({ label, value }: { label: string; value: string }) {
 }
 
 export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: HisseDetailClientProps) {
+  // US borsası mı? Fiyat birimi ve fetch parametresini belirler
+  const isUS = isUSSymbol(sembol);
+  const market = isUS ? 'US' : 'BIST';
+  const currency = isUS ? '$' : '₺';
+
   // Fırsatlar sayfasından gelen snapshot bağlamı (varsa) — canlı skorla karşılaştır
   const searchParams = useSearchParams();
   const snapshotCtx = useMemo(() => {
@@ -497,7 +503,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     (async () => {
       setLoading(true);
       try {
-        const data = await fetchOHLCVByTimeframeClient(sembol, timeframe);
+        const data = await fetchOHLCVByTimeframeClient(sembol, timeframe, market);
         if (cancelled) return;
         setCandles(data);
         const sigs = detectAllSignals(sembol, data);
@@ -617,7 +623,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     <div className="mt-2 flex items-baseline gap-3 flex-wrap">
                       {currentPrice && (
                         <span className="text-3xl font-mono font-bold text-text-primary">
-                          {currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}₺
+                          {isUS ? '$' : ''}{currentPrice.toLocaleString(isUS ? 'en-US' : 'tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{isUS ? '' : '₺'}
                         </span>
                       )}
                       {changePercent !== undefined && changePercent !== null && (
@@ -692,8 +698,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 border-t border-border/40 pt-4">
                       {volume !== undefined && <MetaCell label="Hacim" value={formatVolume(volume)} />}
                       {avgVolume20d !== undefined && <MetaCell label="Ort. Hacim (20g)" value={formatVolume(avgVolume20d)} />}
-                      {high90d !== undefined && <MetaCell label="90G Yüksek" value={high90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
-                      {low90d !== undefined && <MetaCell label="90G Düşük" value={low90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
+                      {high90d !== undefined && <MetaCell label="90G Yüksek" value={(isUS ? '$' : '') + high90d.toLocaleString(isUS ? 'en-US' : 'tr-TR', { minimumFractionDigits: 2 }) + (isUS ? '' : '₺')} />}
+                      {low90d !== undefined && <MetaCell label="90G Düşük" value={(isUS ? '$' : '') + low90d.toLocaleString(isUS ? 'en-US' : 'tr-TR', { minimumFractionDigits: 2 }) + (isUS ? '' : '₺')} />}
                       {rsi14 !== null && (
                         <div className="min-w-0">
                           <p className="text-[10px] uppercase tracking-wide text-text-muted">RSI 14</p>

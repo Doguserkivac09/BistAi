@@ -36,7 +36,7 @@ const TR_HOLIDAYS_2026 = [
   '2026-10-29', // Cumhuriyet Bayramı
 ];
 
-const US_HOLIDAYS_2026 = [
+export const US_HOLIDAYS_2026 = [
   '2026-01-01', // New Year
   '2026-01-19', // MLK Day
   '2026-02-16', // Presidents Day

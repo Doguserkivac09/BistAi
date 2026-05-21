@@ -42,6 +42,8 @@ interface ScreenerResponse {
   results: ScreenerResult[];
 }
 
+type Market = 'BIST' | 'US' | 'all';
+
 interface Filters {
   sector: string;
   signalType: string;
@@ -57,12 +59,14 @@ interface Filters {
   near52wHigh: string;
   near52wLow: string;
   relVol5Min: string;
+  market: Market;
 }
 
 const EMPTY_FILTERS: Filters = {
   sector: '', signalType: '', severity: '', direction: '', mtfOnly: false,
   rsiMin: '', rsiMax: '', changeMin: '', changeMax: '', volumeMin: '',
   confluenceMin: '', near52wHigh: '', near52wLow: '', relVol5Min: '',
+  market: 'BIST',
 };
 
 // ── Preset'ler ───────────────────────────────────────────────────────────────
@@ -331,6 +335,7 @@ export default function TaramaPage() {
     if (f.near52wHigh)   params.set('near52wHigh', f.near52wHigh);
     if (f.near52wLow)    params.set('near52wLow', f.near52wLow);
     if (f.relVol5Min)    params.set('relVol5Min', f.relVol5Min);
+    if (f.market !== 'BIST') params.set('market', f.market);
     params.set('limit', '200');
     try {
       const res = await fetch(`/api/screener?${params}`, { signal: ctrl.signal });
@@ -364,6 +369,7 @@ export default function TaramaPage() {
       changeMax: sp.get('changeMax') ?? '', volumeMin: sp.get('volumeMin') ?? '',
       confluenceMin: sp.get('confluenceMin') ?? '', near52wHigh: sp.get('near52wHigh') ?? '',
       near52wLow: sp.get('near52wLow') ?? '', relVol5Min: sp.get('relVol5Min') ?? '',
+      market: (sp.get('market') as Market) ?? 'BIST',
     });
   }, []);
 
@@ -385,6 +391,7 @@ export default function TaramaPage() {
     if (filters.near52wHigh)   sp.set('near52wHigh', filters.near52wHigh);
     if (filters.near52wLow)    sp.set('near52wLow', filters.near52wLow);
     if (filters.relVol5Min)    sp.set('relVol5Min', filters.relVol5Min);
+    if (filters.market !== 'BIST') sp.set('market', filters.market);
     const qs = sp.toString();
     window.history.replaceState(null, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
   }, [filters]);
@@ -460,6 +467,33 @@ export default function TaramaPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* ── Piyasa Seçimi ── */}
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-xs text-text-muted font-medium shrink-0">Piyasa:</span>
+          <div className="flex overflow-hidden rounded-lg border border-border">
+            {([
+              { val: 'BIST', label: '🇹🇷 BIST' },
+              { val: 'US',   label: '🇺🇸 ABD'  },
+              { val: 'all',  label: 'Tümü'     },
+            ] as const).map((opt) => (
+              <button
+                key={opt.val}
+                onClick={() => setFilter('market', opt.val)}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  filters.market === opt.val
+                    ? 'bg-primary text-white'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >{opt.label}</button>
+            ))}
+          </div>
+          {filters.market === 'US' && (
+            <span className="text-[10px] text-text-muted/60">
+              ABD kapanış sonrası taranır (23:30 TRT)
+            </span>
+          )}
         </div>
 
         {/* ── Preset Bar ── */}
