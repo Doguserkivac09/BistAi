@@ -53,6 +53,14 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
+
+      // US semboller: fetchOHLCVByTimeframe .IS suffix ekler → fetchOHLCVUS kullan
+      if (market === 'US') {
+        const daysForTf = tf === '1mo' ? 730 : tf === '1wk' ? 365 : 252;
+        const { candles, changePercent, currentPrice } = await fetchOHLCVUS(trimmed, daysForTf);
+        return NextResponse.json({ candles, changePercent, currentPrice });
+      }
+
       const candles = await fetchOHLCVByTimeframe(trimmed, tf);
       return NextResponse.json({ candles } as { candles: OHLCVCandle[] });
     }

@@ -95,11 +95,18 @@ export async function fetchOHLCVUS(
     });
   }
 
+  // changePercent: meta'dan al, yoksa son iki mum farkından hesapla
+  const metaChangePct = typeof meta?.regularMarketChangePercent === 'number'
+    ? meta.regularMarketChangePercent : null;
+  const computedChangePct = candles.length >= 2
+    ? ((candles.at(-1)!.close - candles.at(-2)!.close) / candles.at(-2)!.close) * 100
+    : null;
+
   const data: OHLCVFetchResult = {
     candles,
-    changePercent: typeof meta?.regularMarketChangePercent === 'number' ? meta.regularMarketChangePercent : undefined,
-    currentPrice:  typeof meta?.regularMarketPrice         === 'number' ? meta.regularMarketPrice         : undefined,
-    shortName:     typeof meta?.shortName                  === 'string' ? meta.shortName                  : undefined,
+    changePercent: metaChangePct ?? computedChangePct ?? undefined,
+    currentPrice:  typeof meta?.regularMarketPrice === 'number' ? meta.regularMarketPrice : candles.at(-1)?.close,
+    shortName:     typeof meta?.shortName          === 'string' ? meta.shortName          : undefined,
   };
 
   setCached(cacheKey, data);

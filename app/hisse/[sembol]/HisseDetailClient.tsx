@@ -372,6 +372,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [fundamentalScore, setFundamentalScore] = useState<FundamentalScoreData | null>(null);
 
   useEffect(() => {
+    if (isUS) return; // US için BIST yatırım skoru geçerli değil
     let cancelled = false;
     fetch(`/api/investment-score?sembol=${encodeURIComponent(sembol)}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -385,7 +386,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [sembol]);
+  }, [sembol, isUS]);
 
   // ── Çelişki tespiti — Teknik vs Temel ───────────────────────────────
   type SignalConflict = 'tech-strong-fund-weak' | 'tech-weak-fund-strong' | 'aligned-bullish' | 'aligned-bearish' | 'mixed' | null;
@@ -450,6 +451,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
   // ── Haberler ────────────────────────────────────────────────────────────────
   const loadHaberler = useCallback(async () => {
+    if (isUS) { setHaberLoading(false); return; } // US için Türkçe haber yok
     setHaberLoading(true);
     try {
       const res = await fetch(`/api/haber?sembol=${sembol}`);
