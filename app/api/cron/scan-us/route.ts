@@ -16,9 +16,11 @@ import { US_SYMBOL_LIST } from '@/lib/us-symbols';
 import { usMarketGuard } from '@/lib/us-market-guard';
 import type { OHLCVCandle, StockSignal } from '@/types';
 
+export const maxDuration = 300; // Vercel Pro: 5 dk (530 sembol için yeterli)
+
 const CRON_SECRET = process.env.CRON_SECRET;
-const BATCH_SIZE  = 8;
-const BATCH_DELAY = 350; // ms — Yahoo rate limit
+const BATCH_SIZE  = 6;   // 530 sembol / 6 = ~89 batch × 500ms = ~45s delay
+const BATCH_DELAY = 500; // ms — Yahoo rate limit için güvenli aralık
 
 function createAdmin() {
   return createClient(
