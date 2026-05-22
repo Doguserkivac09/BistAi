@@ -12,6 +12,11 @@
  * Penny / micro-cap yok.
  */
 
+export type ThemeId =
+  | 'AI' | 'Quantum' | 'Space' | 'Cybersecurity'
+  | 'Datacenter' | 'Defense' | 'Semis' | 'Biotech'
+  | 'Crypto' | 'EV' | 'CleanEnergy' | 'Networking' | 'PowerInfra';
+
 export interface USSymbol {
   symbol: string;
   sector: string;
@@ -439,6 +444,9 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'VRNS',  sector: 'Cybersecurity', type: 'growth' }, // Varonis
   { symbol: 'QLYS',  sector: 'Cybersecurity', type: 'growth' }, // Qualys
   { symbol: 'RBRK',  sector: 'Cybersecurity', type: 'growth' }, // Rubrik
+  { symbol: 'CHKP',  sector: 'Cybersecurity', type: 'growth' }, // Check Point Software
+  { symbol: 'ESTC',  sector: 'Cybersecurity', type: 'growth' }, // Elastic NV — log analitik + güvenlik
+  { symbol: 'DT',    sector: 'Cybersecurity', type: 'growth' }, // Dynatrace — gözlemlenebilirlik
 
   // ── SaaS / Data ───────────────────────────────────────
   { symbol: 'NOW',   sector: 'Technology',  type: 'growth' },
@@ -506,11 +514,16 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'LI',    sector: 'Consumer',    type: 'growth' },
 
   // ── Yapay Zeka (AI) Altyapı ve Uygulamalar ─────────────
-  { symbol: 'VRT',   sector: 'AI',          type: 'growth' }, // Vertiv — AI datacenter güç
+  { symbol: 'VRT',   sector: 'AI',          type: 'growth' }, // Vertiv — AI datacenter güç altyapısı
   { symbol: 'TEM',   sector: 'AI',          type: 'growth' }, // Tempus AI — sağlık AI
-  { symbol: 'NBIS',  sector: 'AI',          type: 'growth' }, // Nebius — AI cloud
-  { symbol: 'CRDO',  sector: 'AI',          type: 'growth' }, // Credo Technology — AI networking
+  { symbol: 'NBIS',  sector: 'AI',          type: 'growth' }, // Nebius — AI cloud platformu
+  { symbol: 'CRDO',  sector: 'AI',          type: 'growth' }, // Credo Technology — AI networking çipleri
   { symbol: 'ALAB',  sector: 'AI',          type: 'growth' }, // Astera Labs — AI veri merkezi
+  { symbol: 'AMBA',  sector: 'AI',          type: 'growth' }, // Ambarella — edge AI yarı iletken
+  { symbol: 'SMTC',  sector: 'AI',          type: 'growth' }, // Semtech — AI bağlantısı (LoRa)
+  { symbol: 'PATH',  sector: 'AI',          type: 'growth' }, // UiPath — AI iş süreci otomasyonu
+  { symbol: 'NICE',  sector: 'AI',          type: 'growth' }, // NICE Systems — AI müşteri hizmetleri
+  { symbol: 'CFLT',  sector: 'AI',          type: 'growth' }, // Confluent — AI veri akış platformu
 
   // ── Nasdaq 100 Ekleri (S&P 500'de olmayan) ─────────────
   { symbol: 'GRAB',  sector: 'Consumer',    type: 'growth' },
@@ -583,6 +596,11 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'BKSY',  sector: 'Space',       type: 'speculative' }, // BlackSky
   { symbol: 'SATS',  sector: 'Space',       type: 'speculative' }, // EchoStar
   { symbol: 'VSAT',  sector: 'Space',       type: 'speculative' }, // Viasat
+  { symbol: 'KTOS',  sector: 'Space',       type: 'speculative' }, // Kratos Defense — drone/uzay sistemleri
+  { symbol: 'AVAV',  sector: 'Space',       type: 'speculative' }, // AeroVironment — drone/savunma
+  { symbol: 'RDW',   sector: 'Space',       type: 'speculative' }, // Redwire Space — uzay altyapısı
+  { symbol: 'SPIR',  sector: 'Space',       type: 'speculative' }, // Spire Global — uydu veri analitik
+  { symbol: 'GSAT',  sector: 'Space',       type: 'speculative' }, // Globalstar — uydu iletişim
 
   // ── AI / Software Speculative ─────────────────────────
   { symbol: 'AI',    sector: 'AI',          type: 'speculative' }, // C3.ai
@@ -620,6 +638,170 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'PAGS',  sector: 'Finance',     type: 'speculative' },
 ];
 
+// ── Tema Haritası ────────────────────────────────────────────────────────
+// Bir sembol birden fazla temaya ait olabilir.
+// Tüm geçerli tema ID'leri: ThemeId tipine bakın.
+
+export const SYMBOL_THEMES: Record<string, ThemeId[]> = {
+  // ── AI ──────────────────────────────────────────────────
+  NVDA: ['AI', 'Semis', 'Datacenter'],
+  AMD:  ['AI', 'Semis'],
+  ARM:  ['AI', 'Semis'],
+  MSFT: ['AI'],
+  GOOGL:['AI'],
+  META: ['AI'],
+  IBM:  ['AI', 'Quantum'],
+  CRM:  ['AI'],
+  ADBE: ['AI'],
+  PLTR: ['AI', 'Defense'],
+  APP:  ['AI'],
+  DDOG: ['AI'],
+  SNOW: ['AI'],
+  NOW:  ['AI'],
+  MU:   ['AI', 'Semis'],
+  MRVL: ['AI', 'Semis', 'Networking'],
+  ANET: ['AI', 'Networking', 'Datacenter'],
+  VRT:  ['AI', 'Datacenter', 'PowerInfra'],
+  TEM:  ['AI', 'Biotech'],
+  NBIS: ['AI'],
+  CRDO: ['AI', 'Semis', 'Networking'],
+  ALAB: ['AI', 'Datacenter'],
+  AMBA: ['AI', 'Semis'],
+  SMTC: ['AI', 'Semis'],
+  PATH: ['AI'],
+  NICE: ['AI'],
+  CFLT: ['AI'],
+  ESTC: ['AI', 'Cybersecurity'],
+  DT:   ['AI', 'Cybersecurity'],
+  AI:   ['AI'],
+  BBAI: ['AI', 'Defense'],
+  SOUN: ['AI'],
+  IREN: ['AI', 'Crypto'],
+  TSLA: ['AI', 'EV'],
+  RXRX: ['AI', 'Biotech'],
+  ETN:  ['AI', 'PowerInfra'],
+  DUOL: ['AI'],
+  MNDY: ['AI'],
+  VEEV: ['AI'],
+
+  // ── Quantum ─────────────────────────────────────────────
+  RGTI: ['Quantum'],
+  IONQ: ['Quantum'],
+  QBTS: ['Quantum'],
+  ARQQ: ['Quantum'],
+  QUBT: ['Quantum'],
+  HON:  ['Quantum', 'Defense'],
+
+  // ── Space ────────────────────────────────────────────────
+  RKLB: ['Space'],
+  ASTS: ['Space'],
+  LUNR: ['Space'],
+  IRDM: ['Space'],
+  PL:   ['Space'],
+  BKSY: ['Space'],
+  SATS: ['Space'],
+  VSAT: ['Space'],
+  KTOS: ['Space', 'Defense'],
+  AVAV: ['Space', 'Defense'],
+  RDW:  ['Space'],
+  SPIR: ['Space'],
+  GSAT: ['Space'],
+  LHX:  ['Defense', 'Space'],
+  LMT:  ['Defense', 'Space'],
+
+  // ── Cybersecurity ────────────────────────────────────────
+  PANW: ['Cybersecurity'],
+  CRWD: ['Cybersecurity'],
+  FTNT: ['Cybersecurity'],
+  ZS:   ['Cybersecurity'],
+  OKTA: ['Cybersecurity'],
+  NET:  ['Cybersecurity', 'Networking'],
+  S:    ['Cybersecurity'],
+  CYBR: ['Cybersecurity'],
+  TENB: ['Cybersecurity'],
+  VRNS: ['Cybersecurity'],
+  QLYS: ['Cybersecurity'],
+  RBRK: ['Cybersecurity'],
+  CHKP: ['Cybersecurity'],
+  VRSN: ['Cybersecurity'],
+  AKAM: ['Cybersecurity', 'Networking'],
+
+  // ── Defense ──────────────────────────────────────────────
+  RTX:  ['Defense'],
+  NOC:  ['Defense'],
+  GD:   ['Defense'],
+  BA:   ['Defense'],
+  HII:  ['Defense'],
+  LDOS: ['Defense'],
+  SAIC: ['Defense'],
+
+  // ── Semis ────────────────────────────────────────────────
+  INTC: ['Semis'],
+  QCOM: ['Semis'],
+  TXN:  ['Semis'],
+  AVGO: ['Semis'],
+  NXPI: ['Semis'],
+  ON:   ['Semis'],
+  KLAC: ['Semis'],
+  LRCX: ['Semis'],
+  AMAT: ['Semis'],
+  ADI:  ['Semis'],
+  ASML: ['Semis'],
+  MCHP: ['Semis'],
+  SWKS: ['Semis'],
+  WOLF: ['Semis', 'EV'],
+
+  // ── Biotech ──────────────────────────────────────────────
+  MRNA: ['Biotech'],
+  BNTX: ['Biotech'],
+  BIIB: ['Biotech'],
+  GILD: ['Biotech'],
+  REGN: ['Biotech'],
+  VRTX: ['Biotech'],
+  AMGN: ['Biotech'],
+  ILMN: ['Biotech'],
+  NVAX: ['Biotech'],
+  BMRN: ['Biotech'],
+  SRPT: ['Biotech'],
+  ARWR: ['Biotech'],
+
+  // ── Crypto ───────────────────────────────────────────────
+  COIN: ['Crypto'],
+  MARA: ['Crypto'],
+  RIOT: ['Crypto'],
+  CLSK: ['Crypto'],
+  BITF: ['Crypto'],
+  CIFR: ['Crypto'],
+  MSTR: ['Crypto'],
+
+  // ── EV ───────────────────────────────────────────────────
+  RIVN: ['EV'],
+  NIO:  ['EV'],
+  XPEV: ['EV'],
+  LI:   ['EV'],
+  LCID: ['EV'],
+
+  // ── CleanEnergy ──────────────────────────────────────────
+  NEE:  ['CleanEnergy', 'PowerInfra'],
+  PLUG: ['CleanEnergy'],
+  FCEL: ['CleanEnergy'],
+  BE:   ['CleanEnergy'],
+  VST:  ['CleanEnergy', 'PowerInfra'],
+
+  // ── Networking ───────────────────────────────────────────
+  CSCO: ['Networking'],
+  JNPR: ['Networking'],
+  FFIV: ['Networking'],
+
+  // ── Datacenter ───────────────────────────────────────────
+  EQIX: ['Datacenter'],
+  AMT:  ['Datacenter'],
+
+  // ── PowerInfra ───────────────────────────────────────────
+  GNRC: ['PowerInfra'],
+  PWR:  ['PowerInfra'],
+};
+
 // ── Yardımcılar ──────────────────────────────────────────────────────────
 
 const US_SYMBOL_SET = new Set(US_SYMBOLS.map((s) => s.symbol.toUpperCase()));
@@ -636,3 +818,22 @@ export const US_SYMBOL_LIST: string[] = US_SYMBOLS.map((s) => s.symbol);
 export function getUSSymbolsByType(type: USSymbol['type']): string[] {
   return US_SYMBOLS.filter((s) => s.type === type).map((s) => s.symbol);
 }
+
+/** Belirli temaya ait tüm sembolleri döndür */
+export function getSymbolsByTheme(theme: ThemeId): string[] {
+  return Object.entries(SYMBOL_THEMES)
+    .filter(([, themes]) => themes.includes(theme))
+    .map(([sym]) => sym);
+}
+
+/** Bir sembolün temalarını döndür */
+export function getThemesForSymbol(symbol: string): ThemeId[] {
+  return SYMBOL_THEMES[symbol.toUpperCase()] ?? [];
+}
+
+/** Tüm tema ID'lerini döndür */
+export const ALL_THEMES: ThemeId[] = [
+  'AI', 'Quantum', 'Space', 'Cybersecurity',
+  'Datacenter', 'Defense', 'Semis', 'Biotech',
+  'Crypto', 'EV', 'CleanEnergy', 'Networking', 'PowerInfra',
+];
