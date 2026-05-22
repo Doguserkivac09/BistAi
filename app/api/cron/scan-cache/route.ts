@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
   const failed: string[] = [];
   const rows: Array<{
     sembol: string;
+    market: string;
     signals_json: object;
     candles_json: object;
     change_percent: number | null;
@@ -180,6 +181,7 @@ export async function GET(request: NextRequest) {
 
       rows.push({
         sembol,
+        market:        'BIST',
         signals_json: signals,
         candles_json: last60,
         change_percent: changePercent
@@ -244,7 +246,7 @@ export async function GET(request: NextRequest) {
   if (rows.length > 0) {
     const { error } = await supabase
       .from('scan_cache')
-      .upsert(rows, { onConflict: 'sembol' });
+      .upsert(rows, { onConflict: 'sembol,market' });
 
     if (error) {
       console.error('[cron/scan-cache] DB upsert hatası:', error.message);
