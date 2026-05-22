@@ -426,13 +426,19 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'NXPI',  sector: 'Technology',  type: 'growth' },
   { symbol: 'WOLF',  sector: 'Technology',  type: 'growth' },
 
-  // ── Cybersecurity / Cloud ─────────────────────────────
-  { symbol: 'PANW',  sector: 'Technology',  type: 'growth' },
-  { symbol: 'CRWD',  sector: 'Technology',  type: 'growth' },
-  { symbol: 'FTNT',  sector: 'Technology',  type: 'growth' },
-  { symbol: 'ZS',    sector: 'Technology',  type: 'growth' },
-  { symbol: 'OKTA',  sector: 'Technology',  type: 'growth' },
-  { symbol: 'NET',   sector: 'Technology',  type: 'growth' },
+  // ── Cybersecurity ─────────────────────────────────────
+  { symbol: 'PANW',  sector: 'Cybersecurity', type: 'growth' }, // Palo Alto Networks
+  { symbol: 'CRWD',  sector: 'Cybersecurity', type: 'growth' }, // CrowdStrike
+  { symbol: 'FTNT',  sector: 'Cybersecurity', type: 'growth' }, // Fortinet
+  { symbol: 'ZS',    sector: 'Cybersecurity', type: 'growth' }, // Zscaler
+  { symbol: 'OKTA',  sector: 'Cybersecurity', type: 'growth' }, // Okta
+  { symbol: 'NET',   sector: 'Cybersecurity', type: 'growth' }, // Cloudflare
+  { symbol: 'S',     sector: 'Cybersecurity', type: 'growth' }, // SentinelOne
+  { symbol: 'CYBR',  sector: 'Cybersecurity', type: 'growth' }, // CyberArk
+  { symbol: 'TENB',  sector: 'Cybersecurity', type: 'growth' }, // Tenable
+  { symbol: 'VRNS',  sector: 'Cybersecurity', type: 'growth' }, // Varonis
+  { symbol: 'QLYS',  sector: 'Cybersecurity', type: 'growth' }, // Qualys
+  { symbol: 'RBRK',  sector: 'Cybersecurity', type: 'growth' }, // Rubrik
 
   // ── SaaS / Data ───────────────────────────────────────
   { symbol: 'NOW',   sector: 'Technology',  type: 'growth' },
@@ -452,7 +458,7 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'TTD',   sector: 'Technology',  type: 'growth' },
   { symbol: 'MNDY',  sector: 'Technology',  type: 'growth' },
   { symbol: 'DUOL',  sector: 'Technology',  type: 'growth' },
-  { symbol: 'APP',   sector: 'Technology',  type: 'growth' },
+  { symbol: 'APP',   sector: 'AI',          type: 'growth' }, // AppLovin — AI reklam
   { symbol: 'U',     sector: 'Technology',  type: 'growth' },
   { symbol: 'TEAM',  sector: 'Technology',  type: 'growth' },
 
@@ -499,6 +505,13 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'XPEV',  sector: 'Consumer',    type: 'growth' },
   { symbol: 'LI',    sector: 'Consumer',    type: 'growth' },
 
+  // ── Yapay Zeka (AI) Altyapı ve Uygulamalar ─────────────
+  { symbol: 'VRT',   sector: 'AI',          type: 'growth' }, // Vertiv — AI datacenter güç
+  { symbol: 'TEM',   sector: 'AI',          type: 'growth' }, // Tempus AI — sağlık AI
+  { symbol: 'NBIS',  sector: 'AI',          type: 'growth' }, // Nebius — AI cloud
+  { symbol: 'CRDO',  sector: 'AI',          type: 'growth' }, // Credo Technology — AI networking
+  { symbol: 'ALAB',  sector: 'AI',          type: 'growth' }, // Astera Labs — AI veri merkezi
+
   // ── Nasdaq 100 Ekleri (S&P 500'de olmayan) ─────────────
   { symbol: 'GRAB',  sector: 'Consumer',    type: 'growth' },
   { symbol: 'GLBE',  sector: 'Technology',  type: 'growth' },
@@ -520,10 +533,8 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'AEP',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'XEL',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'WEC',   sector: 'Utilities',   type: 'dividend' },
-  { symbol: 'PPL',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'CMS',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'ETR',   sector: 'Utilities',   type: 'dividend' },
-  { symbol: 'FE',    sector: 'Utilities',   type: 'dividend' },
   { symbol: 'EXC',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'CEG',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'SRE',   sector: 'Utilities',   type: 'dividend' },
@@ -532,9 +543,7 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'DTE',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'PCG',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'AES',   sector: 'Utilities',   type: 'dividend' },
-  { symbol: 'NRG',   sector: 'Utilities',   type: 'dividend' },
   { symbol: 'VST',   sector: 'Utilities',   type: 'dividend' },
-  { symbol: 'NI',    sector: 'Utilities',   type: 'dividend' },
 
   // ── REITs ─────────────────────────────────────────────
   { symbol: 'PLD',   sector: 'Real Estate', type: 'dividend' },
@@ -548,48 +557,42 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'WELL',  sector: 'Real Estate', type: 'dividend' },
   { symbol: 'AVB',   sector: 'Real Estate', type: 'dividend' },
   { symbol: 'EQR',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'ESS',   sector: 'Real Estate', type: 'dividend' },
   { symbol: 'NNN',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'KIM',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'REG',   sector: 'Real Estate', type: 'dividend' },
   { symbol: 'EXR',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'CUBE',  sector: 'Real Estate', type: 'dividend' },
   { symbol: 'INVH',  sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'SUI',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'STAG',  sector: 'Real Estate', type: 'dividend' },
   { symbol: 'CCI',   sector: 'Real Estate', type: 'dividend' },
   { symbol: 'SBAC',  sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'UDR',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'OHI',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'MPW',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'NHI',   sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'PEAK',  sector: 'Real Estate', type: 'dividend' },
-  { symbol: 'STWD',  sector: 'Real Estate', type: 'dividend' },
 
   // ══════════════════════════════════════════════════════
   // SPECULATIVE — Momentum, Tematik, Yüksek Beta
   // ══════════════════════════════════════════════════════
 
   // ── Quantum Computing ─────────────────────────────────
-  { symbol: 'RGTI',  sector: 'Technology',  type: 'speculative' }, // kullanıcı talebi
-  { symbol: 'IONQ',  sector: 'Technology',  type: 'speculative' },
-  { symbol: 'QBTS',  sector: 'Technology',  type: 'speculative' },
-  { symbol: 'ARQQ',  sector: 'Technology',  type: 'speculative' },
+  { symbol: 'RGTI',  sector: 'Quantum',     type: 'speculative' }, // Rigetti
+  { symbol: 'IONQ',  sector: 'Quantum',     type: 'speculative' }, // IonQ
+  { symbol: 'QBTS',  sector: 'Quantum',     type: 'speculative' }, // D-Wave
+  { symbol: 'ARQQ',  sector: 'Quantum',     type: 'speculative' }, // Arqit
+  { symbol: 'QUBT',  sector: 'Quantum',     type: 'speculative' }, // Quantum Computing Inc
+
+  // ── Space / Satellite ─────────────────────────────────
+  { symbol: 'RKLB',  sector: 'Space',       type: 'speculative' }, // Rocket Lab
+  { symbol: 'ASTS',  sector: 'Space',       type: 'speculative' }, // AST SpaceMobile
+  { symbol: 'LUNR',  sector: 'Space',       type: 'speculative' }, // Intuitive Machines
+  { symbol: 'IRDM',  sector: 'Space',       type: 'speculative' }, // Iridium Communications
+  { symbol: 'PL',    sector: 'Space',       type: 'speculative' }, // Planet Labs
+  { symbol: 'BKSY',  sector: 'Space',       type: 'speculative' }, // BlackSky
+  { symbol: 'SATS',  sector: 'Space',       type: 'speculative' }, // EchoStar
+  { symbol: 'VSAT',  sector: 'Space',       type: 'speculative' }, // Viasat
 
   // ── AI / Software Speculative ─────────────────────────
-  { symbol: 'AI',    sector: 'Technology',  type: 'speculative' },
-  { symbol: 'BBAI',  sector: 'Technology',  type: 'speculative' },
-  { symbol: 'SOUN',  sector: 'Technology',  type: 'speculative' },
-  { symbol: 'MTTR',  sector: 'Technology',  type: 'speculative' },
-  { symbol: 'BFLY',  sector: 'Technology',  type: 'speculative' },
+  { symbol: 'AI',    sector: 'AI',          type: 'speculative' }, // C3.ai
+  { symbol: 'BBAI',  sector: 'AI',          type: 'speculative' }, // BigBear.ai
+  { symbol: 'SOUN',  sector: 'AI',          type: 'speculative' }, // SoundHound
+  { symbol: 'IREN',  sector: 'AI',          type: 'speculative' }, // Iren (AI datacenter + kripto)
 
-  // ── Space / eVTOL / Aerospace ─────────────────────────
-  { symbol: 'RKLB',  sector: 'Industrial',  type: 'speculative' },
-  { symbol: 'ASTS',  sector: 'Technology',  type: 'speculative' },
+  // ── eVTOL / Hava Mobilite ────────────────────────────
   { symbol: 'JOBY',  sector: 'Industrial',  type: 'speculative' },
   { symbol: 'ACHR',  sector: 'Industrial',  type: 'speculative' },
-  { symbol: 'LUNR',  sector: 'Technology',  type: 'speculative' },
-  { symbol: 'SPCE',  sector: 'Industrial',  type: 'speculative' },
 
   // ── Crypto / Blockchain Mining ────────────────────────
   { symbol: 'MARA',  sector: 'Finance',     type: 'speculative' },
@@ -598,13 +601,10 @@ export const US_SYMBOLS: USSymbol[] = [
   { symbol: 'BITF',  sector: 'Finance',     type: 'speculative' },
   { symbol: 'CIFR',  sector: 'Finance',     type: 'speculative' },
 
-  // ── Temiz Enerji / Hydrogen ───────────────────────────
+  // ── Temiz Enerji ──────────────────────────────────────
   { symbol: 'PLUG',  sector: 'Energy',      type: 'speculative' },
   { symbol: 'FCEL',  sector: 'Energy',      type: 'speculative' },
   { symbol: 'BE',    sector: 'Energy',      type: 'speculative' },
-  { symbol: 'GEVO',  sector: 'Energy',      type: 'speculative' },
-  { symbol: 'CLNE',  sector: 'Energy',      type: 'speculative' },
-  { symbol: 'NKLA',  sector: 'Industrial',  type: 'speculative' },
 
   // ── Consumer Speculative ──────────────────────────────
   { symbol: 'PTON',  sector: 'Consumer',    type: 'speculative' },
