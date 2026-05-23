@@ -13,8 +13,9 @@ import { WatchlistButton } from '@/components/WatchlistButton';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
 import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
-import { isUSSymbol } from '@/lib/us-symbols';
+import { isUSSymbol, getThemesForSymbol } from '@/lib/us-symbols';
 import { detectAllSignals } from '@/lib/signals';
+import { getThemeEmoji } from '@/lib/theme-descriptions';
 import { WinRateBadge, type WinRateStat } from '@/components/WinRateBadge';
 import { BrokerLinkButton } from '@/components/BrokerLinkButton';
 import { TradeTargetsCard } from '@/components/TradeTargetsCard';
@@ -624,6 +625,26 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                         <span className="text-sm text-text-muted truncate max-w-[200px]">{shortName}</span>
                       )}
                     </div>
+                    {/* Tema Pills — US sembolleri için */}
+                    {isUS && (() => {
+                      const themes = getThemesForSymbol(sembol);
+                      if (themes.length === 0) return null;
+                      return (
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          {themes.map((themeId) => (
+                            <Link
+                              key={themeId}
+                              href={`/tema/${themeId}`}
+                              className="inline-flex items-center gap-1 rounded-full bg-slate-500/15 border border-slate-500/30 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:border-slate-400/50 hover:bg-slate-500/25 transition-all"
+                              title={`${themeId} temasına git`}
+                            >
+                              <span>{getThemeEmoji(themeId)}</span>
+                              <span>{themeId}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div className="mt-2 flex items-baseline gap-3 flex-wrap">
                       {currentPrice && (
                         <span className="text-3xl font-mono font-bold text-text-primary">

@@ -17,6 +17,8 @@ import { toast } from 'sonner';
 import type { FirsatItem } from '@/app/api/firsatlar/route';
 import { InfoPopover } from '@/components/InfoPopover';
 import { detectPhase } from '@/lib/market-phase';
+import { getThemesForSymbol } from '@/lib/us-symbols';
+import { getThemeEmoji } from '@/lib/theme-descriptions';
 
 // ── Sinyal güç seviyeleri ────────────────────────────────────────────
 
@@ -439,6 +441,23 @@ export function FirsatKarti({
                     {cfg.label}
                   </span>
                 );
+              })()}
+              {/* Tema Pills (max 3) */}
+              {(() => {
+                const themes = getThemesForSymbol(firsat.sembol).slice(0, 3);
+                if (themes.length === 0) return null;
+                return themes.map((themeId) => (
+                  <Link
+                    key={themeId}
+                    href={`/tema/${themeId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-500/15 border border-slate-500/30 px-2 py-0.5 text-[9px] font-semibold text-slate-300 hover:border-slate-400/50 hover:bg-slate-500/25 transition-all"
+                    title={`${themeId} temasına git`}
+                  >
+                    <span>{getThemeEmoji(themeId)}</span>
+                    <span>{themeId}</span>
+                  </Link>
+                ));
               })()}
               <span className={`flex items-center gap-0.5 text-[10px] ${
                 firsat.ageHours > 120 ? 'text-orange-400 font-semibold' :
