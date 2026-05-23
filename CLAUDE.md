@@ -1,7 +1,7 @@
 # Investable Edge — Claude Code Proje Hafızası
 
 > Bu dosya Claude Code tarafından otomatik okunur. Tüm ekip üyeleri aynı bağlamı paylaşır.
-> Son güncelleme: 2026-05-17
+> Son güncelleme: 2026-05-23
 
 ---
 
@@ -46,9 +46,22 @@ görünmeye başlayınca `NavbarClient.tsx`'teki yorum satırını kaldır ve sa
 
 ---
 
-## 🚀 MEVCUT DURUM (2026-05-17)
+## 🚀 MEVCUT DURUM (2026-05-23)
 
-### Bu Session'da Tamamlananlar
+### Bu Session'da Tamamlananlar (Phase B — Tema Landing Sayfaları)
+
+| Özellik | Sayfa/Dosya | Commit |
+|---------|-------|--------|
+| **Tema Açıklamaları** | `lib/theme-descriptions.ts` | `3add611` |
+| **Tema Performans API** | `/api/tema-performans` | `3add611` |
+| **Tema Haberleri API** | `/api/tema-haberleri` | `3add611` |
+| **Tema Heatmap** | `/temalar` | `3add611` |
+| **Dinamik Tema Landing** | `/tema/[id]` | `3add611` |
+| **Navbar Temalar Linki** | `components/NavbarClient.tsx` | `3add611` |
+| **FirsatKarti Tema Pills** | `components/FirsatKarti.tsx` | `3add611` |
+| **Hisse Detail Tema Pills** | `app/hisse/[sembol]` | `3add611` |
+
+### Önceki Session'da Tamamlananlar (Phase A — May 17)
 
 | Özellik | Sayfa | Commit |
 |---------|-------|--------|
@@ -61,7 +74,37 @@ görünmeye başlayınca `NavbarClient.tsx`'teki yorum satırını kaldır ve sa
 
 ### Özellik Özetleri
 
-**Haftanın Seçimleri (`/haftalik-secimler`)**
+**Phase B — Tema Landing Sayfaları (2026-05-23)**
+
+13 tematik yatırım alanı için modern heatmap, performans API'leri ve dinamik landing page'leri:
+
+| Tema | Emoji | Açıklama |
+|------|-------|----------|
+| AI | 🤖 | Yapay zeka, LLM, machine learning |
+| Quantum | ⚛️ | Kuantum bilgisayarlar |
+| Space | 🚀 | Uzay teknolojisi |
+| Cybersecurity | 🔒 | Siber güvenlik |
+| Defense | 🛡️ | Savunma ve aerospace |
+| Semis | 🔌 | Yarı iletkenler |
+| Datacenter | 🏢 | Veri merkezleri ve cloud |
+| EV | 🔋 | Elektrikli araçlar |
+| Biotech | 🧬 | Biyoteknoloji |
+| Crypto | ₿ | Kripto ve blockchain |
+| Networking | 📡 | 5G ve ağ altyapısı |
+| PowerInfra | ⚡ | Enerji altyapısı |
+| CleanEnergy | ♻️ | Yenilenebilir enerji |
+
+**API'ler:**
+- `GET /api/tema-performans?tema=AI` → tema performansı (1d/1h/1m), top gainers/losers, hisse sayısı
+- `GET /api/tema-haberleri?tema=AI` → tema sembollerine ait son haberler (1 saat cache)
+
+**Sayfalar:**
+- `/temalar` → 13 temanın kart grid'i (emoji, 1d perf, top gainer, son haber)
+- `/tema/[id]` → dinamik landing (hero, top 5 yükselen/düşen, tüm hisseler tablosu, haberler, tema açıklama)
+- `/hisse/[sembol]` → US hisseleri için tema pill'leri (başlık altında, max 3 tema)
+- `NavbarClient.tsx` → "Temalar" linki (Sparkles ikonu, Piyasa dropdown)
+
+**Hattın Seçimleri (`/haftalik-secimler`)**
 - Her Pazartesi 08:30 TRT'de algoritma en güçlü 5-7 hisseyi seçer
 - confluence_score ≥ 50, ADV ≥ 10M₺, direction = 'yukari', max 72s taze
 - Cuma kapanışta return_pct + bist_return_pct hesaplanır
