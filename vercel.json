@@ -94,7 +94,7 @@
     },
     {
       "path": "/api/cron/future-scores",
-      "schedule": "0 0 * * 0"
+      "schedule": "0 8 * * *"
     }
   ]
 }
