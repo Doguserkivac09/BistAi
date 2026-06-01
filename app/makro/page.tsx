@@ -910,6 +910,133 @@ function LiveTime({ isoStr }: { isoStr: string }) {
   return <span>{label}</span>;
 }
 
+// ── ABD Makro Paneli ─────────────────────────────────────────────────
+
+function USMacroPanel({
+  macro,
+  sparklines,
+}: {
+  macro: MacroResponse;
+  sparklines: Record<string, number[]>;
+}) {
+  const ind = macro.indicators;
+  const fred = macro.fred;
+  const us = macro.usEconomy;
+
+  const usColor =
+    us?.color === 'green' ? 'text-green-400' : us?.color === 'red' ? 'text-red-400' : 'text-yellow-400';
+  const usBorder =
+    us?.color === 'green' ? 'rgba(34,197,94,0.25)' : us?.color === 'red' ? 'rgba(239,68,68,0.20)' : 'rgba(234,179,8,0.20)';
+
+  // FRED metrik kartları
+  const fredCards = [
+    {
+      label: 'Fed Faizi',
+      value: fred.fedFundsRate ? `${fred.fedFundsRate.value.toFixed(2)}%` : '—',
+      sub: fred.fedFundsRate?.date ?? '',
+      change: fred.fedFundsRate?.change ?? null,
+    },
+    {
+      label: 'GSYİH Büyüme',
+      value: fred.gdpGrowth ? `${fred.gdpGrowth.value.toFixed(1)}%` : '—',
+      sub: fred.gdpGrowth?.date ?? '',
+      change: null,
+    },
+    {
+      label: 'İşsizlik',
+      value: fred.unemployment ? `${fred.unemployment.value.toFixed(1)}%` : '—',
+      sub: fred.unemployment?.date ?? '',
+      change: null,
+    },
+  ];
+
+  // ABD piyasa göstergeleri (BIST/USDTRY hariç — ABD'ye özgü)
+  const usIndicators = [
+    { label: 'VIX',    data: ind.vix,    suffix: '' },
+    { label: 'DXY',    data: ind.dxy,    suffix: '' },
+    { label: 'US 10Y', data: ind.us10y,  suffix: '%' },
+    { label: 'Altın',  data: ind.gold,   suffix: '$' },
+    { label: 'Gümüş',  data: ind.silver, suffix: '$' },
+    { label: 'Bakır',  data: ind.copper, suffix: '$' },
+    { label: 'Brent',  data: ind.brent,  suffix: '$' },
+    { label: 'EEM',    data: ind.eem,    suffix: '' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* ABD Ekonomi Sağlığı */}
+      <section
+        className="rounded-2xl p-6"
+        style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.05), #0a0a18)', border: `1px solid ${usBorder}` }}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-lg">🇺🇸</span>
+          <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">ABD Ekonomi Sağlığı</h2>
+        </div>
+        {us ? (
+          <div className="flex items-end gap-4">
+            <span className={`text-6xl font-bold font-mono leading-none ${usColor}`}>{us.score}</span>
+            <div className="pb-1">
+              <span className={`text-xl font-semibold ${usColor}`}>{us.label}</span>
+              <p className="text-xs text-white/40 mt-1 font-mono">0-100 · Fed faizi, büyüme, işsizlik bileşimi</p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-white/40 text-sm">ABD ekonomi verisi yüklenemedi (FRED).</p>
+        )}
+      </section>
+
+      {/* FRED Makro Metrikleri */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-base">🏛️</span>
+          <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">FRED Göstergeleri</h2>
+          <span className="ml-auto text-xs text-white/25 font-mono">Federal Reserve Economic Data</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {fredCards.map((c) => (
+            <div key={c.label} className="rounded-xl p-4 border border-white/8 bg-[#0a0a18]">
+              <span className="text-xs text-white/35 font-mono uppercase tracking-widest">{c.label}</span>
+              <p className="text-3xl font-bold text-white font-mono leading-none mt-2">{c.value}</p>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-white/30 font-mono">{c.sub}</span>
+                {c.change != null && c.change !== 0 && (
+                  <span className={`text-xs font-mono ${c.change > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {c.change > 0 ? '+' : ''}{c.change.toFixed(2)} bps
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ABD Piyasa Göstergeleri */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="h-4 w-4 text-primary" />
+          <h2 className="text-base font-semibold text-white/75 uppercase tracking-widest">ABD Piyasa Göstergeleri</h2>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {usIndicators.map(({ label, data, suffix }, i) => (
+            <IndicatorCard
+              key={label}
+              label={label}
+              data={data}
+              suffix={suffix}
+              delay={i * 0.05}
+              sparkline={sparklines[label]}
+            />
+          ))}
+        </div>
+        <p className="text-xs text-white/25 font-mono mt-3">
+          VIX düşük + DXY zayıf → risk iştahı yüksek (EM/BIST pozitif) · US 10Y yüksek → EM baskı
+        </p>
+      </section>
+    </div>
+  );
+}
+
 // ── Ana Sayfa ────────────────────────────────────────────────────────
 
 type HistoryPeriod = 7 | 30 | 90;
@@ -930,6 +1057,9 @@ export default function MakroPage() {
 
   // Tarih periyodu
   const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriod>(30);
+
+  // Bölge sekmesi: TR (global/BIST bağlamı) veya US (ABD odaklı)
+  const [region, setRegion] = useState<'TR' | 'US'>('TR');
 
   // Gösterge sparkline'ları
   const [indicatorSparklines, setIndicatorSparklines] = useState<Record<string, number[]>>({});
@@ -1098,6 +1228,30 @@ export default function MakroPage() {
           </Button>
         </div>
 
+        {/* Bölge sekmesi: TR / ABD */}
+        <div className="mb-5 inline-flex rounded-xl border border-white/10 bg-[#0a0a18] p-1">
+          {([
+            { id: 'TR' as const, label: '🇹🇷 TR / Global' },
+            { id: 'US' as const, label: '🇺🇸 ABD' },
+          ]).map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setRegion(r.id)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                region === r.id ? 'bg-white/10 text-white shadow' : 'text-white/40 hover:text-white/70'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ABD Makro Görünümü */}
+        {region === 'US' && <USMacroPanel macro={macro} sparklines={indicatorSparklines} />}
+
+        {/* TR / Global Görünüm */}
+        {region === 'TR' && (
+        <>
         {/* Dismissible Alerts */}
         <AnimatePresence>
           {visibleAlerts.length > 0 && (
@@ -1582,6 +1736,8 @@ export default function MakroPage() {
             </p>
             <SectorHeatmap sectors={sectors.sectors} onSectorClick={handleSectorClick} />
           </section>
+        )}
+        </>
         )}
 
         {/* Footer */}
