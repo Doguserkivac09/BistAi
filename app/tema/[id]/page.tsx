@@ -11,7 +11,7 @@ interface Stock {
   symbol: string;
   current_price: number;
   pct_1d: number;
-  pct_1h: number;
+  pct_1w: number;
   pct_1m: number;
 }
 
@@ -31,7 +31,7 @@ interface PerformanceData {
   topLosers: Stock[];
   themeAverage: {
     avg_1d: number;
-    avg_1h: number;
+    avg_1w: number;
     avg_1m: number;
   };
 }
@@ -134,16 +134,16 @@ export default function ThemePage() {
                 </p>
               </div>
               <div>
-                <p className="text-slate-400 text-sm mb-1">1 Saatlik</p>
+                <p className="text-slate-400 text-sm mb-1">1 Haftalık</p>
                 <p
                   className={`text-2xl font-bold ${
-                    perfData.themeAverage.avg_1h >= 0
+                    perfData.themeAverage.avg_1w >= 0
                       ? 'text-green-400'
                       : 'text-red-400'
                   }`}
                 >
-                  {perfData.themeAverage.avg_1h >= 0 ? '+' : ''}
-                  {perfData.themeAverage.avg_1h.toFixed(2)}%
+                  {perfData.themeAverage.avg_1w >= 0 ? '+' : ''}
+                  {perfData.themeAverage.avg_1w.toFixed(2)}%
                 </p>
               </div>
               <div>
@@ -193,8 +193,8 @@ export default function ThemePage() {
                         +{stock.pct_1d.toFixed(2)}%
                       </p>
                       <p className="text-xs text-slate-400">
-                        {stock.pct_1h >= 0 ? '+' : ''}
-                        {stock.pct_1h.toFixed(2)}% (1h)
+                        {stock.pct_1w >= 0 ? '+' : ''}
+                        {stock.pct_1w.toFixed(2)}% (1H)
                       </p>
                     </div>
                   </div>
@@ -229,8 +229,8 @@ export default function ThemePage() {
                         {stock.pct_1d.toFixed(2)}%
                       </p>
                       <p className="text-xs text-slate-400">
-                        {stock.pct_1h >= 0 ? '+' : ''}
-                        {stock.pct_1h.toFixed(2)}% (1h)
+                        {stock.pct_1w >= 0 ? '+' : ''}
+                        {stock.pct_1w.toFixed(2)}% (1H)
                       </p>
                     </div>
                   </div>
@@ -260,7 +260,7 @@ export default function ThemePage() {
                       1 Gün %
                     </th>
                     <th className="text-right py-2 px-3 text-slate-400 font-semibold">
-                      1 Saat %
+                      1 Hafta %
                     </th>
                     <th className="text-right py-2 px-3 text-slate-400 font-semibold">
                       1 Ay %
@@ -291,13 +291,13 @@ export default function ThemePage() {
                       </td>
                       <td
                         className={`py-3 px-3 text-right font-semibold ${
-                          stock.pct_1h >= 0
+                          stock.pct_1w >= 0
                             ? 'text-green-400'
                             : 'text-red-400'
                         }`}
                       >
-                        {stock.pct_1h >= 0 ? '+' : ''}
-                        {stock.pct_1h.toFixed(2)}%
+                        {stock.pct_1w >= 0 ? '+' : ''}
+                        {stock.pct_1w.toFixed(2)}%
                       </td>
                       <td
                         className={`py-3 px-3 text-right font-semibold ${
