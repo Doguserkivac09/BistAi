@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { getMacroFull, formatMacroResponse } from '@/lib/macro-service';
 
+// Route response'u statik cache'lenmesin — her istek taze makro skoru döner
+// (alt katman cache'leri: macro-service 30s, Yahoo 5dk, FRED 30dk, TCMB 15dk)
+export const dynamic = 'force-dynamic';
+
 /**
  * Makro veri API endpoint.
  *
@@ -49,7 +53,9 @@ export async function GET(request: NextRequest) {
 async function handleCurrentRequest(): Promise<NextResponse> {
   try {
     const full = await getMacroFull();
-    return NextResponse.json(formatMacroResponse(full));
+    return NextResponse.json(formatMacroResponse(full), {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
     console.error('[api/macro] Hata:', message);
