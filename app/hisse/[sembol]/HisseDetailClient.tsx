@@ -13,7 +13,9 @@ import { WatchlistButton } from '@/components/WatchlistButton';
 import { PortfolyoEkleButton } from '@/components/PortfolyoEkleButton';
 import { SaveSignalButton } from '@/components/SaveSignalButton';
 import { fetchOHLCVByTimeframeClient, type TimeframeKey } from '@/lib/api-client';
+import { isUSSymbol, getThemesForSymbol } from '@/lib/us-symbols';
 import { detectAllSignals } from '@/lib/signals';
+import { getThemeEmoji } from '@/lib/theme-descriptions';
 import { WinRateBadge, type WinRateStat } from '@/components/WinRateBadge';
 import { BrokerLinkButton } from '@/components/BrokerLinkButton';
 import { TradeTargetsCard } from '@/components/TradeTargetsCard';
@@ -173,6 +175,11 @@ function MetaCell({ label, value }: { label: string; value: string }) {
 }
 
 export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: HisseDetailClientProps) {
+  // US borsası mı? Fiyat birimi ve fetch parametresini belirler
+  const isUS = isUSSymbol(sembol);
+  const market = isUS ? 'US' : 'BIST';
+  const currency = isUS ? '$' : '₺';
+
   // Fırsatlar sayfasından gelen snapshot bağlamı (varsa) — canlı skorla karşılaştır
   const searchParams = useSearchParams();
   const snapshotCtx = useMemo(() => {
@@ -280,6 +287,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const sectorInfo = SECTORS[sectorId];
 
   useEffect(() => {
+    if (isUS) return; // US hisseler için BIST sektör karşılaştırması yok
     if (!sectorId || sectorId === 'diger') return;
     const reps = SECTOR_REPRESENTATIVES[sectorId];
     if (!reps || reps.length === 0) return;
@@ -365,6 +373,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [fundamentalScore, setFundamentalScore] = useState<FundamentalScoreData | null>(null);
 
   useEffect(() => {
+    if (isUS) return; // US için BIST yatırım skoru geçerli değil
     let cancelled = false;
     fetch(`/api/investment-score?sembol=${encodeURIComponent(sembol)}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -378,7 +387,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [sembol]);
+  }, [sembol, isUS]);
 
   // ── Çelişki tespiti — Teknik vs Temel ───────────────────────────────
   type SignalConflict = 'tech-strong-fund-weak' | 'tech-weak-fund-strong' | 'aligned-bullish' | 'aligned-bearish' | 'mixed' | null;
@@ -431,7 +440,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     let cancelled = false;
     setAnalizLoading(true);
     setAnaliz(null);
-    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}&timeframe=${timeframe}`)
+    fetch(`/api/hisse-analiz?symbol=${encodeURIComponent(sembol)}&timeframe=${timeframe}${isUS ? '&market=US' : ''}`)
       .then((r) => r.ok ? r.json() : null)
       .then((data: HisseAnalizResponse | null) => {
         if (!cancelled) setAnaliz(data);
@@ -443,6 +452,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
   // ── Haberler ────────────────────────────────────────────────────────────────
   const loadHaberler = useCallback(async () => {
+    if (isUS) { setHaberLoading(false); return; } // US için Türkçe haber yok
     setHaberLoading(true);
     try {
       const res = await fetch(`/api/haber?sembol=${sembol}`);
@@ -459,8 +469,9 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
   useEffect(() => { loadHaberler(); }, [loadHaberler]);
 
-  // ── KAP Duyuruları ───────────────────────────────────────────────────────────
+  // ── KAP Duyuruları (sadece BIST) ────────────────────────────────────────────
   useEffect(() => {
+    if (isUS) { setKapLoading(false); return; } // US hisseler için KAP yok
     let cancelled = false;
     setKapLoading(true);
     fetch(`/api/kap?sembol=${encodeURIComponent(sembol)}`)
@@ -497,7 +508,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
     (async () => {
       setLoading(true);
       try {
-        const data = await fetchOHLCVByTimeframeClient(sembol, timeframe);
+        const data = await fetchOHLCVByTimeframeClient(sembol, timeframe, market);
         if (cancelled) return;
         setCandles(data);
         const sigs = detectAllSignals(sembol, data);
@@ -614,10 +625,30 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                         <span className="text-sm text-text-muted truncate max-w-[200px]">{shortName}</span>
                       )}
                     </div>
+                    {/* Tema Pills — US sembolleri için */}
+                    {isUS && (() => {
+                      const themes = getThemesForSymbol(sembol);
+                      if (themes.length === 0) return null;
+                      return (
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          {themes.map((themeId) => (
+                            <Link
+                              key={themeId}
+                              href={`/tema/${themeId}`}
+                              className="inline-flex items-center gap-1 rounded-full bg-slate-500/15 border border-slate-500/30 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:border-slate-400/50 hover:bg-slate-500/25 transition-all"
+                              title={`${themeId} temasına git`}
+                            >
+                              <span>{getThemeEmoji(themeId)}</span>
+                              <span>{themeId}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div className="mt-2 flex items-baseline gap-3 flex-wrap">
                       {currentPrice && (
                         <span className="text-3xl font-mono font-bold text-text-primary">
-                          {currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}₺
+                          {isUS ? '$' : ''}{currentPrice.toLocaleString(isUS ? 'en-US' : 'tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{isUS ? '' : '₺'}
                         </span>
                       )}
                       {changePercent !== undefined && changePercent !== null && (
@@ -692,8 +723,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                     <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 border-t border-border/40 pt-4">
                       {volume !== undefined && <MetaCell label="Hacim" value={formatVolume(volume)} />}
                       {avgVolume20d !== undefined && <MetaCell label="Ort. Hacim (20g)" value={formatVolume(avgVolume20d)} />}
-                      {high90d !== undefined && <MetaCell label="90G Yüksek" value={high90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
-                      {low90d !== undefined && <MetaCell label="90G Düşük" value={low90d.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + '₺'} />}
+                      {high90d !== undefined && <MetaCell label="90G Yüksek" value={(isUS ? '$' : '') + high90d.toLocaleString(isUS ? 'en-US' : 'tr-TR', { minimumFractionDigits: 2 }) + (isUS ? '' : '₺')} />}
+                      {low90d !== undefined && <MetaCell label="90G Düşük" value={(isUS ? '$' : '') + low90d.toLocaleString(isUS ? 'en-US' : 'tr-TR', { minimumFractionDigits: 2 }) + (isUS ? '' : '₺')} />}
                       {rsi14 !== null && (
                         <div className="min-w-0">
                           <p className="text-[10px] uppercase tracking-wide text-text-muted">RSI 14</p>
@@ -1639,7 +1670,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 )}
                 {!kapLoading && kapDuyurular.length > 6 && (
                   <div className="mt-2 text-right">
-                    <Link href="/kap" className="text-xs text-primary hover:underline">Tüm KAP duyurularını gör →</Link>
+                    <Link href="/haberler?tab=kap" className="text-xs text-primary hover:underline">Tüm KAP duyurularını gör →</Link>
                   </div>
                 )}
               </div>

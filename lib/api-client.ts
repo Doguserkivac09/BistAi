@@ -9,11 +9,13 @@ import type { MacroSnapshot, MacroDataRow, RiskScore, SectorMomentum } from '@/t
 
 export async function fetchOHLCVClient(
   sembol: string,
-  days: number = 90
+  days:   number = 90,
+  market: 'BIST' | 'US' = 'BIST',
 ): Promise<OHLCVFetchResult> {
   const params = new URLSearchParams({
     symbol: sembol.trim(),
-    days: String(days),
+    days:   String(days),
+    ...(market === 'US' ? { market: 'US' } : {}),
   });
 
   const MAX_RETRIES = 2;
@@ -42,12 +44,14 @@ export async function fetchOHLCVClient(
 export type TimeframeKey = '15m' | '30m' | '1h' | '1d' | '1wk' | '1mo';
 
 export async function fetchOHLCVByTimeframeClient(
-  sembol: string,
-  timeframe: TimeframeKey
+  sembol:    string,
+  timeframe: TimeframeKey,
+  market:    'BIST' | 'US' = 'BIST',
 ): Promise<OHLCVCandle[]> {
   const params = new URLSearchParams({
     symbol: sembol.trim(),
-    tf: timeframe,
+    tf:     timeframe,
+    ...(market === 'US' ? { market: 'US' } : {}),
   });
   const res = await fetch(`/api/ohlcv?${params}`);
   const data = await res.json();

@@ -46,14 +46,18 @@ export async function GET(req: NextRequest) {
   const near52wHighMaxPctAway = parseNum(searchParams.get('near52wHigh')); // örn 3 = "tepeye %3 mesafe içinde"
   const near52wLowMaxPctAbove = parseNum(searchParams.get('near52wLow'));  // örn 10 = "diptan %10 mesafe içinde"
   const relVol5Min    = parseNum(searchParams.get('relVol5Min'));
+  const market        = searchParams.get('market')?.trim() || 'BIST'; // 'BIST' | 'US' | 'all'
   const limit         = Math.min(parseInt(searchParams.get('limit') ?? '200'), 300);
 
   const admin = createAdminClient();
 
   let query = admin
     .from('scan_cache')
-    .select('sembol, signals_json, change_percent, rsi, last_volume, last_close, confluence_score, pct_from_52w_high, pct_from_52w_low, rel_vol5, sector, scanned_at')
+    .select('sembol, market, signals_json, change_percent, rsi, last_volume, last_close, confluence_score, pct_from_52w_high, pct_from_52w_low, rel_vol5, sector, scanned_at')
     .order('scanned_at', { ascending: false });
+
+  // Market filtresi (default: BIST)
+  if (market !== 'all') query = query.eq('market', market);
 
   // Confluence filtresi — DB seviyesinde
   if (confluenceMin !== null) query = query.gte('confluence_score', confluenceMin);

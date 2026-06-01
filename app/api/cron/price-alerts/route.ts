@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchQuote } from '@/lib/yahoo';
+import { bistGuard } from '@/lib/bist-guard';
 
 function isAuthorized(req: NextRequest) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
@@ -84,6 +85,9 @@ export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

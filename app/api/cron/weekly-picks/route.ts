@@ -22,6 +22,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { getSector } from '@/lib/sectors';
 import { calcDipCatchScore, detectPhase } from '@/lib/market-phase';
+import { bistGuard } from '@/lib/bist-guard';
 
 const CRON_SECRET    = process.env.CRON_SECRET;
 const PICK_COUNT     = 7;
@@ -55,6 +56,9 @@ export async function GET(req: NextRequest) {
   if (!isVercelCron && !(CRON_SECRET && token === CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const admin = createAdmin();
   const now = new Date();

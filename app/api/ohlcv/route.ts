@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchOHLCV, fetchOHLCVByTimeframe, type YahooTimeframe } from '@/lib/yahoo';
+import { fetchOHLCVUS } from '@/lib/yahoo-us';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import type { OHLCVCandle } from '@/types';
 
@@ -19,10 +20,11 @@ export async function GET(request: NextRequest) {
       }
     );
   }
-  const symbol = request.nextUrl.searchParams.get('symbol');
-  const tfParam = request.nextUrl.searchParams.get('tf');
+  const symbol   = request.nextUrl.searchParams.get('symbol');
+  const tfParam  = request.nextUrl.searchParams.get('tf');
   const daysParam = request.nextUrl.searchParams.get('days');
-  const days = daysParam ? Math.min(365, Math.max(1, parseInt(daysParam, 10))) : 90;
+  const days     = daysParam ? Math.min(365, Math.max(1, parseInt(daysParam, 10))) : 90;
+  const market   = request.nextUrl.searchParams.get('market') ?? 'BIST'; // 'BIST' | 'US'
 
   if (!symbol || !symbol.trim()) {
     return NextResponse.json(
@@ -51,11 +53,21 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
+
+      // US semboller: fetchOHLCVByTimeframe .IS suffix ekler → fetchOHLCVUS kullan
+      if (market === 'US') {
+        const daysForTf = tf === '1mo' ? 730 : tf === '1wk' ? 365 : 252;
+        const { candles, changePercent, currentPrice } = await fetchOHLCVUS(trimmed, daysForTf);
+        return NextResponse.json({ candles, changePercent, currentPrice });
+      }
+
       const candles = await fetchOHLCVByTimeframe(trimmed, tf);
       return NextResponse.json({ candles } as { candles: OHLCVCandle[] });
     }
 
-    const { candles, changePercent, currentPrice } = await fetchOHLCV(trimmed, days);
+    const { candles, changePercent, currentPrice } = market === 'US'
+      ? await fetchOHLCVUS(trimmed, days)
+      : await fetchOHLCV(trimmed, days);
     return NextResponse.json({ candles, changePercent, currentPrice });
   } catch (err) {
     console.error('[ohlcv] Hata:', err instanceof Error ? err.message : err);

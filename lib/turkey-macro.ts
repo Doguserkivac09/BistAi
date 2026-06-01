@@ -56,9 +56,9 @@ export const TCMB_SERIES = {
   },
 } as const;
 
-// ── Cache (30 dk TTL) ───────────────────────────────────────────────
+// ── Cache (15 dk TTL) ───────────────────────────────────────────────
 
-const TURKEY_CACHE_TTL_MS = 30 * 60 * 1000;
+const TURKEY_CACHE_TTL_MS = 15 * 60 * 1000;
 
 interface TurkeyCacheEntry<T> {
   data: T;

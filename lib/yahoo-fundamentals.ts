@@ -1,154 +1,160 @@
-/**
- * Yahoo Finance Temel Analiz Veri Çekici
- *
- * yahoo-finance2 (v3) ile BIST hisselerine ait temel verileri çeker.
- * API key gerektirmez.
- * Cache: 24 saat in-memory
- */
+export type Fundamentals = {
+  revenueGrowth: number | null
+  avgTargetPrice: number | null
+  currentPrice: number | null
+  targetUpside: number | null
+  recommendation: string | null
+  cash: number | null
+  debt: number | null
+  runway: number | null
+  institutionalPct: number | null
+  insiderBuySellRatio: number | null
+  marketCapMillions: number | null
+  peRatio: number | null
+  epsDiluted: number | null
+} & Record<string, any>
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const YahooFinanceClass = require('yahoo-finance2').default;
+// Backward compatibility type alias
+export type YahooFundamentals = Fundamentals
 
-interface YahooFinanceInstance {
-  quoteSummary(ticker: string, options: { modules: string[] }): Promise<Record<string, Record<string, unknown>>>;
-}
-const yahooFinance = new YahooFinanceClass({ suppressNotices: ['yahooSurvey'] }) as YahooFinanceInstance;
-
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-
-interface CacheEntry<T> {
-  data: T;
-  expiresAt: number;
-}
-
-const cache = new Map<string, CacheEntry<unknown>>();
-
-function getCached<T>(key: string): T | null {
-  const entry = cache.get(key);
-  if (!entry || Date.now() > entry.expiresAt) {
-    cache.delete(key);
-    return null;
+export async function fetchFundamentals(symbol: string): Promise<Fundamentals> {
+  const result: Fundamentals = {
+    revenueGrowth: null,
+    avgTargetPrice: null,
+    currentPrice: null,
+    targetUpside: null,
+    recommendation: null,
+    cash: null,
+    debt: null,
+    runway: null,
+    institutionalPct: null,
+    insiderBuySellRatio: null,
+    marketCapMillions: null,
+    peRatio: null,
+    epsDiluted: null,
   }
-  return entry.data as T;
+
+  try {
+    const modules = [
+      'financialData',
+      'defaultKeyStatistics',
+      'earnings',
+      'recommendationTrend',
+      'insiderTransactions',
+      'majorHoldersBreakdown',
+    ]
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=${modules.join(
+      ','
+    )}`
+
+    const response = await fetch(url).then((r) => r.json())
+    const data = response.quoteSummary?.result?.[0]
+
+    // Current price
+    if (data.financialData?.currentPrice) {
+      result.currentPrice = data.financialData.currentPrice
+    }
+
+    // Revenue growth (trailing 12 months vs prior year)
+    if (data.financialData?.revenueGrowth) {
+      result.revenueGrowth = data.financialData.revenueGrowth * 100
+    }
+
+    // Recommendation & target price
+    if (data.recommendationTrend?.recommendation) {
+      result.recommendation = data.recommendationTrend.recommendation
+    }
+    if (data?.financialData?.targetMeanPrice) {
+      result.avgTargetPrice = data.financialData.targetMeanPrice
+      if (result.currentPrice && result.avgTargetPrice) {
+        result.targetUpside =
+          ((result.avgTargetPrice - result.currentPrice) / result.currentPrice) * 100
+      }
+    }
+
+    // Balance sheet: cash & debt
+    if (data.financialData?.totalCash) {
+      result.cash = data.financialData.totalCash / 1e6 // convert to millions
+    }
+    if (data.financialData?.totalDebt) {
+      result.debt = data.financialData.totalDebt / 1e6
+    }
+
+    // Market cap
+    if (data.defaultKeyStatistics?.marketCap) {
+      result.marketCapMillions = data.defaultKeyStatistics.marketCap / 1e6
+    }
+
+    // P/E ratio & EPS
+    if (data.defaultKeyStatistics?.trailingPE) {
+      result.peRatio = data.defaultKeyStatistics.trailingPE
+    }
+    if (data.defaultKeyStatistics?.epsTrailingTwelveMonths) {
+      result.epsDiluted = data.defaultKeyStatistics.epsTrailingTwelveMonths
+    }
+
+    // Institutional ownership
+    if (data.majorHoldersBreakdown?.institutionsPercent) {
+      result.institutionalPct = data.majorHoldersBreakdown.institutionsPercent * 100
+    }
+
+    // Insider transactions (son 90 gün)
+    if (data.insiderTransactions?.transactions) {
+      let buyCount = 0
+      let sellCount = 0
+      const ninetyDaysAgo = Date.now() / 1000 - 90 * 24 * 60 * 60
+
+      for (const tx of data.insiderTransactions.transactions) {
+        if (tx.startDate > ninetyDaysAgo) {
+          if (tx.transactionText?.includes('Buy')) buyCount++
+          else if (tx.transactionText?.includes('Sell')) sellCount++
+        }
+      }
+
+      if (buyCount + sellCount > 0) {
+        result.insiderBuySellRatio = (buyCount - sellCount) / (buyCount + sellCount)
+      }
+    }
+
+    // Runway estimate: cash / quarterly expense (heuristic)
+    if (result.cash && result.currentPrice && result.marketCapMillions) {
+      const estimatedQuarterlyBurn = (result.marketCapMillions * 0.025) / 1e6
+      if (estimatedQuarterlyBurn > 0) {
+        result.runway = (result.cash / estimatedQuarterlyBurn) / 4 // years
+      }
+    }
+  } catch (error) {
+    console.error(`[yahoo-fundamentals] Error fetching ${symbol}:`, error)
+  }
+
+  return result
 }
 
-function setCached<T>(key: string, data: T): void {
-  cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-}
+// Helper: fetch all US symbols' fundamentals in batches
+// Backward compatibility alias
+export const fetchYahooFundamentals = fetchFundamentals
 
-// ── Tipler ────────────────────────────────────────────────────────────────
+export async function fetchFundamentalsBatch(
+  symbols: string[],
+  batchSize = 5,
+  delayMs = 1000
+): Promise<Map<string, Fundamentals>> {
+  const results = new Map<string, Fundamentals>()
 
-export interface YahooFundamentals {
-  symbol: string;
-  shortName: string;
-  sector: string;
-  industry: string;
-  marketCap: number | null;
-  peRatio: number | null;
-  eps: number | null;
-  bookValue: number | null;
-  priceToBook: number | null;
-  profitMargin: number | null;
-  dividendYield: number | null;
-  week52High: number | null;
-  week52Low: number | null;
-  movingAverage50: number | null;
-  movingAverage200: number | null;
-  // Finansal veri (financialData modülü)
-  currentRatio: number | null;
-  totalDebt: number | null;
-  totalCash: number | null;
-  // Sahiplik yapısı (defaultKeyStatistics modülü)
-  institutionsPercentHeld: number | null;  // 0-1 arası (örn: 0.45 = %45)
-  insidersPercentHeld: number | null;      // 0-1 arası
-  shortRatio: number | null;               // açığa satış oranı (float üzerinden)
-  // ── Investment Score için ek metrikler (2026-04-16) ───────────────────
-  // Valuation
-  pegRatio: number | null;            // ks.pegRatio — büyümeye göre F/K
-  enterpriseToEbitda: number | null;  // ks.enterpriseToEbitda — EV/FAVÖK
-  // Growth (0-1 arası oranlar, UI %'ye çevirir)
-  revenueGrowth: number | null;       // fd.revenueGrowth — YoY gelir büyümesi
-  earningsGrowth: number | null;      // fd.earningsGrowth — YoY kâr büyümesi
-  // Profitability (0-1 arası oranlar)
-  returnOnEquity: number | null;      // fd.returnOnEquity — ROE
-  returnOnAssets: number | null;      // fd.returnOnAssets — ROA
-  operatingMargins: number | null;    // fd.operatingMargins — Faaliyet marjı
-  // Risk
-  debtToEquity: number | null;        // fd.debtToEquity — Borç/Özsermaye (Yahoo %'de döndürebilir)
-  beta: number | null;                // sd.beta — piyasaya göre volatilite
-  freeCashflow: number | null;        // fd.freeCashflow — Serbest nakit akışı (TL)
-  reportedDate: string;
-  source: 'yahoo';
-}
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize)
 
-// ── Yardımcı ──────────────────────────────────────────────────────────────
+    const promises = batch.map(async (sym) => {
+      const fund = await fetchFundamentals(sym)
+      results.set(sym, fund)
+    })
 
-function n(val: unknown): number | null {
-  if (val === null || val === undefined) return null;
-  const num = typeof val === 'number' ? val : parseFloat(String(val));
-  return isFinite(num) ? num : null;
-}
+    await Promise.all(promises)
 
-function toBistTicker(symbol: string): string {
-  const clean = symbol.replace(/\.IS$/i, '').toUpperCase();
-  return `${clean}.IS`;
-}
+    if (i + batchSize < symbols.length) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
 
-// ── Ana Fonksiyon ──────────────────────────────────────────────────────────
-
-export async function fetchYahooFundamentals(symbol: string): Promise<YahooFundamentals> {
-  const ticker = toBistTicker(symbol);
-  const cacheKey = `yf:fundamentals:${ticker}`;
-
-  const cached = getCached<YahooFundamentals>(cacheKey);
-  if (cached) return cached;
-
-  const result = await yahooFinance.quoteSummary(ticker, {
-    modules: ['summaryDetail', 'defaultKeyStatistics', 'financialData', 'price'],
-  });
-
-  const sd  = result.summaryDetail        ?? {};
-  const ks  = result.defaultKeyStatistics ?? {};
-  const fd  = result.financialData        ?? {};
-  const pr  = result.price                ?? {};
-
-  const fundamentals: YahooFundamentals = {
-    symbol:    ticker,
-    shortName: String(pr.shortName ?? pr.longName ?? symbol),
-    sector:    String(pr.sector ?? ''),
-    industry:  String(pr.industry ?? ''),
-    marketCap:    n(pr.marketCap),
-    peRatio:      n(sd.trailingPE),
-    eps:          n(ks.trailingEps),
-    bookValue:    n(ks.bookValue),
-    priceToBook:  n(ks.priceToBook),
-    profitMargin: n(ks.profitMargins),
-    dividendYield:    n(sd.dividendYield),
-    week52High:       n(sd.fiftyTwoWeekHigh),
-    week52Low:        n(sd.fiftyTwoWeekLow),
-    movingAverage50:  n(sd.fiftyDayAverage),
-    movingAverage200: n(sd.twoHundredDayAverage),
-    currentRatio: n(fd.currentRatio),
-    totalDebt:    n(fd.totalDebt),
-    totalCash:    n(fd.totalCash),
-    institutionsPercentHeld: n(ks.heldPercentInstitutions),
-    insidersPercentHeld:     n(ks.heldPercentInsiders),
-    shortRatio:              n(ks.shortRatio),
-    // Investment Score için ek metrikler
-    pegRatio:           n(ks.pegRatio),
-    enterpriseToEbitda: n(ks.enterpriseToEbitda),
-    revenueGrowth:      n(fd.revenueGrowth),
-    earningsGrowth:     n(fd.earningsGrowth),
-    returnOnEquity:     n(fd.returnOnEquity),
-    returnOnAssets:     n(fd.returnOnAssets),
-    operatingMargins:   n(fd.operatingMargins),
-    debtToEquity:       n(fd.debtToEquity),
-    beta:               n(sd.beta),
-    freeCashflow:       n(fd.freeCashflow),
-    reportedDate: '',
-    source: 'yahoo',
-  };
-
-  setCached(cacheKey, fundamentals);
-  return fundamentals;
+  return results
 }

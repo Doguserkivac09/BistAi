@@ -13,7 +13,13 @@ const KAYNAK_RENK: Record<string, string> = {
   'Hürriyet Ekonomi':  'bg-red-500/20 text-red-400',
   'Habertürk Ekonomi': 'bg-purple-500/20 text-purple-400',
   'Haber7 Ekonomi':    'bg-emerald-500/20 text-emerald-400',
+  'Yahoo Finance':     'bg-violet-500/20 text-violet-400',
+  'MarketWatch':       'bg-green-500/20 text-green-400',
+  'CNBC Markets':      'bg-blue-500/20 text-blue-400',
+  'Investing.com':     'bg-amber-500/20 text-amber-400',
 };
+
+type Market = 'BIST' | 'US';
 
 const CATEGORY_MAP: { keywords: string[]; label: string; cls: string }[] = [
   { keywords: ['tcmb', 'merkez bankası', 'faiz', 'para politikası', 'ppk'],     label: 'Merkez Bankası', cls: 'bg-violet-500/20 text-violet-400' },
@@ -56,13 +62,17 @@ export function TabHaberler() {
   const [copiedLink,    setCopiedLink]    = useState<string | null>(null);
   const [pendingCount,  setPendingCount]  = useState(0);
   const [pendingData,   setPendingData]   = useState<HaberItem[]>([]);
+  const [market,        setMarket]        = useState<Market>('BIST');
   const haberlerRef = useRef<HaberItem[]>([]);
+  const marketRef   = useRef<Market>('BIST');
 
-  async function loadHaberler(silent = false) {
+  const apiUrl = (m: Market) => (m === 'US' ? '/api/haber?market=US' : '/api/haber');
+
+  async function loadHaberler(silent = false, m: Market = market) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const res = await fetch('/api/haber');
+      const res = await fetch(apiUrl(m));
       if (!res.ok) return;
       const data = await res.json();
       const fresh: HaberItem[] = data.haberler ?? [];
@@ -78,10 +88,19 @@ export function TabHaberler() {
 
   useEffect(() => { void loadHaberler(); }, []);
 
+  function switchMarket(m: Market) {
+    if (m === marketRef.current) return;
+    marketRef.current = m;
+    setMarket(m);
+    setActiveKaynak(null);
+    setSearchQuery('');
+    void loadHaberler(false, m);
+  }
+
   useEffect(() => {
     const timer = setInterval(async () => {
       try {
-        const res = await fetch('/api/haber');
+        const res = await fetch(apiUrl(marketRef.current));
         if (!res.ok) return;
         const data = await res.json();
         const fresh: HaberItem[] = data.haberler ?? [];
@@ -131,10 +150,29 @@ export function TabHaberler() {
 
   return (
     <div>
+      {/* Piyasa seçici: BIST / ABD */}
+      <div className="mb-5 inline-flex rounded-xl border border-border bg-surface/50 p-1">
+        {(['BIST', 'US'] as Market[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => switchMarket(m)}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+              market === m
+                ? 'bg-surface shadow text-text-primary'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            {m === 'BIST' ? '🇹🇷 BIST' : '🇺🇸 ABD'}
+          </button>
+        ))}
+      </div>
+
       {/* Başlık satırı */}
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <p className="text-sm text-text-secondary">
-          Türk ekonomi medyasından derlenen güncel haberler
+          {market === 'US'
+            ? 'ABD piyasalarından doğrudan borsa haberleri'
+            : 'Türk ekonomi medyasından derlenen güncel haberler'}
           {sonGuncelleme && (
             <span className="ml-2 text-text-muted">
               · Son güncelleme: {sonGuncelleme.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
@@ -342,7 +380,9 @@ export function TabHaberler() {
               )}
 
               <p className="mt-6 text-center text-xs text-text-muted">
-                Haberler NTV, Sabah, Hürriyet ve Habertürk&apos;ten derlenmektedir · Her 5 dakikada kontrol edilir
+                {market === 'US'
+                  ? 'Haberler Yahoo Finance, MarketWatch, CNBC ve Investing.com’dan derlenmektedir · Her 5 dakikada kontrol edilir'
+                  : 'Haberler NTV, Sabah, Hürriyet ve Habertürk’ten derlenmektedir · Her 5 dakikada kontrol edilir'}
               </p>
             </div>
           )}

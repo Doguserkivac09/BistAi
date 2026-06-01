@@ -17,6 +17,7 @@ import { getMarketRegime } from '@/lib/regime-engine';
 import { getSectorId } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
 import type { OHLCVCandle } from '@/types';
+import { bistGuard } from '@/lib/bist-guard';
 
 /** RSI(14) — son değeri döndürür */
 function calcLastRSI(candles: OHLCVCandle[], period = 14): number | null {
@@ -61,6 +62,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const guard = bistGuard();
+  if (guard) return guard;
+
   const supabase = createAdminClient();
   const startedAt = Date.now();
   const symbols = [...BIST_SYMBOLS];
@@ -77,6 +81,7 @@ export async function GET(request: NextRequest) {
   const failed: string[] = [];
   const rows: Array<{
     sembol: string;
+    market: string;
     signals_json: object;
     candles_json: object;
     change_percent: number | null;
@@ -176,6 +181,7 @@ export async function GET(request: NextRequest) {
 
       rows.push({
         sembol,
+        market:        'BIST',
         signals_json: signals,
         candles_json: last60,
         change_percent: changePercent
@@ -240,7 +246,7 @@ export async function GET(request: NextRequest) {
   if (rows.length > 0) {
     const { error } = await supabase
       .from('scan_cache')
-      .upsert(rows, { onConflict: 'sembol' });
+      .upsert(rows, { onConflict: 'sembol,market' });
 
     if (error) {
       console.error('[cron/scan-cache] DB upsert hatası:', error.message);

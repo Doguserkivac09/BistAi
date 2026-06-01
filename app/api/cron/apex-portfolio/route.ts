@@ -15,10 +15,12 @@ import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
 import {
   apexPositionSize, apexTrailingStop, apexEvaluatePosition, apexCalcLevels,
-  apexHealthCheck,
+  apexHealthCheck, apexSignalHealth, calcLockedStopFloor,
   APEX_INITIAL_CAPITAL, APEX_MIN_CONFLUENCE, APEX_MIN_REL_VOL,
-  type ApexPosition,
+  type ApexPosition, type SignalContext,
 } from '@/lib/apex-engine';
+import { bistGuard } from '@/lib/bist-guard';
+import { countTradingDaysBetween } from '@/lib/time-align';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -36,6 +38,9 @@ export async function GET(req: NextRequest) {
   if (!isVercel && !(CRON_SECRET && token === CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const db  = admin();
   const now = new Date();
@@ -116,7 +121,26 @@ export async function GET(req: NextRequest) {
     stop_loss: p.stop_loss, trailing_stop: p.trailing_stop,
     cost_basis: p.cost_basis, current_price: p.current_price,
     entry_confluence: p.entry_confluence, entry_rel_vol5: p.entry_rel_vol5,
+    tp1_hit:    p.tp1_hit    ?? false,
+    entry_date: p.entry_date ?? today,
   }));
+
+  // ── Açık pozisyonlar için tam scan verisi (degradasyon dahil) ────────
+  const openSemboller = positions.map((p) => p.sembol);
+  const fullPosScanMap = new Map<string, {
+    last_close: number; rsi: number | null;
+    confluence_score: number | null; rel_vol5: number | null;
+    change_percent: number | null; signals_json: unknown; candles_json: unknown;
+  }>();
+  if (openSemboller.length > 0) {
+    const { data: posScanRows } = await db
+      .from('scan_cache')
+      .select('sembol, last_close, rsi, confluence_score, rel_vol5, change_percent, signals_json, candles_json')
+      .in('sembol', openSemboller);
+    for (const r of posScanRows ?? []) {
+      fullPosScanMap.set(r.sembol, r);
+    }
+  }
 
   // ── 3. scan_cache: bugünün fırsatları ─────────────────────────────
   const { data: scanRows } = await db
@@ -145,16 +169,64 @@ export async function GET(req: NextRequest) {
   const macroScore  = macroFull?.macroScore?.score ?? 0;
   const macroCtx    = macroScore > 20 ? 'pozitif' : macroScore < -20 ? 'negatif' : 'nötr';
 
+  // Makro rejim: yeni açma yasağı (≤-20) veya azaltılmış mod (-20 < score ≤-10)
+  const macroBlockNew    = macroScore <= -20;  // yeni pozisyon yok
+  const macroReducedMode = macroScore > -20 && macroScore <= -10; // maks 2 toplam
+  if (macroBlockNew) {
+    console.log(`[apex] Makro rejim filtresi aktif (score=${macroScore}) — yeni açma durduruldu`);
+  } else if (macroReducedMode) {
+    console.log(`[apex] Makro azaltılmış mod (score=${macroScore}) — toplam maks 2 pozisyon`);
+  }
+
   // scan_cache map (güncel fiyat + confluence)
   const scanMap = new Map((scanRows ?? []).map((r) => [r.sembol, r]));
   const allScanMap = new Map<string, { confluence_score: number; rel_vol5: number; last_close: number }>();
   for (const r of scanRows ?? []) allScanMap.set(r.sembol, r);
+
+  // candles_json'dan 5G SMA altı + durgunluk flag'leri hesapla
+  function computeSignalFlags(candlesJson: unknown): { belowSma5: boolean; isStagnant: boolean } {
+    if (!Array.isArray(candlesJson) || candlesJson.length < 10) {
+      return { belowSma5: false, isStagnant: false };
+    }
+    const candles = candlesJson as Array<{ close: number; high: number; low: number }>;
+    const last5   = candles.slice(-5);
+    const sma5    = last5.reduce((s, c) => s + c.close, 0) / 5;
+    const lastC   = candles[candles.length - 1]!.close;
+    const belowSma5  = lastC < sma5;
+    const last10  = candles.slice(-10);
+    const maxH    = Math.max(...last10.map((c) => c.high));
+    const minL    = Math.min(...last10.map((c) => c.low));
+    const range   = minL > 0 ? (maxH - minL) / minL : 0;
+    const isStagnant = range < 0.03;
+    return { belowSma5, isStagnant };
+  }
+
+  // signals_json'dan ATR çıkar (dinamik stop için)
+  function getAtrFromSignals(signalsJson: unknown): number | null {
+    if (!Array.isArray(signalsJson)) return null;
+    for (const sig of signalsJson as Array<{ atr?: number }>) {
+      if (sig.atr && sig.atr > 0) return sig.atr;
+    }
+    return null;
+  }
+
+  // Dominant AL sinyali tipini çıkar (win rate by setup takibi)
+  function getDominantSignalType(signalsJson: unknown): string | null {
+    if (!Array.isArray(signalsJson)) return null;
+    const sigs = (signalsJson as Array<{ type: string; direction: string; severity: string }>)
+      .filter((s) => s.direction === 'yukari');
+    if (sigs.length === 0) return null;
+    const order: Record<string, number> = { 'güçlü': 3, 'orta': 2, 'zayıf': 1 };
+    sigs.sort((a, b) => (order[b.severity] ?? 0) - (order[a.severity] ?? 0));
+    return sigs[0]?.type ?? null;
+  }
 
   const decisions: Array<{
     decision_date: string; sembol: string; action: string;
     shares: number | null; theoretical_price: number; cost_or_proceeds: number;
     confluence_score: number | null; rel_vol5: number | null;
     stop_loss: number | null; reason_short: string;
+    signal_type: string | null;
   }> = [];
 
   let closedCount = 0;
@@ -163,32 +235,51 @@ export async function GET(req: NextRequest) {
 
   // ── 5. Mevcut pozisyonları değerlendir ────────────────────────────
   for (const pos of positions) {
-    const scan    = scanMap.get(pos.sembol);
-    const current = scan?.last_close ?? pos.current_price ?? pos.entry_price;
-    const confNow = scan?.confluence_score ?? null;
+    // Tam scan verisi (degradasyon dahil)
+    const posScan = fullPosScanMap.get(pos.sembol);
+    const current = posScan?.last_close ?? pos.current_price ?? pos.entry_price;
+    const confNow = posScan?.confluence_score ?? null;
+    const ret     = ((current - pos.entry_price) / pos.entry_price) * 100;
 
     // Trailing stop güncelle
     const newTrailing = apexTrailingStop(pos.entry_price, current, pos.trailing_stop);
-    if (newTrailing > pos.trailing_stop) {
-      await db.from('apex_portfolio_positions')
-        .update({ trailing_stop: newTrailing, current_price: current })
-        .eq('id', pos.id);
-    }
 
-    const { action, reason } = apexEvaluatePosition(pos, current, confNow, scan?.rel_vol5 ?? null, bestOpp);
+    // Locked-in kâr stop zemini — kapanış fiyatına göre
+    const stopFloor  = calcLockedStopFloor(pos.entry_price, ret);
+    const newStopLoss = stopFloor !== null && stopFloor > pos.stop_loss ? stopFloor : pos.stop_loss;
+
+    // Signal Context oluştur
+    const sigFlags    = computeSignalFlags(posScan?.candles_json);
+    const sigCtx: SignalContext = {
+      rsi:         posScan?.rsi          ?? null,
+      confluence:  confNow,
+      relVol5:     posScan?.rel_vol5     ?? null,
+      signals:     Array.isArray(posScan?.signals_json) ? (posScan.signals_json as Array<{ direction: string }>) : null,
+      macroScore,
+      changeToday: posScan?.change_percent ?? null,
+      belowSma5:   sigFlags.belowSma5,
+      isStagnant:  sigFlags.isStagnant,
+    };
+
+    // Kaç iş günü açık?
+    const tradingDaysOpen = countTradingDaysBetween(new Date(pos.entry_date), now);
+
+    // Güncel pos (stop zeminli)
+    const updatedPos = { ...pos, stop_loss: newStopLoss, trailing_stop: newTrailing };
+    const evalResult = apexEvaluatePosition(updatedPos, current, confNow, posScan?.rel_vol5 ?? null, bestOpp, sigCtx, tradingDaysOpen);
+    const { action, reason } = evalResult;
 
     if (action === 'SELL' || action === 'ROTATE_OUT') {
       const proceeds = pos.shares * current;
       const pnl      = proceeds - pos.cost_basis;
       const pnlPct   = (pnl / pos.cost_basis) * 100;
-      const daysHeld = Math.floor((now.getTime() - new Date(pos.id).getTime()) / 86_400_000);
 
       await db.from('apex_portfolio_positions').update({
         is_open: false, closed_at: now.toISOString(),
         close_price: current, close_reason: action.toLowerCase(),
         realized_pnl: parseFloat(pnl.toFixed(2)),
         realized_pnl_pct: parseFloat(pnlPct.toFixed(2)),
-        current_price: current,
+        current_price: current, stop_loss: newStopLoss,
       }).eq('id', pos.id);
 
       cash += proceeds;
@@ -197,22 +288,62 @@ export async function GET(req: NextRequest) {
       decisions.push({
         decision_date: today, sembol: pos.sembol, action,
         shares: pos.shares, theoretical_price: current, cost_or_proceeds: proceeds,
-        confluence_score: confNow, rel_vol5: scan?.rel_vol5 ?? null,
-        stop_loss: pos.stop_loss, reason_short: reason,
+        confluence_score: confNow, rel_vol5: posScan?.rel_vol5 ?? null,
+        stop_loss: newStopLoss, reason_short: reason,
+        signal_type: null,
       });
+
+    } else if (action === 'PARTIAL_SELL') {
+      const partialPct   = evalResult.partialPct ?? 50;
+      const closeShares  = Math.floor(pos.shares * (partialPct / 100));
+      const remainShares = pos.shares - closeShares;
+      const partialProc  = closeShares * current;
+      const partialPnl   = (current - pos.entry_price) * closeShares;
+      const pnlStr       = `${partialPnl >= 0 ? '+' : ''}${partialPnl.toFixed(0)}₺`;
+      const trigger      = evalResult.trigger ?? 'signal_weak';
+
+      // Stop: break-even (en az), sonra locked floor
+      const newStop = Math.max(newStopLoss, pos.entry_price);
+
+      await db.from('apex_portfolio_positions').update({
+        shares:      remainShares,
+        stop_loss:   newStop,
+        tp1_hit:     true,
+        tp1_hit_at:  now.toISOString(),
+        current_price: current,
+        trailing_stop: newTrailing,
+      }).eq('id', pos.id);
+
+      cash          += partialProc;
+      positionsValue += remainShares * current;
+      remainingPositions.push({ ...updatedPos, shares: remainShares, stop_loss: newStop, tp1_hit: true });
+
+      const triggerLabel = trigger === 'parabolic' ? `PARABOLİK FADE` : `KISMI ÇIKIŞ`;
+      decisions.push({
+        decision_date: today, sembol: pos.sembol, action: 'PARTIAL_SELL',
+        shares: closeShares, theoretical_price: current, cost_or_proceeds: partialProc,
+        confluence_score: confNow, rel_vol5: posScan?.rel_vol5 ?? null,
+        stop_loss: newStop, signal_type: null,
+        reason_short: `${triggerLabel} -%${partialPct} (${pnlStr}): ${reason}`,
+      });
+
     } else {
-      // HOLD
-      await db.from('apex_portfolio_positions')
-        .update({ current_price: current })
-        .eq('id', pos.id);
+      // HOLD — stop + trailing güncelle (locked floor varsa)
+      await db.from('apex_portfolio_positions').update({
+        current_price: current,
+        trailing_stop: newTrailing,
+        stop_loss: newStopLoss,
+      }).eq('id', pos.id);
+
       positionsValue += pos.shares * current;
-      remainingPositions.push({ ...pos, trailing_stop: newTrailing });
+      remainingPositions.push({ ...updatedPos });
 
       decisions.push({
         decision_date: today, sembol: pos.sembol, action: 'HOLD',
         shares: pos.shares, theoretical_price: current, cost_or_proceeds: 0,
-        confluence_score: confNow, rel_vol5: scan?.rel_vol5 ?? null,
-        stop_loss: pos.stop_loss, reason_short: reason,
+        confluence_score: confNow, rel_vol5: posScan?.rel_vol5 ?? null,
+        stop_loss: newStopLoss, reason_short: reason,
+        signal_type: null,
       });
     }
   }
@@ -237,10 +368,23 @@ export async function GET(req: NextRequest) {
   const health = apexHealthCheck(totalValue, cash, remainingPositions.length, sectorMap);
   let openedCount = 0;
 
-  if (health.canBuy && !circuitBreakerActive && !drawdownBlockNew) {
+  // Sektör başına pozisyon sayısı (konsantrasyon kontrolü)
+  const sectorPositionCount = new Map<string, number>();
+  for (const pos of remainingPositions) {
+    const sid = pos.sector_id ?? 'diger';
+    sectorPositionCount.set(sid, (sectorPositionCount.get(sid) ?? 0) + 1);
+  }
+
+  if (health.canBuy && !circuitBreakerActive && !drawdownBlockNew && !macroBlockNew) {
     for (const cand of candidates) {
       if (openedCount >= 2) break;
       if (!health.canBuy || cash < 3000) break;
+
+      // Makro azaltılmış mod: toplam maks 2 pozisyon
+      if (macroReducedMode && (remainingPositions.length + openedCount) >= 2) {
+        console.log(`[apex] Makro azaltılmış mod — 2 pozisyon dolu, yeni giriş durduruldu`);
+        break;
+      }
 
       // Bu hissede zaten pozisyon var mı? (bu portföy + AI cross-check)
       if (remainingPositions.some((p) => p.sembol === cand.sembol)) continue;
@@ -249,11 +393,16 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Sektör limiti (%40)
-      if ((sectorMap.get(cand.sector ?? 'diger') ?? 0) >= 0.40) continue;
+      // Sektör limiti: %40 değer + maks 2 pozisyon aynı sektörde
+      const sectorId = cand.sector ?? 'diger';
+      if ((sectorMap.get(sectorId) ?? 0) >= 0.40) continue;
+      if ((sectorPositionCount.get(sectorId) ?? 0) >= 2) {
+        console.log(`[apex] ${cand.sembol} — sektör pozisyon limiti (maks 2)`);
+        continue;
+      }
 
       const rawSize  = apexPositionSize(cash, totalValue, cand.confluence_score, cand.rel_vol5, macroScore);
-      const posSize  = rawSize * drawdownSizeMult; // drawdown varsa küçült
+      const posSize  = rawSize * drawdownSizeMult;
       const capped   = Math.min(posSize, health.maxSize);
       if (capped < 1500) continue;
 
@@ -264,10 +413,14 @@ export async function GET(req: NextRequest) {
       if (shares <= 0) continue;
 
       const cost = shares * entryPrice;
-      const { stopLoss, trailingStop } = apexCalcLevels(entryPrice);
+      const candAtr = getAtrFromSignals(cand.signals_json);
+      const { stopLoss, trailingStop } = apexCalcLevels(entryPrice, candAtr);
+
+      // Dominant sinyal tipi (win rate by setup)
+      const sigType = getDominantSignalType(cand.signals_json);
 
       await db.from('apex_portfolio_positions').insert({
-        sembol: cand.sembol, sector_id: cand.sector ?? 'diger', sector_name: cand.sector ?? 'Diğer',
+        sembol: cand.sembol, sector_id: sectorId, sector_name: cand.sector ?? 'Diğer',
         shares, entry_price: entryPrice, entry_date: today,
         current_price: entryPrice, stop_loss: stopLoss, trailing_stop: trailingStop,
         cost_basis: cost, is_open: true,
@@ -283,12 +436,13 @@ export async function GET(req: NextRequest) {
         decision_date: today, sembol: cand.sembol, action: 'BUY',
         shares, theoretical_price: entryPrice, cost_or_proceeds: cost,
         confluence_score: cand.confluence_score, rel_vol5: cand.rel_vol5,
-        stop_loss: stopLoss,
-        reason_short: `APEX GİRİŞ: conf ${cand.confluence_score}, relVol5 ${cand.rel_vol5.toFixed(1)}x, bugün ${cand.change_percent?.toFixed(1) ?? '?'}%`,
+        stop_loss: stopLoss, signal_type: sigType,
+        reason_short: `APEX GİRİŞ: conf ${cand.confluence_score}, relVol5 ${cand.rel_vol5.toFixed(1)}x${sigType ? ` [${sigType}]` : ''}, bugün ${cand.change_percent?.toFixed(1) ?? '?'}%`,
       });
 
-      // Sektör haritasını güncelle
-      sectorMap.set(cand.sector ?? 'diger', (sectorMap.get(cand.sector ?? 'diger') ?? 0) + cost / totalValue);
+      // Haritaları güncelle
+      sectorMap.set(sectorId, (sectorMap.get(sectorId) ?? 0) + cost / totalValue);
+      sectorPositionCount.set(sectorId, (sectorPositionCount.get(sectorId) ?? 0) + 1);
     }
   }
 

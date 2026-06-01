@@ -36,7 +36,7 @@ const TR_HOLIDAYS_2026 = [
   '2026-10-29', // Cumhuriyet Bayramı
 ];
 
-const US_HOLIDAYS_2026 = [
+export const US_HOLIDAYS_2026 = [
   '2026-01-01', // New Year
   '2026-01-19', // MLK Day
   '2026-02-16', // Presidents Day
@@ -164,6 +164,25 @@ export function checkFreshness(
 }
 
 /**
+ * from (dahil değil) ile to (dahil) arasındaki BIST iş günü sayısı.
+ * Whipsaw koruması için kullanılır.
+ */
+export function countTradingDaysBetween(from: Date, to: Date): number {
+  const d = new Date(from);
+  d.setDate(d.getDate() + 1); // from günü hariç, sonrasından başla
+  let count = 0;
+  while (d <= to) {
+    const day     = d.getDay();
+    const dateStr = formatDate(d);
+    if (day !== 0 && day !== 6 && !TR_HOLIDAYS_2026.includes(dateStr)) {
+      count++;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+/**
  * Bir tarih dizisindeki en son iş gününü bulur.
  * Hafta sonu ve tatil günlerini atlar, bir önceki cuma/perşembeye gider.
  */
@@ -186,6 +205,47 @@ export function getLastBusinessDay(
   }
 
   return d;
+}
+
+/**
+ * BIST cron'larının çalışıp çalışmaması gerektiğini belirler.
+ *
+ * Kural:
+ *  - Cumartesi           → ATLA (piyasa kesinlikle kapalı)
+ *  - Pazar               → ÇALIŞ (Pazartesi açılışı için veri hazır olsun)
+ *  - Normal iş günü      → ÇALIŞ
+ *  - Tatil günü, yarın borsa açılıyor → ÇALIŞ (tatil son günü, güncel analiz lazım)
+ *  - Tatil günü, yarın da tatil/hafta sonu → ATLA
+ */
+export function shouldRunBistCron(now?: Date): { shouldRun: boolean; reason: string } {
+  const d = now ?? new Date();
+  const trNow = toTRTime(d);
+  const day = trNow.getDay();
+  const dateStr = formatDate(trNow);
+
+  if (day === 6) {
+    return { shouldRun: false, reason: `Cumartesi — BIST kapalı (${dateStr})` };
+  }
+  if (day === 0) {
+    return { shouldRun: true, reason: `Pazar — Pazartesi açılışı için hazırlık` };
+  }
+  if (!TR_HOLIDAYS_2026.includes(dateStr)) {
+    return { shouldRun: true, reason: `Normal iş günü (${dateStr})` };
+  }
+
+  // Tatil günü: yarın trading day mi?
+  const tomorrowUTC = new Date(d.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowTR = toTRTime(tomorrowUTC);
+  const tomorrowDay = tomorrowTR.getDay();
+  const tomorrowStr = formatDate(tomorrowTR);
+  const tomorrowIsTradingDay =
+    tomorrowDay !== 0 && tomorrowDay !== 6 && !TR_HOLIDAYS_2026.includes(tomorrowStr);
+
+  if (tomorrowIsTradingDay) {
+    return { shouldRun: true, reason: `Tatil son günü — yarın (${tomorrowStr}) BIST açılıyor` };
+  }
+
+  return { shouldRun: false, reason: `Tatil — ${dateStr} (yarın da kapalı)` };
 }
 
 /**

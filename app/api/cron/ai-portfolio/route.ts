@@ -30,6 +30,7 @@ import {
   MAX_POSITION_PCT,
   MIN_ENTRY_SCORE,
 } from '@/lib/ai-portfolio-engine';
+import { bistGuard } from '@/lib/bist-guard';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -56,6 +57,9 @@ export async function GET(req: NextRequest) {
   if (!isVercelCron && !(CRON_SECRET && token === CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const admin = createAdmin();
   const now = new Date();

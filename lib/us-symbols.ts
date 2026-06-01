@@ -1,0 +1,839 @@
+/**
+ * US Borsası Sembol Listesi — InvestableEdge APEX US / Aegis US
+ *
+ * ~530 sembol: S&P 500 tam kapsamı + Nasdaq 100 ekleri + mevcut spekülatifler
+ *
+ * Kategoriler:
+ *  large_cap   → S&P 500 kurumsal, likit (market cap > $20B, kârlı)
+ *  growth      → Yüksek büyüme, SaaS, biotech, Nasdaq mid-cap
+ *  dividend    → Yüksek temettü: utilities, REITs, staples
+ *  speculative → Momentum, tematik, yüksek beta (kuantum, kripto, uzay, AI)
+ *
+ * Penny / micro-cap yok.
+ */
+
+export type ThemeId =
+  | 'AI' | 'Quantum' | 'Space' | 'Cybersecurity'
+  | 'Datacenter' | 'Defense' | 'Semis' | 'Biotech'
+  | 'Crypto' | 'EV' | 'CleanEnergy' | 'Networking' | 'PowerInfra';
+
+export interface USSymbol {
+  symbol: string;
+  sector: string;
+  type:   'large_cap' | 'growth' | 'dividend' | 'speculative';
+}
+
+export const US_SYMBOLS: USSymbol[] = [
+
+  // ══════════════════════════════════════════════════════
+  // LARGE CAP — S&P 500 Kurumsal
+  // ══════════════════════════════════════════════════════
+
+  // ── Technology ────────────────────────────────────────
+  { symbol: 'AAPL',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'MSFT',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'NVDA',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'GOOGL', sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'META',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'AVGO',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'CRM',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ORCL',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ADBE',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ACN',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'IBM',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'TXN',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'QCOM',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'INTC',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ADI',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'KLAC',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'LRCX',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'AMAT',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'MU',    sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'CDNS',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'SNPS',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'CSCO',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'HPE',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'HPQ',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'NTAP',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'CTSH',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'GRMN',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'KEYS',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ANSS',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'AKAM',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'FFIV',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'CDW',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'VRSN',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ZBRA',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'EPAM',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'JNPR',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'SAP',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ASML',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ANET',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'ADSK',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'WDC',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'GDDY',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'MPWR',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'MCHP',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'SWKS',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'GLW',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'TEL',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'APH',   sector: 'Technology',  type: 'large_cap' },
+
+  // ── Healthcare ────────────────────────────────────────
+  { symbol: 'LLY',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'UNH',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'JNJ',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'MRK',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'ABBV',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'ABT',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'TMO',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'DHR',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'BMY',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'AMGN',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'GILD',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'ISRG',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'PFE',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'MDT',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'BSX',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'SYK',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'ZTS',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'CVS',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'HUM',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'CNC',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'CI',    sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'VRTX',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'REGN',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'BIIB',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'DXCM',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'BAX',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'BDX',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'EW',    sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'HOLX',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'IDXX',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'IQV',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'A',     sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'ALGN',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'MCK',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'CAH',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'ABC',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'RMD',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'MOH',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'ZBH',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'GEHC',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'PODD',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'EXAS',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'INCY',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'HSIC',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'LH',    sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'DGX',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'HCA',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'CRL',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'WAT',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'MTD',   sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'PKI',   sector: 'Healthcare',  type: 'large_cap' },
+
+  // ── Finance ───────────────────────────────────────────
+  { symbol: 'JPM',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'BAC',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'WFC',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'C',     sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'GS',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'MS',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'BLK',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'SCHW',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'AXP',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'COF',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'DFS',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'SYF',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'USB',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'TFC',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'PNC',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'BK',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'STT',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'ICE',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'CME',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'CBOE',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'SPGI',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'MCO',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'MSCI',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'V',     sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'MA',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'PYPL',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'FIS',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'FISV',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'GPN',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'NDAQ',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'KKR',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'BX',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'APO',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'PGR',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'ALL',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'TRV',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'CB',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'HIG',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'AFL',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'MET',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'PRU',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'MMC',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'AON',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'WTW',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'TROW',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'RF',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'HBAN',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'CFG',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'KEY',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'MTB',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'ZION',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'AJG',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'BRO',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'CINF',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'GL',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'RE',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'SEIC',  sector: 'Finance',     type: 'large_cap' },
+
+  // ── Energy ────────────────────────────────────────────
+  { symbol: 'XOM',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'CVX',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'COP',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'EOG',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'SLB',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'VLO',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'PSX',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'MPC',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'OXY',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'DVN',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'HAL',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'BKR',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'APA',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'OKE',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'KMI',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'WMB',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'ET',    sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'EQT',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'MRO',   sector: 'Energy',      type: 'large_cap' },
+  { symbol: 'CTRA',  sector: 'Energy',      type: 'large_cap' },
+
+  // ── Industrials ───────────────────────────────────────
+  { symbol: 'RTX',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'BA',    sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'LMT',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'GE',    sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'HON',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'CAT',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'UPS',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'DE',    sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'NOC',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'GD',    sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'ITW',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'EMR',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'ETN',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'PH',    sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'ROK',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'CMI',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'FAST',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'ODFL',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'TDG',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'CARR',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'OTIS',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'IR',    sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'CTAS',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'SWK',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'GWW',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'LHX',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'RSG',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'WM',    sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'AME',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'FTV',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'LDOS',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'SAIC',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'XYL',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'PNR',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'CPRT',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'VRSK',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'AGCO',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'PWR',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'XPO',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'FDX',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'DAL',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'UAL',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'AAL',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'LUV',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'PCAR',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'HII',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'HEI',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'HWM',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'CHRW',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'JBHT',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'SAIA',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'GXO',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'GNRC',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'MAS',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'RRX',   sector: 'Industrial',  type: 'large_cap' },
+
+  // ── Consumer Discretionary ────────────────────────────
+  { symbol: 'AMZN',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'TSLA',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'HD',    sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'MCD',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'NKE',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'LOW',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'SBUX',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'TGT',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'BKNG',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'YUM',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'CMG',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'HLT',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'MAR',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'GM',    sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'F',     sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'ORLY',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'AZO',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'ULTA',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'ROST',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'TJX',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'BBWI',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'EL',    sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'LULU',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'LVS',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'MGM',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'WYNN',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'RCL',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'CCL',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'NCLH',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'EXPE',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'ABNB',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'EBAY',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'DPZ',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'HAS',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'MAT',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'APTV',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'BWA',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'LKQ',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'DG',    sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'DLTR',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'BBY',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'RL',    sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'TPR',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'CPRI',  sector: 'Consumer',    type: 'large_cap' },
+
+  // ── Consumer Staples ──────────────────────────────────
+  { symbol: 'WMT',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'COST',  sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'PG',    sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'KO',    sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'PEP',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'MO',    sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'PM',    sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'MDLZ',  sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'KMB',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'CL',    sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'GIS',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'HSY',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'TSN',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'ADM',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'BG',    sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'HRL',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'K',     sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'CAG',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'MKC',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'CHD',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'CLX',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'MNST',  sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'STZ',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'WBA',   sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'KR',    sector: 'Staples',     type: 'large_cap' },
+  { symbol: 'SYY',   sector: 'Staples',     type: 'large_cap' },
+
+  // ── Communication Services ────────────────────────────
+  { symbol: 'DIS',   sector: 'Media',       type: 'large_cap' },
+  { symbol: 'NFLX',  sector: 'Media',       type: 'large_cap' },
+  { symbol: 'CMCSA', sector: 'Media',       type: 'large_cap' },
+  { symbol: 'T',     sector: 'Telecom',     type: 'large_cap' },
+  { symbol: 'VZ',    sector: 'Telecom',     type: 'large_cap' },
+  { symbol: 'CHTR',  sector: 'Telecom',     type: 'large_cap' },
+  { symbol: 'TMUS',  sector: 'Telecom',     type: 'large_cap' },
+  { symbol: 'FOXA',  sector: 'Media',       type: 'large_cap' },
+  { symbol: 'LYV',   sector: 'Media',       type: 'large_cap' },
+  { symbol: 'OMC',   sector: 'Media',       type: 'large_cap' },
+  { symbol: 'IPG',   sector: 'Media',       type: 'large_cap' },
+  { symbol: 'PARA',  sector: 'Media',       type: 'large_cap' },
+  { symbol: 'WBD',   sector: 'Media',       type: 'large_cap' },
+
+  // ── Materials ─────────────────────────────────────────
+  { symbol: 'LIN',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'APD',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'ECL',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'NEM',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'FCX',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'NUE',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'SHW',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'ALB',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'PPG',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'DD',    sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'CF',    sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'VMC',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'MLM',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'BLL',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'IP',    sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'PKG',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'AVY',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'CE',    sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'FMC',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'EMN',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'OLN',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'RPM',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'CTVA',  sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'WRK',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'SEE',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'SON',   sector: 'Materials',   type: 'large_cap' },
+  { symbol: 'MOS',   sector: 'Materials',   type: 'large_cap' },
+
+  // ── Diğer S&P 500 ────────────────────────────────────
+  { symbol: 'GPC',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'MHK',   sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'IT',    sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'BR',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'TRU',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'FNF',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'WU',    sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'CSGP',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'POOL',  sector: 'Consumer',    type: 'large_cap' },
+  { symbol: 'GEN',   sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'NVT',   sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'J',     sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'FICO',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'PAYC',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'TECH',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'IDCC',  sector: 'Technology',  type: 'large_cap' },
+  { symbol: 'NWSA',  sector: 'Media',       type: 'large_cap' },
+  { symbol: 'MKL',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'CBSH',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'UMBF',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'EWBC',  sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'LECO',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'LFUS',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'EXPO',  sector: 'Industrial',  type: 'large_cap' },
+  { symbol: 'RGA',   sector: 'Finance',     type: 'large_cap' },
+  { symbol: 'PRGO',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'CTLT',  sector: 'Healthcare',  type: 'large_cap' },
+  { symbol: 'JAZZ',  sector: 'Healthcare',  type: 'large_cap' },
+
+  // ══════════════════════════════════════════════════════
+  // GROWTH — Yüksek Büyüme, SaaS, Biotech
+  // ══════════════════════════════════════════════════════
+
+  // ── Semiconductor / AI Hardware ───────────────────────
+  { symbol: 'AMD',   sector: 'Technology',  type: 'growth' },
+  { symbol: 'ARM',   sector: 'Technology',  type: 'growth' },
+  { symbol: 'SMCI',  sector: 'Technology',  type: 'growth' }, // kullanıcı talebi
+  { symbol: 'MRVL',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'ON',    sector: 'Technology',  type: 'growth' },
+  { symbol: 'NXPI',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'WOLF',  sector: 'Technology',  type: 'growth' },
+
+  // ── Cybersecurity ─────────────────────────────────────
+  { symbol: 'PANW',  sector: 'Cybersecurity', type: 'growth' }, // Palo Alto Networks
+  { symbol: 'CRWD',  sector: 'Cybersecurity', type: 'growth' }, // CrowdStrike
+  { symbol: 'FTNT',  sector: 'Cybersecurity', type: 'growth' }, // Fortinet
+  { symbol: 'ZS',    sector: 'Cybersecurity', type: 'growth' }, // Zscaler
+  { symbol: 'OKTA',  sector: 'Cybersecurity', type: 'growth' }, // Okta
+  { symbol: 'NET',   sector: 'Cybersecurity', type: 'growth' }, // Cloudflare
+  { symbol: 'S',     sector: 'Cybersecurity', type: 'growth' }, // SentinelOne
+  { symbol: 'CYBR',  sector: 'Cybersecurity', type: 'growth' }, // CyberArk
+  { symbol: 'TENB',  sector: 'Cybersecurity', type: 'growth' }, // Tenable
+  { symbol: 'VRNS',  sector: 'Cybersecurity', type: 'growth' }, // Varonis
+  { symbol: 'QLYS',  sector: 'Cybersecurity', type: 'growth' }, // Qualys
+  { symbol: 'RBRK',  sector: 'Cybersecurity', type: 'growth' }, // Rubrik
+  { symbol: 'CHKP',  sector: 'Cybersecurity', type: 'growth' }, // Check Point Software
+  { symbol: 'ESTC',  sector: 'Cybersecurity', type: 'growth' }, // Elastic NV — log analitik + güvenlik
+  { symbol: 'DT',    sector: 'Cybersecurity', type: 'growth' }, // Dynatrace — gözlemlenebilirlik
+
+  // ── SaaS / Data ───────────────────────────────────────
+  { symbol: 'NOW',   sector: 'Technology',  type: 'growth' },
+  { symbol: 'DDOG',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'SNOW',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'PLTR',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'WDAY',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'VEEV',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'HUBS',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'BILL',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'MDB',   sector: 'Technology',  type: 'growth' },
+  { symbol: 'GTLB',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'NTNX',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'TWLO',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'ZM',    sector: 'Technology',  type: 'growth' },
+  { symbol: 'DOCU',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'TTD',   sector: 'Technology',  type: 'growth' },
+  { symbol: 'MNDY',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'DUOL',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'APP',   sector: 'AI',          type: 'growth' }, // AppLovin — AI reklam
+  { symbol: 'U',     sector: 'Technology',  type: 'growth' },
+  { symbol: 'TEAM',  sector: 'Technology',  type: 'growth' },
+
+  // ── Social / Consumer Tech ────────────────────────────
+  { symbol: 'SNAP',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'PINS',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'RBLX',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'ROKU',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'SPOT',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'MELI',  sector: 'Consumer',    type: 'growth' },
+  { symbol: 'SHOP',  sector: 'Consumer',    type: 'growth' },
+  { symbol: 'SE',    sector: 'Consumer',    type: 'growth' },
+  { symbol: 'PDD',   sector: 'Consumer',    type: 'growth' },
+  { symbol: 'BIDU',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'JD',    sector: 'Consumer',    type: 'growth' },
+
+  // ── Fintech / Crypto ──────────────────────────────────
+  { symbol: 'HOOD',  sector: 'Finance',     type: 'growth' },
+  { symbol: 'SOFI',  sector: 'Finance',     type: 'growth' },
+  { symbol: 'AFRM',  sector: 'Finance',     type: 'growth' },
+  { symbol: 'UPST',  sector: 'Finance',     type: 'growth' },
+  { symbol: 'NU',    sector: 'Finance',     type: 'growth' },
+  { symbol: 'MSTR',  sector: 'Finance',     type: 'growth' },
+  { symbol: 'COIN',  sector: 'Finance',     type: 'growth' },
+  { symbol: 'SQ',    sector: 'Finance',     type: 'growth' },
+
+  // ── Biotech Growth ────────────────────────────────────
+  { symbol: 'MRNA',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'BNTX',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'ILMN',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'NVAX',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'PCVX',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'NBIX',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'ALNY',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'BMRN',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'EXEL',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'SRPT',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'ARWR',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'HIMS',  sector: 'Healthcare',  type: 'growth' },
+
+  // ── EV / Mobility ─────────────────────────────────────
+  { symbol: 'RIVN',  sector: 'Consumer',    type: 'growth' },
+  { symbol: 'NIO',   sector: 'Consumer',    type: 'growth' },
+  { symbol: 'XPEV',  sector: 'Consumer',    type: 'growth' },
+  { symbol: 'LI',    sector: 'Consumer',    type: 'growth' },
+
+  // ── Yapay Zeka (AI) Altyapı ve Uygulamalar ─────────────
+  { symbol: 'VRT',   sector: 'AI',          type: 'growth' }, // Vertiv — AI datacenter güç altyapısı
+  { symbol: 'TEM',   sector: 'AI',          type: 'growth' }, // Tempus AI — sağlık AI
+  { symbol: 'NBIS',  sector: 'AI',          type: 'growth' }, // Nebius — AI cloud platformu
+  { symbol: 'CRDO',  sector: 'AI',          type: 'growth' }, // Credo Technology — AI networking çipleri
+  { symbol: 'ALAB',  sector: 'AI',          type: 'growth' }, // Astera Labs — AI veri merkezi
+  { symbol: 'AMBA',  sector: 'AI',          type: 'growth' }, // Ambarella — edge AI yarı iletken
+  { symbol: 'SMTC',  sector: 'AI',          type: 'growth' }, // Semtech — AI bağlantısı (LoRa)
+  { symbol: 'PATH',  sector: 'AI',          type: 'growth' }, // UiPath — AI iş süreci otomasyonu
+  { symbol: 'NICE',  sector: 'AI',          type: 'growth' }, // NICE Systems — AI müşteri hizmetleri
+  { symbol: 'CFLT',  sector: 'AI',          type: 'growth' }, // Confluent — AI veri akış platformu
+
+  // ── Nasdaq 100 Ekleri (S&P 500'de olmayan) ─────────────
+  { symbol: 'GRAB',  sector: 'Consumer',    type: 'growth' },
+  { symbol: 'GLBE',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'BRZE',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'SMAR',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'RXRX',  sector: 'Healthcare',  type: 'growth' },
+  { symbol: 'LAZR',  sector: 'Technology',  type: 'growth' },
+  { symbol: 'IOT',   sector: 'Technology',  type: 'growth' },
+
+  // ══════════════════════════════════════════════════════
+  // DIVIDEND — Temettü Odaklı (Utilities, REITs, Staples)
+  // ══════════════════════════════════════════════════════
+
+  // ── Utilities ─────────────────────────────────────────
+  { symbol: 'NEE',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'DUK',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'SO',    sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'D',     sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'AEP',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'XEL',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'WEC',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'CMS',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'ETR',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'EXC',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'CEG',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'SRE',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'ED',    sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'AWK',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'DTE',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'PCG',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'AES',   sector: 'Utilities',   type: 'dividend' },
+  { symbol: 'VST',   sector: 'Utilities',   type: 'dividend' },
+
+  // ── REITs ─────────────────────────────────────────────
+  { symbol: 'PLD',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'AMT',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'EQIX',  sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'SPG',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'O',     sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'PSA',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'WY',    sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'VICI',  sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'WELL',  sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'AVB',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'EQR',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'NNN',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'EXR',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'INVH',  sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'CCI',   sector: 'Real Estate', type: 'dividend' },
+  { symbol: 'SBAC',  sector: 'Real Estate', type: 'dividend' },
+
+  // ══════════════════════════════════════════════════════
+  // SPECULATIVE — Momentum, Tematik, Yüksek Beta
+  // ══════════════════════════════════════════════════════
+
+  // ── Quantum Computing ─────────────────────────────────
+  { symbol: 'RGTI',  sector: 'Quantum',     type: 'speculative' }, // Rigetti
+  { symbol: 'IONQ',  sector: 'Quantum',     type: 'speculative' }, // IonQ
+  { symbol: 'QBTS',  sector: 'Quantum',     type: 'speculative' }, // D-Wave
+  { symbol: 'ARQQ',  sector: 'Quantum',     type: 'speculative' }, // Arqit
+  { symbol: 'QUBT',  sector: 'Quantum',     type: 'speculative' }, // Quantum Computing Inc
+
+  // ── Space / Satellite ─────────────────────────────────
+  { symbol: 'RKLB',  sector: 'Space',       type: 'speculative' }, // Rocket Lab
+  { symbol: 'ASTS',  sector: 'Space',       type: 'speculative' }, // AST SpaceMobile
+  { symbol: 'LUNR',  sector: 'Space',       type: 'speculative' }, // Intuitive Machines
+  { symbol: 'IRDM',  sector: 'Space',       type: 'speculative' }, // Iridium Communications
+  { symbol: 'PL',    sector: 'Space',       type: 'speculative' }, // Planet Labs
+  { symbol: 'BKSY',  sector: 'Space',       type: 'speculative' }, // BlackSky
+  { symbol: 'SATS',  sector: 'Space',       type: 'speculative' }, // EchoStar
+  { symbol: 'VSAT',  sector: 'Space',       type: 'speculative' }, // Viasat
+  { symbol: 'KTOS',  sector: 'Space',       type: 'speculative' }, // Kratos Defense — drone/uzay sistemleri
+  { symbol: 'AVAV',  sector: 'Space',       type: 'speculative' }, // AeroVironment — drone/savunma
+  { symbol: 'RDW',   sector: 'Space',       type: 'speculative' }, // Redwire Space — uzay altyapısı
+  { symbol: 'SPIR',  sector: 'Space',       type: 'speculative' }, // Spire Global — uydu veri analitik
+  { symbol: 'GSAT',  sector: 'Space',       type: 'speculative' }, // Globalstar — uydu iletişim
+
+  // ── AI / Software Speculative ─────────────────────────
+  { symbol: 'AI',    sector: 'AI',          type: 'speculative' }, // C3.ai
+  { symbol: 'BBAI',  sector: 'AI',          type: 'speculative' }, // BigBear.ai
+  { symbol: 'SOUN',  sector: 'AI',          type: 'speculative' }, // SoundHound
+  { symbol: 'IREN',  sector: 'AI',          type: 'speculative' }, // Iren (AI datacenter + kripto)
+
+  // ── eVTOL / Hava Mobilite ────────────────────────────
+  { symbol: 'JOBY',  sector: 'Industrial',  type: 'speculative' },
+  { symbol: 'ACHR',  sector: 'Industrial',  type: 'speculative' },
+
+  // ── Crypto / Blockchain Mining ────────────────────────
+  { symbol: 'MARA',  sector: 'Finance',     type: 'speculative' },
+  { symbol: 'RIOT',  sector: 'Finance',     type: 'speculative' },
+  { symbol: 'CLSK',  sector: 'Finance',     type: 'speculative' },
+  { symbol: 'BITF',  sector: 'Finance',     type: 'speculative' },
+  { symbol: 'CIFR',  sector: 'Finance',     type: 'speculative' },
+
+  // ── Temiz Enerji ──────────────────────────────────────
+  { symbol: 'PLUG',  sector: 'Energy',      type: 'speculative' },
+  { symbol: 'FCEL',  sector: 'Energy',      type: 'speculative' },
+  { symbol: 'BE',    sector: 'Energy',      type: 'speculative' },
+
+  // ── Consumer Speculative ──────────────────────────────
+  { symbol: 'PTON',  sector: 'Consumer',    type: 'speculative' },
+  { symbol: 'BYND',  sector: 'Consumer',    type: 'speculative' },
+  { symbol: 'LCID',  sector: 'Consumer',    type: 'speculative' },
+  { symbol: 'FVRR',  sector: 'Consumer',    type: 'speculative' },
+  { symbol: 'UPWK',  sector: 'Consumer',    type: 'speculative' },
+  { symbol: 'ETSY',  sector: 'Consumer',    type: 'speculative' },
+
+  // ── Latam Fintech ─────────────────────────────────────
+  { symbol: 'DLO',   sector: 'Finance',     type: 'speculative' },
+  { symbol: 'STNE',  sector: 'Finance',     type: 'speculative' },
+  { symbol: 'PAGS',  sector: 'Finance',     type: 'speculative' },
+];
+
+// ── Tema Haritası ────────────────────────────────────────────────────────
+// Bir sembol birden fazla temaya ait olabilir.
+// Tüm geçerli tema ID'leri: ThemeId tipine bakın.
+
+export const SYMBOL_THEMES: Record<string, ThemeId[]> = {
+  // ── AI ──────────────────────────────────────────────────
+  NVDA: ['AI', 'Semis', 'Datacenter'],
+  AMD:  ['AI', 'Semis'],
+  ARM:  ['AI', 'Semis'],
+  MSFT: ['AI'],
+  GOOGL:['AI'],
+  META: ['AI'],
+  IBM:  ['AI', 'Quantum'],
+  CRM:  ['AI'],
+  ADBE: ['AI'],
+  PLTR: ['AI', 'Defense'],
+  APP:  ['AI'],
+  DDOG: ['AI'],
+  SNOW: ['AI'],
+  NOW:  ['AI'],
+  MU:   ['AI', 'Semis'],
+  MRVL: ['AI', 'Semis', 'Networking'],
+  ANET: ['AI', 'Networking', 'Datacenter'],
+  VRT:  ['AI', 'Datacenter', 'PowerInfra'],
+  TEM:  ['AI', 'Biotech'],
+  NBIS: ['AI'],
+  CRDO: ['AI', 'Semis', 'Networking'],
+  ALAB: ['AI', 'Datacenter'],
+  AMBA: ['AI', 'Semis'],
+  SMTC: ['AI', 'Semis'],
+  PATH: ['AI'],
+  NICE: ['AI'],
+  CFLT: ['AI'],
+  ESTC: ['AI', 'Cybersecurity'],
+  DT:   ['AI', 'Cybersecurity'],
+  AI:   ['AI'],
+  BBAI: ['AI', 'Defense'],
+  SOUN: ['AI'],
+  IREN: ['AI', 'Crypto'],
+  TSLA: ['AI', 'EV'],
+  RXRX: ['AI', 'Biotech'],
+  ETN:  ['AI', 'PowerInfra'],
+  DUOL: ['AI'],
+  MNDY: ['AI'],
+  VEEV: ['AI'],
+
+  // ── Quantum ─────────────────────────────────────────────
+  RGTI: ['Quantum'],
+  IONQ: ['Quantum'],
+  QBTS: ['Quantum'],
+  ARQQ: ['Quantum'],
+  QUBT: ['Quantum'],
+  HON:  ['Quantum', 'Defense'],
+
+  // ── Space ────────────────────────────────────────────────
+  RKLB: ['Space'],
+  ASTS: ['Space'],
+  LUNR: ['Space'],
+  IRDM: ['Space'],
+  PL:   ['Space'],
+  BKSY: ['Space'],
+  SATS: ['Space'],
+  VSAT: ['Space'],
+  KTOS: ['Space', 'Defense'],
+  AVAV: ['Space', 'Defense'],
+  RDW:  ['Space'],
+  SPIR: ['Space'],
+  GSAT: ['Space'],
+  LHX:  ['Defense', 'Space'],
+  LMT:  ['Defense', 'Space'],
+
+  // ── Cybersecurity ────────────────────────────────────────
+  PANW: ['Cybersecurity'],
+  CRWD: ['Cybersecurity'],
+  FTNT: ['Cybersecurity'],
+  ZS:   ['Cybersecurity'],
+  OKTA: ['Cybersecurity'],
+  NET:  ['Cybersecurity', 'Networking'],
+  S:    ['Cybersecurity'],
+  CYBR: ['Cybersecurity'],
+  TENB: ['Cybersecurity'],
+  VRNS: ['Cybersecurity'],
+  QLYS: ['Cybersecurity'],
+  RBRK: ['Cybersecurity'],
+  CHKP: ['Cybersecurity'],
+  VRSN: ['Cybersecurity'],
+  AKAM: ['Cybersecurity', 'Networking'],
+
+  // ── Defense ──────────────────────────────────────────────
+  RTX:  ['Defense'],
+  NOC:  ['Defense'],
+  GD:   ['Defense'],
+  BA:   ['Defense'],
+  HII:  ['Defense'],
+  LDOS: ['Defense'],
+  SAIC: ['Defense'],
+
+  // ── Semis ────────────────────────────────────────────────
+  INTC: ['Semis'],
+  QCOM: ['Semis'],
+  TXN:  ['Semis'],
+  AVGO: ['Semis'],
+  NXPI: ['Semis'],
+  ON:   ['Semis'],
+  KLAC: ['Semis'],
+  LRCX: ['Semis'],
+  AMAT: ['Semis'],
+  ADI:  ['Semis'],
+  ASML: ['Semis'],
+  MCHP: ['Semis'],
+  SWKS: ['Semis'],
+  WOLF: ['Semis', 'EV'],
+
+  // ── Biotech ──────────────────────────────────────────────
+  MRNA: ['Biotech'],
+  BNTX: ['Biotech'],
+  BIIB: ['Biotech'],
+  GILD: ['Biotech'],
+  REGN: ['Biotech'],
+  VRTX: ['Biotech'],
+  AMGN: ['Biotech'],
+  ILMN: ['Biotech'],
+  NVAX: ['Biotech'],
+  BMRN: ['Biotech'],
+  SRPT: ['Biotech'],
+  ARWR: ['Biotech'],
+
+  // ── Crypto ───────────────────────────────────────────────
+  COIN: ['Crypto'],
+  MARA: ['Crypto'],
+  RIOT: ['Crypto'],
+  CLSK: ['Crypto'],
+  BITF: ['Crypto'],
+  CIFR: ['Crypto'],
+  MSTR: ['Crypto'],
+
+  // ── EV ───────────────────────────────────────────────────
+  RIVN: ['EV'],
+  NIO:  ['EV'],
+  XPEV: ['EV'],
+  LI:   ['EV'],
+  LCID: ['EV'],
+
+  // ── CleanEnergy ──────────────────────────────────────────
+  NEE:  ['CleanEnergy', 'PowerInfra'],
+  PLUG: ['CleanEnergy'],
+  FCEL: ['CleanEnergy'],
+  BE:   ['CleanEnergy'],
+  VST:  ['CleanEnergy', 'PowerInfra'],
+
+  // ── Networking ───────────────────────────────────────────
+  CSCO: ['Networking'],
+  JNPR: ['Networking'],
+  FFIV: ['Networking'],
+
+  // ── Datacenter ───────────────────────────────────────────
+  EQIX: ['Datacenter'],
+  AMT:  ['Datacenter'],
+
+  // ── PowerInfra ───────────────────────────────────────────
+  GNRC: ['PowerInfra'],
+  PWR:  ['PowerInfra'],
+};
+
+// ── Yardımcılar ──────────────────────────────────────────────────────────
+
+const US_SYMBOL_SET = new Set(US_SYMBOLS.map((s) => s.symbol.toUpperCase()));
+
+/** Sembolün US borsasına ait olup olmadığını kontrol et */
+export function isUSSymbol(sembol: string): boolean {
+  return US_SYMBOL_SET.has(sembol.trim().toUpperCase());
+}
+
+/** Tüm US sembollerini string array olarak döndür */
+export const US_SYMBOL_LIST: string[] = US_SYMBOLS.map((s) => s.symbol);
+
+/** Tip bazında filtrele */
+export function getUSSymbolsByType(type: USSymbol['type']): string[] {
+  return US_SYMBOLS.filter((s) => s.type === type).map((s) => s.symbol);
+}
+
+/** Belirli temaya ait tüm sembolleri döndür */
+export function getSymbolsByTheme(theme: ThemeId): string[] {
+  return Object.entries(SYMBOL_THEMES)
+    .filter(([, themes]) => themes.includes(theme))
+    .map(([sym]) => sym);
+}
+
+/** Bir sembolün temalarını döndür */
+export function getThemesForSymbol(symbol: string): ThemeId[] {
+  return SYMBOL_THEMES[symbol.toUpperCase()] ?? [];
+}
+
+/** Tüm tema ID'lerini döndür */
+export const ALL_THEMES: ThemeId[] = [
+  'AI', 'Quantum', 'Space', 'Cybersecurity',
+  'Datacenter', 'Defense', 'Semis', 'Biotech',
+  'Crypto', 'EV', 'CleanEnergy', 'Networking', 'PowerInfra',
+];

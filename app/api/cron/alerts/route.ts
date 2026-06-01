@@ -20,6 +20,7 @@ import { sendSignalAlert, sendFormationAlert, isFormationSignalEmail } from '@/l
 import type { FormationGroup } from '@/lib/email-service';
 import { sendPush } from '@/lib/push';
 import type { StockSignal } from '@/types';
+import { bistGuard } from '@/lib/bist-guard';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const SEVERITY_ORDER = { güçlü: 3, orta: 2, zayıf: 1 } as const;
@@ -50,6 +51,9 @@ export async function GET(req: NextRequest) {
   if (!isVercelCron && !isManualAuth) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const admin = createAdmin();
   const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"

@@ -16,6 +16,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { fetchOHLCV, fetchOHLCVByTimeframe, type YahooTimeframe } from '@/lib/yahoo';
+import { fetchOHLCVUS } from '@/lib/yahoo-us';
+import { isUSSymbol } from '@/lib/us-symbols';
 import { detectAllSignals } from '@/lib/signals';
 import { getMarketRegime } from '@/lib/regime-engine';
 import { calculateSRLevels } from '@/lib/support-resistance';
@@ -189,8 +191,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ? rawTf : '1d') as YahooTimeframe;
   const isIntraday = INTRADAY_TFS.has(timeframe);
 
-  // Cache key — timeframe dahil
-  const cacheKey = `hisse-analiz:${symbol}:${timeframe}`;
+  // US sembol tespiti — market param veya us-symbols listesi
+  const marketParam = request.nextUrl.searchParams.get('market') ?? 'BIST';
+  const isUS = marketParam === 'US' || isUSSymbol(symbol);
+
+  // Cache key — timeframe + market dahil
+  const cacheKey = `hisse-analiz:${symbol}:${timeframe}:${isUS ? 'US' : 'BIST'}`;
   const cached = getCached(cacheKey);
   if (cached) return NextResponse.json(cached);
 
@@ -201,16 +207,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let yahooCurrentPrice: number | undefined;
     let shortName: string | undefined;
 
-    if (timeframe === '1d') {
-      // Günlük: fetchOHLCV ile hero meta (shortName, changePercent) de gelir
+    if (isUS) {
+      // US hisseleri: .IS suffix olmadan Yahoo'dan çek
+      const result = await fetchOHLCVUS(symbol, 252);
+      candles = result.candles;
+      yahooChangePercent = result.changePercent;
+      yahooCurrentPrice  = result.currentPrice;
+      shortName          = result.shortName;
+    } else if (timeframe === '1d') {
+      // BIST günlük: fetchOHLCV ile hero meta (shortName, changePercent) de gelir
       const result = await fetchOHLCV(symbol, 252);
       candles = result.candles;
       yahooChangePercent = result.changePercent;
       yahooCurrentPrice  = result.currentPrice;
       shortName          = result.shortName;
     } else {
-      // Intraday (15m/30m/1h), haftalık (1wk), aylık (1mo) →
-      // fetchOHLCVByTimeframe doğru interval ile çeker
+      // Intraday (15m/30m/1h), haftalık (1wk), aylık (1mo)
       candles = await fetchOHLCVByTimeframe(symbol, timeframe);
     }
 
@@ -275,7 +287,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let sectorMomentum: ReturnType<typeof analyzeSector> | null = null;
     let regime: string | null = null;
 
-    if (!isIntraday) {
+    if (!isIntraday && !isUS) {
+      // BIST-specific: sektör analizi, XU100 rejimi
       const sectorId = getSectorId(symbol);
       const sectorSymbols = getSymbolsBySector(sectorId);
 
@@ -299,6 +312,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       riskScore     = risk;
       sectorMomentum = analyzeSector(sectorId, sectorData, macroScore);
       regime = xu100.length > 0 ? getMarketRegime(xu100) : null;
+    } else if (!isIntraday && isUS) {
+      // US: sadece global makro, sektör analizi yok
+      macroScore = await getMacroScore().catch(() => null);
     }
 
     // 4b. Geçmiş win rate — signal_performance tablosundan (dominant signal tipi için)

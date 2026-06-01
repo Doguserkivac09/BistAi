@@ -175,13 +175,20 @@ export default function SimulasyonPage() {
   const [customNote, setCustomNote] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('kur');
 
-  const [loading, setLoading]   = useState(false);
-  const [streamText, setStreamText] = useState('');
-  const [result, setResult]     = useState('');
-  const [error, setError]       = useState<string | null>(null);
+  const [loading, setLoading]         = useState(false);
+  const [streamText, setStreamText]   = useState('');
+  const [result, setResult]           = useState('');
+  const [error, setError]             = useState<string | null>(null);
   const [upgradeRequired, setUpgradeRequired] = useState(false);
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
-  const [makro, setMakro]       = useState<MacroSnapshot | null>(null);
+  const [limitReached, setLimitReached]       = useState(false);
+  const [loggedIn, setLoggedIn]       = useState<boolean | null>(null);
+  const [makro, setMakro]             = useState<MacroSnapshot | null>(null);
+  const [dailyInfo, setDailyInfo]     = useState<{
+    remaining: number | null;
+    limit:     number | null;
+    tier:      string;
+    cached?:   boolean;
+  } | null>(null);
 
   const resultRef = useRef<HTMLDivElement>(null);
   const abortRef  = useRef<AbortController | null>(null);
@@ -222,6 +229,7 @@ export default function SimulasyonPage() {
     setResult('');
     setStreamText('');
     setUpgradeRequired(false);
+    setLimitReached(false);
     setLoading(true);
 
     const scenario: SimulationScenario = {
@@ -241,8 +249,16 @@ export default function SimulasyonPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.upgrade) {
+        const data = await res.json().catch(() => ({})) as {
+          upgrade?: boolean; limitReached?: boolean;
+          error?: string; remaining?: number; limit?: number; tier?: string;
+        };
+        if (data.limitReached) {
+          setLimitReached(true);
+          if (data.remaining !== undefined) {
+            setDailyInfo({ remaining: data.remaining, limit: data.limit ?? null, tier: data.tier ?? 'free' });
+          }
+        } else if (data.upgrade) {
           setUpgradeRequired(true);
         } else {
           setError(data.error ?? 'Bir hata oluştu.');
@@ -264,9 +280,10 @@ export default function SimulasyonPage() {
           if (!line.startsWith('data: ')) continue;
           try {
             const parsed = JSON.parse(line.slice(6));
+            if (parsed.meta)  { setDailyInfo(parsed.meta); }
             if (parsed.error) { setError(parsed.error); break; }
-            if (parsed.text) { accumulated += parsed.text; setStreamText(accumulated); }
-            if (parsed.done) { setResult(accumulated); setStreamText(''); }
+            if (parsed.text)  { accumulated += parsed.text; setStreamText(accumulated); }
+            if (parsed.done)  { setResult(accumulated); setStreamText(''); }
           } catch { /* ignore */ }
         }
       }
@@ -437,6 +454,22 @@ export default function SimulasyonPage() {
                     : <><Play className="h-4 w-4" /> Simülasyonu Çalıştır</>
                   }
                 </button>
+
+                {/* Günlük limit göstergesi */}
+                {dailyInfo && dailyInfo.limit !== null && (
+                  <div className="flex items-center justify-between text-[11px] mt-1.5">
+                    <span className={`tabular-nums ${
+                      dailyInfo.remaining === 0 ? 'text-red-400' :
+                      (dailyInfo.remaining ?? 99) <= 1 ? 'text-amber-400' : 'text-text-muted'
+                    }`}>
+                      {dailyInfo.limit - (dailyInfo.remaining ?? 0)}/{dailyInfo.limit} senaryo kullanıldı
+                      {dailyInfo.cached && ' · önbellekten'}
+                    </span>
+                    <Link href="/fiyatlandirma" className="text-primary hover:underline">
+                      Premium → sınırsız
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 
@@ -499,6 +532,26 @@ export default function SimulasyonPage() {
               <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
                 <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-red-400">{error}</p>
+              </div>
+            )}
+
+            {limitReached && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 text-center">
+                <FlaskConical className="h-8 w-8 text-amber-400 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-text-primary mb-1">Günlük Limit Doldu</h3>
+                <p className="text-xs text-text-secondary mb-1">
+                  Ücretsiz planda günde <strong>2 senaryo</strong> simüle edebilirsiniz.
+                </p>
+                <p className="text-xs text-text-muted mb-4">
+                  Önbellekten dönen sonuçlar limite sayılmaz — daha önce çalıştırdığınız
+                  senaryolar ücretsiz tekrar görüntülenebilir.
+                </p>
+                <Link
+                  href="/fiyatlandirma"
+                  className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
+                >
+                  Premium'a Geç → Sınırsız Simülasyon
+                </Link>
               </div>
             )}
 

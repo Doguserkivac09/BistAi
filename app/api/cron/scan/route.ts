@@ -15,6 +15,7 @@ import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals, computeConfluence } from '@/lib/signals';
 import type { StockSignal } from '@/types';
 import { getMarketRegime } from '@/lib/regime-engine';
+import { bistGuard } from '@/lib/bist-guard';
 
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -56,6 +57,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
     }
   }
+
+  const guard = bistGuard();
+  if (guard) return guard;
 
   const supabase = createAdminClient();
   const startedAt = Date.now();

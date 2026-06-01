@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond, Brain, History, Bookmark, Layers,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond, Brain, History, Bookmark, Layers, Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Ana Sayfa' },
   { href: '/tarama', label: 'Tarama' },
-  { href: '/screener', label: 'Screener' },
   {
     label: 'Portföy',
     dropdown: [
@@ -33,6 +32,8 @@ const navItems = [
   {
     label: 'Piyasa',
     dropdown: [
+      { href: '/temalar',          label: 'Temalar',          icon: Sparkles },
+      { href: '/gelecek-sirketler', label: 'Geleceği Parlak',  icon: Brain },
       { href: '/sektorler',        label: 'Sektör Analizi',   icon: TrendingUp },
       { href: '/emtia-endeks',     label: 'Emtia & Endeks',   icon: Layers },
       { href: '/makro',            label: 'Makro Radar',       icon: BarChart2 },
@@ -44,14 +45,12 @@ const navItems = [
   {
     label: 'Keşfet',
     dropdown: [
-      { href: '/sohbet',      label: 'AI Asistan', icon: Bot },
-      { href: '/backtesting', label: 'Backtest',   icon: Activity },
-      { href: '/topluluk',    label: 'Topluluk',   icon: Users },
-      { href: '/dashboard',   label: 'Dashboard',  icon: LayoutDashboard },
-      { href: '/yardim',              label: 'Eğitim Merkezi',    icon: BookOpen },
-      { href: '/haftalik-secimler',   label: 'Haftanın Seçimleri',  icon: Trophy },
-      { href: '/yapay-zeka-portfoyu', label: 'AI Portföyü',          icon: Brain },
-      { href: '/apex-portfoyu',       label: 'APEX Portföyü 🔥',    icon: Zap },
+      { href: '/sohbet',       label: 'AI Asistan',    icon: Bot },
+      { href: '/backtesting',  label: 'Backtest',      icon: Activity },
+      { href: '/topluluk',     label: 'Topluluk',      icon: Users },
+      { href: '/dashboard',    label: 'Dashboard',     icon: LayoutDashboard },
+      { href: '/yardim',       label: 'Eğitim Merkezi', icon: BookOpen },
+      { href: '/ai-portfoyler', label: 'AI Portföyler', icon: Trophy },
     ],
   },
 ];

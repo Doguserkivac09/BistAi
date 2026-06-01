@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 /**
  * Uzun Vade Fırsatlar API — v2
  *
@@ -18,6 +19,7 @@ import { computeInvestableScore, DEFAULT_WEIGHTS } from '@/lib/investment-score'
 import { fetchTurkeyInflation } from '@/lib/turkey-macro';
 import { getSector, getSectorId } from '@/lib/sectors';
 import { calcInstitutionalTarget, type ValuationResult } from '@/lib/valuation';
+import type { OHLCVCandle } from '@/types';
 
 function createAdmin() {
   return createClient(
@@ -94,6 +96,8 @@ export interface LongTermResult {
   investmentConfidence: string;
   technicalScore: number | null;
   lastPrice: number | null;
+  /** Son 60 günlük mum verisi — sparkline için */
+  candles: OHLCVCandle[] | null;
   peRatio: number | null;
   dividendYield: number | null;
   marketCap: number | null;
@@ -125,21 +129,23 @@ export async function GET() {
 
   const admin = createAdmin();
 
-  // scan_cache'den teknik skorlar + son fiyat + takas
+  // scan_cache'den teknik skorlar + son fiyat + sparkline mumları
   const { data: cacheRows } = await admin
     .from('scan_cache')
-    .select('sembol, confluence_score, rsi, last_close')
+    .select('sembol, confluence_score, rsi, last_close, candles_json')
     .in('sembol', UNIQUE_SYMBOLS)
     .order('scanned_at', { ascending: false });
 
   // Her sembol için en güncel veriyi al
-  const scanMap = new Map<string, { confluenceScore: number | null; rsi: number | null; lastPrice: number | null }>();
+  type ScanEntry = { confluenceScore: number | null; rsi: number | null; lastPrice: number | null; candles: OHLCVCandle[] | null };
+  const scanMap = new Map<string, ScanEntry>();
   for (const row of cacheRows ?? []) {
     if (!scanMap.has(row.sembol)) {
       scanMap.set(row.sembol, {
         confluenceScore: row.confluence_score,
         rsi: row.rsi,
         lastPrice: row.last_close,
+        candles: Array.isArray(row.candles_json) ? (row.candles_json as OHLCVCandle[]) : null,
       });
     }
   }
@@ -221,6 +227,7 @@ export async function GET() {
             earningsGrowth:   fundamentals.earningsGrowth != null ? parseFloat((fundamentals.earningsGrowth * 100).toFixed(1)) : null,
             beta:             fundamentals.beta,
             category,
+            candles:          scanData?.candles ?? null,
           } satisfies LongTermResult;
         } catch {
           return null;

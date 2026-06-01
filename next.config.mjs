@@ -18,6 +18,14 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
     serverComponentsExternalPackages: ['yahoo-finance2'],
   },
+  async redirects() {
+    return [
+      { source: '/screener',          destination: '/tarama',             permanent: true },
+      { source: '/screener/:path*',   destination: '/tarama',             permanent: true },
+      { source: '/kap',               destination: '/haberler?tab=kap',   permanent: true },
+      { source: '/ekonomi-takvimi',   destination: '/haberler?tab=takvim', permanent: true },
+    ];
+  },
   async headers() {
     return [
       {
