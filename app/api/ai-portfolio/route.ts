@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 /**
  * GET /api/ai-portfolio
  * Canlı fiyat çekme + gerçek zamanlı portföy değeri

@@ -1,11 +1,14 @@
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSymbolsByTheme, ThemeId, ALL_THEMES } from '@/lib/us-symbols';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function createAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 interface StockPerformance {
   symbol: string;
@@ -34,6 +37,7 @@ interface ThemePerformanceResponse {
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createAdminClient();
     const tema = request.nextUrl.searchParams.get('tema') as ThemeId | null;
 
     // Tema validation
