@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import type { SignalStatsSummaryResponse } from '@/app/api/signal-stats-summary/route';
 import type { GununSecimiData } from '@/app/api/gunun-secimi/route';
+import type { HaftaninSecimiData } from '@/app/api/haftanin-secimi/route';
 import { FirsatKarti } from '@/components/FirsatKarti';
 import { SecimiKart } from '@/components/SecimiKart';
 
@@ -257,8 +258,9 @@ export default function FirsatlarPage() {
   const [statsSummary, setStatsSummary] = useState<SignalStatsSummaryResponse['stats']>([]);
   const [watchlist,    setWatchlist]    = useState<Set<string>>(new Set());
   const [watchlistIds, setWatchlistIds] = useState<Map<string, string>>(new Map());
-  const [gununSecimi,  setGununSecimi]  = useState<GununSecimiData | null>(null);
-  const [market,       setMarket]       = useState<'BIST' | 'US'>('BIST');
+  const [gununSecimi,    setGununSecimi]    = useState<GununSecimiData | null>(null);
+  const [haftaninSecimi, setHaftaninSecimi] = useState<HaftaninSecimiData | null>(null);
+  const [market,         setMarket]         = useState<'BIST' | 'US'>('BIST');
 
   // Filtreler
   const [dirFilter,    setDirFilter]    = useState<'tumu' | 'yukari' | 'asagi'>('tumu');
@@ -319,12 +321,23 @@ export default function FirsatlarPage() {
     } catch { /* gösterilemezse gizlenir */ }
   }, []);
 
+  // Haftanın Seçimi — Pazartesi cron, bu hafta için en güçlü uzun vade fırsatı
+  const fetchHaftaninSecimi = useCallback(async () => {
+    try {
+      const res  = await fetch('/api/haftanin-secimi');
+      if (!res.ok) return;
+      const json = await res.json() as { ok: boolean; data: HaftaninSecimiData | null };
+      setHaftaninSecimi(json.data ?? null);
+    } catch { /* gösterilemezse gizlenir */ }
+  }, []);
+
   useEffect(() => {
     void fetchData();
     void fetchWatchlist();
     void fetchStats();
     void fetchGununSecimi();
-  }, [fetchData, fetchWatchlist, fetchStats, fetchGununSecimi]);
+    void fetchHaftaninSecimi();
+  }, [fetchData, fetchWatchlist, fetchStats, fetchGununSecimi, fetchHaftaninSecimi]);
 
   // market değişince fetchData yeniden oluşur (useCallback[market]) → otomatik tetiklenir
 
@@ -445,6 +458,9 @@ export default function FirsatlarPage() {
       {/* Günün Seçimi — pinned kart */}
       {gununSecimi && <SecimiKart type="gunluk" data={gununSecimi} />}
 
+      {/* Haftanın Seçimi — pinned kart (Pazartesi cron) */}
+      {haftaninSecimi && <SecimiKart type="haftalik" data={haftaninSecimi} />}
+
       {/* Sosyal kanıt kartı — geçmiş başarı */}
       {statsSummary.length > 0 && <SosyalKanitKarti stats={statsSummary} />}
 
@@ -458,6 +474,10 @@ export default function FirsatlarPage() {
         // Tazelik durumu: 6 saat içinde → fresh (yeşil), 6-24 → orta (amber), 24+ → eski (gri)
         const fresh = h < 6;
         const stale = h >= 24;
+        // Tatil tespiti — TRT tarihini kontrol et
+        const todayTR = new Date().toLocaleDateString('tr-TR', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' }).split('.').reverse().join('-');
+        const TR_BIST_HOLIDAYS = ['2026-06-01','2026-06-02','2026-06-03','2026-06-04','2026-07-15','2026-08-30','2026-10-29'];
+        const isHoliday = TR_BIST_HOLIDAYS.includes(todayTR);
         const cls = fresh
           ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-300/90'
           : stale
@@ -471,9 +491,10 @@ export default function FirsatlarPage() {
               <strong>Son güncelleme:</strong>{' '}
               {new Date(refreshAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
               {' · '}{ageText}
+              {isHoliday && <span className="ml-2 text-amber-400 font-semibold">· 🕌 BIST tatil (Kurban Bayramı) — tarama yapılmaz</span>}
             </span>
             <span className="ml-auto text-[10px] opacity-70 hidden sm:inline">
-              Veri günde 3× yenilenir (07:30 · 12:00 · 19:00)
+              {isHoliday ? 'Tatil bitince otomatik devam eder' : 'Veri günde 3× yenilenir (07:30 · 12:00 · 19:00)'}
             </span>
           </div>
         );
