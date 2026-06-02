@@ -3,12 +3,8 @@ export const dynamic = 'force-dynamic';
  * GET /api/firsatlar-us
  *
  * scan_cache (market='US') → FirsatItem uyumlu response.
- * /api/firsatlar'ın US karşılığı — signal_performance yerine scan_cache okur.
- *
- * Eksik alanlar (BIST-specific):
- *  - kapUyarisi: null (SEC/haber kontrolü ilerleyen fazda)
- *  - historicalWinRate: null (US signal_performance henüz yok)
- *  - avgDailyVolumeTL: USD bazlı, null
+ * AL (yukari) + SAT (asagi) sinyallerini ayrı döndürür.
+ * Hacim ADV (ortalama günlük hacim × son kapanış) USD bazlı olarak hesaplanır.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -26,8 +22,178 @@ function createAdminClient() {
   );
 }
 
+type SignalEntry = {
+  type: string;
+  direction: string;
+  severity: string;
+  weeklyAligned?: boolean;
+  stopLoss?: number;
+  targetPrice?: number;
+  riskRewardRatio?: number;
+  atr?: number;
+  avgDailyVolumeTL?: number | null;
+};
+
+type CandleEntry = { close: number; volume: number };
+
+/** USD ortalama günlük hacim (son 20 gün) × son kapanış → notional ADV */
+function calcADV(candles: CandleEntry[], lastClose: number | null): number | null {
+  if (!lastClose || lastClose <= 0 || candles.length < 5) return null;
+  const last20 = candles.slice(-20);
+  const avgVol = last20.reduce((s, c) => s + (c.volume ?? 0), 0) / last20.length;
+  return avgVol * lastClose; // USD notional
+}
+
+function buildKeyFactors(
+  sembol: string,
+  alSigs: SignalEntry[],
+  satSigs: SignalEntry[],
+  confluenceScore: number,
+  relVol5: number | null,
+  changePercent: number | null,
+  adv: number | null,
+  weeklyAligned: boolean | null,
+  macroScore: number | null,
+): string[] {
+  const factors: string[] = [];
+
+  // Sinyal tipleri
+  const sigNames = [...alSigs, ...satSigs].map((s) => s.type).join(', ');
+  if (sigNames) factors.push(`📊 Sinyaller: ${sigNames}`);
+
+  // Güç & uyum
+  factors.push(`🎯 Güç: ${confluenceScore} · MTF ${weeklyAligned === true ? '✓ Uyumlu' : weeklyAligned === false ? '✗ Uyumsuz' : '–'}`);
+
+  // Hacim
+  if (relVol5 !== null) {
+    const label = relVol5 >= 2 ? '⚡ Yüksek hacim' : relVol5 >= 1.3 ? '📈 Artan hacim' : '📉 Zayıf hacim';
+    factors.push(`${label}: ${relVol5.toFixed(1)}× ortalama`);
+  }
+
+  // ADV (likidite)
+  if (adv !== null) {
+    const advM = adv / 1_000_000;
+    factors.push(`💧 ADV: $${advM >= 1000 ? (advM / 1000).toFixed(1) + 'B' : advM.toFixed(0) + 'M'}`);
+  }
+
+  // Günlük değişim
+  if (changePercent !== null) {
+    const sign = changePercent >= 0 ? '+' : '';
+    factors.push(`📅 Gün içi: ${sign}${changePercent.toFixed(2)}%`);
+  }
+
+  // Makro uyum
+  if (macroScore !== null) {
+    const label = macroScore > 20 ? '🌍 Makro: Olumlu' : macroScore < -20 ? '🌍 Makro: Olumsuz' : '🌍 Makro: Nötr';
+    factors.push(label);
+  }
+
+  return factors;
+}
+
+function buildFirsatItem(
+  r: Record<string, unknown>,
+  direction: 'yukari' | 'asagi',
+  signals: SignalEntry[],
+  sektorSayaci: Map<string, number>,
+  macroScore: number | null,
+  now: number,
+): FirsatItem | null {
+  const dirSigs = signals.filter((s) => s.direction === direction);
+  if (dirSigs.length === 0) return null;
+
+  const topSig = [...dirSigs].sort((a, b) => {
+    const order: Record<string, number> = { güçlü: 3, orta: 2, zayıf: 1 };
+    return (order[b.severity] ?? 0) - (order[a.severity] ?? 0);
+  })[0]!;
+
+  const entryPrice = (r.last_close as number | null) ?? 0;
+  if (entryPrice <= 0) return null;
+
+  const candles = (r.candles_json ?? []) as CandleEntry[];
+  const adv = calcADV(candles, entryPrice);
+
+  const scannedAt = r.scanned_at as string;
+  const ageHours  = (now - new Date(scannedAt).getTime()) / 3_600_000;
+  const timeDecay = Math.max(0.3, 1 - ageHours / 96);
+  const confluenceScore = r.confluence_score as number;
+  const adjustedScore   = Math.round(confluenceScore * timeDecay);
+
+  const sector       = (r.sector as string) ?? 'Other';
+  const relVol5      = (r.rel_vol5 as number | null) ?? null;
+  const changePercent = (r.change_percent as number | null) ?? null;
+  const weeklyAligned = topSig.weeklyAligned ?? null;
+
+  const alSigs  = signals.filter((s) => s.direction === 'yukari');
+  const satSigs = signals.filter((s) => s.direction === 'asagi');
+
+  const keyFactors = buildKeyFactors(
+    r.sembol as string, alSigs, satSigs,
+    confluenceScore, relVol5, changePercent,
+    adv, weeklyAligned, macroScore,
+  );
+
+  const macroAlign = macroScore !== null
+    ? (macroScore > 20 ? 3 : macroScore < -20 ? -3 : 0)
+    : 0;
+
+  return {
+    sembol:            r.sembol as string,
+    sektorAdi:         sector,
+    sektorId:          sector.toLowerCase().replace(/\s+/g, '_'),
+    sinyaller:         dirSigs.map((s) => s.type),
+    direction,
+    confluenceScore,
+    adjustedScore,
+    entryPrice,
+    entryTime:         scannedAt,
+    ageHours,
+    regime:            null,
+    sektorSinyalSayisi: sektorSayaci.get(sector) ?? 1,
+    historicalWinRate:  null,
+    winRateN:           0,
+    avgDailyVolumeTL:   adv,   // USD ADV (alan adı TL ama US için USD kullanıyoruz)
+    weeklyAligned,
+    stopLoss:           topSig.stopLoss ?? null,
+    targetPrice:        topSig.targetPrice ?? null,
+    riskRewardRatio:    topSig.riskRewardRatio ?? null,
+    kapUyarisi:         null,
+    adjustments: {
+      timeDecay,
+      winRate:    0,
+      regimeFit:  0,
+      macroAlign,
+      mtfAlign:   weeklyAligned === true ? 5 : weeklyAligned === false ? -3 : 0,
+      kapEvent:   0,
+    },
+    tavanScore:      null,
+    isTavan:         false,
+    isTaban:         false,
+    tavanYaklasıyor: false,
+    tavanLabel:      null,
+    changePercent,
+    persistedDays:   null,
+    decision: {
+      sembol:         r.sembol as string,
+      action:         direction === 'yukari' ? 'BUY' : 'SELL',
+      score:          adjustedScore,
+      confidence:     60,
+      direction,
+      rating:         'izle',
+      stalenessHours: ageHours,
+      factors:        [],
+      keyFactors,
+      compositeScore:  adjustedScore,
+      technicalScore:  adjustedScore,
+      macroScore:      0,
+      sectorScore:     0,
+    } as unknown as FirsatItem['decision'],
+    investmentScore: null,
+  };
+}
+
 export async function GET(_req: NextRequest) {
-  const admin = createAdminClient();
+  const admin  = createAdminClient();
   const cutoff = new Date(Date.now() - LOOKBACK_HOURS * 3_600_000).toISOString();
 
   const [scanRes, macroRes] = await Promise.allSettled([
@@ -38,7 +204,7 @@ export async function GET(_req: NextRequest) {
       .gte('confluence_score', MIN_CONFLUENCE)
       .gte('scanned_at', cutoff)
       .order('confluence_score', { ascending: false })
-      .limit(100),
+      .limit(200),
     getMacroFull().catch(() => null),
   ]);
 
@@ -62,75 +228,18 @@ export async function GET(_req: NextRequest) {
   const now = Date.now();
 
   for (const r of rows) {
-    const signals = (r.signals_json ?? []) as Array<{
-      type: string; direction: string; severity: string;
-      weeklyAligned?: boolean; stopLoss?: number; targetPrice?: number; riskRewardRatio?: number;
-      atr?: number;
-    }>;
+    const signals = (r.signals_json ?? []) as SignalEntry[];
+    if (signals.length === 0) continue;
 
-    // Sadece AL yönlü sinyaller
-    const alSigs = signals.filter((s) => s.direction === 'yukari');
-    if (alSigs.length === 0) continue;
+    // AL sinyali varsa AL fırsatı oluştur
+    const alItem = buildFirsatItem(r as Record<string, unknown>, 'yukari', signals, sektorSayaci, macroScore, now);
+    if (alItem) firsatlar.push(alItem);
 
-    const topSig = [...alSigs].sort((a, b) => {
-      const order: Record<string, number> = { güçlü: 3, orta: 2, zayıf: 1 };
-      return (order[b.severity] ?? 0) - (order[a.severity] ?? 0);
-    })[0]!;
-
-    const entryPrice = (r.last_close as number | null) ?? 0;
-    if (entryPrice <= 0) continue;
-
-    const scannedAt  = r.scanned_at as string;
-    const ageHours   = (now - new Date(scannedAt).getTime()) / 3_600_000;
-    const timeDecay  = Math.max(0.3, 1 - ageHours / 96);  // 4 gün decay
-    const adjustedScore = Math.round((r.confluence_score as number) * timeDecay);
-
-    const sector = (r.sector as string) ?? 'Other';
-
-    firsatlar.push({
-      sembol:            r.sembol as string,
-      sektorAdi:         sector,
-      sektorId:          sector.toLowerCase().replace(/\s+/g, '_'),
-      sinyaller:         alSigs.map((s) => s.type),
-      direction:         'yukari',
-      confluenceScore:   r.confluence_score as number,
-      adjustedScore,
-      entryPrice,
-      entryTime:         scannedAt,
-      ageHours,
-      regime:            null,
-      sektorSinyalSayisi: sektorSayaci.get(sector) ?? 1,
-      historicalWinRate:  null,
-      winRateN:           0,
-      avgDailyVolumeTL:   null,  // USD bazlı, TL metrik yok
-      weeklyAligned:      topSig.weeklyAligned ?? null,
-      stopLoss:           topSig.stopLoss ?? null,
-      targetPrice:        topSig.targetPrice ?? null,
-      riskRewardRatio:    topSig.riskRewardRatio ?? null,
-      kapUyarisi:         null,  // US: KAP yok (SEC/haber Faz 2'de)
-      adjustments: {
-        timeDecay,
-        winRate:    0,
-        regimeFit:  0,
-        macroAlign: macroScore !== null ? (macroScore > 20 ? 3 : macroScore < -20 ? -3 : 0) : 0,
-        mtfAlign:   topSig.weeklyAligned === true ? 5 : topSig.weeklyAligned === false ? -3 : 0,
-        kapEvent:   0,
-      },
-      tavanScore:      null,
-      isTavan:         false,
-      isTaban:         false,
-      tavanYaklasıyor: false,
-      tavanLabel:      null,
-      changePercent:   (r.change_percent as number | null) ?? null,
-      persistedDays:   null,
-      decision:        {
-        sembol: r.sembol as string, action: 'BUY', score: adjustedScore, confidence: 60,
-        direction: 'yukari', rating: 'izle', stalenessHours: ageHours,
-        factors: [], keyFactors: [`US · Conf:${r.confluence_score} · relVol:${(r.rel_vol5 as number | null)?.toFixed(1) ?? '?'}x`],
-        compositeScore: adjustedScore, technicalScore: adjustedScore, macroScore: 0, sectorScore: 0,
-      } as unknown as FirsatItem['decision'],
-      investmentScore: null,
-    });
+    // SAT sinyali varsa SAT fırsatı oluştur (AL fırsatı yoksa göster)
+    if (!alItem) {
+      const satItem = buildFirsatItem(r as Record<string, unknown>, 'asagi', signals, sektorSayaci, macroScore, now);
+      if (satItem) firsatlar.push(satItem);
+    }
   }
 
   // adjustedScore'a göre sırala
@@ -140,7 +249,7 @@ export async function GET(_req: NextRequest) {
 
   return NextResponse.json({
     firsatlar,
-    makroScore:      macroScore,
+    makroScore: macroScore,
     regime:          null,
     toplamSinyal:    firsatlar.length,
     scannedAt,

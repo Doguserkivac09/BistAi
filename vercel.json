@@ -82,7 +82,15 @@
     },
     {
       "path": "/api/cron/scan-us",
-      "schedule": "30 20 * * 1-5"
+      "schedule": "0 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scan-us",
+      "schedule": "30 16 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scan-us",
+      "schedule": "30 21 * * 1-5"
     },
     {
       "path": "/api/cron/apex-us",
