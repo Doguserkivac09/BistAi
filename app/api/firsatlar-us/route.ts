@@ -14,6 +14,66 @@ import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 
 const MIN_CONFLUENCE = 50;
 const LOOKBACK_HOURS = 48;
+const COMMISSION = 0.004;
+
+/** Her sinyal tipinin win rate hesabında kullanılan canonical return alanı */
+const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'> = {
+  'Altın Çapraz':            'return_30d',
+  'Ölüm Çaprazı':            'return_30d',
+  'Cup & Handle':            'return_30d',
+  'Ters Omuz-Baş-Omuz':      'return_30d',
+  'Trend Başlangıcı':        'return_14d',
+  'Destek/Direnç Kırılımı':  'return_14d',
+  'Higher Lows':             'return_14d',
+  'Çift Dip':                'return_14d',
+  'Çift Tepe':               'return_14d',
+  'Bull Flag':               'return_14d',
+  'Bear Flag':               'return_14d',
+  'Yükselen Üçgen':          'return_14d',
+  'MACD Kesişimi':           'return_7d',
+  'RSI Uyumsuzluğu':         'return_7d',
+  'Bollinger Sıkışması':     'return_7d',
+  'RSI Seviyesi':            'return_3d',
+  'Hacim Anomalisi':         'return_3d',
+};
+
+type PerfStatRow = {
+  signal_type: string | null;
+  direction: string | null;
+  return_3d: number | null;
+  return_7d: number | null;
+  return_14d: number | null;
+  return_30d: number | null;
+};
+
+/** signal_type bazında win rate (komisyon dahil net getiri > 0 oranı) */
+function computeWinRates(records: PerfStatRow[]): Map<string, { winRate: number; n: number }> {
+  const groups = new Map<string, PerfStatRow[]>();
+  for (const r of records) {
+    if (!r.signal_type) continue;
+    if (!groups.has(r.signal_type)) groups.set(r.signal_type, []);
+    groups.get(r.signal_type)!.push(r);
+  }
+
+  const out = new Map<string, { winRate: number; n: number }>();
+  for (const [sigType, rows] of groups) {
+    const field = SIGNAL_CANONICAL_FIELD[sigType] ?? 'return_7d';
+    const valid = rows.filter((r) => {
+      const v = r[field];
+      return v != null && Number.isFinite(v);
+    });
+    if (valid.length < 5) continue;
+
+    let wins = 0;
+    for (const r of valid) {
+      const raw = r[field] as number;
+      const dirAdj = r.direction === 'asagi' ? -raw : raw;
+      if (dirAdj - COMMISSION > 0) wins++;
+    }
+    out.set(sigType, { winRate: wins / valid.length, n: valid.length });
+  }
+  return out;
+}
 
 function createAdminClient() {
   return createClient(
@@ -97,6 +157,7 @@ function buildFirsatItem(
   signals: SignalEntry[],
   sektorSayaci: Map<string, number>,
   macroScore: number | null,
+  winRateMap: Map<string, { winRate: number; n: number }>,
   now: number,
 ): FirsatItem | null {
   const dirSigs = signals.filter((s) => s.direction === direction);
@@ -106,6 +167,9 @@ function buildFirsatItem(
     const order: Record<string, number> = { güçlü: 3, orta: 2, zayıf: 1 };
     return (order[b.severity] ?? 0) - (order[a.severity] ?? 0);
   })[0]!;
+
+  // En güçlü sinyalin geçmiş win rate'i (en az 5 değerlendirilmiş kayıt)
+  const wr = winRateMap.get(topSig.type) ?? null;
 
   const entryPrice = (r.last_close as number | null) ?? 0;
   if (entryPrice <= 0) return null;
@@ -133,6 +197,11 @@ function buildFirsatItem(
     adv, weeklyAligned, macroScore,
   );
 
+  // Geçmiş başarı oranı (varsa en başa ekle — en güçlü sinyal)
+  if (wr) {
+    keyFactors.unshift(`🏆 Geçmiş başarı: %${Math.round(wr.winRate * 100)} (${wr.n} sinyal)`);
+  }
+
   const macroAlign = macroScore !== null
     ? (macroScore > 20 ? 3 : macroScore < -20 ? -3 : 0)
     : 0;
@@ -150,8 +219,8 @@ function buildFirsatItem(
     ageHours,
     regime:            null,
     sektorSinyalSayisi: sektorSayaci.get(sector) ?? 1,
-    historicalWinRate:  null,
-    winRateN:           0,
+    historicalWinRate:  wr ? wr.winRate : null,
+    winRateN:           wr ? wr.n : 0,
     avgDailyVolumeTL:   adv,   // USD ADV (alan adı TL ama US için USD kullanıyoruz)
     weeklyAligned,
     stopLoss:           topSig.stopLoss ?? null,
@@ -160,7 +229,8 @@ function buildFirsatItem(
     kapUyarisi:         null,
     adjustments: {
       timeDecay,
-      winRate:    0,
+      // Win rate katkısı: >%60 pozitif, <%40 negatif (sadece n≥5 değerlendirilmişse)
+      winRate:    wr ? (wr.winRate > 0.6 ? 5 : wr.winRate < 0.4 ? -5 : 0) : 0,
       regimeFit:  0,
       macroAlign,
       mtfAlign:   weeklyAligned === true ? 5 : weeklyAligned === false ? -3 : 0,
@@ -196,7 +266,7 @@ export async function GET(_req: NextRequest) {
   const admin  = createAdminClient();
   const cutoff = new Date(Date.now() - LOOKBACK_HOURS * 3_600_000).toISOString();
 
-  const [scanRes, macroRes] = await Promise.allSettled([
+  const [scanRes, macroRes, statsRes] = await Promise.allSettled([
     admin
       .from('scan_cache')
       .select('sembol, signals_json, confluence_score, rel_vol5, last_close, change_percent, rsi, sector, scanned_at, candles_json')
@@ -206,6 +276,12 @@ export async function GET(_req: NextRequest) {
       .order('confluence_score', { ascending: false })
       .limit(200),
     getMacroFull().catch(() => null),
+    // US geçmiş performans — win rate hesabı için (evaluated kayıtlar)
+    admin
+      .from('signal_performance')
+      .select('signal_type, direction, return_3d, return_7d, return_14d, return_30d')
+      .eq('market', 'US')
+      .eq('evaluated', true),
   ]);
 
   if (scanRes.status === 'rejected' || scanRes.value.error) {
@@ -216,6 +292,11 @@ export async function GET(_req: NextRequest) {
   const macroScore = macroRes.status === 'fulfilled' && macroRes.value
     ? macroRes.value.macroScore?.score ?? null
     : null;
+
+  // US win rate haritası (signal_type → { winRate, n })
+  const winRateMap = statsRes.status === 'fulfilled' && !statsRes.value.error
+    ? computeWinRates((statsRes.value.data ?? []) as PerfStatRow[])
+    : new Map<string, { winRate: number; n: number }>();
 
   // Sektör sinyal sayısı
   const sektorSayaci = new Map<string, number>();
@@ -232,12 +313,12 @@ export async function GET(_req: NextRequest) {
     if (signals.length === 0) continue;
 
     // AL sinyali varsa AL fırsatı oluştur
-    const alItem = buildFirsatItem(r as Record<string, unknown>, 'yukari', signals, sektorSayaci, macroScore, now);
+    const alItem = buildFirsatItem(r as Record<string, unknown>, 'yukari', signals, sektorSayaci, macroScore, winRateMap, now);
     if (alItem) firsatlar.push(alItem);
 
     // SAT sinyali varsa SAT fırsatı oluştur (AL fırsatı yoksa göster)
     if (!alItem) {
-      const satItem = buildFirsatItem(r as Record<string, unknown>, 'asagi', signals, sektorSayaci, macroScore, now);
+      const satItem = buildFirsatItem(r as Record<string, unknown>, 'asagi', signals, sektorSayaci, macroScore, winRateMap, now);
       if (satItem) firsatlar.push(satItem);
     }
   }

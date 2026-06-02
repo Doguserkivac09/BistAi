@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
   type PerfRow = {
     user_id: null;
     sembol: string;
+    market: string;
     signal_type: string;
     direction: string;
     entry_price: number;
@@ -222,6 +223,7 @@ export async function GET(request: NextRequest) {
           perfRows.push({
             user_id:             null,
             sembol,
+            market:              'BIST',
             signal_type:         sig.type,
             direction:           sig.direction,
             entry_price:         lastClose,
@@ -283,6 +285,7 @@ export async function GET(request: NextRequest) {
       .from('signal_performance')
       .select('id, sembol, signal_type, evaluated')
       .eq('entry_time', todayEntryTime)
+      .eq('market', 'BIST')
       .in('sembol', symbolsToCheck);
 
     if (selectError) {

@@ -15,6 +15,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
+import { fetchOHLCVUS } from '@/lib/yahoo-us';
 import type { OHLCVCandle } from '@/types';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 
@@ -160,7 +161,7 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
 
     const { data, error } = await supabase
       .from('signal_performance')
-      .select('id, sembol, signal_type, direction, entry_price, entry_time')
+      .select('id, sembol, market, signal_type, direction, entry_price, entry_time')
       .eq('evaluated', false)
       .lte('entry_time', cutoff.toISOString())
       .order('entry_time', { ascending: true })
@@ -168,33 +169,40 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
 
     if (error) return { updated: 0, error: `signal_performance okunamadı: ${error.message}` };
 
-    const records = (data as Pick<SignalPerformanceRecord, 'id' | 'sembol' | 'signal_type' | 'direction' | 'entry_price' | 'entry_time'>[] | null) ?? [];
+    type EvalRecord = Pick<SignalPerformanceRecord, 'id' | 'sembol' | 'signal_type' | 'direction' | 'entry_price' | 'entry_time'> & { market?: string | null };
+    const records = (data as EvalRecord[] | null) ?? [];
     if (records.length === 0) return { updated: 0 };
 
-    // Sembole göre grupla — her sembol için tek OHLCV çağrısı
-    const bySymbol = new Map<string, typeof records>();
+    // Market+sembol'e göre grupla — US ve BIST farklı Yahoo endpoint'i kullanır
+    const byKey = new Map<string, typeof records>();
     for (const r of records) {
       if (!r?.sembol || !r.entry_time || !r.entry_price) continue;
-      if (!bySymbol.has(r.sembol)) bySymbol.set(r.sembol, []);
-      bySymbol.get(r.sembol)!.push(r);
+      const market = (r.market ?? 'BIST').toUpperCase();
+      const key = `${market}:${r.sembol}`;
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key)!.push(r);
     }
 
     let updatedCount = 0;
     let symbolIdx = 0;
 
-    for (const [sembol, symbolRecords] of bySymbol) {
+    for (const [key, symbolRecords] of byKey) {
       // Semboller arası gecikme (Yahoo rate limit)
       if (symbolIdx > 0) {
         await new Promise((r) => setTimeout(r, SYMBOL_DELAY_MS));
       }
       symbolIdx++;
 
+      const [market, sembol] = key.split(':');
+
       let candles: OHLCVCandle[] = [];
       try {
-        const result = await fetchOHLCV(sembol.trim(), 70);
+        const result = market === 'US'
+          ? await fetchOHLCVUS(sembol!.trim(), 70)
+          : await fetchOHLCV(sembol!.trim(), 70);
         candles = result.candles as OHLCVCandle[];
       } catch (err) {
-        console.error(`[evaluate-engine] ${sembol} OHLCV hatası:`, err instanceof Error ? err.message : err);
+        console.error(`[evaluate-engine] ${key} OHLCV hatası:`, err instanceof Error ? err.message : err);
         continue;
       }
 

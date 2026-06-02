@@ -114,6 +114,7 @@ export async function GET(request: NextRequest) {
       const rows = signals.map((sig: StockSignal) => ({
         user_id:             null,
         sembol,
+        market:              'BIST',
         signal_type:         sig.type,
         direction:           sig.direction,
         entry_price:         lastCandle.close,
@@ -133,7 +134,7 @@ export async function GET(request: NextRequest) {
       const { error, data } = await supabase
         .from('signal_performance')
         .upsert(rows, {
-          onConflict: 'sembol,signal_type,entry_time',
+          onConflict: 'sembol,signal_type,entry_time,market',
           ignoreDuplicates: true,
         })
         .select('id');
