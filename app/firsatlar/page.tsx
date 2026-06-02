@@ -476,7 +476,7 @@ export default function FirsatlarPage() {
         const stale = h >= 24;
         // Tatil tespiti — TRT tarihini kontrol et
         const todayTR = new Date().toLocaleDateString('tr-TR', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' }).split('.').reverse().join('-');
-        const TR_BIST_HOLIDAYS = ['2026-06-01','2026-06-02','2026-06-03','2026-06-04','2026-07-15','2026-08-30','2026-10-29'];
+        const TR_BIST_HOLIDAYS = ['2026-06-01','2026-07-15','2026-08-30','2026-10-29'];
         const isHoliday = TR_BIST_HOLIDAYS.includes(todayTR);
         const cls = fresh
           ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-300/90'

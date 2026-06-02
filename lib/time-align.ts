@@ -30,7 +30,7 @@ const TR_HOLIDAYS_2026 = [
   '2026-04-23', // Ulusal Egemenlik
   '2026-05-01', // İşçi Bayramı
   '2026-05-19', // Gençlik Bayramı
-  '2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04', // Kurban Bayramı (tahmini)
+  '2026-06-01', // Kurban Bayramı son günü
   '2026-07-15', // Demokrasi Bayramı
   '2026-08-30', // Zafer Bayramı
   '2026-10-29', // Cumhuriyet Bayramı
