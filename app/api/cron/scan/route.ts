@@ -17,6 +17,8 @@ import type { StockSignal } from '@/types';
 import { getMarketRegime } from '@/lib/regime-engine';
 import { bistGuard } from '@/lib/bist-guard';
 
+// 50 sembol / batch 5 / 400ms gecikme ≈ 25s — Vercel default (~15s) yetmiyor.
+export const maxDuration = 120;
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
