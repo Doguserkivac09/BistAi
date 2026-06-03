@@ -1,12 +1,14 @@
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSymbolsByTheme, ALL_THEMES, ThemeId } from '@/lib/us-symbols';
-import axios from 'axios';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function createAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 interface NewsItem {
   title: string;
@@ -19,6 +21,7 @@ interface NewsItem {
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createAdminClient();
     const tema = request.nextUrl.searchParams.get('tema') as ThemeId | null;
 
     // Tema validation
@@ -58,17 +61,18 @@ export async function GET(request: NextRequest) {
     for (const symbol of topSymbols) {
       try {
         // Yahoo Finance news endpoint (public)
-        const response = await axios.get(
+        const response = await fetch(
           `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=news`,
           {
-            timeout: 5000,
+            signal: AbortSignal.timeout(5000),
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
             },
           }
         );
 
-        const newsData = response.data?.quoteSummary?.result?.[0]?.news || [];
+        const json = await response.json();
+        const newsData = json?.quoteSummary?.result?.[0]?.news || [];
         for (const item of newsData) {
           allNews.push({
             title: item.title || '',

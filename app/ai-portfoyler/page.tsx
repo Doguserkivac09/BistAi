@@ -225,21 +225,23 @@ function ComparisonTable() {
 // ── Ana sayfa ─────────────────────────────────────────────────────────
 
 export default function AiPortfoylerPage() {
-  const [weeklyData,  setWeeklyData]  = useState<WeeklyData | null>(null);
-  const [aiData,      setAiData]      = useState<PortfolioData | null>(null);
-  const [apexData,    setApexData]    = useState<PortfolioData | null>(null);
-  const [apexUSData,  setApexUSData]  = useState<PortfolioData | null>(null);
-  const [loading,     setLoading]     = useState(true);
+  const [weeklyData,   setWeeklyData]   = useState<WeeklyData | null>(null);
+  const [aiData,       setAiData]       = useState<PortfolioData | null>(null);
+  const [apexData,     setApexData]     = useState<PortfolioData | null>(null);
+  const [apexUSData,   setApexUSData]   = useState<PortfolioData | null>(null);
+  const [aegisUSData,  setAegisUSData]  = useState<PortfolioData | null>(null);
+  const [loading,      setLoading]      = useState(true);
 
   useEffect(() => {
     const ctrl = new AbortController();
 
     Promise.allSettled([
-      fetch('/api/weekly-picks',       { signal: ctrl.signal }).then((r) => r.json()),
-      fetch('/api/ai-portfolio',       { signal: ctrl.signal }).then((r) => r.json()),
-      fetch('/api/apex-portfolio',     { signal: ctrl.signal }).then((r) => r.json()),
-      fetch('/api/apex-us-portfolio',  { signal: ctrl.signal }).then((r) => r.json()),
-    ]).then(([weekly, ai, apex, apexUS]) => {
+      fetch('/api/weekly-picks',        { signal: ctrl.signal }).then((r) => r.json()),
+      fetch('/api/ai-portfolio',        { signal: ctrl.signal }).then((r) => r.json()),
+      fetch('/api/apex-portfolio',      { signal: ctrl.signal }).then((r) => r.json()),
+      fetch('/api/apex-us-portfolio',   { signal: ctrl.signal }).then((r) => r.json()),
+      fetch('/api/aegis-us-portfolio',  { signal: ctrl.signal }).then((r) => r.json()),
+    ]).then(([weekly, ai, apex, apexUS, aegisUS]) => {
       if (weekly.status === 'fulfilled') {
         const d = weekly.value as { stats?: { avgReturn?: number; outperformedRate?: number; totalWeeks?: number }; thisWeek?: unknown[] };
         const rate = d.stats?.outperformedRate;
@@ -261,6 +263,10 @@ export default function AiPortfoylerPage() {
       if (apexUS.status === 'fulfilled') {
         const s = (apexUS.value as { summary?: PortfolioData & { dailyReturn?: number; winRate?: number } }).summary;
         if (s) setApexUSData({ totalValue: s.totalValue, totalReturn: s.totalReturn, positionCount: s.positionCount, dailyReturn: s.dailyReturn, winRate: s.winRate, initialCapital: s.initialCapital, maxDrawdown: s.maxDrawdown });
+      }
+      if (aegisUS.status === 'fulfilled') {
+        const s = (aegisUS.value as { summary?: PortfolioData & { weeklyReturn?: number } }).summary;
+        if (s) setAegisUSData({ totalValue: s.totalValue, totalReturn: s.totalReturn, positionCount: s.positionCount, weeklyReturn: s.weeklyReturn, initialCapital: s.initialCapital, maxDrawdown: s.maxDrawdown });
       }
       setLoading(false);
     });
@@ -377,12 +383,14 @@ export default function AiPortfoylerPage() {
         href:      '/aegis-us-portfoyu',
         disabled:  false,
       },
-      mainNode: <span className="text-lg text-text-muted">Veri bekleniyor</span>,
+      mainNode: aegisUSData
+        ? <ReturnPill value={aegisUSData.totalReturn} size="xl" />
+        : <span className="text-lg text-text-muted">Portföy başlatılmadı</span>,
       rows: [
-        { label: 'Toplam değer',   value: '—' },
-        { label: 'Açık pozisyon',  value: '—' },
-        { label: 'Haftalık getiri',value: '—' },
-        { label: 'Alpha vs S&P',   value: '—' },
+        { label: 'Toplam değer',   value: aegisUSData ? fmtUSD(aegisUSData.totalValue) : '—' },
+        { label: 'Açık pozisyon',  value: aegisUSData != null ? `${aegisUSData.positionCount} hisse` : '—' },
+        { label: 'Haftalık getiri',value: <ReturnPill value={aegisUSData?.weeklyReturn} /> },
+        { label: 'Maks. drawdown', value: aegisUSData?.maxDrawdown != null ? `${aegisUSData.maxDrawdown.toFixed(1)}%` : '—' },
       ],
     },
   ];

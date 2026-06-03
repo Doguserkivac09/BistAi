@@ -71,9 +71,9 @@ export const FRED_SERIES = {
 
 export type FredSeriesKey = keyof typeof FRED_SERIES;
 
-// ── Cache (1 saat TTL — FRED verileri yavaş güncellenir) ────────────
+// ── Cache (30 dk TTL — FRED verileri günlük/aylık yayınlanır) ───────
 
-const FRED_CACHE_TTL_MS = 60 * 60 * 1000; // 1 saat
+const FRED_CACHE_TTL_MS = 30 * 60 * 1000; // 30 dk
 
 interface FredCacheEntry<T> {
   data: T;
@@ -136,7 +136,7 @@ async function fetchWithRetry(
 
       const res = await fetch(url, {
         signal: controller.signal,
-        next: { revalidate: 3600 },
+        next: { revalidate: 1800 },
       });
 
       clearTimeout(timer);

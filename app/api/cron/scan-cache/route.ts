@@ -11,8 +11,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-
-export const maxDuration = 300;
 import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals, computeConfluence } from '@/lib/signals';
 import { getMarketRegime } from '@/lib/regime-engine';
@@ -20,6 +18,10 @@ import { getSectorId } from '@/lib/sectors';
 import { BIST_SYMBOLS } from '@/types';
 import type { OHLCVCandle } from '@/types';
 import { bistGuard } from '@/lib/bist-guard';
+
+// 603 BIST sembolü taranır — Vercel default (~15s) yetmiyordu, fonksiyon
+// hiçbir şey yazamadan kesiliyordu. 5 dk limit (Vercel Pro) ile tüm evren taranır.
+export const maxDuration = 300;
 
 /** RSI(14) — son değeri döndürür */
 function calcLastRSI(candles: OHLCVCandle[], period = 14): number | null {
@@ -126,6 +128,8 @@ export async function GET(request: NextRequest) {
   const entryDay = new Date(scannedAt);
   entryDay.setUTCHours(0, 0, 0, 0);
   const entryTime = entryDay.toISOString();
+
+  let flushedScanCache = 0; // scan_cache'e kademeli yazımda son flush index'i
 
   for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
     const batch = symbols.slice(i, i + BATCH_SIZE);
@@ -241,20 +245,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // scan_cache'i her batch sonrası kademeli yaz — fonksiyon erken kesilse
+    // bile o ana kadar taranan hisseler kalıcı olur (all-or-nothing riski yok).
+    if (rows.length > flushedScanCache) {
+      const pending = rows.slice(flushedScanCache);
+      const { error } = await supabase
+        .from('scan_cache')
+        .upsert(pending, { onConflict: 'sembol,market' });
+      if (error) {
+        console.error('[cron/scan-cache] scan_cache upsert hatası:', error.message);
+      } else {
+        flushedScanCache = rows.length;
+      }
+    }
+
     if (i + BATCH_SIZE < symbols.length) {
       await new Promise((r) => setTimeout(r, BATCH_DELAY));
-    }
-  }
-
-  // scan_cache upsert
-  if (rows.length > 0) {
-    const { error } = await supabase
-      .from('scan_cache')
-      .upsert(rows, { onConflict: 'sembol,market' });
-
-    if (error) {
-      console.error('[cron/scan-cache] DB upsert hatası:', error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }
 
@@ -279,6 +285,7 @@ export async function GET(request: NextRequest) {
       .from('signal_performance')
       .select('id, sembol, signal_type, evaluated')
       .eq('entry_time', todayEntryTime)
+      .eq('market', 'BIST')
       .in('sembol', symbolsToCheck);
 
     if (selectError) {

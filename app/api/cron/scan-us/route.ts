@@ -63,6 +63,10 @@ export async function GET(request: NextRequest) {
   const db        = createAdmin();
   const startedAt = Date.now();
   const scannedAt = new Date().toISOString();
+  // signal_performance entry_time — gün başı (UTC midnight), günlük deduplication için
+  const entryDay = new Date(scannedAt);
+  entryDay.setUTCHours(0, 0, 0, 0);
+  const entryTime = entryDay.toISOString();
 
   // US piyasa rejimi — SPY üzerinden
   let regime = 'sideways';
@@ -85,7 +89,30 @@ export async function GET(request: NextRequest) {
   };
   const rows: CacheRow[] = [];
 
+  // signal_performance kayıtları — forward evaluation (win rate) için
+  type PerfRow = {
+    user_id: null;
+    sembol: string;
+    market: string;
+    signal_type: string;
+    direction: string;
+    entry_price: number;
+    entry_time: string;
+    evaluated: boolean;
+    regime: string;
+    confluence_score: number | null;
+    avg_daily_volume_tl: number | null;
+    weekly_aligned: boolean | null;
+    stop_loss: number | null;
+    target_price: number | null;
+    risk_reward_ratio: number | null;
+    atr: number | null;
+  };
+  const perfRows: PerfRow[] = [];
+
   const symbols = [...US_SYMBOL_LIST];
+
+  let flushedScanCache = 0; // scan_cache'e kademeli yazımda son flush index'i
 
   for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
     const batch = symbols.slice(i, i + BATCH_SIZE);
@@ -154,6 +181,44 @@ export async function GET(request: NextRequest) {
         sector:            usInfo?.sector ?? 'Other',
         scanned_at:        scannedAt,
       });
+
+      // signal_performance — forward evaluation için her sinyali kaydet
+      if (lastClose && lastClose > 0 && signals.length > 0 && confluence) {
+        for (const sig of signals) {
+          perfRows.push({
+            user_id:             null,
+            sembol:              symbol,
+            market:              'US',
+            signal_type:         sig.type,
+            direction:           sig.direction,
+            entry_price:         lastClose,
+            entry_time:          entryTime,
+            evaluated:           false,
+            regime,
+            confluence_score:    confluence.score,
+            avg_daily_volume_tl: sig.avgDailyVolumeTL ?? null,
+            weekly_aligned:      sig.weeklyAligned ?? null,
+            stop_loss:           sig.stopLoss ?? null,
+            target_price:        sig.targetPrice ?? null,
+            risk_reward_ratio:   sig.riskRewardRatio ?? null,
+            atr:                 sig.atr ?? null,
+          });
+        }
+      }
+    }
+
+    // scan_cache'i her batch sonrası kademeli yaz — fonksiyon erken kesilse
+    // bile o ana kadar taranan hisseler kalıcı olur (all-or-nothing riski yok).
+    if (rows.length > flushedScanCache) {
+      const pending = rows.slice(flushedScanCache);
+      const { error } = await db
+        .from('scan_cache')
+        .upsert(pending, { onConflict: 'sembol,market' });
+      if (error) {
+        console.error('[cron/scan-us] scan_cache upsert hatası:', error.message);
+      } else {
+        flushedScanCache = rows.length;
+      }
     }
 
     if (i + BATCH_SIZE < symbols.length) {
@@ -161,24 +226,31 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // scan_cache upsert — composite PK (sembol, market)
-  if (rows.length > 0) {
-    const { error } = await db
-      .from('scan_cache')
-      .upsert(rows, { onConflict: 'sembol,market' });
-
-    if (error) {
-      console.error('[cron/scan-us] DB upsert hatası:', error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+  // signal_performance INSERT — günde bir kayıt (sembol+signal_type+entry_time+market unique).
+  // ignoreDuplicates: gün içi 3 tarama aynı satırı tekrar yazmaz; evaluated kayıtlar korunur.
+  let perfInserted = 0;
+  if (perfRows.length > 0) {
+    const PERF_BATCH = 100;
+    for (let k = 0; k < perfRows.length; k += PERF_BATCH) {
+      const batch = perfRows.slice(k, k + PERF_BATCH);
+      const { error, data } = await db
+        .from('signal_performance')
+        .upsert(batch, { onConflict: 'sembol,signal_type,entry_time,market', ignoreDuplicates: true })
+        .select('id');
+      if (error) {
+        console.error('[cron/scan-us] signal_performance INSERT hatası:', error.message);
+      } else {
+        perfInserted += data?.length ?? 0;
+      }
     }
   }
 
   const durationMs = Date.now() - startedAt;
-  console.log(`[cron/scan-us] ${scanned}/${symbols.length} tarandı, ${signalsFound} sinyal, ${failed.length} hata, ${durationMs}ms`);
+  console.log(`[cron/scan-us] ${scanned}/${symbols.length} tarandı, ${signalsFound} sinyal, ${perfInserted} perf kayıt, ${failed.length} hata, ${durationMs}ms`);
 
   return NextResponse.json({
     ok: true, market: 'US',
-    scanned, total: symbols.length, signalsFound,
+    scanned, total: symbols.length, signalsFound, perfInserted,
     failed, regime, durationMs, scannedAt,
   });
 }

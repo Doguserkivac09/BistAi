@@ -1,91 +1,75 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { Anthropic } from '@anthropic-ai/sdk'
-import { createServerClient } from '@/lib/supabase-server'
-import { US_SYMBOL_LIST } from '@/lib/us-symbols'
-import { fetchFundamentalsBatch } from '@/lib/yahoo-fundamentals'
-import { computeFutureScore } from '@/lib/future-score'
+/**
+ * Future Brightness Score cron.
+ * Görüntülenen 4 temanın (AI, Quantum, Space, Cybersecurity) US sembolleri için
+ * temel veri bazlı 0-100 skor hesaplar ve future_scores tablosuna yazar.
+ *
+ * GET /api/cron/future-scores
+ * - Vercel Cron: x-vercel-cron header
+ * - Manuel: Authorization: Bearer <CRON_SECRET>
+ *
+ * NOT: NewsAPI ve Claude çağrıları KALDIRILDI:
+ *  - 540 sembol × Claude = 300s timeout
+ *  - NewsAPI ücretli/key gerektiriyor (ücretsiz kaynak tercihi)
+ *  → Skor tamamen Yahoo fundamentals'tan deterministik hesaplanır,
+ *    özet computeFutureScore.summary'den gelir.
+ */
 
-export const maxDuration = 300
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { getSymbolsByTheme, type ThemeId } from '@/lib/us-symbols';
+import { fetchFundamentalsBatch } from '@/lib/yahoo-fundamentals';
+import { computeFutureScore } from '@/lib/future-score';
 
-export async function GET(req: NextRequest) {
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1'
-  const token = req.headers.get('authorization')?.replace('Bearer ', '')
-  if (!isVercelCron && !(process.env.CRON_SECRET && token === process.env.CRON_SECRET)) {
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // Vercel Pro: 5 dk
+
+const CRON_SECRET = process.env.CRON_SECRET;
+
+// Sayfada gösterilen temalar — sadece bunların sembollerini skorla (hız + güvenilirlik)
+const SCORED_THEMES: ThemeId[] = ['AI', 'Quantum', 'Space', 'Cybersecurity'];
+
+function createAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('Supabase env eksik');
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+export async function GET(request: NextRequest) {
+  // Yetki: Vercel Cron header VEYA manuel Bearer token
+  const isVercelCron = request.headers.get('x-vercel-cron') === '1';
+  const token = request.headers.get('authorization')?.replace('Bearer ', '');
+  const isManualAuth = CRON_SECRET && token === CRON_SECRET;
+
+  if (!isVercelCron && !isManualAuth) {
     if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Yetkisiz.' }, { status: 401 });
     }
   }
 
+  const startedAt = Date.now();
+
   try {
-    const symbols = US_SYMBOL_LIST
-    console.log(`[future-scores] Computing for ${symbols.length} US symbols`)
+    // 4 temanın sembollerinin birleşimi (tekrarsız)
+    const symbolSet = new Set<string>();
+    for (const t of SCORED_THEMES) {
+      for (const s of getSymbolsByTheme(t)) symbolSet.add(s);
+    }
+    const symbols = [...symbolSet];
 
-    const fundamentals = await fetchFundamentalsBatch(symbols, 5, 1000)
-    const claude = new Anthropic()
+    console.log(`[future-scores] ${symbols.length} sembol skorlanıyor (${SCORED_THEMES.join(', ')})`);
 
-    const upsertData = []
+    const fundamentals = await fetchFundamentalsBatch(symbols, 6, 600);
 
+    const upsertData = [];
     for (const symbol of symbols) {
-      const fund = fundamentals.get(symbol)
-      if (!fund) continue
+      const fund = fundamentals.get(symbol);
+      if (!fund) continue;
 
-      let newsCountPos = 0
-      let newsCountNeg = 0
-      let partnershipSignals = 0
-
-      try {
-        const newsUrl = `https://newsapi.org/v2/everything?q="${symbol}"%20stock&sortBy=publishedAt&language=en&pageSize=10`
-        const newsKey = process.env.NEWS_API_KEY || ''
-
-        const newsRes = await fetch(`${newsUrl}&apiKey=${newsKey}`)
-          .then((r) => r.json())
-          .catch(() => null)
-
-        if (newsRes && newsRes.articles) {
-          for (const article of newsRes.articles) {
-            const sentiment = analyzeSentiment(article.title + ' ' + (article.description || ''))
-            if (sentiment > 0.3) newsCountPos++
-            else if (sentiment < -0.3) newsCountNeg++
-
-            if (
-              /partnership|acquisition|invest|deal|contract/i.test(
-                article.title + article.description
-              )
-            ) {
-              partnershipSignals = Math.min(3, partnershipSignals + 1)
-            }
-          }
-        }
-      } catch (error) {
-        console.warn(`[future-scores] News fetch failed for ${symbol}`)
-      }
-
-      const breakdown = computeFutureScore(fund, newsCountPos, newsCountNeg, partnershipSignals)
-
-      let aiSummary = ''
-      try {
-        const summaryPrompt = `
-Given this stock:
-- Symbol: ${symbol}
-- Revenue growth: ${fund.revenueGrowth?.toFixed(1) || 'N/A'}%
-- Analyst target upside: ${fund.targetUpside?.toFixed(1) || 'N/A'}%
-- Cash position: $${fund.cash?.toFixed(0) || 'N/A'}M
-- Institutional ownership: ${fund.institutionalPct?.toFixed(1) || 'N/A'}%
-
-Write 1-2 sentences in Turkish about its future prospects. Be concise and direct.
-`.trim()
-
-        const response = await claude.messages.create({
-          model: 'claude-3-5-haiku-20241022',
-          max_tokens: 100,
-          messages: [{ role: 'user', content: summaryPrompt }],
-        })
-
-        aiSummary = (response.content[0] as any).text || ''
-      } catch (error) {
-        console.warn(`[future-scores] Claude summary failed for ${symbol}`)
-        aiSummary = breakdown.summary
-      }
+      // News + partnership sinyalleri yok → nötr (50)
+      const breakdown = computeFutureScore(fund, 0, 0, 0);
 
       upsertData.push({
         sembol: symbol,
@@ -98,43 +82,37 @@ Write 1-2 sentences in Turkish about its future prospects. Be concise and direct
         institutional_score: breakdown.institutionalScore,
         balance_score: breakdown.balanceScore,
         partnership_score: breakdown.partnershipScore,
-        ai_summary: aiSummary,
+        ai_summary: breakdown.summary,
         scored_at: new Date().toISOString(),
-      })
+      });
     }
 
-    const sb = await createServerClient()
+    const sb = createAdminClient();
+    let written = 0;
     for (let i = 0; i < upsertData.length; i += 100) {
-      const batch = upsertData.slice(i, i + 100)
-      const { error } = await sb.from('future_scores').upsert(batch)
-
+      const batch = upsertData.slice(i, i + 100);
+      const { error } = await sb
+        .from('future_scores')
+        .upsert(batch, { onConflict: 'sembol,market' });
       if (error) {
-        console.error(`[future-scores] Upsert batch ${i / 100} failed:`, error)
+        console.error(`[future-scores] Upsert batch ${i / 100} hatası:`, error.message);
+      } else {
+        written += batch.length;
       }
     }
 
-    console.log(`[future-scores] Completed: ${upsertData.length} scores computed`)
+    const durationMs = Date.now() - startedAt;
+    console.log(`[future-scores] Tamamlandı: ${written}/${symbols.length} skor, ${durationMs}ms`);
 
     return NextResponse.json({
-      success: true,
-      count: upsertData.length,
-    })
+      ok: true,
+      themes: SCORED_THEMES,
+      scored: written,
+      total: symbols.length,
+      durationMs,
+    });
   } catch (error) {
-    console.error('[future-scores] Error:', error)
-    return NextResponse.json(
-      { error: String(error) },
-      { status: 500 }
-    )
+    console.error('[future-scores] Hata:', error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
-}
-
-function analyzeSentiment(text: string): number {
-  const positiveWords = /good|strong|growth|bull|up|rise|positive|success|gain/gi
-  const negativeWords = /bad|weak|decline|bear|down|fall|negative|loss|fail/gi
-
-  const posCount = (text.match(positiveWords) || []).length
-  const negCount = (text.match(negativeWords) || []).length
-
-  if (posCount + negCount === 0) return 0
-  return (posCount - negCount) / (posCount + negCount)
 }

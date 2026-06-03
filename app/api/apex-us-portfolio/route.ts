@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 /**
  * GET /api/apex-us-portfolio
  * APEX-US: canlı fiyat çekme + gerçek zamanlı portföy değeri

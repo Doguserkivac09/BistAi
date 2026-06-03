@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 /**
  * GET /api/aegis-us-portfolio
  * Aegis-US: canlı fiyat çekme + gerçek zamanlı portföy değeri

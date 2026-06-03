@@ -34,7 +34,7 @@ import {
 import { fetchTurkeyInflation } from '@/lib/turkey-macro';
 
 const MIN_CONFLUENCE    = 45;
-const LOOKBACK_DAYS     = 3;
+const LOOKBACK_DAYS     = 5;
 const STATS_LOOKBACK_D  = 180;    // geçmiş win rate için örneklem penceresi
 const MIN_ADV_TL        = 10_000_000; // 10M TL altı likiditesi elenir (P0-3)
 const MIN_RR            = 1.5;        // 1.5 altı R/R sinyaller elenir (P2-1)
@@ -243,6 +243,7 @@ export async function GET(req: NextRequest) {
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - LOOKBACK_DAYS);
+    cutoff.setHours(0, 0, 0, 0); // Yahoo tarihleri gün başı olarak kaydedilir, saati sıfırla
 
     const statsCutoff = new Date();
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);

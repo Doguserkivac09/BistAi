@@ -136,16 +136,18 @@ export async function GET(req: NextRequest) {
     const { data: posScanRows } = await db
       .from('scan_cache')
       .select('sembol, last_close, rsi, confluence_score, rel_vol5, change_percent, signals_json, candles_json')
+      .eq('market', 'BIST')
       .in('sembol', openSemboller);
     for (const r of posScanRows ?? []) {
       fullPosScanMap.set(r.sembol, r);
     }
   }
 
-  // ── 3. scan_cache: bugünün fırsatları ─────────────────────────────
+  // ── 3. scan_cache: bugünün fırsatları (sadece BIST) ───────────────
   const { data: scanRows } = await db
     .from('scan_cache')
     .select('sembol, confluence_score, rel_vol5, last_close, change_percent, signals_json, sector')
+    .eq('market', 'BIST')
     .gte('confluence_score', APEX_MIN_CONFLUENCE)
     .gte('rel_vol5', APEX_MIN_REL_VOL)
     .order('confluence_score', { ascending: false })

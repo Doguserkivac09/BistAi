@@ -61,9 +61,11 @@ export const MACRO_SYMBOLS = {
 
 export type MacroSymbolKey = keyof typeof MACRO_SYMBOLS;
 
-// ── Cache (15 dk TTL) ───────────────────────────────────────────────
+// ── Cache (5 dk TTL) ────────────────────────────────────────────────
+// Canlı piyasa göstergeleri (VIX/DXY/USDTRY/emtia) gün içi sık değişir →
+// kısa TTL ile site daha güncel kalır.
 
-const MACRO_CACHE_TTL_MS = 15 * 60 * 1000;
+const MACRO_CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface MacroCacheEntry<T> {
   data: T;
@@ -109,7 +111,7 @@ export async function fetchMacroQuote(key: MacroSymbolKey): Promise<MacroQuote |
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT },
-      next: { revalidate: 900 }, // 15 dk
+      next: { revalidate: 300 }, // 5 dk
     });
 
     if (!res.ok) {
@@ -178,7 +180,7 @@ export async function fetchMacroHistory(
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT },
-      next: { revalidate: 900 },
+      next: { revalidate: 300 },
       signal: AbortSignal.timeout(8_000),
     });
 

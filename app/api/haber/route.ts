@@ -105,6 +105,18 @@ const RSS_SOURCES = [
   { url: 'https://ekonomi.haber7.com/rss.xml',                kaynak: 'Haber7 Ekonomi' },
 ];
 
+// ── ABD borsa haberleri — doğrudan piyasa odaklı RSS kaynakları ──────────────
+// Yahoo headline RSS (büyük endeks/mega-cap sepeti) en güvenilir; diğerleri yedek.
+const US_RSS_SOURCES = [
+  {
+    url: 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=SPY,QQQ,DIA,AAPL,MSFT,NVDA,AMZN,GOOGL,META,TSLA&region=US&lang=en-US',
+    kaynak: 'Yahoo Finance',
+  },
+  { url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', kaynak: 'MarketWatch' },
+  { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html',      kaynak: 'CNBC Markets' },
+  { url: 'https://www.investing.com/rss/news_25.rss',                  kaynak: 'Investing.com' },
+];
+
 async function fetchRSSNews(sembol: string): Promise<HaberItem[]> {
   const anahtarlar = SEMBOL_ANAHTAR[sembol] ?? [sembol];
   const specific: HaberItem[] = [];
@@ -156,6 +168,31 @@ async function fetchGenelHaberler(): Promise<HaberItem[]> {
     .slice(0, 20);
 }
 
+async function fetchUSHaberler(): Promise<HaberItem[]> {
+  const results: HaberItem[] = [];
+
+  await Promise.allSettled(
+    US_RSS_SOURCES.map(async ({ url, kaynak }) => {
+      try {
+        const res = await fetch(url, {
+          headers: { 'User-Agent': UA },
+          next: { revalidate: 900 },
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+        if (!res.ok) return;
+        const xml = await res.text();
+        const items = parseRSS(xml).slice(0, 12).map((h) => ({ ...h, kaynak: h.kaynak || kaynak }));
+        results.push(...items);
+      } catch {}
+    })
+  );
+
+  return results
+    .sort((a, b) => (new Date(b.tarih).getTime() || 0) - (new Date(a.tarih).getTime() || 0))
+    .filter((h, i, arr) => arr.findIndex((x) => x.baslik === h.baslik) === i)
+    .slice(0, 24);
+}
+
 // ── Duplicate temizleme ────────────────────────────────────────────────────────
 function dedupe(items: HaberItem[]): HaberItem[] {
   const seen = new Set<string>();
@@ -180,10 +217,23 @@ export async function GET(req: NextRequest) {
   }
 
   const sembol = req.nextUrl.searchParams.get('sembol')?.toUpperCase() ?? '';
+  const market = req.nextUrl.searchParams.get('market')?.toUpperCase() ?? 'BIST';
+
+  // ABD borsa haberleri (sembolsüz)
+  if (!sembol && market === 'US') {
+    const haberler = await fetchUSHaberler();
+    return NextResponse.json(
+      { haberler },
+      { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=300' } }
+    );
+  }
 
   if (!sembol) {
     const haberler = await fetchGenelHaberler();
-    return NextResponse.json({ haberler });
+    return NextResponse.json(
+      { haberler },
+      { headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=300' } }
+    );
   }
 
   // Türkçe RSS'ten sembol haberleri çek

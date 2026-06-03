@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 /**
  * Uzun Vade Fırsatlar API — v2
  *

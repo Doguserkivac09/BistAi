@@ -12,13 +12,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
-
-export const maxDuration = 120;
 import { detectAllSignals, computeConfluence } from '@/lib/signals';
 import type { StockSignal } from '@/types';
 import { getMarketRegime } from '@/lib/regime-engine';
 import { bistGuard } from '@/lib/bist-guard';
 
+// 50 sembol / batch 5 / 400ms gecikme ≈ 25s — Vercel default (~15s) yetmiyor.
+export const maxDuration = 120;
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
       const { error, data } = await supabase
         .from('signal_performance')
         .upsert(rows, {
-          onConflict: 'sembol,signal_type,entry_time',
+          onConflict: 'sembol,signal_type,entry_time,market',
           ignoreDuplicates: true,
         })
         .select('id');

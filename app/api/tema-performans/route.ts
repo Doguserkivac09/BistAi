@@ -1,20 +1,20 @@
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSymbolsByTheme, ThemeId, ALL_THEMES } from '@/lib/us-symbols';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function createAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 interface StockPerformance {
   symbol: string;
   current_price: number;
-  change_1d: number;
-  change_1h: number;
-  change_1m: number;
   pct_1d: number;
-  pct_1h: number;
+  pct_1w: number;
   pct_1m: number;
 }
 
@@ -26,14 +26,26 @@ interface ThemePerformanceResponse {
   topLosers: StockPerformance[];
   themeAverage: {
     avg_1d: number;
-    avg_1h: number;
+    avg_1w: number;
     avg_1m: number;
   };
   stockCount: number;
 }
 
+type Candle = { close: number };
+
+/** candles_json içinden N işlem günü öncesine göre yüzde değişim hesapla */
+function pctChangeNDaysAgo(candles: Candle[] | null, n: number): number {
+  if (!candles || candles.length < n + 1) return 0;
+  const last = candles[candles.length - 1]?.close;
+  const past = candles[candles.length - 1 - n]?.close;
+  if (!last || !past || past === 0) return 0;
+  return parseFloat((((last - past) / past) * 100).toFixed(2));
+}
+
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createAdminClient();
     const tema = request.nextUrl.searchParams.get('tema') as ThemeId | null;
 
     // Tema validation
@@ -58,12 +70,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch latest scan_cache entries for US market and theme symbols
+    // NOT: scan_cache kolon isimleri: sembol, last_close, change_percent,
+    //      candles_json (son 60 günlük mum), scanned_at
     const { data: cacheData, error: cacheError } = await supabase
       .from('scan_cache')
-      .select('symbol, price, change_1d, change_1h, change_1m, cached_at')
+      .select('sembol, last_close, change_percent, candles_json, scanned_at')
       .eq('market', 'US')
-      .in('symbol', symbols)
-      .order('cached_at', { ascending: false });
+      .in('sembol', symbols)
+      .order('scanned_at', { ascending: false });
 
     if (cacheError) {
       console.error('Cache query error:', cacheError);
@@ -79,26 +93,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get latest entry per symbol (group by symbol)
-    const latestBySymbol = new Map();
+    // Get latest entry per symbol (group by sembol)
+    const latestBySymbol = new Map<string, (typeof cacheData)[number]>();
     for (const entry of cacheData) {
-      if (!latestBySymbol.has(entry.symbol)) {
-        latestBySymbol.set(entry.symbol, entry);
+      if (!latestBySymbol.has(entry.sembol)) {
+        latestBySymbol.set(entry.sembol, entry);
       }
     }
 
     // Convert to performance format
+    // pct_1d → change_percent (zaten yüzde), pct_1w/pct_1m → candles_json'dan
     const stocks: StockPerformance[] = Array.from(latestBySymbol.values()).map(
-      (entry) => ({
-        symbol: entry.symbol,
-        current_price: entry.price || 0,
-        change_1d: entry.change_1d || 0,
-        change_1h: entry.change_1h || 0,
-        change_1m: entry.change_1m || 0,
-        pct_1d: entry.change_1d && entry.price ? ((entry.change_1d / (entry.price - entry.change_1d)) * 100) : 0,
-        pct_1h: entry.change_1h && entry.price ? ((entry.change_1h / (entry.price - entry.change_1h)) * 100) : 0,
-        pct_1m: entry.change_1m && entry.price ? ((entry.change_1m / (entry.price - entry.change_1m)) * 100) : 0,
-      })
+      (entry) => {
+        const candles = (entry.candles_json as Candle[] | null) ?? null;
+        return {
+          symbol: entry.sembol,
+          current_price: entry.last_close ?? 0,
+          pct_1d: typeof entry.change_percent === 'number'
+            ? parseFloat(entry.change_percent.toFixed(2))
+            : 0,
+          pct_1w: pctChangeNDaysAgo(candles, 5),   // ~5 işlem günü = 1 hafta
+          pct_1m: pctChangeNDaysAgo(candles, 21),  // ~21 işlem günü = 1 ay
+        };
+      }
     );
 
     // Sort by 1d performance
@@ -112,10 +129,16 @@ export async function GET(request: NextRequest) {
 
     // Calculate theme average performance
     const validStocks = stocks.filter((s) => s.current_price > 0);
+    const avg = (sel: (s: StockPerformance) => number) =>
+      validStocks.length > 0
+        ? parseFloat(
+            (validStocks.reduce((sum, s) => sum + sel(s), 0) / validStocks.length).toFixed(2)
+          )
+        : 0;
     const themeAverage = {
-      avg_1d: validStocks.length > 0 ? validStocks.reduce((sum, s) => sum + s.pct_1d, 0) / validStocks.length : 0,
-      avg_1h: validStocks.length > 0 ? validStocks.reduce((sum, s) => sum + s.pct_1h, 0) / validStocks.length : 0,
-      avg_1m: validStocks.length > 0 ? validStocks.reduce((sum, s) => sum + s.pct_1m, 0) / validStocks.length : 0,
+      avg_1d: avg((s) => s.pct_1d),
+      avg_1w: avg((s) => s.pct_1w),
+      avg_1m: avg((s) => s.pct_1m),
     };
 
     const response: ThemePerformanceResponse = {
