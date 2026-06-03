@@ -1,32 +1,32 @@
 /**
- * Future Brightness Score cron.
- * Görüntülenen 4 temanın (AI, Quantum, Space, Cybersecurity) US sembolleri için
- * temel veri bazlı 0-100 skor hesaplar ve future_scores tablosuna yazar.
+ * Future Brightness Score cron — US.
+ * 13 tematik alanın US sembollerini temel veriden 0-100 skorlar ve
+ * future_scores tablosuna (market='US') yazar.
  *
  * GET /api/cron/future-scores
  * - Vercel Cron: x-vercel-cron header
  * - Manuel: Authorization: Bearer <CRON_SECRET>
  *
- * NOT: NewsAPI ve Claude çağrıları KALDIRILDI:
- *  - 540 sembol × Claude = 300s timeout
- *  - NewsAPI ücretli/key gerektiriyor (ücretsiz kaynak tercihi)
- *  → Skor tamamen Yahoo fundamentals'tan deterministik hesaplanır,
- *    özet computeFutureScore.summary'den gelir.
+ * Sembol sayısı: SYMBOL_THEMES'te eşlenen benzersiz semboller (~130) —
+ * tüm US evreni (530) DEĞİL. Batch 6 / 600ms ≈ 50s, 300s limiti içinde.
+ *
+ * NOT: NewsAPI/Claude çağrıları yok — skor tamamen Yahoo fundamentals'tan
+ * deterministik hesaplanır.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getSymbolsByTheme, type ThemeId } from '@/lib/us-symbols';
+import { getSymbolsByTheme, ALL_THEMES } from '@/lib/us-symbols';
 import { fetchFundamentalsBatch } from '@/lib/yahoo-fundamentals';
-import { computeFutureScore } from '@/lib/future-score';
+import { runFutureScores } from '@/lib/future-score-runner';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Vercel Pro: 5 dk
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
-// Sayfada gösterilen temalar — sadece bunların sembollerini skorla (hız + güvenilirlik)
-const SCORED_THEMES: ThemeId[] = ['AI', 'Quantum', 'Space', 'Cybersecurity'];
+// 13 temanın tamamı skorlanır.
+const SCORED_THEMES = ALL_THEMES;
 
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -52,67 +52,38 @@ export async function GET(request: NextRequest) {
   const startedAt = Date.now();
 
   try {
-    // 4 temanın sembollerinin birleşimi (tekrarsız)
+    // 13 temanın sembollerinin birleşimi (tekrarsız)
     const symbolSet = new Set<string>();
     for (const t of SCORED_THEMES) {
       for (const s of getSymbolsByTheme(t)) symbolSet.add(s);
     }
     const symbols = [...symbolSet];
 
-    console.log(`[future-scores] ${symbols.length} sembol skorlanıyor (${SCORED_THEMES.join(', ')})`);
+    console.log(`[future-scores:US] ${symbols.length} sembol skorlanıyor (${SCORED_THEMES.length} tema)`);
 
     const fundamentals = await fetchFundamentalsBatch(symbols, 6, 600);
 
-    const upsertData = [];
-    for (const symbol of symbols) {
-      const fund = fundamentals.get(symbol);
-      if (!fund) continue;
-
-      // News + partnership sinyalleri yok → nötr (50)
-      const breakdown = computeFutureScore(fund, 0, 0, 0);
-
-      upsertData.push({
-        sembol: symbol,
-        market: 'US',
-        score: breakdown.score,
-        revenue_score: breakdown.revenueScore,
-        analyst_score: breakdown.analystScore,
-        insider_score: breakdown.insiderScore,
-        news_score: breakdown.newsScore,
-        institutional_score: breakdown.institutionalScore,
-        balance_score: breakdown.balanceScore,
-        partnership_score: breakdown.partnershipScore,
-        ai_summary: breakdown.summary,
-        scored_at: new Date().toISOString(),
-      });
-    }
-
     const sb = createAdminClient();
-    let written = 0;
-    for (let i = 0; i < upsertData.length; i += 100) {
-      const batch = upsertData.slice(i, i + 100);
-      const { error } = await sb
-        .from('future_scores')
-        .upsert(batch, { onConflict: 'sembol,market' });
-      if (error) {
-        console.error(`[future-scores] Upsert batch ${i / 100} hatası:`, error.message);
-      } else {
-        written += batch.length;
-      }
-    }
+    const coverage = await runFutureScores(sb, symbols, 'US', fundamentals);
 
     const durationMs = Date.now() - startedAt;
-    console.log(`[future-scores] Tamamlandı: ${written}/${symbols.length} skor, ${durationMs}ms`);
+    console.log(
+      `[future-scores:US] Tamamlandı: ${coverage.scored}/${coverage.total} skor, ` +
+      `${coverage.insufficient} yetersiz, ${durationMs}ms`,
+    );
 
     return NextResponse.json({
       ok: true,
-      themes: SCORED_THEMES,
-      scored: written,
-      total: symbols.length,
+      market: 'US',
+      themes: SCORED_THEMES.length,
+      scored: coverage.scored,
+      total: coverage.total,
+      insufficient: coverage.insufficient,
+      nullFields: coverage.nullFields,
       durationMs,
     });
   } catch (error) {
-    console.error('[future-scores] Hata:', error);
+    console.error('[future-scores:US] Hata:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

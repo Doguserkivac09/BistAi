@@ -1,129 +1,208 @@
 import { Fundamentals } from './yahoo-fundamentals'
 
+/**
+ * Future Brightness Score — 7 bileşen, toplam ağırlık %100.
+ *
+ *  | Bileşen              | Ağırlık | Kaynak                                   |
+ *  |----------------------|---------|------------------------------------------|
+ *  | Revenue Growth       | %22     | revenueGrowth (BIST: enflasyona göre reel)|
+ *  | Analyst Upside       | %18     | targetUpside                             |
+ *  | Analyst Consensus    | %15     | recommendationMean (1-5)                 |
+ *  | EPS Growth Trend     | %15     | epsForward vs epsDiluted                 |
+ *  | Insider Activity     | %15     | insiderBuySellRatio                      |
+ *  | PEG / Valuation      | %10     | peRatio / revenueGrowth (+ BIST export)  |
+ *  | Institutional        | %5      | institutionalPct                         |
+ *
+ * Eski "News Momentum" ve "Partnership" atıl ağırlıkları (her zaman 50)
+ * gerçek metriklerle (Analyst Consensus, EPS Growth) değiştirildi.
+ *
+ * DB kolon eşlemesi (migration gerektirmemek için yeniden amaçlandırıldı):
+ *   revenue_score=revenue · analyst_score=upside · news_score=consensus
+ *   partnership_score=eps · insider_score=insider · balance_score=peg
+ *   institutional_score=institutional
+ */
 export interface FutureScoreBreakdown {
   score: number // 0-100
   revenueScore: number
-  analystScore: number
+  analystScore: number       // analist hedef yükseliş potansiyeli
+  consensusScore: number     // analist tavsiye konsensüsü (recommendationMean)
+  epsScore: number           // EPS büyüme trendi (forward vs trailing)
   insiderScore: number
-  newsScore: number
+  pegScore: number           // PEG / değerleme kalitesi (+ BIST export bonus)
   institutionalScore: number
-  balanceScore: number
-  partnershipScore: number
+  realRevenueGrowth: number | null // BIST: enflasyondan arındırılmış büyüme (%), US: null
   summary: string
 }
 
-// Normalize 0-100 range (caps at 100)
-function normalize(value: number | null, min = 0, max = 100): number {
-  if (value === null || value === undefined) return 50 // neutral default
+export interface FutureScoreOptions {
+  /** BIST: yıllık TÜFE yüzdesi (örn 30.87). Verilirse revenueGrowth reel'e çevrilir. */
+  inflationYoy?: number | null
+  /** BIST: ihracat/döviz geliri bonusu (0-20). pegScore'a eklenir, 100 ile sınırlı. */
+  exportBonus?: number
+}
 
+// Lineer normalizasyon → 0-100 (sınırlar dışında klip). null → nötr 50.
+function normalize(value: number | null, min: number, max: number): number {
+  if (value === null || value === undefined || !isFinite(value)) return 50
   if (max === min) return 50
   const pct = ((value - min) / (max - min)) * 100
   return Math.max(0, Math.min(100, pct))
 }
 
+// Fisher: reel = (1 + nominal) / (1 + enflasyon) - 1. Hepsi yüzde girilir/çıkar.
+function toRealGrowthPct(nominalPct: number, inflationYoyPct: number): number {
+  return ((1 + nominalPct / 100) / (1 + inflationYoyPct / 100) - 1) * 100
+}
+
+// recommendationMean (1=strongBuy .. 5=strongSell) → 0-100
+function consensusFromMean(mean: number): number {
+  // mean 1 → 100, 3 → 50, 5 → 0
+  return Math.max(0, Math.min(100, ((5 - mean) / 4) * 100))
+}
+
+// recommendationKey string → 0-100 (mean yoksa yedek)
+function consensusFromKey(key: string): number {
+  switch (key.toLowerCase().replace(/[\s_-]/g, '')) {
+    case 'strongbuy': return 100
+    case 'buy':       return 75
+    case 'hold':      return 50
+    case 'sell':      return 25
+    case 'strongsell':return 0
+    default:          return 50
+  }
+}
+
+// PEG bandı → 0-100. revenueGrowthPct yüzde (15 = %15). peRatio trailing P/E.
+function pegScoreFrom(peRatio: number | null, revenueGrowthPct: number | null): number {
+  if (peRatio === null) return 50               // bilinmiyor
+  if (peRatio <= 0) return 40                    // negatif kazanç → büyüme şirketi, cezalandırma
+  if (revenueGrowthPct === null) return 50
+  if (revenueGrowthPct <= 0) return 30           // pozitif F/K + büyüme yok → pahalı
+  const peg = peRatio / revenueGrowthPct
+  if (peg < 0.5) return 100
+  if (peg < 1) return 75
+  if (peg < 2) return 50
+  return 25
+}
+
 export function computeFutureScore(
   fundamentals: Fundamentals,
-  newsCountPositive = 0,
-  newsCountNegative = 0,
-  partnershipSignals = 0 // 0-3 (low-mid-high)
+  opts: FutureScoreOptions = {},
 ): FutureScoreBreakdown {
-  // 25% Revenue growth (target: 20-50% growth = 100)
-  let revenueScore = 50
-  if (fundamentals.revenueGrowth !== null) {
-    revenueScore = normalize(fundamentals.revenueGrowth, -10, 50)
+  const { inflationYoy = null, exportBonus = 0 } = opts
+
+  // ── %22 Revenue Growth (BIST'te enflasyona göre reel) ──────────────────
+  let revenueForScore = fundamentals.revenueGrowth
+  let realRevenueGrowth: number | null = null
+  if (revenueForScore !== null && inflationYoy !== null && isFinite(inflationYoy)) {
+    realRevenueGrowth = toRealGrowthPct(revenueForScore, inflationYoy)
+    revenueForScore = realRevenueGrowth
+  }
+  const revenueScore = revenueForScore !== null
+    ? normalize(revenueForScore, -10, 50)
+    : 50
+
+  // ── %18 Analyst Upside ─────────────────────────────────────────────────
+  const analystScore = fundamentals.targetUpside !== null
+    ? normalize(fundamentals.targetUpside, -20, 30)
+    : 50
+
+  // ── %15 Analyst Consensus ──────────────────────────────────────────────
+  let consensusScore = 50
+  if (fundamentals.recommendationMean !== null && fundamentals.recommendationMean > 0) {
+    consensusScore = consensusFromMean(fundamentals.recommendationMean)
+  } else if (fundamentals.recommendation) {
+    consensusScore = consensusFromKey(fundamentals.recommendation)
   }
 
-  // 20% Analyst upside (target > 10% upside = 100)
-  let analystScore = 50
-  if (fundamentals.targetUpside !== null) {
-    analystScore = normalize(fundamentals.targetUpside, -20, 30)
+  // ── %15 EPS Growth Trend (forward vs trailing) ─────────────────────────
+  let epsScore = 50
+  if (
+    fundamentals.epsForward !== null &&
+    fundamentals.epsDiluted !== null &&
+    fundamentals.epsDiluted !== 0
+  ) {
+    const ratio = (fundamentals.epsForward - fundamentals.epsDiluted) / Math.abs(fundamentals.epsDiluted)
+    epsScore = normalize(ratio, -0.5, 1.0) // -%50 .. +%100
   }
 
-  // 15% Insider activity (+1 = all buys, -1 = all sells)
-  let insiderScore = 50
-  if (fundamentals.insiderBuySellRatio !== null) {
-    // Map -1...+1 to 0...100
-    insiderScore = ((fundamentals.insiderBuySellRatio + 1) / 2) * 100
-  }
+  // ── %15 Insider Activity ───────────────────────────────────────────────
+  const insiderScore = fundamentals.insiderBuySellRatio !== null
+    ? ((fundamentals.insiderBuySellRatio + 1) / 2) * 100
+    : 50
 
-  // 15% News momentum (positive - negative news in last 30 days)
-  let newsScore = 50
-  if (newsCountPositive + newsCountNegative > 0) {
-    const netSentiment = (newsCountPositive - newsCountNegative) / (newsCountPositive + newsCountNegative)
-    newsScore = ((netSentiment + 1) / 2) * 100
-  }
+  // ── %10 PEG / Valuation (+ BIST export bonus) ──────────────────────────
+  let pegScore = pegScoreFrom(fundamentals.peRatio, fundamentals.revenueGrowth)
+  if (exportBonus) pegScore = Math.min(100, pegScore + exportBonus)
 
-  // 10% Institutional ownership (target: >30% = 100)
-  let institutionalScore = 50
-  if (fundamentals.institutionalPct !== null) {
-    institutionalScore = normalize(fundamentals.institutionalPct, 0, 50)
-  }
+  // ── %5 Institutional Ownership ─────────────────────────────────────────
+  const institutionalScore = fundamentals.institutionalPct !== null
+    ? normalize(fundamentals.institutionalPct, 0, 50)
+    : 50
 
-  // 10% Balance sheet health (cash > debt + positive runway)
-  let balanceScore = 50
-  if (fundamentals.cash !== null && fundamentals.debt !== null) {
-    const cashDebtRatio = fundamentals.cash / (fundamentals.debt + 1)
-    balanceScore = Math.min(100, normalize(cashDebtRatio, 0.5, 3))
-
-    // Boost if runway > 3 years
-    if (fundamentals.runway && fundamentals.runway > 3) {
-      balanceScore = Math.min(100, balanceScore + 15)
-    }
-  }
-
-  // 5% Partnership signals (Claude-detected from news)
-  let partnershipScore = 50 + (partnershipSignals * 15) // 0=50, 1=65, 2=80, 3=95
-
-  // Weighted sum (7 components)
   const totalScore =
-    revenueScore * 0.25 +
-    analystScore * 0.2 +
+    revenueScore * 0.22 +
+    analystScore * 0.18 +
+    consensusScore * 0.15 +
+    epsScore * 0.15 +
     insiderScore * 0.15 +
-    newsScore * 0.15 +
-    institutionalScore * 0.1 +
-    balanceScore * 0.1 +
-    partnershipScore * 0.05
+    pegScore * 0.10 +
+    institutionalScore * 0.05
 
   return {
     score: Math.round(Math.max(0, Math.min(100, totalScore))),
     revenueScore: Math.round(revenueScore),
     analystScore: Math.round(analystScore),
+    consensusScore: Math.round(consensusScore),
+    epsScore: Math.round(epsScore),
     insiderScore: Math.round(insiderScore),
-    newsScore: Math.round(newsScore),
+    pegScore: Math.round(pegScore),
     institutionalScore: Math.round(institutionalScore),
-    balanceScore: Math.round(balanceScore),
-    partnershipScore: Math.round(partnershipScore),
+    realRevenueGrowth: realRevenueGrowth !== null ? Math.round(realRevenueGrowth * 10) / 10 : null,
     summary: generateSummary({
-      score: Math.round(totalScore),
-      revenue: fundamentals.revenueGrowth || 0,
-      targetUpside: fundamentals.targetUpside || 0,
-      insiderRatio: fundamentals.insiderBuySellRatio || 0,
+      revenue: revenueForScore ?? 0,
+      isReal: realRevenueGrowth !== null,
+      targetUpside: fundamentals.targetUpside ?? 0,
+      consensus: consensusScore,
+      insiderRatio: fundamentals.insiderBuySellRatio ?? 0,
+      peRatio: fundamentals.peRatio,
+      revenueGrowth: fundamentals.revenueGrowth,
     }),
   }
 }
 
 function generateSummary(data: {
-  score: number
   revenue: number
+  isReal: boolean
   targetUpside: number
+  consensus: number
   insiderRatio: number
+  peRatio: number | null
+  revenueGrowth: number | null
 }): string {
-  const strengths = []
+  const strengths: string[] = []
 
-  if (data.revenue > 20) {
-    strengths.push(`${data.revenue.toFixed(1)}% revenue büyümesi`)
+  if (data.revenue > 15) {
+    strengths.push(`${data.isReal ? 'reel ' : ''}${data.revenue.toFixed(1)}% gelir büyümesi`)
   }
   if (data.targetUpside > 10) {
     strengths.push(`analist hedefi +${data.targetUpside.toFixed(1)}%`)
   }
+  if (data.consensus >= 75) {
+    strengths.push('güçlü analist konsensüsü')
+  }
   if (data.insiderRatio > 0.3) {
     strengths.push('net insider alım')
   }
+  if (data.peRatio !== null && data.peRatio > 0 && data.revenueGrowth && data.revenueGrowth > 0) {
+    const peg = data.peRatio / data.revenueGrowth
+    if (peg < 1) strengths.push(`cazip PEG (${peg.toFixed(2)})`)
+  }
 
   if (strengths.length > 0) {
-    return `Güçlü fundamentals: ${strengths.join(', ')}`
+    return `Güçlü yönler: ${strengths.join(', ')}`
   }
-  return 'Karışık sinyal'
+  return 'Karışık sinyal — belirgin güçlü katalizör yok'
 }
 
 // CLI friendly score to color
