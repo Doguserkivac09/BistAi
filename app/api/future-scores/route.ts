@@ -1,14 +1,8 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { getSymbolsByTheme } from '@/lib/us-symbols'
-
-const THEMES = [
-  { id: 'AI' },
-  { id: 'Quantum' },
-  { id: 'Space' },
-  { id: 'Cybersecurity' },
-]
+import { getSymbolsByTheme, ALL_THEMES, type ThemeId } from '@/lib/us-symbols'
+import { getBistSymbolsByTheme, isBistFutureTheme } from '@/lib/bist-future-themes'
 
 export const revalidate = 3600 // 1 hour cache
 
@@ -16,19 +10,25 @@ export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams
     const tema = searchParams.get('tema') || ''
+    const market = (searchParams.get('market') || 'US').toUpperCase() === 'BIST' ? 'BIST' : 'US'
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100)
     const sort = searchParams.get('sort') || 'desc' // desc = highest score first
 
     const sb = await createServerClient()
-    let query = sb.from('future_scores').select('*').eq('market', 'US')
+    let query = sb.from('future_scores').select('*').eq('market', market)
 
-    // Filter by tema if provided
-    if (tema && THEMES.some((t) => t.id === tema)) {
-      const symbols = getSymbolsByTheme(tema as any)
-      query = query.in('sembol', symbols)
+    // Tema filtresi — markete göre doğru sembol kaynağı
+    if (tema) {
+      let symbols: string[] = []
+      if (market === 'BIST') {
+        if (isBistFutureTheme(tema)) symbols = getBistSymbolsByTheme(tema)
+      } else if (ALL_THEMES.includes(tema as ThemeId)) {
+        symbols = getSymbolsByTheme(tema as ThemeId)
+      }
+      // Geçerli tema ama sembol yoksa boş sonuç döndür (yanlış tüm-liste değil)
+      query = query.in('sembol', symbols.length ? symbols : ['__none__'])
     }
 
-    // Sort and limit
     query = query
       .order('score', { ascending: sort === 'asc' })
       .limit(limit)
@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       tema: tema || 'Tüm Temalar',
+      market,
       count: data?.length || 0,
       scores: data || [],
     })
