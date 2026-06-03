@@ -12,6 +12,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
+
+export const maxDuration = 120;
 import { detectAllSignals, computeConfluence } from '@/lib/signals';
 import type { StockSignal } from '@/types';
 import { getMarketRegime } from '@/lib/regime-engine';
@@ -112,6 +114,7 @@ export async function GET(request: NextRequest) {
       const rows = signals.map((sig: StockSignal) => ({
         user_id:             null,
         sembol,
+        market:              'BIST',
         signal_type:         sig.type,
         direction:           sig.direction,
         entry_price:         lastCandle.close,

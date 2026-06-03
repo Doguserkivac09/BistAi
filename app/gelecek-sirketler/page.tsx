@@ -14,10 +14,10 @@ interface FutureScore {
 }
 
 const THEMES = [
-  { id: 'AI', label: 'U1F916 AI', color: 'from-blue-600 to-cyan-600' },
-  { id: 'Quantum', label: 'U0000269B Quantum', color: 'from-purple-600 to-pink-600' },
-  { id: 'Space', label: 'U0001F680 Space', color: 'from-indigo-600 to-blue-600' },
-  { id: 'Cybersecurity', label: 'U0001F512 Cybersecurity', color: 'from-red-600 to-orange-600' },
+  { id: 'AI', label: '🤖 AI', color: 'from-blue-600 to-cyan-600' },
+  { id: 'Quantum', label: '⚛️ Quantum', color: 'from-purple-600 to-pink-600' },
+  { id: 'Space', label: '🚀 Space', color: 'from-indigo-600 to-blue-600' },
+  { id: 'Cybersecurity', label: '🔒 Cybersecurity', color: 'from-red-600 to-orange-600' },
 ]
 
 export default function GelecekSirketlerPage() {

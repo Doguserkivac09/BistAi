@@ -128,10 +128,11 @@ export async function GET() {
 
   const admin = createAdmin();
 
-  // scan_cache'den teknik skorlar + son fiyat + sparkline mumları
+  // scan_cache'den teknik skorlar + son fiyat + sparkline mumları (BIST only)
   const { data: cacheRows } = await admin
     .from('scan_cache')
     .select('sembol, confluence_score, rsi, last_close, candles_json')
+    .eq('market', 'BIST')
     .in('sembol', UNIQUE_SYMBOLS)
     .order('scanned_at', { ascending: false });
 

@@ -473,7 +473,7 @@ export default function FirsatlarPage() {
               {' · '}{ageText}
             </span>
             <span className="ml-auto text-[10px] opacity-70 hidden sm:inline">
-              Veri günde 3× yenilenir (07:30 · 12:00 · 19:00)
+              Veri günde 3× yenilenir (07:30 · 12:00 · 17:50)
             </span>
           </div>
         );

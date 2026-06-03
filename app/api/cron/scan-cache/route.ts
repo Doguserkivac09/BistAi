@@ -11,6 +11,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+
+export const maxDuration = 300;
 import { fetchOHLCV } from '@/lib/yahoo';
 import { detectAllSignals, computeConfluence } from '@/lib/signals';
 import { getMarketRegime } from '@/lib/regime-engine';
@@ -100,6 +102,7 @@ export async function GET(request: NextRequest) {
   type PerfRow = {
     user_id: null;
     sembol: string;
+    market: string;
     signal_type: string;
     direction: string;
     entry_price: number;
@@ -216,6 +219,7 @@ export async function GET(request: NextRequest) {
           perfRows.push({
             user_id:             null,
             sembol,
+            market:              'BIST',
             signal_type:         sig.type,
             direction:           sig.direction,
             entry_price:         lastClose,

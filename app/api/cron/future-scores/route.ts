@@ -7,10 +7,13 @@ import { computeFutureScore } from '@/lib/future-score'
 
 export const maxDuration = 300
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: NextRequest) {
+  const isVercelCron = req.headers.get('x-vercel-cron') === '1'
+  const token = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (!isVercelCron && !(process.env.CRON_SECRET && token === process.env.CRON_SECRET)) {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   try {

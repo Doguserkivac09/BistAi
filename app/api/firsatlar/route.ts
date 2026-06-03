@@ -258,10 +258,11 @@ export async function GET(req: NextRequest) {
       getMacroFull(),
       fetchKapDuyurular(200), // son 200 KAP duyurusu (cache'li, 15dk TTL)
       fetchTurkeyInflation(), // TÜFE YoY — Investment Score enflasyon düzeltmesi
-      // scan_cache: change_percent, rel_vol5, rsi — tavan skoru için
+      // scan_cache: change_percent, rel_vol5, rsi — tavan skoru için (BIST only)
       supabase
         .from('scan_cache')
         .select('sembol, change_percent, rel_vol5, rsi')
+        .eq('market', 'BIST')
         .gte('scanned_at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
     ]);
 
