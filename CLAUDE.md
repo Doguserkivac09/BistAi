@@ -78,6 +78,30 @@ görünmeye başlayınca `NavbarClient.tsx`'teki yorum satırını kaldır ve sa
 
 ---
 
+## 🚀 Geleceği Parlak Şirketler — Profesyonel Güçlendirme (2026-06-03) ✅ TAMAMLANDI
+
+Branch: `feat/future-scores-pro` — **yeni Supabase migration GEREKMEZ** (mevcut 7 kolon yeniden amaçlandırıldı).
+
+| Değişiklik | Dosya |
+|-----------|-------|
+| US fetch ham v10 → **yahoo-finance2** quoteSummary (crumb/401 fix). Yeni alanlar: recommendationMean, epsForward, pegRatio, returnOnEquity, freeCashFlow, revenuePerShare. `fetchFundamentalsBist` + batch eklendi. | `lib/yahoo-fundamentals.ts` |
+| **Atıl ağırlıklar değişti**: newsScore(50) → Analyst Consensus, partnershipScore(50) → EPS Growth Trend. **PEG/Valuation** bileşeni eklendi. Ağırlıklar: rev22/upside18/consensus15/eps15/insider15/peg10/inst5. BIST enflasyon + export opsiyonları. | `lib/future-score.ts` |
+| Ortak skorlama + **coverage** + upsert + veri kalitesi eşiği (>%60 kritik null → skorlama) | `lib/future-score-runner.ts` (yeni) |
+| US cron: **13 tema** (ALL_THEMES), coverage yanıtı. (Timeout endişesi yersizdi: ~130 benzersiz sembol) | `app/api/cron/future-scores/route.ts` |
+| **BIST tema haritası** (5 tema) + EXPORT_BONUS | `lib/bist-future-themes.ts` (yeni) |
+| **BIST cron**: bistGuard + fetchTurkeyInflation (reel büyüme) + export bonus, market='BIST' | `app/api/cron/future-scores-bist/route.ts` (yeni) |
+| API `?market=US\|BIST` param (varsayılan US) | `app/api/future-scores/route.ts` |
+| UI: 🇺🇸/🇹🇷 toggle, 13 US + 5 BIST sekme, 7-bileşen breakdown, stale-veri uyarısı, BIST enflasyon notu | `app/gelecek-sirketler/page.tsx` |
+| `vercel.json`: BIST cron Pzt 08:00 UTC (11:00 TRT) | `vercel.json` |
+
+**Kritik bug (doğrulamada yakalandı):** yahoo-finance2 v3 per-call `validateResult` opsiyonunu reddediyor → tüm fetch'ler fırlıyor, skorlar sabit 50 kalıyordu (eski prod davranışı buydu). Instance seviyesinde `validation.logErrors/logOptionsErrors=false` ile çözüldü.
+
+**Canlı doğrulama (Yahoo'dan gerçek veri):** NVDA=83, IONQ=59, RGTI=67; BIST enflasyon düzeltmesi FROTO nom −8.6%→reel −30.2%, GARAN nom %49.7→reel %14.4.
+
+> ⏳ **Bekleyen:** Skorlar prod'da hâlâ eski (hepsi 50). Yeni skorların görünmesi için `/api/cron/future-scores` ve `/api/cron/future-scores-bist` cron'larının bir kez çalışması gerekir (zamanlanmış ya da manuel `Bearer CRON_SECRET` tetikleme).
+
+---
+
 ## 🚀 ÖNCEKİ DURUM (2026-05-23)
 
 ### Bu Session'da Tamamlananlar (Phase B — Tema Landing Sayfaları)
@@ -378,6 +402,8 @@ BT1 Rejim verisi fix, BT2 Giriş fiyatı bias fix, BT3 Komisyon modeli, BT4 Her-
 | `30 7 * * 1-5` | 10:30 Pzt-Cum | `/api/cron/alerts` | Email uyarıları |
 | `30 7 * * 1-5` | 10:30 Pzt-Cum | `/api/cron/price-alerts` | Fiyat alarmları |
 | `0 6 * * 1` | 09:00 Pzt | `/api/cron/bulten` | Haftalık AI bülten |
+| `0 8 * * *` | 11:00 hergün | `/api/cron/future-scores` | Future Score (US, 13 tema) |
+| `0 8 * * 1` | 11:00 Pzt | `/api/cron/future-scores-bist` | Future Score (BIST, 5 tema) |
 
 ---
 
