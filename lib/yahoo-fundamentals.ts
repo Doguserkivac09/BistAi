@@ -20,10 +20,15 @@ const YahooFinanceClass = require('yahoo-finance2').default;
 interface YahooFinanceInstance {
   quoteSummary(
     ticker: string,
-    options: { modules: string[]; validateResult?: boolean },
+    options: { modules: string[] },
   ): Promise<Record<string, Record<string, unknown> | undefined>>;
 }
-const yahooFinance = new YahooFinanceClass({ suppressNotices: ['yahooSurvey'] }) as YahooFinanceInstance;
+// validation.logErrors/logOptionsErrors=false → şema uyumsuzluklarında konsol
+// gürültüsü yok ve fetch fırlatmaz (allowAdditionalProps zaten default true).
+const yahooFinance = new YahooFinanceClass({
+  suppressNotices: ['yahooSurvey'],
+  validation: { logErrors: false, logOptionsErrors: false },
+}) as YahooFinanceInstance;
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -235,18 +240,15 @@ async function fetchFundamentalsViaYf(
         'defaultKeyStatistics',
         'summaryDetail',
         'insiderTransactions',
-        'majorHoldersBreakdown',
         'price',
       ],
-      validateResult: false,
     });
 
-    const fd = qs.financialData         ?? {};
-    const ks = qs.defaultKeyStatistics  ?? {};
-    const sd = qs.summaryDetail         ?? {};
-    const mh = qs.majorHoldersBreakdown ?? {};
-    const it = qs.insiderTransactions   ?? {};
-    const pr = qs.price                 ?? {};
+    const fd = qs.financialData        ?? {};
+    const ks = qs.defaultKeyStatistics ?? {};
+    const sd = qs.summaryDetail        ?? {};
+    const it = qs.insiderTransactions  ?? {};
+    const pr = qs.price                ?? {};
 
     // Fiyat + analist
     result.currentPrice = n(fd.currentPrice) ?? n(pr.regularMarketPrice);
@@ -290,8 +292,8 @@ async function fetchFundamentalsViaYf(
       result.peRatio = result.currentPrice / result.epsDiluted;
     }
 
-    // Sahiplik
-    const inst = n(mh.institutionsPercentHeld) ?? n(ks.heldPercentInstitutions);
+    // Sahiplik (kurumsal % — defaultKeyStatistics modülünden)
+    const inst = n(ks.heldPercentInstitutions);
     result.institutionalPct = inst !== null ? inst * 100 : null;
 
     // Insider işlemleri (son 180 gün — veri seyrek geldiği için pencere geniş)
