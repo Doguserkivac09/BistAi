@@ -42,6 +42,7 @@ export const BIST_FUTURE_THEME_LIST = Object.keys(BIST_FUTURE_THEMES) as BistFut
  * Yahoo'dan döviz geliri çekilemediği için hardcoded. pegScore'a eklenir (max +20).
  */
 export const EXPORT_BONUS: Record<string, number> = {
+  // Otomotiv / sanayi ihracatçıları
   FROTO: 20,
   TOASO: 15,
   ARCLK: 18,
@@ -51,6 +52,9 @@ export const EXPORT_BONUS: Record<string, number> = {
   TTRAK: 12,
   CCOLA: 10,
   AEFES: 8,
+  // Savunma ihracatçıları (USD/EUR sözleşmeli — TL kaybından korunur)
+  ASELS: 18,
+  KATMR: 8,
 }
 
 /** Belirli BIST temasına ait sembolleri döndür. */

@@ -90,16 +90,21 @@ export function computeFutureScore(
   opts: FutureScoreOptions = {},
 ): FutureScoreBreakdown {
   const { inflationYoy = null, exportBonus = 0 } = opts
+  // Geçerli enflasyon (BIST) → reel düzeltme uygulanır. US'te null.
+  const infl = (inflationYoy !== null && isFinite(inflationYoy)) ? inflationYoy : null
 
   // ── %22 Revenue Growth (BIST'te enflasyona göre reel) ──────────────────
+  // Yüksek enflasyon ortamında reel gelir küçülmesi olağandır → BIST'te
+  // band genişletilir (–30..40) ki nominal<enflasyon olan sağlam şirket
+  // sıfıra ezilmesin. US'te dar band (–10..50).
   let revenueForScore = fundamentals.revenueGrowth
   let realRevenueGrowth: number | null = null
-  if (revenueForScore !== null && inflationYoy !== null && isFinite(inflationYoy)) {
-    realRevenueGrowth = toRealGrowthPct(revenueForScore, inflationYoy)
+  if (revenueForScore !== null && infl !== null) {
+    realRevenueGrowth = toRealGrowthPct(revenueForScore, infl)
     revenueForScore = realRevenueGrowth
   }
   const revenueScore = revenueForScore !== null
-    ? normalize(revenueForScore, -10, 50)
+    ? normalize(revenueForScore, infl !== null ? -30 : -10, infl !== null ? 40 : 50)
     : 50
 
   // ── %18 Analyst Upside ─────────────────────────────────────────────────
@@ -115,9 +120,17 @@ export function computeFutureScore(
     consensusScore = consensusFromKey(fundamentals.recommendation)
   }
 
-  // ── %15 EPS Growth Trend (forward vs trailing) ─────────────────────────
+  // ── %15 Earnings/EPS Growth (net kâr büyümesi ÖNCELİKLİ) ───────────────
+  // Birincil: earningsGrowth (YoY net kâr, BIST'te enflasyona göre reel).
+  // Yedek: forward vs trailing EPS. İkisi de yoksa nötr 50.
   let epsScore = 50
-  if (
+  let earningsForScore = fundamentals.earningsGrowth   // ratio (0.86 = %86)
+  if (earningsForScore !== null && infl !== null) {
+    earningsForScore = (1 + earningsForScore) / (1 + infl / 100) - 1 // reel
+  }
+  if (earningsForScore !== null && isFinite(earningsForScore)) {
+    epsScore = normalize(earningsForScore, -0.20, 0.60) // -%20 .. +%60 → 0..100
+  } else if (
     fundamentals.epsForward !== null &&
     fundamentals.epsDiluted !== null &&
     fundamentals.epsDiluted !== 0
@@ -162,6 +175,8 @@ export function computeFutureScore(
     summary: generateSummary({
       revenue: revenueForScore ?? 0,
       isReal: realRevenueGrowth !== null,
+      earnings: earningsForScore,
+      earningsIsReal: infl !== null,
       targetUpside: fundamentals.targetUpside ?? 0,
       consensus: consensusScore,
       insiderRatio: fundamentals.insiderBuySellRatio ?? 0,
@@ -174,6 +189,8 @@ export function computeFutureScore(
 function generateSummary(data: {
   revenue: number
   isReal: boolean
+  earnings: number | null
+  earningsIsReal: boolean
   targetUpside: number
   consensus: number
   insiderRatio: number
@@ -183,7 +200,12 @@ function generateSummary(data: {
   const strengths: string[] = []
 
   if (data.revenue > 15) {
-    strengths.push(`${data.isReal ? 'reel ' : ''}${data.revenue.toFixed(1)}% gelir büyümesi`)
+    const r = data.revenue > 200 ? '>%200' : `${data.revenue.toFixed(1)}%`
+    strengths.push(`${data.isReal ? 'reel ' : ''}${r} gelir büyümesi`)
+  }
+  if (data.earnings !== null && data.earnings > 0.20) {
+    const e = data.earnings > 2 ? '>%200' : `+${(data.earnings * 100).toFixed(0)}%`
+    strengths.push(`${data.earningsIsReal ? 'reel ' : ''}net kâr ${e}`)
   }
   if (data.targetUpside > 10) {
     strengths.push(`analist hedefi +${data.targetUpside.toFixed(1)}%`)

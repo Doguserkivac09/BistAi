@@ -176,6 +176,7 @@ export async function fetchYahooFundamentals(symbol: string): Promise<YahooFunda
 
 export type Fundamentals = {
   revenueGrowth: number | null;        // percent (15 = %15)
+  earningsGrowth: number | null;       // ratio (0.86 = %86 YoY net kâr büyümesi)
   avgTargetPrice: number | null;
   currentPrice: number | null;
   targetUpside: number | null;         // percent
@@ -199,6 +200,7 @@ export type Fundamentals = {
 function emptyFundamentals(): Fundamentals {
   return {
     revenueGrowth: null,
+    earningsGrowth: null,
     avgTargetPrice: null,
     currentPrice: null,
     targetUpside: null,
@@ -254,6 +256,7 @@ async function fetchFundamentalsViaYf(
     result.currentPrice = n(fd.currentPrice) ?? n(pr.regularMarketPrice);
     const rg = n(fd.revenueGrowth);
     result.revenueGrowth = rg !== null ? rg * 100 : null;          // ratio → percent
+    result.earningsGrowth = n(fd.earningsGrowth);                  // ratio (YoY net kâr büyümesi)
     result.recommendation = fd.recommendationKey != null ? String(fd.recommendationKey) : null;
     result.recommendationMean = n(fd.recommendationMean);
     result.avgTargetPrice = n(fd.targetMeanPrice);
