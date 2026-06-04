@@ -98,7 +98,17 @@ Branch: `feat/future-scores-pro` — **yeni Supabase migration GEREKMEZ** (mevcu
 
 **Canlı doğrulama (Yahoo'dan gerçek veri):** NVDA=83, IONQ=59, RGTI=67; BIST enflasyon düzeltmesi FROTO nom −8.6%→reel −30.2%, GARAN nom %49.7→reel %14.4.
 
-> ⏳ **Bekleyen:** Skorlar prod'da hâlâ eski (hepsi 50). Yeni skorların görünmesi için `/api/cron/future-scores` ve `/api/cron/future-scores-bist` cron'larının bir kez çalışması gerekir (zamanlanmış ya da manuel `Bearer CRON_SECRET` tetikleme).
+**Durum (2026-06-04):** Her iki cron prod'da çalıştırıldı — US 128/132, BIST 47/54 sembol gerçek skorlarla yazıldı (NVDA=84, ISCTR=75, ASELS=49).
+
+### Model v2 düzeltmesi (2026-06-04) ✅
+ASELS gibi net kârı güçlü artan ama nominal geliri enflasyon altında kalan şirketler haksız "karanlık" skor alıyordu (ASELS=32). Düzeltmeler (`lib/future-score.ts`, `lib/yahoo-fundamentals.ts`, `lib/bist-future-themes.ts`):
+- EPS bileşeni artık **earningsGrowth (YoY net kâr)** önceliğini kullanır (forwardEps yedek). Yahoo'da hazır olan net kâr büyümesi artık skora giriyor; BIST'te enflasyona göre reel.
+- Reel gelir düzeltme bandı BIST'te genişletildi (−30..40) — sağlam şirket 0'a ezilmiyor.
+- EXPORT_BONUS'a ASELS(18)+KATMR(8) eklendi.
+- Sonuç: ASELS 32→49, FROTO 58→43 (net kâr −%35 artık cezalı — model iki yönlü doğru).
+
+### 🔴 Veri doğruluğu denetimi (2026-06-04) — `DATA-AUDIT.md`
+Kırmızı bayraklar: TR politika faizi (%7 fallback), enflasyon (%30.87 fallback), CDS (USD/TRY proxy), KAP (boş), ekonomi takvimi (hardcoded), ML (heuristik). **Kök neden: TCMB EVDS API çalışmıyor (HTTP 302).** Fiyat/OHLCV/FRED/temel/haber GERÇEK. Sıradaki: EVDS ücretsiz key + UI kaynak/tazelik rozetleri.
 
 ---
 
