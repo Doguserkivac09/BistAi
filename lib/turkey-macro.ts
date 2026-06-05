@@ -159,10 +159,57 @@ async function fetchEvdsSeries(
   }
 }
 
+// ── TradingEconomics scrape ─────────────────────────────────────────
+// TCMB EVDS evds2→evds3'e taşındı ve eski /service/evds endpoint'i çalışmıyor
+// (HTTP 302). Politika faizi + TÜFE için ücretsiz, canlı yedek kaynak.
+// SSR meta açıklamasındaki güncel değeri parse eder.
+
+const TE_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+
+async function scrapeTradingEconomics(path: string, patterns: RegExp[]): Promise<number | null> {
+  try {
+    const res = await fetch(`https://tradingeconomics.com/turkey/${path}`, {
+      headers: { 'User-Agent': TE_UA, Accept: 'text/html' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    for (const re of patterns) {
+      const m = html.match(re);
+      if (m && m[1]) {
+        const v = parseFloat(m[1]);
+        if (isFinite(v) && v > 0 && v < 500) return v;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** TR politika faizi — TradingEconomics (canlı, ücretsiz). */
+async function fetchPolicyRateFromTE(): Promise<number | null> {
+  return scrapeTradingEconomics('interest-rate', [
+    /benchmark interest rate in Turkey was last recorded at\s+([0-9]+(?:\.[0-9]+)?)\s*percent/i,
+    /interest rate in turkey[^0-9]{0,40}?([0-9]+(?:\.[0-9]+)?)\s*percent/i,
+  ]);
+}
+
+/** TR yıllık TÜFE — TradingEconomics (canlı, ücretsiz). */
+async function fetchInflationFromTE(): Promise<number | null> {
+  return scrapeTradingEconomics('inflation-cpi', [
+    /Inflation Rate in Turkey[^0-9]{0,40}?([0-9]+(?:\.[0-9]+)?)\s*percent/i,
+    /inflation rate in turkey was last recorded at\s+([0-9]+(?:\.[0-9]+)?)\s*percent/i,
+  ]);
+}
+
 // ── Gösterge Çekme Fonksiyonları ────────────────────────────────────
 
 /**
  * TCMB politika faizi verisi çeker.
+ * Öncelik: TradingEconomics scrape (canlı) → EVDS (şu an bozuk) → hardcoded son çare.
  */
 export async function fetchPolicyRate(): Promise<TurkeyIndicator | null> {
   const cacheKey = 'turkey:policyRate';
@@ -170,20 +217,27 @@ export async function fetchPolicyRate(): Promise<TurkeyIndicator | null> {
   if (cached) return cached;
 
   const { code, name, unit } = TCMB_SERIES.POLICY_RATE;
-  const endDate = formatDateEvds(new Date());
-  const startDate = formatDateEvds(monthsAgo(6));
 
-  const data = await fetchEvdsSeries(code, startDate, endDate);
-  if (data.length === 0) {
-    // Fallback: TCMB son PPK kararı — Mart 2026'da %7'de sabit tutuldu
-    // (Aralık 2025: %8 → Mart 2026: %7 — 5 ardışık indirim sonrası ilk sabit)
-    // Manuel güncelleme: 8 PPK toplantısı/yıl, kontrol → tcmb.gov.tr/wps/wcm/connect/tr/tcmb+tr/main+menu/temel+faaliyetler/para+politikasi/ppk
-    return createFallbackIndicator(name, 7, unit, 'hardcoded-fallback');
+  // 1. TradingEconomics (canlı, ücretsiz) — EVDS taşındığı için birincil
+  const teValue = await fetchPolicyRateFromTE();
+  if (teValue !== null) {
+    const ind = createFallbackIndicator(name, teValue, unit, 'TradingEconomics (scrape)');
+    setTurkeyCache(cacheKey, ind);
+    return ind;
   }
 
-  const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
-  if (indicator) setTurkeyCache(cacheKey, indicator);
-  return indicator;
+  // 2. EVDS (yedek — evds3 geçişi nedeniyle şu an boş dönüyor)
+  const endDate = formatDateEvds(new Date());
+  const startDate = formatDateEvds(monthsAgo(6));
+  const data = await fetchEvdsSeries(code, startDate, endDate);
+  if (data.length > 0) {
+    const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
+    if (indicator) setTurkeyCache(cacheKey, indicator);
+    return indicator;
+  }
+
+  // 3. Son çare: hardcoded (güncel ~%37-40 — TCMB PPK'dan manuel kontrol)
+  return createFallbackIndicator(name, 40, unit, 'hardcoded-fallback');
 }
 
 /**
@@ -195,19 +249,27 @@ export async function fetchTurkeyInflation(): Promise<TurkeyIndicator | null> {
   if (cached) return cached;
 
   const { code, name, unit } = TCMB_SERIES.CPI_YOY;
-  const endDate = formatDateEvds(new Date());
-  const startDate = formatDateEvds(monthsAgo(24));
 
-  const data = await fetchEvdsSeries(code, startDate, endDate);
-  if (data.length === 0) {
-    // Fallback: TÜİK Mart 2026 TÜFE yıllık %30.87 (Nisan 4 Mayıs'ta açıklanır)
-    // Manuel güncelleme: aylık, kontrol → data.tuik.gov.tr (Tüketici Fiyat Endeksi bülteni)
-    return createFallbackIndicator(name, 30.87, unit, 'tuik-hardcoded-fallback');
+  // 1. TradingEconomics (canlı, ücretsiz)
+  const teValue = await fetchInflationFromTE();
+  if (teValue !== null) {
+    const ind = createFallbackIndicator(name, teValue, unit, 'TradingEconomics (scrape)');
+    setTurkeyCache(cacheKey, ind);
+    return ind;
   }
 
-  const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
-  if (indicator) setTurkeyCache(cacheKey, indicator);
-  return indicator;
+  // 2. EVDS (yedek — evds3 geçişi nedeniyle şu an boş dönüyor)
+  const endDate = formatDateEvds(new Date());
+  const startDate = formatDateEvds(monthsAgo(24));
+  const data = await fetchEvdsSeries(code, startDate, endDate);
+  if (data.length > 0) {
+    const indicator = buildIndicator(name, unit, 'TCMB EVDS', data);
+    if (indicator) setTurkeyCache(cacheKey, indicator);
+    return indicator;
+  }
+
+  // 3. Son çare: hardcoded (güncel TÜFE ~%32-35 — data.tuik.gov.tr'den manuel kontrol)
+  return createFallbackIndicator(name, 33, unit, 'tuik-hardcoded-fallback');
 }
 
 /**

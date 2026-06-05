@@ -1444,9 +1444,16 @@ export default function MakroPage() {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="rounded-xl border border-white/8 bg-[#0a0a18] p-5"
           >
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-base">🇹🇷</span>
-              <h3 className="text-base font-semibold text-white">Türkiye Makro</h3>
+            <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🇹🇷</span>
+                <h3 className="text-base font-semibold text-white">Türkiye Makro</h3>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] text-white/40">
+                <span className="flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" /> Canlı</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" /> Tahmini/proxy</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" /> Sabit (veri yok)</span>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-0 lg:divide-x divide-white/5">
               {/* TCMB */}
