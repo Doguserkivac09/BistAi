@@ -114,7 +114,10 @@ Kırmızı bayraklar: TR politika faizi (%7 fallback), enflasyon (%30.87 fallbac
 EVDS `evds2→evds3`'e taşınmış (dokümante REST API emekli, key'le bile 302; evds3 yalnızca dahili `/igmevdsms-dis` mikroservisi). **TradingEconomics canlı scrape** entegre edildi (ücretsiz): politika faizi **%37**, enflasyon **%32.61** (TÜİK ile birebir doğrulandı). Sıra: TE scrape → EVDS yedek → hardcoded son çare. Makro sayfasına 🟢/🟡/🔴 kaynak rozeti + legend. CDS: ücretsiz gerçek kaynak yok → "proxy ⓘ" etiketli bırakıldı (karar).
 
 ### ✅ Temel Analiz Faz 1 (2026-06-05) — Piotroski + Altman + trend
-`lib/financial-statements.ts` (Yahoo `fundamentalsTimeSeries`, 5 yıl, BIST+US) + `lib/fundamental-health.ts` (Piotroski F-Score 0-9, Altman Z'' gelişmekte-olan-piyasa varyantı, kazanç kalitesi=accruals+FCF dönüşümü, CAGR+marj trendi). Bankalar/finansal → Piotroski/Altman "uygulanmaz". `/api/fundamental-health` + `components/FinansalSaglik.tsx` → hisse detay "Temel" sekmesi. Doğrulandı: ASELS 6/9 Z''=6.99, TUPRS 7/9, AAPL 8/9, GARAN N/A. **Sıradaki (Faz 2): sektör-bazlı + peer değerleme.** Açık: KAP, ekonomi takvimi.
+`lib/financial-statements.ts` (Yahoo `fundamentalsTimeSeries`, 5 yıl, BIST+US) + `lib/fundamental-health.ts` (Piotroski F-Score 0-9, Altman Z'' gelişmekte-olan-piyasa varyantı, kazanç kalitesi=accruals+FCF dönüşümü, CAGR+marj trendi). Bankalar/finansal → Piotroski/Altman "uygulanmaz". `/api/fundamental-health` + `components/FinansalSaglik.tsx` → hisse detay "Temel" sekmesi. Doğrulandı: ASELS 6/9 Z''=6.99, TUPRS 7/9, AAPL 8/9, GARAN N/A.
+
+### ✅ Temel Analiz Faz 2A (2026-06-05) — sektör-bazlı değerleme
+`lib/sector-valuation.ts`: sektör profilleri (banka=F/DD+F/K+ROE, EV/FAVÖK&cari oran yok, ROE ağırlıklı; sigorta benzer; GYO=F/DD+temettü, borç dahil; sanayi=mevcut). `lib/investment-score.ts` `ScoringProfile` parametresi aldı (computeValuation/computeRisk profile-driven, confidence ratio-bazlı — 33 donmuş test geçer). Route `valuationModel` döndürür, `InvestableScoreCard` sektör rozeti + dinamik ağırlık gösterir. Düzeltme: bankalar artık confidence medium→high + banka-uygun F/K aralığı (default onları ultra-ucuz gösteriyordu). **Sıradaki (Faz 2B, ops.): peer/sektör medyanına göre görece değerleme.** Açık: KAP, ekonomi takvimi.
 
 ---
 
