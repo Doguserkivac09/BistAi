@@ -108,7 +108,13 @@ ASELS gibi net kârı güçlü artan ama nominal geliri enflasyon altında kalan
 - Sonuç: ASELS 32→49, FROTO 58→43 (net kâr −%35 artık cezalı — model iki yönlü doğru).
 
 ### 🔴 Veri doğruluğu denetimi (2026-06-04) — `DATA-AUDIT.md`
-Kırmızı bayraklar: TR politika faizi (%7 fallback), enflasyon (%30.87 fallback), CDS (USD/TRY proxy), KAP (boş), ekonomi takvimi (hardcoded), ML (heuristik). **Kök neden: TCMB EVDS API çalışmıyor (HTTP 302).** Fiyat/OHLCV/FRED/temel/haber GERÇEK. Sıradaki: EVDS ücretsiz key + UI kaynak/tazelik rozetleri.
+Kırmızı bayraklar: TR politika faizi (%7 fallback), enflasyon (%30.87 fallback), CDS (USD/TRY proxy), KAP (boş), ekonomi takvimi (hardcoded), ML (heuristik). **Kök neden: TCMB EVDS API çalışmıyor (HTTP 302).** Fiyat/OHLCV/FRED/temel/haber GERÇEK.
+
+### ✅ TR makro canlı veri (2026-06-04) — `lib/turkey-macro.ts`
+EVDS `evds2→evds3`'e taşınmış (dokümante REST API emekli, key'le bile 302; evds3 yalnızca dahili `/igmevdsms-dis` mikroservisi). **TradingEconomics canlı scrape** entegre edildi (ücretsiz): politika faizi **%37**, enflasyon **%32.61** (TÜİK ile birebir doğrulandı). Sıra: TE scrape → EVDS yedek → hardcoded son çare. Makro sayfasına 🟢/🟡/🔴 kaynak rozeti + legend. CDS: ücretsiz gerçek kaynak yok → "proxy ⓘ" etiketli bırakıldı (karar).
+
+### ✅ Temel Analiz Faz 1 (2026-06-05) — Piotroski + Altman + trend
+`lib/financial-statements.ts` (Yahoo `fundamentalsTimeSeries`, 5 yıl, BIST+US) + `lib/fundamental-health.ts` (Piotroski F-Score 0-9, Altman Z'' gelişmekte-olan-piyasa varyantı, kazanç kalitesi=accruals+FCF dönüşümü, CAGR+marj trendi). Bankalar/finansal → Piotroski/Altman "uygulanmaz". `/api/fundamental-health` + `components/FinansalSaglik.tsx` → hisse detay "Temel" sekmesi. Doğrulandı: ASELS 6/9 Z''=6.99, TUPRS 7/9, AAPL 8/9, GARAN N/A. **Sıradaki (Faz 2): sektör-bazlı + peer değerleme.** Açık: KAP, ekonomi takvimi.
 
 ---
 
