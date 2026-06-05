@@ -39,6 +39,7 @@ import { TemelAnalizKarti } from '@/components/TemelAnalizKarti';
 import { InvestableScoreCard } from '@/components/InvestableScoreCard';
 import { TakasKarti } from '@/components/TakasKarti';
 import FinansalSaglik from '@/components/FinansalSaglik';
+import PeerDegerleme from '@/components/PeerDegerleme';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { ScoreBreakdown } from '@/components/ScoreBreakdown';
 import type { CompositeSignalResult } from '@/lib/composite-signal';
@@ -1582,6 +1583,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 </div>
                 <TemelAnalizKarti sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
                 <FinansalSaglik sembol={sembol} market={market} />
+                <PeerDegerleme sembol={sembol} market={market} />
                 {/* Yabancı Takas Verisi */}
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-3 flex items-center gap-2">

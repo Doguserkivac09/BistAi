@@ -107,6 +107,10 @@
     {
       "path": "/api/cron/future-scores-bist",
       "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/sector-medians",
+      "schedule": "0 7 * * 1"
     }
   ]
 }
