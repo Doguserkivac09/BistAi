@@ -26,7 +26,9 @@
 | 🟥3 | **TR 5Y CDS** | Hiç gerçek CDS değil — **USD/TRY volatilitesi × 1500** ile uydurulmuş proxy (taban 280 bps). | `turkey-macro.ts:290-327` (`source: 'USD/TRY volatility proxy'`) |
 | 🟥4 | **"ML/AI Tahmini"** | `ML_SERVICE_URL` tanımsız → gerçek XGBoost modeli yok; basit kural-tabanlı `heuristicFallback`. | `app/api/ml/predict/route.ts:43-80,156` (`model_type: 'composite_fallback'`) |
 
-> ✅ **GÜNCELLEME (2026-06-04):** 🟥1 (politika faizi) ve 🟥2 (enflasyon) **ÇÖZÜLDÜ** — TradingEconomics canlı scrape entegre edildi (ücretsiz, key gerekmez). Prod doğrulandı: faiz **%37**, enflasyon **%32.61**, `source="TradingEconomics (scrape)"` → makro sayfasında 🟢 yeşil rozet. EVDS `evds2`→`evds3`'e taşınmış (eski endpoint 302); scrape birincil, EVDS yedek, hardcoded son çare. Kalan kırmızı bayraklar: 🟥3 CDS, KAP, ekonomi takvimi, ML.
+> ✅ **GÜNCELLEME (2026-06-04):** 🟥1 (politika faizi) ve 🟥2 (enflasyon) **ÇÖZÜLDÜ** — TradingEconomics canlı scrape entegre edildi (ücretsiz, key gerekmez). Prod doğrulandı: faiz **%37**, enflasyon **%32.61**, `source="TradingEconomics (scrape)"` → makro sayfasında 🟢 yeşil rozet. EVDS `evds2`→`evds3`'e taşınmış (eski endpoint 302); scrape birincil, EVDS yedek, hardcoded son çare.
+>
+> 🟥3 **CDS — KARAR (2026-06-04):** Gerçek ücretsiz CDS kaynağı yok (worldgovernmentbonds/investing/TradingView JS-render; TE/Bloomberg ücretli). Uydurmak yerine mevcut **"proxy ⓘ" etiketiyle** (amber 🟡 rozet + tooltip) bırakıldı — kullanıcıya gerçek gibi sunulmuyor. Açık kalan: KAP (boş), ekonomi takvimi (hardcoded), ML (heuristik — UI'da etiketlenebilir).
 
 **Kök neden:** TCMB **EVDS API çalışmıyor** — canlı test HTTP **302** (yönlendirme, JSON yok), key uzunluğu 10. Bu yüzden TR makro göstergelerinin tamamı (faiz, enflasyon) fallback'e düşüyor. Kod yorumu bile bunu kabul ediyor: `turkey-macro.ts:271` "EVDS yedek — şu an çalışmıyor".
 
