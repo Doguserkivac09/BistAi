@@ -43,11 +43,24 @@ interface ApiResponse {
     realEarningsGrowth: number | null;
     peUpperBoundUsed: number;
   };
+  /** Sektör-bazlı değerleme modeli (banka/sigorta/GYO farklı metrik seti kullanır) */
+  valuationModel?: {
+    kind: 'bank' | 'insurance' | 'reit' | 'default';
+    label: string;
+    note: string;
+    baseWeights: InvestableWeights;
+  };
   summary: string;
   risks: string[];
   opportunities: string[];
   aiGenerated: boolean;
   cached: boolean;
+}
+
+const FALLBACK_WEIGHTS: InvestableWeights = { valuation: 0.30, growth: 0.25, profitability: 0.20, risk: 0.25 };
+
+function weightsMeta(w: InvestableWeights): string {
+  return `Değerleme %${Math.round(w.valuation * 100)} · Büyüme %${Math.round(w.growth * 100)} · Kârlılık %${Math.round(w.profitability * 100)} · Risk %${Math.round(w.risk * 100)} · Aralık 0-100`;
 }
 
 interface Props {
@@ -223,7 +236,7 @@ function CompactBadge({ data, onClick }: { data: ApiResponse; onClick?: () => vo
             <InfoPopover
               title="Yatırım Skoru"
               description="Şirketin uzun vadede yatırımlık olup olmadığını şirketin temellerine bakarak değerlendirir. Dört boyutta deterministik formülle hesaplanır."
-              meta="Değerleme %30 · Büyüme %25 · Kârlılık %20 · Risk %25 · Aralık 0-100"
+              meta={weightsMeta(data.valuationModel?.baseWeights ?? FALLBACK_WEIGHTS)}
               size={12}
             />
           </p>
@@ -358,13 +371,15 @@ function FullCard({
   const style = RATING_STYLES[data.ratingLabel];
   const hasAiContent = data.summary.length > 0 || data.risks.length > 0 || data.opportunities.length > 0;
 
+  // Sektör profilinin baz ağırlıkları (banka/sigorta/GYO farklı)
+  const baseWeights = data.valuationModel?.baseWeights ?? FALLBACK_WEIGHTS;
+
   // Ağırlıklar yeniden normalize edildi mi? (Bir boyut eksik metrik nedeniyle 0 olduysa)
   const reweighted = useMemo(() => {
-    const base = { valuation: 0.30, growth: 0.25, profitability: 0.20, risk: 0.25 };
     return (['valuation', 'growth', 'profitability', 'risk'] as const).some(
-      (k) => Math.abs(base[k] - data.appliedWeights[k]) > 0.01
+      (k) => Math.abs(baseWeights[k] - data.appliedWeights[k]) > 0.01
     );
-  }, [data.appliedWeights]);
+  }, [data.appliedWeights, baseWeights]);
 
   return (
     <div className={cn(
@@ -447,7 +462,7 @@ function FullCard({
             <InfoPopover
               title="Yatırım Skoru"
               description="Şirketin uzun vadede yatırımlık olup olmadığını şirketin temellerine bakarak değerlendirir. Dört boyutta deterministik formülle hesaplanır; AI sadece yorum yazar, skoru değiştirmez."
-              meta="Değerleme %30 · Büyüme %25 · Kârlılık %20 · Risk %25 · Aralık 0-100"
+              meta={weightsMeta(baseWeights)}
             />
           </p>
 
@@ -462,6 +477,14 @@ function FullCard({
             {data.sector && (
               <span className="rounded-full border border-border bg-white/5 px-2 py-0.5 text-[10px] text-text-secondary">
                 {data.sector}
+              </span>
+            )}
+            {data.valuationModel && data.valuationModel.kind !== 'default' && (
+              <span
+                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300 cursor-help"
+                title={data.valuationModel.note}
+              >
+                {data.valuationModel.label}
               </span>
             )}
             {data.aiGenerated && (
@@ -496,28 +519,28 @@ function FullCard({
         <SubScoreBar
           label="Değerleme"
           score={data.subScores.valuation}
-          baseWeight={0.30}
+          baseWeight={baseWeights.valuation}
           appliedWeight={data.appliedWeights.valuation}
           delay={0.05}
         />
         <SubScoreBar
           label="Büyüme"
           score={data.subScores.growth}
-          baseWeight={0.25}
+          baseWeight={baseWeights.growth}
           appliedWeight={data.appliedWeights.growth}
           delay={0.12}
         />
         <SubScoreBar
           label="Kârlılık"
           score={data.subScores.profitability}
-          baseWeight={0.20}
+          baseWeight={baseWeights.profitability}
           appliedWeight={data.appliedWeights.profitability}
           delay={0.19}
         />
         <SubScoreBar
           label="Risk (yüksek = düşük risk)"
           score={data.subScores.risk}
-          baseWeight={0.25}
+          baseWeight={baseWeights.risk}
           appliedWeight={data.appliedWeights.risk}
           delay={0.26}
         />

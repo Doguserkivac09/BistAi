@@ -29,6 +29,7 @@ import { createServerClient } from '@/lib/supabase-server';
 import { sanitizeTicker } from '@/lib/sanitize';
 import { fetchYahooFundamentals } from '@/lib/yahoo-fundamentals';
 import { computeInvestableScore, type InflationContext } from '@/lib/investment-score';
+import { getSectorValuationProfile } from '@/lib/sector-valuation';
 import { buildInvestmentScorePrompt } from '@/lib/investment-score-prompt';
 import { fetchTurkeyInflation } from '@/lib/turkey-macro';
 import {
@@ -182,7 +183,15 @@ async function handle(request: NextRequest) {
     console.warn(`[investment-score] TÜFE çekilemedi (${sembol}):`, err);
   }
 
-  const score = computeInvestableScore(fundamentals, undefined, inflation);
+  // Sektör-bazlı değerleme profili (banka/sigorta/GYO doğru metriklerle skorlanır)
+  const profile = getSectorValuationProfile(sembol);
+  const score = computeInvestableScore(fundamentals, undefined, inflation, profile);
+  const valuationModel = {
+    kind: profile.kind,
+    label: profile.label,
+    note: profile.note,
+    baseWeights: profile.weights,
+  };
 
   // Cache key — enflasyon değeri yuvarlak puan kademesine giriyor; %30.5 vs %30
   // farkı skoru hafifçe değiştirebilir → cache key'e enflasyon tam sayısı dahil
@@ -239,6 +248,7 @@ async function handle(request: NextRequest) {
     shortName: fundamentals.shortName,
     sector: fundamentals.sector,
     ...score,
+    valuationModel,
     ...yorum,
     aiGenerated: yorum !== FALLBACK_YORUM,
     cached: !!yorum && yorum !== FALLBACK_YORUM,

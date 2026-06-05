@@ -87,6 +87,33 @@ export const DEFAULT_WEIGHTS: InvestableWeights = {
   risk:          0.25,
 };
 
+// ── Sektör skorlama profili ─────────────────────────────────────────────────
+// Sektöre göre hangi değerleme/risk metrikleri kullanılacağını + ağırlıkları
+// belirler. lib/sector-valuation.ts bunu doldurur; verilmezse DEFAULT (sanayi).
+
+export interface ScoringProfile {
+  weights: InvestableWeights;
+  valuation: {
+    pe?: [number, number];
+    pb?: [number, number];
+    peg?: [number, number];
+    evEbitda?: [number, number];
+  };
+  risk: {
+    debtToEquity?: [number, number];
+    currentRatio?: boolean;
+    fcf?: boolean;
+    beta?: boolean;
+  };
+}
+
+// Varsayılan profil — mevcut davranışı birebir korur (geriye uyumluluk + testler).
+const DEFAULT_SCORING_PROFILE: ScoringProfile = {
+  weights: DEFAULT_WEIGHTS,
+  valuation: { pe: [5, 40], peg: [0.5, 3], pb: [0.5, 5], evEbitda: [3, 20] },
+  risk: { debtToEquity: [0, 3], currentRatio: true, fcf: true, beta: true },
+};
+
 // ── Yardımcı: 0-100 skalayıcı ─────────────────────────────────────────────
 
 /**
@@ -185,19 +212,26 @@ function toRealGrowth(nominal: number, tufeYoy: number): number {
  */
 function computeValuation(
   f: YahooFundamentals,
-  inflation?: InflationContext,
+  inflation: InflationContext | undefined,
+  profile: ScoringProfile,
 ): {
   score: number | null;
   metricsUsed: string[];
   peUpperBound: number;
 } {
   const peMultiplier = inflation ? inflationPEMultiplier(inflation.tufeYoy) : 1;
-  const peUpperBound = 40 * peMultiplier;
+  const v = profile.valuation;
 
-  const pe    = scale(f.peRatio, 5, peUpperBound, true);   // F/K 5→100, üst→0
-  const peg   = scale(f.pegRatio, 0.5, 3, true);           // PEG 0.5→100, 3→0
-  const pb    = scale(f.priceToBook, 0.5, 5, true);        // F/DD 0.5→100, 5→0
-  const evEb  = scale(f.enterpriseToEbitda, 3, 20, true);  // EV/FAVÖK 3→100, 20→0
+  // F/K üst sınırı profile'dan; enflasyon varsa genişler.
+  let pe: number | null = null;
+  let peUpperBound = (v.pe ? v.pe[1] : 40) * peMultiplier;
+  if (v.pe) {
+    peUpperBound = v.pe[1] * peMultiplier;
+    pe = scale(f.peRatio, v.pe[0], peUpperBound, true);
+  }
+  const peg  = v.peg      ? scale(f.pegRatio, v.peg[0], v.peg[1], true) : null;
+  const pb   = v.pb       ? scale(f.priceToBook, v.pb[0], v.pb[1], true) : null;
+  const evEb = v.evEbitda ? scale(f.enterpriseToEbitda, v.evEbitda[0], v.evEbitda[1], true) : null;
 
   const metricsUsed: string[] = [];
   if (pe !== null)   metricsUsed.push('peRatio');
@@ -291,24 +325,29 @@ function computeProfitability(f: YahooFundamentals): {
  * - FCF: pozitif = 100, negatif = 0 (eşik skoru).
  * - Beta: 1'e yakınlık ödüllendirilir (Math.abs(beta-1), 0-1.5, reverse).
  */
-function computeRisk(f: YahooFundamentals): {
+function computeRisk(f: YahooFundamentals, profile: ScoringProfile): {
   score: number | null;
   metricsUsed: string[];
 } {
-  // Debt/Equity normalize: Yahoo yüzde olarak döndürürse 100'e böl.
-  let d2eRatio: number | null = f.debtToEquity;
-  if (d2eRatio !== null && d2eRatio > 10) d2eRatio = d2eRatio / 100;
-  const d2eScore = scale(d2eRatio, 0, 3, true); // Borç/Özsermaye 0→100, 3→0
+  const r = profile.risk;
 
-  const currScore = triangular(f.currentRatio, 0.3, 1.5, 4);
+  // Debt/Equity — bankalarda "borç" = mevduat olduğu için profile'da dışlanabilir.
+  let d2eScore: number | null = null;
+  if (r.debtToEquity) {
+    let d2eRatio: number | null = f.debtToEquity;
+    if (d2eRatio !== null && d2eRatio > 10) d2eRatio = d2eRatio / 100; // yüzde → oran
+    d2eScore = scale(d2eRatio, r.debtToEquity[0], r.debtToEquity[1], true);
+  }
+
+  const currScore = r.currentRatio ? triangular(f.currentRatio, 0.3, 1.5, 4) : null;
 
   let fcfScore: number | null = null;
-  if (f.freeCashflow !== null) {
+  if (r.fcf && f.freeCashflow !== null) {
     fcfScore = f.freeCashflow > 0 ? 100 : 0;
   }
 
   const betaScore =
-    f.beta !== null
+    r.beta && f.beta !== null
       ? scale(Math.abs(f.beta - 1), 0, 1.5, true) // |beta-1| 0→100, 1.5→0
       : null;
 
@@ -333,20 +372,23 @@ function computeRisk(f: YahooFundamentals): {
  */
 export function computeInvestableScore(
   f: YahooFundamentals,
-  customWeights: InvestableWeights = DEFAULT_WEIGHTS,
+  customWeights?: InvestableWeights,
   inflation?: InflationContext,
+  profile: ScoringProfile = DEFAULT_SCORING_PROFILE,
 ): InvestableScore {
-  const val  = computeValuation(f, inflation);
+  const weights = customWeights ?? profile.weights;
+
+  const val  = computeValuation(f, inflation, profile);
   const gro  = computeGrowth(f, inflation);
   const pro  = computeProfitability(f);
-  const ris  = computeRisk(f);
+  const ris  = computeRisk(f, profile);
 
   // Hangi boyutların skoru var? Olmayanların ağırlığını yeniden dağıt.
   const dimensions = [
-    { key: 'valuation'     as const, score: val.score, baseWeight: customWeights.valuation },
-    { key: 'growth'        as const, score: gro.score, baseWeight: customWeights.growth },
-    { key: 'profitability' as const, score: pro.score, baseWeight: customWeights.profitability },
-    { key: 'risk'          as const, score: ris.score, baseWeight: customWeights.risk },
+    { key: 'valuation'     as const, score: val.score, baseWeight: weights.valuation },
+    { key: 'growth'        as const, score: gro.score, baseWeight: weights.growth },
+    { key: 'profitability' as const, score: pro.score, baseWeight: weights.profitability },
+    { key: 'risk'          as const, score: ris.score, baseWeight: weights.risk },
   ];
 
   const presentDimensions = dimensions.filter(d => d.score !== null);
@@ -380,24 +422,32 @@ export function computeInvestableScore(
     risk:          ris.score === null ? 50 : Math.round(ris.score),
   };
 
-  // Mevcut vs eksik metrikler
-  const allTrackedMetrics = [
-    'peRatio', 'pegRatio', 'priceToBook', 'enterpriseToEbitda',
-    'revenueGrowth', 'earningsGrowth',
-    'returnOnEquity', 'returnOnAssets', 'operatingMargins', 'profitMargin',
-    'debtToEquity', 'currentRatio', 'freeCashflow', 'beta',
-  ];
+  // Mevcut vs eksik metrikler — profile'ın KULLANDIĞI metrikler izlenir.
+  // (Banka EV/FAVÖK kullanmaz → eksik sayılmaz, confidence haksızca düşmez.)
+  const trackedMetrics: string[] = [];
+  if (profile.valuation.pe)       trackedMetrics.push('peRatio');
+  if (profile.valuation.peg)      trackedMetrics.push('pegRatio');
+  if (profile.valuation.pb)       trackedMetrics.push('priceToBook');
+  if (profile.valuation.evEbitda) trackedMetrics.push('enterpriseToEbitda');
+  trackedMetrics.push('revenueGrowth', 'earningsGrowth', 'returnOnEquity', 'returnOnAssets', 'operatingMargins', 'profitMargin');
+  if (profile.risk.debtToEquity)  trackedMetrics.push('debtToEquity');
+  if (profile.risk.currentRatio)  trackedMetrics.push('currentRatio');
+  if (profile.risk.fcf)           trackedMetrics.push('freeCashflow');
+  if (profile.risk.beta)          trackedMetrics.push('beta');
+
   const presentMetrics = [
     ...val.metricsUsed, ...gro.metricsUsed, ...pro.metricsUsed, ...ris.metricsUsed,
   ];
-  const missingMetrics = allTrackedMetrics.filter(m => !presentMetrics.includes(m));
+  const missingMetrics = trackedMetrics.filter(m => !presentMetrics.includes(m));
 
-  // Confidence: 14 metrikten kaçı var
+  // Confidence: izlenen metriklerin oranı (profile'a göre adil).
+  // Varsayılan 14 metrik profilinde 0.8/0.5 eşikleri 12/7 mutlak eşiğe denktir.
   const presentCount = presentMetrics.length;
+  const ratio = trackedMetrics.length > 0 ? presentCount / trackedMetrics.length : 0;
   const confidence: InvestableConfidence =
-    presentCount >= 12 ? 'high' :
-    presentCount >=  7 ? 'medium' :
-                         'low';
+    ratio >= 0.8 ? 'high' :
+    ratio >= 0.5 ? 'medium' :
+                   'low';
 
   const inflationAdjustment = inflation
     ? {
@@ -415,7 +465,7 @@ export function computeInvestableScore(
     appliedWeights,
     missingMetrics,
     presentCount,
-    totalMetrics:   allTrackedMetrics.length,
+    totalMetrics:   trackedMetrics.length,
     confidence,
     ratingLabel:    labelFromScore(finalScore),
     inflationAdjustment,
