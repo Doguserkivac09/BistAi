@@ -19,6 +19,7 @@ export interface MetricCompare {
 export interface PeerValuation {
   sector: SectorId
   count: number
+  reliable: boolean // emsal sayısı yeterli mi (>=5) — küçük/heterojen sektörde verdict zayıf
   pe: MetricCompare
   pb: MetricCompare
   evEbitda: MetricCompare
@@ -47,10 +48,14 @@ export function computePeerValuation(
   const roe = cmp(f.returnOnEquity, median.roe, false)
 
   // İskonto: değerleme çarpanlarında medyanın ALTINDA olmak ucuzdur.
-  // discount = -(pctVsMedian/100) → +0.2 = %20 ucuz. Ortalamayı 0-100'e map et.
+  // discount = -(pctVsMedian/100) → +0.2 = %20 ucuz.
+  // Tek bir aşırı çarpan (örn. GYO'da F/K +%1452) skoru ezmesin → ±%100 clamp.
   const discounts: number[] = []
   for (const m of [pe, pb, evEbitda]) {
-    if (m.pctVsMedian !== null) discounts.push(-m.pctVsMedian / 100)
+    if (m.pctVsMedian !== null) {
+      const disc = -m.pctVsMedian / 100
+      discounts.push(Math.max(-1, Math.min(1, disc)))
+    }
   }
   let relativeScore = 50
   if (discounts.length > 0) {
@@ -60,5 +65,5 @@ export function computePeerValuation(
   }
   const label = relativeScore > 60 ? 'sektöre göre ucuz' : relativeScore < 40 ? 'sektöre göre pahalı' : 'dengeli'
 
-  return { sector, count: median.count, pe, pb, evEbitda, roe, relativeScore, label }
+  return { sector, count: median.count, reliable: median.count >= 5, pe, pb, evEbitda, roe, relativeScore, label }
 }

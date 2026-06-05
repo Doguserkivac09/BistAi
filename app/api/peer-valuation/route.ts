@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         symbol, sector, available: false,
         message: 'Sektör medyanı henüz hesaplanmadı (haftalık cron).',
-      }, { headers: { 'Cache-Control': 'public, s-maxage=3600' } });
+      }, { headers: { 'Cache-Control': 'public, s-maxage=120' } }); // kısa: cron yazınca hızlı toparlar
     }
 
     const f = await fetchYahooFundamentals(symbol);

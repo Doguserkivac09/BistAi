@@ -58,9 +58,15 @@ function PeerCard({ peer }: { peer: PeerValuation }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 ${labelBg}`}>
-          <span className={`text-sm font-bold ${labelColor}`}>{peer.label}</span>
-        </div>
+        {peer.reliable ? (
+          <div className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 ${labelBg}`}>
+            <span className={`text-sm font-bold ${labelColor}`}>{peer.label}</span>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 bg-white/5">
+            <span className="text-sm font-semibold text-text-secondary">Az emsal — yorum zayıf</span>
+          </div>
+        )}
         <span className="text-[10px] text-text-muted flex items-center gap-1">
           {peer.count} hisse medyanı
           <Info className="w-3 h-3" />
