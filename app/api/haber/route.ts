@@ -193,6 +193,38 @@ async function fetchUSHaberler(): Promise<HaberItem[]> {
     .slice(0, 24);
 }
 
+// ── Google News (sembol-bazlı — HER hisse için kapsamlı, küçükler dahil) ─────────
+// Google News, Türk finans sitelerini (Mynet, Investing.com TR, Paratic, BloombergHT)
+// indeksler; "{SEMBOL} hisse" sorgusu her BIST hissesine özgü Türkçe haber döndürür.
+async function fetchGoogleNews(sembol: string): Promise<HaberItem[]> {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(sembol + ' hisse')}&hl=tr&gl=TR&ceid=TR:tr`;
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': UA },
+      next: { revalidate: 1800 },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) return [];
+    const xml = await res.text();
+    return parseRSS(xml)
+      // Feed başlık sarmalayıcısını ("..." - Google Haberler) ele
+      .filter((h) => h.baslik && !/google haberler/i.test(h.baslik) && !/^".*"$/.test(h.baslik.trim()))
+      .map((h) => {
+        // Google başlık formatı: "Başlık - Kaynak" → kaynağı ayıkla
+        const src = h.kaynak || '';
+        let baslik = h.baslik;
+        if (src && baslik.endsWith(` - ${src}`)) baslik = baslik.slice(0, -(src.length + 3)).trim();
+        else {
+          const m = baslik.match(/^(.+?)\s+-\s+([^-]{2,40})$/);
+          if (m) return { ...h, baslik: m[1].trim(), kaynak: src || m[2].trim() };
+        }
+        return { ...h, baslik, kaynak: src || 'Google News' };
+      });
+  } catch {
+    return [];
+  }
+}
+
 // ── Duplicate temizleme ────────────────────────────────────────────────────────
 function dedupe(items: HaberItem[]): HaberItem[] {
   const seen = new Set<string>();
@@ -236,11 +268,16 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Türkçe RSS'ten sembol haberleri çek
-  const rssNews = await fetchRSSNews(sembol);
+  // Google News (sembol-bazlı, her hisse için kapsamlı) + Türkçe RSS (mainstream isim eşleşmesi)
+  const [googleNews, rssNews] = await Promise.all([
+    fetchGoogleNews(sembol),
+    fetchRSSNews(sembol),
+  ]);
+  // Google önce (sembole özgü ve güncel); RSS mainstream büyük-cap haberini ekler
+  const symbolNews = dedupe([...googleNews, ...rssNews]);
 
-  // Sembol için haber yoksa genel ekonomi haberlerini göster
-  const haberler = rssNews.length > 0 ? rssNews : await fetchGenelHaberler();
+  // Hiç sembol haberi yoksa (çok nadir) genel ekonomi haberine düş
+  const haberler = symbolNews.length > 0 ? symbolNews : await fetchGenelHaberler();
   const combined = dedupe(haberler)
     .sort((a, b) => (new Date(b.tarih).getTime() || 0) - (new Date(a.tarih).getTime() || 0))
     .slice(0, 12);
