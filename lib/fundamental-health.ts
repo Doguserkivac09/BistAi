@@ -200,12 +200,93 @@ export function computeTrends(years: FinancialYear[]): TrendResult {
   }
 }
 
+// ── Beneish M-Score (kâr manipülasyonu tespiti) ─────────────────────────────
+// 8 değişkenli; t ve t-1 gerekir. M > -1.78 → şüpheli, ≤ -2.22 → temiz.
+// Bankalara uygulanmaz (brüt marj, alacak/MDV yapısı farklı).
+
+export interface BeneishResult {
+  applicable: boolean
+  reason?: string
+  m: number | null
+  flag: 'temiz' | 'gri' | 'şüpheli' | null
+  componentsUsed: number
+}
+
+export function computeBeneish(years: FinancialYear[]): BeneishResult {
+  const empty = (reason: string): BeneishResult => ({ applicable: false, reason, m: null, flag: null, componentsUsed: 0 })
+  if (isFinancialSector(years)) return empty('Bankalar/finansal şirketler için uygulanmaz')
+  if (years.length < 2) return empty('Yetersiz geçmiş veri (en az 2 yıl gerekir)')
+
+  const t = years[years.length - 1]
+  const p = years[years.length - 2]
+  const ratio = (a: number | null, b: number | null) => (a !== null && b !== null && b !== 0 ? a / b : null)
+
+  let used = 0
+  const idx = (val: number | null): number => {
+    if (val !== null && isFinite(val) && val > 0) { used++; return val }
+    return 1 // hesaplanamazsa nötr
+  }
+
+  const gm = (y: FinancialYear) => (y.grossProfit !== null && y.revenue ? y.grossProfit / y.revenue : null)
+  const aqRat = (y: FinancialYear) => (y.totalAssets ? 1 - (((y.currentAssets ?? 0) + (y.netPPE ?? 0)) / y.totalAssets) : null)
+  const depRat = (y: FinancialYear) =>
+    y.depreciation !== null && y.depreciation + (y.netPPE ?? 0) > 0 ? y.depreciation / (y.depreciation + (y.netPPE ?? 0)) : null
+  const lev = (y: FinancialYear) => (y.totalAssets ? ((y.currentLiabilities ?? 0) + (y.longTermDebt ?? 0)) / y.totalAssets : null)
+
+  const dsri = idx(ratio(ratio(t.receivables, t.revenue), ratio(p.receivables, p.revenue)))
+  const gmi = idx(ratio(gm(p), gm(t)))
+  const aqi = idx(ratio(aqRat(t), aqRat(p)))
+  const sgi = idx(ratio(t.revenue, p.revenue))
+  const depi = idx(ratio(depRat(p), depRat(t)))
+  const sgai = idx(ratio(ratio(t.sga, t.revenue), ratio(p.sga, p.revenue)))
+  const lvgi = idx(ratio(lev(t), lev(p)))
+  // TATA — indeks değil, negatif olabilir
+  let tata = 0
+  if (t.netIncome !== null && t.operatingCashFlow !== null && t.totalAssets) {
+    tata = (t.netIncome - t.operatingCashFlow) / t.totalAssets
+    used++
+  }
+
+  if (used < 5) return empty('Yetersiz bilanço kalemi (Beneish bileşenlerinin çoğu hesaplanamadı)')
+
+  const m =
+    -4.84 + 0.920 * dsri + 0.528 * gmi + 0.404 * aqi + 0.892 * sgi +
+    0.115 * depi - 0.172 * sgai + 4.679 * tata - 0.327 * lvgi
+  const flag = m > -1.78 ? 'şüpheli' : m > -2.22 ? 'gri' : 'temiz'
+  return { applicable: true, m: Math.round(m * 100) / 100, flag, componentsUsed: used }
+}
+
+// ── DuPont ROE ayrıştırması ─────────────────────────────────────────────────
+// ROE = Net Marj × Varlık Devir Hızı × Özsermaye Çarpanı (kaldıraç)
+
+export interface DuPontResult {
+  applicable: boolean
+  netMargin: number | null       // ratio
+  assetTurnover: number | null   // x
+  equityMultiplier: number | null // x (kaldıraç)
+  roe: number | null             // hesaplanan = çarpım
+}
+
+export function computeDuPont(years: FinancialYear[]): DuPontResult {
+  const none: DuPontResult = { applicable: false, netMargin: null, assetTurnover: null, equityMultiplier: null, roe: null }
+  if (years.length === 0) return none
+  const t = years[years.length - 1]
+  const netMargin = t.netIncome !== null && t.revenue ? t.netIncome / t.revenue : null
+  const assetTurnover = t.revenue !== null && t.totalAssets ? t.revenue / t.totalAssets : null
+  const equityMultiplier = t.totalAssets !== null && t.equity ? t.totalAssets / t.equity : null
+  const roe = netMargin !== null && assetTurnover !== null && equityMultiplier !== null
+    ? netMargin * assetTurnover * equityMultiplier : null
+  return { applicable: roe !== null, netMargin, assetTurnover, equityMultiplier, roe }
+}
+
 // ── Birleşik ────────────────────────────────────────────────────────────────
 
 export interface FundamentalHealth {
   isFinancial: boolean
   piotroski: PiotroskiResult
   altman: AltmanResult
+  beneish: BeneishResult
+  dupont: DuPontResult
   earningsQuality: EarningsQuality
   trends: TrendResult
 }
@@ -215,6 +296,8 @@ export function computeFundamentalHealth(years: FinancialYear[]): FundamentalHea
     isFinancial: isFinancialSector(years),
     piotroski: computePiotroski(years),
     altman: computeAltman(years),
+    beneish: computeBeneish(years),
+    dupont: computeDuPont(years),
     earningsQuality: computeEarningsQuality(years),
     trends: computeTrends(years),
   }

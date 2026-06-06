@@ -50,14 +50,79 @@ export default function FinansalSaglik({ sembol, market }: { sembol: string; mar
 }
 
 function HealthCards({ health, years }: { health: FundamentalHealth; years: FinancialYear[] }) {
-  const { piotroski, altman, earningsQuality, trends } = health
+  const { piotroski, altman, beneish, dupont, earningsQuality, trends } = health
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-4">
         <PiotroskiCard p={piotroski} />
         <AltmanCard a={altman} />
       </div>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <BeneishCard b={beneish} />
+        <DuPontCard d={dupont} />
+      </div>
       <EarningsTrendCard eq={earningsQuality} trends={trends} years={years} />
+    </div>
+  )
+}
+
+function BeneishCard({ b }: { b: FundamentalHealth['beneish'] }) {
+  const map = {
+    temiz: { cls: 'text-emerald-400', label: 'Temiz (manipülasyon işareti yok)' },
+    gri: { cls: 'text-amber-400', label: 'Gri bölge' },
+    şüpheli: { cls: 'text-red-400', label: 'Şüpheli (manipülasyon riski)' },
+  } as const
+  const f = b.flag ? map[b.flag] : null
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold text-text-primary">Beneish M-Score</span>
+        <InfoMini text="Kâr manipülasyonu tespiti (8 değişken). M > -1.78 şüpheli, ≤ -2.22 temiz. Alacak, marj, tahakkuk, kaldıraç değişimlerini inceler." />
+      </div>
+      {!b.applicable ? (
+        <p className="text-xs text-text-secondary mt-1">{b.reason}</p>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-2">
+            <span className={`text-3xl font-black ${f?.cls}`}>{b.m}</span>
+          </div>
+          <p className={`text-xs font-semibold mt-1 ${f?.cls}`}>{f?.label}</p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function DuPontCard({ d }: { d: FundamentalHealth['dupont'] }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold text-text-primary">DuPont — ROE Ayrıştırması</span>
+        <InfoMini text="ROE = Net Marj × Varlık Devir Hızı × Kaldıraç. ROE'nin kaynağını gösterir: kârlılık mı, verimlilik mi, borç mu?" />
+      </div>
+      {!d.applicable ? (
+        <p className="text-xs text-text-secondary mt-1">Veri yetersiz</p>
+      ) : (
+        <>
+          <p className="text-2xl font-black text-text-primary mb-2">
+            ROE %{((d.roe ?? 0) * 100).toFixed(0)}
+          </p>
+          <div className="space-y-1 text-[11px]">
+            <DuRow label="Net Marj" value={`%${((d.netMargin ?? 0) * 100).toFixed(1)}`} />
+            <DuRow label="Varlık Devir Hızı" value={`${(d.assetTurnover ?? 0).toFixed(2)}×`} />
+            <DuRow label="Kaldıraç (özserm. çarpanı)" value={`${(d.equityMultiplier ?? 0).toFixed(2)}×`} hi={(d.equityMultiplier ?? 0) > 4} />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function DuRow({ label, value, hi = false }: { label: string; value: string; hi?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-text-secondary">{label}</span>
+      <span className={`font-mono font-semibold ${hi ? 'text-amber-400' : 'text-text-primary'}`}>{value}</span>
     </div>
   )
 }

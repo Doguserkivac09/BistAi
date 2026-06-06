@@ -41,6 +41,11 @@ export interface FinancialYear {
   operatingCashFlow: number | null;
   freeCashFlow: number | null;
   shares: number | null;
+  // ── Beneish M-Score için ek kalemler ──────────────────────────────────
+  receivables: number | null;
+  netPPE: number | null;
+  sga: number | null;          // satış+genel+yönetim gideri
+  depreciation: number | null;
 }
 
 function num(v: unknown): number | null {
@@ -111,6 +116,10 @@ export async function fetchFinancialStatements(
           operatingCashFlow: pick(r, ['operatingCashFlow', 'cashFlowFromContinuingOperatingActivities']),
           freeCashFlow: pick(r, ['freeCashFlow']),
           shares: pick(r, ['dilutedAverageShares', 'basicAverageShares', 'ordinarySharesNumber']),
+          receivables: pick(r, ['accountsReceivable', 'receivables', 'grossAccountsReceivable']),
+          netPPE: pick(r, ['netPPE']),
+          sga: pick(r, ['sellingGeneralAndAdministration']),
+          depreciation: pick(r, ['depreciationAndAmortization', 'reconciledDepreciation', 'depreciation']),
         };
       })
       .filter((y) => y.year > 0 && (y.revenue !== null || y.netIncome !== null || y.totalAssets !== null))
