@@ -197,7 +197,8 @@ async function fetchUSHaberler(): Promise<HaberItem[]> {
 // Google News, Türk finans sitelerini (Mynet, Investing.com TR, Paratic, BloombergHT)
 // indeksler; "{SEMBOL} hisse" sorgusu her BIST hissesine özgü Türkçe haber döndürür.
 async function fetchGoogleNews(sembol: string): Promise<HaberItem[]> {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(sembol + ' hisse')}&hl=tr&gl=TR&ceid=TR:tr`;
+  // "borsa" finansal bağlamı disambiguate eder (örn. DEVA hisse vs DEVA Partisi)
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(sembol + ' hisse borsa')}&hl=tr&gl=TR&ceid=TR:tr`;
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': UA },
