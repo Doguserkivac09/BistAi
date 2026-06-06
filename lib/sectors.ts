@@ -465,6 +465,13 @@ const SYMBOL_SECTOR_MAP: Record<string, SectorId> = {
   SMRVA: 'sanayi', SUNTK: 'sanayi', SURGY: 'sanayi', TCKRC: 'sanayi',
   TRENJ: 'sanayi', ULUSE: 'sanayi', YAPRK: 'sanayi', YAYLA: 'sanayi',
   YBTAS: 'sanayi', YESIL: 'sanayi', YIGIT: 'sanayi',
+
+  // ── 2026-06-05: Mynet tam liste farkı (yeni eklenenler) ──
+  AKHAN: 'sanayi', AYES: 'demir_celik_madencilik', DSTKF: 'sigorta_finans',
+  EKDMR: 'demir_celik_madencilik', INFO: 'sigorta_finans', MEDTR: 'saglik',
+  PASEU: 'ulastirma', QUAGR: 'sanayi', UFUK: 'holding', UMPAS: 'holding',
+  VERUS: 'holding', YONGA: 'sanayi',
+  ISATR: 'banka', ISBTR: 'banka', ISKUR: 'banka', ISSEN: 'sanayi',
 };
 
 // ── Public API ──────────────────────────────────────────────────────

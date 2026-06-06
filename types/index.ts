@@ -262,6 +262,12 @@ export const BIST_SYMBOLS = [
   'ATATP', 'ATATR',
   // Finans Teknoloji & Diğer (ek)
   'A1CAP', 'A1YEN', 'AKFIS', 'AKSUE',
+  // ── 2026-06-05: Mynet tam liste farkı — Yahoo'da doğrulanmış EQUITY'ler ──
+  // (yeni halka arzlar + listede eksik kalanlar; ALTINS1/DMLKTG/ENTRAR = Yahoo verisi yok, atlandı)
+  'AKHAN', 'AYES', 'DSTKF', 'EKDMR', 'INFO', 'MEDTR', 'PASEU', 'QUAGR',
+  'UFUK', 'UMPAS', 'VERUS', 'YONGA',
+  // İş Bankası kurucu/A/B sınıf payları (niş, yüksek fiyatlı)
+  'ISATR', 'ISBTR', 'ISKUR', 'ISSEN',
 ] as const;
 
 export type BistSymbol = (typeof BIST_SYMBOLS)[number];
