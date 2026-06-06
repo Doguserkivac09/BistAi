@@ -130,6 +130,9 @@ Saf görece değerleme geriye dönük → "pahalı" prim büyüme/kaliteyle hakl
 
 > **Temel Analiz yığını tamam:** Yatırım Skoru (sektör-bazlı) + Finansal Sağlık (Piotroski/Altman/Beneish/DuPont/trend) + Sektöre Göre Değerleme (peer) + İleriye Dönük (GARP verdict + analist + katalist).
 
+### ✅ Hisse haberleri — her hisseye özgü (2026-06-05)
+KAP onarımı denendi → **kap.org.tr yeni Next.js sitesi sunucu erişimini blokluyor** (eski API HTTP 666, /tr/api POST blackhole, RSS ölü, Vercel'den de bloklanır). Üçüncü taraf temiz genel-KAP yok. Yahoo BIST haberi alakasız (global çöp). **Çözüm:** `app/api/haber/route.ts`'e **Google News RSS** (`"{SEMBOL}" hisse`, hl=tr) birincil sembol-bazlı kaynak eklendi — Türk finans sitelerini (Mynet/Investing TR/Paratic/BloombergHT) indeksler → **HER BIST hissesi (295, küçükler dahil) kendi Türkçe haberini alır**, KAP-tipi bildirimler (ihale/sözleşme) de yüzeye çıkar. Tırnaklı tam-eşleşme çakışmaları çözer (GARAN≠GRNYO, DEVA≠parti). Doğrulandı: GARAN/DEVA/ASELS/PASEU/KONTR/EUPWR hepsi sembol-özgü. **Açık: ekonomi takvimi.**
+
 ---
 
 ## 🚀 ÖNCEKİ DURUM (2026-05-23)
