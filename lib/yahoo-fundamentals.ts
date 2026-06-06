@@ -93,6 +93,12 @@ export interface YahooFundamentals {
   debtToEquity: number | null;        // fd.debtToEquity — Borç/Özsermaye
   beta: number | null;                // sd.beta — piyasaya göre volatilite
   freeCashflow: number | null;        // fd.freeCashflow — Serbest nakit akışı (TL)
+  // ── İleriye dönük / analist (financialData modülü) ─────────────────────
+  recommendationMean: number | null;       // 1=strongBuy .. 5=strongSell
+  recommendationKey: string | null;        // 'buy' | 'hold' | ...
+  targetMeanPrice: number | null;          // analist ortalama hedef fiyat
+  numberOfAnalystOpinions: number | null;  // kapsam derinliği
+  currentPrice: number | null;             // güncel fiyat (hedef getiri için)
   reportedDate: string;
   source: 'yahoo';
 }
@@ -161,6 +167,11 @@ export async function fetchYahooFundamentals(symbol: string): Promise<YahooFunda
     debtToEquity:       n(fd.debtToEquity),
     beta:               n(sd.beta),
     freeCashflow:       n(fd.freeCashflow),
+    recommendationMean:      n(fd.recommendationMean),
+    recommendationKey:       fd.recommendationKey != null ? String(fd.recommendationKey) : null,
+    targetMeanPrice:         n(fd.targetMeanPrice),
+    numberOfAnalystOpinions: n(fd.numberOfAnalystOpinions),
+    currentPrice:            n(fd.currentPrice) ?? n(pr.regularMarketPrice),
     reportedDate: '',
     source: 'yahoo',
   };
