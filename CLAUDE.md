@@ -256,7 +256,7 @@ KAP onarımı denendi → **kap.org.tr yeni Next.js sitesi sunucu erişimini blo
 **Investable Edge** — BIST odaklı AI-destekli yatırım analiz platformu.
 
 - **Stack**: Next.js 14 App Router, TypeScript, React 18, Tailwind CSS, Supabase (Postgres + Auth)
-- **Hisse Evreni**: 295 BIST sembolü (~%95 işlem hacmi kapsamı)
+- **Hisse Evreni**: 619 BIST sembolü (tüm BIST equity — 2026-06-05 Mynet tam listesiyle güncellendi)
 - **Veri Kaynakları**: Yahoo Finance (OHLCV + VIX/DXY/US10Y/USDTRY), FRED API, TCMB, AlphaVantage, Anthropic Claude AI
 - **Repo**: https://github.com/Doguserkivac09/BistAi.git
 - **Vizyon**: Teknik sinyal × Makro rüzgar × Sektör uyumu × Temel analiz → Kompozit BUY/HOLD/SELL
