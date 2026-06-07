@@ -15,6 +15,7 @@ interface ApiResp {
   importantCount?: number
   unpricedCount?: number
   last7dCount?: number
+  ai?: boolean
   message?: string
 }
 
@@ -89,7 +90,8 @@ export default function HaberEtkisi({ sembol, market }: { sembol: string; market
                 🟢 {data!.unpricedCount} tanesi henüz fiyatlanmadı
               </span>
             )}
-            <span className="text-text-muted ml-auto">
+            <span className="text-text-muted ml-auto flex items-center gap-2">
+              {data?.ai && <span className="text-sky-400/80" title="Başlıklar Claude ile materyalite/duygu açısından zenginleştirildi">✦ AI</span>}
               Anormal getiri vs {data?.index ?? 'endeks'}
             </span>
           </div>

@@ -18,6 +18,7 @@ import { isUSSymbol } from '@/lib/us-symbols';
 import { fetchSymbolNews } from '@/lib/symbol-news';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { rankNewsImpact } from '@/lib/news-impact';
+import { enrichNewsWithAI } from '@/lib/news-impact-ai';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,11 +60,25 @@ export async function GET(req: NextRequest) {
 
     const result = rankNewsImpact(news, stock.candles, index.candles ?? []);
 
+    // Opsiyonel AI katmanı (en üst haberlere duygu + materyalite + 1 cümle).
+    // Hata/bütçe/anahtar yoksa kural-tabanlı sonuç döner — asla kırmaz.
+    let ai = false;
+    try {
+      ai = await enrichNewsWithAI(result.important, symbol);
+    } catch { /* kural-tabanlıya düş */ }
+
+    // Materyalite AI ile değişmiş olabilir → türetilmiş sayacı yenile
+    const unpricedCount = result.important.filter(
+      (n) => n.materiality === 'yüksek' && n.verdict === 'henüz-fiyatlanmadı',
+    ).length;
+
     return NextResponse.json({
       symbol,
       available: true,
       index: isUS ? 'S&P 500' : 'BIST 100',
       ...result,
+      unpricedCount,
+      ai,
     }, { headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=900' } });
   } catch (e) {
     console.error('[news-impact]', e);
