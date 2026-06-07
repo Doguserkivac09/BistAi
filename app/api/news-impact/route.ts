@@ -67,17 +67,28 @@ export async function GET(req: NextRequest) {
       ai = await enrichNewsWithAI(result.important, symbol);
     } catch { /* kural-tabanlıya düş */ }
 
-    // Materyalite AI ile değişmiş olabilir → türetilmiş sayacı yenile
-    const unpricedCount = result.important.filter(
+    // AI materyaliteyi değiştirmiş olabilir (orta→yüksek yükseltme veya Genel→gürültü
+    // düşürme) → important/noise'u yeniden böl ve türetilmiş sayaçları yenile.
+    const important = result.important.filter((n) => n.materiality !== 'gürültü');
+    const noise = [...result.noise, ...result.important.filter((n) => n.materiality === 'gürültü')];
+    const now = Date.now();
+    const unpricedCount = important.filter(
       (n) => n.materiality === 'yüksek' && n.verdict === 'henüz-fiyatlanmadı',
+    ).length;
+    const last7dCount = important.filter(
+      (n) => n.tarih && now - new Date(n.tarih).getTime() < 7 * 86_400_000,
     ).length;
 
     return NextResponse.json({
       symbol,
       available: true,
       index: isUS ? 'S&P 500' : 'BIST 100',
-      ...result,
+      important,
+      noise,
+      importantCount: important.length,
+      noiseCount: noise.length,
       unpricedCount,
+      last7dCount,
       ai,
     }, { headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=900' } });
   } catch (e) {

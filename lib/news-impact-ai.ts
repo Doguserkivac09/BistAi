@@ -147,6 +147,8 @@ export async function enrichNewsWithAI(items: NewsImpact[], sembol: string): Pro
     if (v.gerekce && typeof v.gerekce === 'string') n.aiNot = v.gerekce.slice(0, 160)
     // AI çok material diyorsa ama kural "orta" dediyse rozeti yükselt (BofA tipi vakalar)
     if ((n.aiMateryalite ?? 0) >= 4 && n.materiality === 'orta') n.materiality = 'yüksek'
+    // AI net gürültü diyorsa (yalnızca sinyalsiz "Genel" kovası) listeden düşür
+    else if (n.aiMateryalite === 1 && n.kategori === 'Genel') n.materiality = 'gürültü'
     applied = true
   }
   return applied
