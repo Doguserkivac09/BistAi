@@ -158,6 +158,27 @@ AR +1.8% → "tepkisiz" (piyasa geneli, doğru ayıklama); ASELS BofA satışı 
 hacim 1.7×⚡ → "fiyatlandı"; "BofA devam ediyor" (taze) → "henüz fiyatlanmadı" (unpriced=1).
 AI: BofA→olumsuz, temettü→nötr/mat4, fiyat-sorgusu→gürültü. **Açık: ekonomi takvimi.**
 
+### ✅ Kısa Vade Fırsatlar — Haber Katalisti overlay (2026-06-07)
+Fırsatlar denetimi sonrası: sayfa %100 teknikti, en kritik boyut KATALİST eksikti
+(KAP yalnızca cezaydı, işaret-kör). Çözüm — teknik sinyale haber çapraz kontrolü:
+- `lib/news-impact.ts` `deriveCatalyst`: fırsat overlay'i için tek-sembol katalist
+  (en aksiyon-alınabilir = fiyatlanmamış/taze/material öncelikli). **AR-doğrulamalı
+  etkin materyalite** (kural "orta" ama büyük AR+hacim → "yüksek"; AI'sız flow tespiti).
+  **BUG FIX: tr-locale lowercase** — `'TEKNİK ANALİZ'.toLowerCase()` birleşik-noktalı 'i̇'
+  üretiyordu → ALL-CAPS gürültü başlıkları materyalite filtresini kaçırıyordu.
+- `lib/decision-engine.ts`: **catalyst faktörü (±12)** — teyit(+)/çelişki(−), güvene yansır.
+- `app/api/cron/news-catalyst`: precompute (top 70 fırsat sembolü, **AI'sız → bütçe yakmaz**)
+  → `ai_cache` tek satır (**migration YOK**). `vercel.json`: 2×/gün (08:00 + 12:30 TRT,
+  scan-cache sonrası). `/api/firsatlar` katalisti TEK sorguyla okur (**istek-zamanı fan-out YOK**).
+- `FirsatKarti`: 🗞️ rozet (destekli / zaten fiyatlandı / ⚠️ çelişiyor); `firsatlar/page`: filtre.
+
+**3-yönlü matris:** taze+hizalı=teyit(+) · zaten fiyatlandı=tükenme · ters haber=çelişki(−).
+**Doğrulandı (dev e2e):** pozitif unpriced katalist DAGI 73→83; ters katalist TTKOM 60→48;
+EREGL temettü(yüksek/unpriced) AL +9; ASELS BofA satışı AL −6.
+
+> **Sonraki adım (denetimden, atıl altyapı):** P1-1 sektör momentumunu skora bağla
+> (`decision-engine.ts` `void _sectorMomentum`); P1-2 hacim teyidi (scan_cache `rel_vol5`).
+
 ---
 
 ## 🚀 ÖNCEKİ DURUM (2026-05-23)
@@ -462,6 +483,8 @@ BT1 Rejim verisi fix, BT2 Giriş fiyatı bias fix, BT3 Komisyon modeli, BT4 Her-
 | `0 6 * * 1` | 09:00 Pzt | `/api/cron/bulten` | Haftalık AI bülten |
 | `0 8 * * *` | 11:00 hergün | `/api/cron/future-scores` | Future Score (US, 13 tema) |
 | `0 8 * * 1` | 11:00 Pzt | `/api/cron/future-scores-bist` | Future Score (BIST, 5 tema) |
+| `0 5 * * 1-5` | 08:00 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti precompute (fırsatlar) |
+| `30 9 * * 1-5` | 12:30 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti precompute (gün-içi) |
 
 ---
 
