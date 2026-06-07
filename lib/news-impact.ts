@@ -63,7 +63,8 @@ const HIGH_RULES: { kw: string[]; kategori: string }[] = [
 ]
 // Gürültü: fiyat-sorgusu / teknik-analiz / "en çok artan" tipi tıklama tuzakları
 const NOISE_KW = [
-  'teknik analiz', 'canlı grafik', 'günlük teknik', 'hisse senedi fiyatı', 'grafiği',
+  'teknik analiz', 'teknik incele', 'teknik görünüm', 'canlı grafik', 'günlük teknik',
+  'hisse senedi fiyatı', 'grafiği', 'zirve denem',
   'en çok', 'tahtası', 'günün hisseleri', 'yükselen hisseler', 'düşen hisseler',
   'kaç tl', 'ne kadar', 'kaç para', 'kaç lira', 'hisse yorum', 'alınır mı', 'satılır mı',
   'ne kadar oldu', 'düşüşte mi', 'yükselişte mi', 'fiyatı ne', 'son durum',
@@ -71,7 +72,8 @@ const NOISE_KW = [
 const MID_KW = ['analist', 'hedef fiyat', 'tavsiye', 'yabancı', 'takas', 'derecelendirme', 'değerlendirme', 'rapor', 'aracı kurum', 'öneri']
 
 export function classifyMateriality(baslik: string): { level: Materiality; kategori: string } {
-  const l = baslik.toLowerCase()
+  // tr-locale: 'İ'→'i' (default toLowerCase 'İ'→birleşik-noktalı 'i̇' → ALL-CAPS başlıkları kaçırır)
+  const l = baslik.toLocaleLowerCase('tr')
   // Önce gürültü değil; YÜKSEK material anahtarları (en bilgilendirici) öncelikli
   for (const r of HIGH_RULES) if (r.kw.some((k) => l.includes(k))) return { level: 'yüksek', kategori: r.kategori }
   if (NOISE_KW.some((k) => l.includes(k))) return { level: 'gürültü', kategori: 'Gürültü' }
@@ -300,5 +302,123 @@ export function rankNewsImpact(
     importantCount: important.length,
     unpricedCount,
     last7dCount,
+  }
+}
+
+// ── Katalist türetme — fırsat skoru için tek sembol özeti ─────────────────────
+// "Fırsatlar" sayfası teknik sinyallere haber katalisti overlay'i ekler:
+// taze + hizalı material haber → teyit (+); zaten fiyatlandı → tükenme; ters → çelişki (−).
+
+export type CatalystState = 'unpriced' | 'reacting' | 'priced' | 'tepkisiz' | 'none'
+
+export interface SymbolCatalyst {
+  sembol: string
+  sentiment: 'pozitif' | 'negatif' | 'nötr'
+  state: CatalystState
+  materiality: Materiality          // 'yüksek' | 'orta'
+  /** İşaretsiz katalist gücü 0..1 (materyalite × durum × tazelik çürümesi) */
+  strengthMag: number
+  baslik: string
+  link: string
+  ar: number | null
+  yasSaat: number
+}
+
+// Başlık anahtar-kelime duygusu — HAREKET OLMAYAN (taze/tepkisiz) haberde yön proxy'si.
+// (Hareket olan haberde AR işareti gerçek duyguyu zaten verir → bu kullanılmaz.)
+const POS_SENT = [
+  'kazan', 'ihale al', 'sözleşme', 'sipariş', 'imzala', 'anlaşma', 'mutabakat', 'rekor',
+  'yeni yatırım', 'fabrika', 'kapasite', 'ihracat', 'teşvik', 'onay al', 'ruhsat', 'lisans',
+  'geri alım', 'bedelsiz', 'temettü', 'kâr payı', 'kar payı', 'net kâr art', 'net kar art',
+  'büyüme', 'prim potansiyel', 'hedef fiyat yüksel', 'tavsiye yüksel', 'güçlü al', 'yükselt',
+  'zıpla', 'sıçra', 'ralli', 'tavan yap', 'uçtu', 'rekor kâr',
+]
+const NEG_SENT = [
+  'ceza', 'dava', 'soruşturma', 'tedbir', 'haciz', 'iflas', 'konkordato', 'zarar', 'iptal',
+  'gözaltı', 'hedef fiyat düş', 'tavsiye düş', 'kâr uyar', 'zarar açıkla', 'sermaye azalt',
+  'satış baskı', 'sert satış', 'kayıp', 'gerile', 'suç duyuru', 'el koy', 'kayyum',
+  'düşen', 'düştü', 'düşüş', 'çakıl', 'eridi', 'taban yap', 'sert düş',
+]
+
+export function headlineSentiment(baslik: string): 'pozitif' | 'negatif' | 'nötr' {
+  const l = baslik.toLocaleLowerCase('tr')
+  let p = 0, n = 0
+  for (const k of POS_SENT) if (l.includes(k)) p++
+  for (const k of NEG_SENT) if (l.includes(k)) n++
+  if (p > n) return 'pozitif'
+  if (n > p) return 'negatif'
+  return 'nötr'
+}
+
+function verdictState(v: PricedVerdict): CatalystState {
+  return v === 'henüz-fiyatlanmadı' ? 'unpriced'
+    : v === 'fiyatlanıyor'           ? 'reacting'
+    : v === 'fiyatlandı'             ? 'priced'
+    : v === 'tepkisiz'               ? 'tepkisiz' : 'none'
+}
+
+/**
+ * AR-doğrulamalı etkin materyalite: kural "orta" dese bile haber hisseyi GERÇEKTEN
+ * oynatmışsa (|AR| eşik üstü + hacim spike) piyasa materyaliteyi kanıtlamış demektir
+ * → "yüksek" say. (AI olmadan flow/haber-tetikli hareketleri tanımanın yolu.)
+ */
+function effectiveMateriality(n: NewsImpact): Materiality {
+  if (n.materiality === 'yüksek') return 'yüksek'
+  if (n.materiality === 'orta' && n.ar != null && Math.abs(n.ar) > n.esik && n.hacimSpike) return 'yüksek'
+  return n.materiality
+}
+
+const STATE_MULT: Record<CatalystState, number> = {
+  unpriced: 1.0, reacting: 0.85, priced: 0.35, tepkisiz: 0.15, none: 0,
+}
+
+/**
+ * Tek sembol için katalist özeti. Fırsat overlay'i için EN AKSİYON-ALINABİLİR
+ * haberi seçer: fiyatlanmamış/tepki-veren + material + taze öncelikli; yoksa fiyatlanmış
+ * (tükenme/bağlam). Durumu + duyguyu + gücü çıkarır. Yoksa null.
+ */
+export function deriveCatalyst(sembol: string, result: NewsImpactResult): SymbolCatalyst | null {
+  const pool = result.important.filter((n) => n.verdict !== 'ölçülemedi' && n.yasSaat <= 14 * 24)
+  if (!pool.length) return null
+
+  // Katalist-uygunluğu: etkin materyalite × durum (fiyatlanmamış>fiyatlandı) × tazelik
+  const relevance = (n: NewsImpact): number => {
+    const effMat = effectiveMateriality(n) === 'yüksek' ? 2 : 1
+    const st = verdictState(n.verdict)
+    const fresh = Math.pow(0.5, n.yasSaat / 120)
+    return effMat * STATE_MULT[st] * fresh
+  }
+  const cand = pool.reduce((a, b) => (relevance(b) > relevance(a) ? b : a))
+  const effMat = effectiveMateriality(cand)
+  const state = verdictState(cand.verdict)
+
+  // Yön çıkarımı:
+  //  - priced/reacting: anlamlı hareket OLDU → AR işareti = piyasanın gerçek oyu.
+  //  - unpriced/tepkisiz: hareket gürültü seviyesinde → önce başlık anahtar-kelimesi;
+  //    yön vermezse yalnızca BELİRGİN (>%3) AR drift'i yedek olarak kullan.
+  let sentiment: 'pozitif' | 'negatif' | 'nötr'
+  if ((state === 'priced' || state === 'reacting') && cand.ar != null && Math.abs(cand.ar) > 0.005) {
+    sentiment = cand.ar > 0 ? 'pozitif' : 'negatif'
+  } else {
+    const kw = headlineSentiment(cand.baslik)
+    sentiment = kw !== 'nötr'
+      ? kw
+      : (cand.ar != null && Math.abs(cand.ar) > 0.03 ? (cand.ar > 0 ? 'pozitif' : 'negatif') : 'nötr')
+  }
+
+  const matW = effMat === 'yüksek' ? 1.0 : 0.55
+  const freshDecay = Math.pow(0.5, cand.yasSaat / 120) // ~5 gün yarı-ömür
+  const strengthMag = Math.max(0, Math.min(1, matW * STATE_MULT[state] * freshDecay))
+
+  return {
+    sembol,
+    sentiment,
+    state,
+    materiality: effMat,
+    strengthMag: Math.round(strengthMag * 100) / 100,
+    baslik: cand.baslik,
+    link: cand.link,
+    ar: cand.ar,
+    yasSaat: Math.round(cand.yasSaat),
   }
 }

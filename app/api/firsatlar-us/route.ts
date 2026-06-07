@@ -259,6 +259,7 @@ function buildFirsatItem(
       sectorScore:     0,
     } as unknown as FirsatItem['decision'],
     investmentScore: null,
+    catalyst: null, // US tarafında haber katalisti precompute edilmiyor (TR haber kaynağı)
   };
 }
 

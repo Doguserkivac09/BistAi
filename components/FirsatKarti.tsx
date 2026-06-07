@@ -600,6 +600,32 @@ export function FirsatKarti({
           </div>
         )}
 
+        {/* Haber katalisti — teknik × haber çapraz kontrolü */}
+        {firsat.catalyst && firsat.catalyst.sentiment !== 'nötr' && firsat.catalyst.adjustment !== 0 && (() => {
+          const c = firsat.catalyst;
+          const contradiction = c.adjustment < 0;
+          const exhaustion = c.aligned && c.state === 'priced';
+          const cls = contradiction
+            ? 'border-red-500/30 bg-red-500/10 text-red-300'
+            : exhaustion
+            ? 'border-amber-500/25 bg-amber-500/10 text-amber-300'
+            : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+          const label = contradiction
+            ? '⚠️ Haberle çelişiyor'
+            : exhaustion
+            ? '🗞️ Haber zaten fiyatlandı'
+            : c.state === 'unpriced'
+            ? '🗞️ Haber destekli — henüz fiyatlanmadı'
+            : '🗞️ Haber destekli';
+          return (
+            <div className={`mb-2 flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-[10px] ${cls}`} title={c.baslik}>
+              <span className="shrink-0 font-semibold">{label}</span>
+              <span className="font-bold tabular-nums shrink-0">{c.adjustment > 0 ? '+' : ''}{c.adjustment}</span>
+              <span className="truncate opacity-90">{c.baslik}</span>
+            </div>
+          );
+        })()}
+
         {firsat.riskRewardRatio !== null && firsat.stopLoss !== null && firsat.targetPrice !== null && (
           <div className="mb-2 flex items-center gap-2 rounded-md border border-border/50 bg-surface-alt/30 px-2 py-1 text-[10px]">
             <span className="font-semibold text-text-muted">R/R:</span>

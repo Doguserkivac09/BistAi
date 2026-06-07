@@ -32,6 +32,7 @@ import {
   type InvestableRating,
 } from '@/lib/investment-score';
 import { fetchTurkeyInflation } from '@/lib/turkey-macro';
+import type { SymbolCatalyst } from '@/lib/news-impact';
 
 const MIN_CONFLUENCE    = 45;
 const LOOKBACK_DAYS     = 5;
@@ -143,6 +144,20 @@ export interface FirsatItem {
     confidence: InvestableConfidence;
     inflationAdjusted: boolean;
   } | null;
+  /** Haber katalisti (news-impact precompute) — taze material haber özeti, yoksa null */
+  catalyst: {
+    sentiment: SymbolCatalyst['sentiment'];
+    state: SymbolCatalyst['state'];
+    materiality: SymbolCatalyst['materiality'];
+    baslik: string;
+    link: string;
+    ar: number | null;
+    yasSaat: number;
+    /** Skora etkisi (±puan) — decision.factors.catalyst */
+    adjustment: number;
+    /** Haber yönü sinyal yönü ile uyumlu mu? */
+    aligned: boolean;
+  } | null;
 }
 
 export interface FirsatlarResponse {
@@ -248,8 +263,8 @@ export async function GET(req: NextRequest) {
     const statsCutoff = new Date();
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);
 
-    // Paralel çek: geçmiş win rate verisi + makro + KAP duyuruları + TÜFE + scan_cache
-    const [statsRes, macroRes, kapRes, tufeRes, scanCacheRes] = await Promise.allSettled([
+    // Paralel çek: geçmiş win rate verisi + makro + KAP duyuruları + TÜFE + scan_cache + katalist
+    const [statsRes, macroRes, kapRes, tufeRes, scanCacheRes, catalystRes] = await Promise.allSettled([
       supabase
         .from('signal_performance')
         .select('signal_type, direction, return_3d, return_7d, return_14d, return_30d')
@@ -265,7 +280,27 @@ export async function GET(req: NextRequest) {
         .select('sembol, change_percent, rel_vol5, rsi')
         .eq('market', 'BIST')
         .gte('scanned_at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
+      // Haber katalisti — cron precompute, tek satır (ai_cache, migration yok)
+      supabase
+        .from('ai_cache')
+        .select('explanation')
+        .eq('cache_key', 'news-catalyst:BIST')
+        .gt('expires_at', new Date().toISOString())
+        .single(),
     ]);
+
+    // Katalist haritası: sembol → SymbolCatalyst (cron'dan)
+    const catalystMap = new Map<string, SymbolCatalyst>();
+    if (catalystRes.status === 'fulfilled' && catalystRes.value.data?.explanation) {
+      try {
+        const parsed = JSON.parse(catalystRes.value.data.explanation) as {
+          items?: Record<string, SymbolCatalyst>;
+        };
+        for (const [sym, cat] of Object.entries(parsed.items ?? {})) {
+          catalystMap.set(sym, cat);
+        }
+      } catch { /* bozuk cache → katalist yok, normal devam */ }
+    }
 
     // TÜFE bağlamı (yoksa global formül)
     const inflation =
@@ -492,15 +527,23 @@ export async function GET(req: NextRequest) {
         entry_price: r.entry_price,
       })));
 
+      const catalyst = catalystMap.get(sembol) ?? null;
+
       const decision = computeDecision({
         signals: stockSignals,
         macroScore: macroRes.status === 'fulfilled' ? macroRes.value.macroScore : null,
         historicalWinRate: wrEntry ? { winRate: wrEntry.winRate, n: wrEntry.n } : null,
         kapRisk: kapEvent ? { var: true, mesaj: kapEvent.baslik } : null,
+        catalyst,
         regime: best.regime,
         scannedAt: best.entry_time,
         dataSource: 'db_snapshot',
       });
+
+      // Katalist yönü sinyal yönü ile uyumlu mu? (UI rozeti için)
+      const catalystAligned = catalyst != null && catalyst.sentiment !== 'nötr' && direction !== 'notr'
+        ? (catalyst.sentiment === 'pozitif') === (direction === 'yukari')
+        : false;
 
       firsatlar.push({
         sembol,
@@ -535,6 +578,19 @@ export async function GET(req: NextRequest) {
         },
         decision,
         investmentScore: investmentScoreMap.get(sembol) ?? null,
+        catalyst: catalyst
+          ? {
+              sentiment:   catalyst.sentiment,
+              state:       catalyst.state,
+              materiality: catalyst.materiality,
+              baslik:      catalyst.baslik,
+              link:        catalyst.link,
+              ar:          catalyst.ar,
+              yasSaat:     catalyst.yasSaat,
+              adjustment:  decision.factors.catalyst,
+              aligned:     catalystAligned,
+            }
+          : null,
         // ── Tavan / Taban ──────────────────────────────────────────────
         ...(() => {
           const sc = scanCacheMap.get(sembol);

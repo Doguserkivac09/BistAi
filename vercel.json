@@ -21,6 +21,14 @@
       "schedule": "0 9 * * 1-5"
     },
     {
+      "path": "/api/cron/news-catalyst",
+      "schedule": "0 5 * * 1-5"
+    },
+    {
+      "path": "/api/cron/news-catalyst",
+      "schedule": "30 9 * * 1-5"
+    },
+    {
       "path": "/api/cron/scan-cache",
       "schedule": "50 14 * * 1-5"
     },

@@ -269,6 +269,7 @@ export default function FirsatlarPage() {
   const [minRR,        setMinRR]        = useState<number>(0);     // 0 = tümü, 1.5, 2, 3
   const [mtfOnly,      setMtfOnly]      = useState<boolean>(false); // haftalık uyum şartı
   const [hideKap,      setHideKap]      = useState<boolean>(false); // KAP event olanları gizle
+  const [catalystOnly, setCatalystOnly] = useState<boolean>(false); // sadece haber-destekli (katalist +)
   // YENİ — "Sadece Yeni Sinyal" filtresi (default açık)
   // ageHours <= 48 → son 2 gün içinde tetiklenmiş (henüz fiyat hareketi başlamamış olabilir)
   const [freshOnly,    setFreshOnly]    = useState<boolean>(true);
@@ -393,10 +394,12 @@ export default function FirsatlarPage() {
     if (minRR > 0 && (f.riskRewardRatio === null || f.riskRewardRatio < minRR)) return false;
     if (mtfOnly && f.weeklyAligned !== true) return false;
     if (hideKap && f.kapUyarisi?.var) return false;
+    // Sadece haber-destekli — pozitif katalist (taze hizalı material haber)
+    if (catalystOnly && !(f.catalyst && f.catalyst.adjustment > 0)) return false;
     // YENİ: "Sadece Yeni Sinyal" — son 48 saat içinde tetiklenmiş
     if (freshOnly && f.ageHours > 48) return false;
     return true;
-  }), [data, dirFilter, minScore, sektorFilter, minRR, mtfOnly, hideKap, freshOnly]);
+  }), [data, dirFilter, minScore, sektorFilter, minRR, mtfOnly, hideKap, catalystOnly, freshOnly]);
 
   // Geç sinyal sayısı — "Yeni Sinyal" toggle açıkken gizlenen kart sayısını kullanıcıya göster
   const lateSignalCount = useMemo(
@@ -604,6 +607,26 @@ export default function FirsatlarPage() {
             >
               KAP Gizle
             </button>
+
+            {/* Haber destekli toggle — pozitif katalist (taze hizalı material haber) */}
+            {(() => {
+              const haberDestekliCount = (data.firsatlar ?? []).filter((f) => f.catalyst && f.catalyst.adjustment > 0).length;
+              if (haberDestekliCount === 0 && !catalystOnly) return null;
+              return (
+                <button
+                  onClick={() => setCatalystOnly((v) => !v)}
+                  aria-pressed={catalystOnly}
+                  title="Sadece teknik sinyali taze + hizalı haberle desteklenen fırsatlar (katalist +)"
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    catalystOnly
+                      ? 'border-sky-500/40 bg-sky-500/10 text-sky-400'
+                      : 'border-border text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  🗞️ Haber Destekli ({haberDestekliCount})
+                </button>
+              );
+            })()}
           </div>
 
           {/* Satır 2: Sektör filtresi */}

@@ -20,6 +20,7 @@ import { computeConfluence } from '@/lib/signals';
 import type { MacroScoreResult } from '@/lib/macro-score';
 import type { SectorMomentum } from '@/lib/sector-engine';
 import type { RiskScoreResult } from '@/lib/risk-engine';
+import type { SymbolCatalyst } from '@/lib/news-impact';
 
 // ── Sabitler ─────────────────────────────────────────────────────────
 
@@ -46,6 +47,8 @@ export interface DecisionInput {
   riskScore?: RiskScoreResult | null;
   historicalWinRate?: { winRate: number; n: number } | null;
   kapRisk?: { var: boolean; mesaj: string } | null;
+  /** Haber katalisti — taze material haberin yönü/durumu (news-impact'ten precompute) */
+  catalyst?: SymbolCatalyst | null;
   /** Piyasa rejimi — getMarketRegime() çıktısı: bull_trend | bear_trend | sideways */
   regime?: string | null;
   /** Verinin toplandığı zaman (ISO) — time decay için */
@@ -69,6 +72,8 @@ export interface DecisionFactors {
   mtfAlign: number;
   /** KAP event riski (±puan, negatif) */
   kapEvent: number;
+  /** Haber katalisti uyumu (±puan) — taze hizalı haber + / ters haber − */
+  catalyst: number;
   /** Risk seviyesi ayarlaması (çarpan) */
   riskMultiplier: number;
 }
@@ -142,6 +147,23 @@ function mtfAdjustment(dominantSignals: StockSignal[]): number {
 
 function kapEventAdjustment(kapRisk: DecisionInput['kapRisk']): number {
   return kapRisk?.var ? -10 : 0;
+}
+
+/**
+ * Haber katalisti ayarlaması — teknik sinyal × taze material haber çapraz kontrolü.
+ *  - Teyit (haber yönü = sinyal yönü): + (taze/fiyatlanmamış güçlü, zaten fiyatlandı zayıf)
+ *  - Çelişki (haber yönü ≠ sinyal yönü): − (tuzak riski; biraz daha ağır cezalandırılır)
+ * strengthMag içinde durum (unpriced/priced) ve tazelik çürümesi zaten kodlu.
+ */
+const CATALYST_MAX_PTS = 12;
+function catalystAdjustment(direction: DecisionDirection, catalyst: SymbolCatalyst | null | undefined): number {
+  if (!catalyst || catalyst.sentiment === 'nötr' || catalyst.strengthMag < 0.15) return 0;
+  const sigSign = direction === 'yukari' ? 1 : direction === 'asagi' ? -1 : 0;
+  if (sigSign === 0) return 0;
+  const catSign = catalyst.sentiment === 'pozitif' ? 1 : -1;
+  const pts = Math.round(catalyst.strengthMag * CATALYST_MAX_PTS);
+  // Hizalı → +; ters → − (çelişki biraz daha ağır)
+  return catSign === sigSign ? pts : -Math.round(pts * 1.15);
 }
 
 /**
@@ -221,6 +243,10 @@ function deriveConfidence(
   // KAP event → güven ciddi düşer
   if (factors.kapEvent < 0) conf -= 10;
 
+  // Haber katalisti: teyit güveni artırır, çelişki ciddi düşürür (tuzak riski)
+  if (factors.catalyst > 0) conf += 5;
+  else if (factors.catalyst < 0) conf -= 12;
+
   return Math.max(0, Math.min(100, Math.round(conf)));
 }
 
@@ -236,7 +262,7 @@ function deriveConfidence(
 export function computeDecision(input: DecisionInput): DecisionOutput {
   const {
     signals, macroScore, sectorMomentum: _sectorMomentum, riskScore, historicalWinRate,
-    kapRisk, regime, scannedAt, dataSource,
+    kapRisk, catalyst, regime, scannedAt, dataSource,
   } = input;
   void _sectorMomentum; // sector henüz skora direk yansımıyor (Phase 2 için rezerv)
 
@@ -250,7 +276,7 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   if (!signals.length) {
     const emptyFactors: DecisionFactors = {
       confluence: 0, timeDecay: 1, winRateAdj: 0, regimeFit: 0,
-      macroAlign: 0, mtfAlign: 0, kapEvent: 0, riskMultiplier: 1,
+      macroAlign: 0, mtfAlign: 0, kapEvent: 0, catalyst: 0, riskMultiplier: 1,
     };
     return {
       score: 50,
@@ -282,12 +308,13 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   const macroAlign = macroAdjustment(direction, macroScore?.score ?? null);
   const mtfAlign   = mtfAdjustment(dominantSignals);
   const kapEvent   = kapEventAdjustment(kapRisk);
+  const catalystAdj = catalystAdjustment(direction, catalyst);
   const riskMult   = riskMultiplier(riskScore);
 
   // 4. Skor hesabı: confluence × timeDecay + ayarlamalar, sonra risk çarpanı
   const rawMagnitude =
     confluence.score * timeDecay +
-    winRateAdj + regimeFit + macroAlign + mtfAlign + kapEvent;
+    winRateAdj + regimeFit + macroAlign + mtfAlign + kapEvent + catalystAdj;
 
   const riskAdjusted = rawMagnitude * riskMult;
   const score = Math.max(0, Math.min(100, Math.round(riskAdjusted)));
@@ -300,6 +327,7 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
     macroAlign,
     mtfAlign,
     kapEvent,
+    catalyst: catalystAdj,
     riskMultiplier: Math.round(riskMult * 100) / 100,
   };
 
