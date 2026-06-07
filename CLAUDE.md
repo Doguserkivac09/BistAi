@@ -133,6 +133,31 @@ Saf görece değerleme geriye dönük → "pahalı" prim büyüme/kaliteyle hakl
 ### ✅ Hisse haberleri — her hisseye özgü (2026-06-05)
 KAP onarımı denendi → **kap.org.tr yeni Next.js sitesi sunucu erişimini blokluyor** (eski API HTTP 666, /tr/api POST blackhole, RSS ölü, Vercel'den de bloklanır). Üçüncü taraf temiz genel-KAP yok. Yahoo BIST haberi alakasız (global çöp). **Çözüm:** `app/api/haber/route.ts`'e **Google News RSS** (`"{SEMBOL}" hisse`, hl=tr) birincil sembol-bazlı kaynak eklendi — Türk finans sitelerini (Mynet/Investing TR/Paratic/BloombergHT) indeksler → **HER BIST hissesi (295, küçükler dahil) kendi Türkçe haberini alır**, KAP-tipi bildirimler (ihale/sözleşme) de yüzeye çıkar. Tırnaklı tam-eşleşme çakışmaları çözer (GARAN≠GRNYO, DEVA≠parti). Doğrulandı: GARAN/DEVA/ASELS/PASEU/KONTR/EUPWR hepsi sembol-özgü. **Açık: ekonomi takvimi.**
 
+### ✅ Haber Fiyatlandı mı? — materyalite + event-study etki (2026-06-07)
+Her hissenin haberlerini önem (materyalite) bazında süzüp her material haber için
+**"bu haber fiyatlandı mı?"** sorusunu fiyat+hacim tepkisiyle yanıtlar.
+- `lib/news-impact.ts`: kural-tabanlı materyalite (yüksek/orta/gürültü) + **windowed
+  event-study** — olayı izleyen ~3 işlem günü tepki penceresinde anormal getiri
+  (hisse − BIST100, β=1) + **hacim z-skoru** + anticipation tespiti. **Kritik içgörü:**
+  AR "şimdiye kadarki sürüklenme" değil, kısa tepki penceresi CAR'ı (eski haberde
+  doğru ölçüm). Verdict matrisi: tepki büyüklüğü × pencere kapandı mı → fiyatlandı /
+  fiyatlanıyor / henüz-fiyatlanmadı / tepkisiz. Tazelik+etki bileşik öncelik sırası.
+  Eşik: max(%3, 1.5×günlük σ). 60 günden eski haber elenir.
+- `lib/symbol-news.ts`: sembol-bazlı Google News çekici (`"{SEMBOL}" hisse`, zaman damgalı).
+- `lib/news-impact-ai.ts`: **opsiyonel AI katmanı** — en üst ~5 haberi TEK batch Claude
+  Haiku çağrısıyla materyalite(1-5)+duygu+1 cümle ile zenginleştirir. `ai_cache` (migration
+  YOK) + günlük bütçe koruması; AI≥4 → rozet yükselt, AI=1 (Genel) → gürültüye düşür.
+  Hata/bütçe/anahtar yoksa kural-tabanlıya zarifçe düşer.
+- `app/api/news-impact/route.ts?symbol=X`: 90g günlük OHLCV + BIST100/S&P (US), 30dk cache.
+- `components/HaberEtkisi.tsx` → hisse detay **"Haberler" sekmesi** (KAP'ın üstünde):
+  materyaliteye sıralı, fiyatlandı-rozetli liste + AR% + hacim spike + anticipation +
+  AI duygu/not, gürültü toggle, özet, "olasılıksal/tavsiye değil" notu.
+
+**Gerçek veriyle doğrulandı (dev runtime, ASELS):** THYAO ateşkes rallisi ham +10.7% ama
+AR +1.8% → "tepkisiz" (piyasa geneli, doğru ayıklama); ASELS BofA satışı AR -7.4% +
+hacim 1.7×⚡ → "fiyatlandı"; "BofA devam ediyor" (taze) → "henüz fiyatlanmadı" (unpriced=1).
+AI: BofA→olumsuz, temettü→nötr/mat4, fiyat-sorgusu→gürültü. **Açık: ekonomi takvimi.**
+
 ---
 
 ## 🚀 ÖNCEKİ DURUM (2026-05-23)
