@@ -41,6 +41,7 @@ import { TakasKarti } from '@/components/TakasKarti';
 import FinansalSaglik from '@/components/FinansalSaglik';
 import PeerDegerleme from '@/components/PeerDegerleme';
 import GelecekGorunumu from '@/components/GelecekGorunumu';
+import HaberEtkisi from '@/components/HaberEtkisi';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { ScoreBreakdown } from '@/components/ScoreBreakdown';
 import type { CompositeSignalResult } from '@/lib/composite-signal';
@@ -1600,6 +1601,9 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
             {/* ── Haberler Tab ── */}
             {activeTab === 'haberler' && (
               <div className="mt-6 space-y-6">
+
+            {/* ── Haber Fiyatlandı mı? (materyalite + event-study etki) ── */}
+            <HaberEtkisi sembol={sembol} market={market} />
 
             {/* ── KAP Duyuruları ────────────────────────────── */}
             {(kapLoading || kapDuyurular.length > 0) && (
