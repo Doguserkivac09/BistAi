@@ -55,6 +55,30 @@ görünmeye başlayınca `NavbarClient.tsx`'teki yorum satırını kaldır ve sa
 
 ---
 
+## 🐛 scan-cache 17:50 koşusu tetiklenmiyordu — FIX (2026-06-09) ✅
+
+**Belirti:** Kısa Vade Fırsatlar (BIST) sayfasında 17:50 TRT taraması güncellenmiyordu;
+07:30 ve 12:00 koşuları çalışıyordu.
+
+**Kök neden (timeout, config değil):** `vercel.json` doğru (`50 14 * * 1-5` = 17:50 TRT,
+deploy edilmiş, Vercel aynı-path'i `x-vercel-cron-schedule` ile destekliyor). Asıl sorun:
+evren 295→**619** sembole büyümüş, `maxDuration` **300s**'de kalmıştı. Tarama **~299s**
+sürüyordu (limitin 1sn altında). 17:50 günün en ağır anı (BIST kapanışına 10dk, Yahoo en
+yavaş, en çok sinyal) → düzenli olarak 300s'i aşıp `FUNCTION_INVOCATION_TIMEOUT` ile
+öldürülüyordu. Hafif koşular (07:30/12:00) sınırın altında bitiyordu.
+
+**Çözüm (`app/api/cron/scan-cache/route.ts`):** Throughput artırıldı — `BATCH_SIZE` 10→15,
+`BATCH_DELAY` 250→150ms. Batch sayısı 62→~42, koşu ~200s'e indi (**~100s marj**).
+`maxDuration` 300'de bırakıldı (Fluid Compute kapalıysa >300 build'i kırar).
+
+**Manuel tetikleme:** `curl -H "Authorization: Bearer $CRON_SECRET" https://bistai.vercel.app/api/cron/scan-cache`
+(2026-06-09 14:43Z manuel çalıştırıldı: 612/619 tarandı, 868 perf güncellendi).
+
+**Opsiyonel robustluk (önerildi, bekliyor):** Vercel → Settings → Functions → **Fluid Compute**
+aç → `maxDuration` 600-800'e çıkarılabilir (evren büyümeye devam ederse).
+
+---
+
 ## 🚀 MEVCUT DURUM (2026-06-03)
 
 ### Bu Session'da Tamamlananlar (Bug Fix Sprint — 2026-06-03)

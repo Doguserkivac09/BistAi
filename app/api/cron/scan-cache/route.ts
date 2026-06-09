@@ -19,8 +19,16 @@ import { BIST_SYMBOLS } from '@/types';
 import type { OHLCVCandle } from '@/types';
 import { bistGuard } from '@/lib/bist-guard';
 
-// 603 BIST sembolü taranır — Vercel default (~15s) yetmiyordu, fonksiyon
+// 619 BIST sembolü taranır — Vercel default (~15s) yetmiyordu, fonksiyon
 // hiçbir şey yazamadan kesiliyordu. 5 dk limit (Vercel Pro) ile tüm evren taranır.
+//
+// ⚠️ 2026-06-09 — 17:50 koşusu tetiklenmiyor bug fix:
+//   Evren 295→619 sembole büyüdü, maxDuration 300'de kaldı. Tarama ~299s sürüyordu
+//   (300s limitinin 1sn altında). En ağır koşu olan 17:50 TRT (BIST kapanışına 10dk,
+//   Yahoo en yavaş) düzenli olarak 300s'i aşıp FUNCTION_INVOCATION_TIMEOUT ile
+//   öldürülüyordu. Çözüm: throughput artırıldı (BATCH_SIZE 10→15, DELAY 250→150) →
+//   batch sayısı 62→42, koşu ~200s'e indi (~100s marj). Fluid Compute açılırsa
+//   maxDuration 600+ yapılabilir (bkz. CLAUDE.md).
 export const maxDuration = 300;
 
 /** RSI(14) — son değeri döndürür */
@@ -45,8 +53,8 @@ function calcLastRSI(candles: OHLCVCandle[], period = 14): number | null {
 }
 
 const CRON_SECRET  = process.env.CRON_SECRET;
-const BATCH_SIZE   = 10;
-const BATCH_DELAY  = 250; // ms — Yahoo rate limit
+const BATCH_SIZE   = 15;  // 619 sembol / 15 = ~42 batch (eski: 10 → 62 batch, 300s'i aşıyordu)
+const BATCH_DELAY  = 150; // ms — Yahoo rate limit (eski: 250; 619 sembol için marj açıldı)
 
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
