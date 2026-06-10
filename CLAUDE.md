@@ -67,12 +67,15 @@ sürüyordu (limitin 1sn altında). 17:50 günün en ağır anı (BIST kapanış
 yavaş, en çok sinyal) → düzenli olarak 300s'i aşıp `FUNCTION_INVOCATION_TIMEOUT` ile
 öldürülüyordu. Hafif koşular (07:30/12:00) sınırın altında bitiyordu.
 
-**Çözüm (`app/api/cron/scan-cache/route.ts`):** Throughput artırıldı — `BATCH_SIZE` 10→15,
-`BATCH_DELAY` 250→150ms. Batch sayısı 62→~42, koşu ~200s'e indi (**~100s marj**).
-`maxDuration` 300'de bırakıldı (Fluid Compute kapalıysa >300 build'i kırar).
+**Çözüm (`app/api/cron/scan-cache/route.ts`):** Throughput artırıldı — `BATCH_SIZE` 10→**20**,
+`BATCH_DELAY` 250→150ms. Batch sayısı 62→~31. `maxDuration` 300'de bırakıldı (Fluid Compute
+kapalıysa >300 build'i kırar).
+
+**Doğrulama (canlı, production):** Eski kod 17:43 TRT'de **298.9s** (limitin 1sn altı). Ara
+ölçüm (BATCH_SIZE=15, midday) **261.6s** — tam tamamlandı, `failed`=7 sabit (Yahoo zorlanmadı).
+15→20'de de failed 7'de kaldığı için 20'ye çıkıldı (hedef ~215s, ~85s marj).
 
 **Manuel tetikleme:** `curl -H "Authorization: Bearer $CRON_SECRET" https://bistai.vercel.app/api/cron/scan-cache`
-(2026-06-09 14:43Z manuel çalıştırıldı: 612/619 tarandı, 868 perf güncellendi).
 
 **Opsiyonel robustluk (önerildi, bekliyor):** Vercel → Settings → Functions → **Fluid Compute**
 aç → `maxDuration` 600-800'e çıkarılabilir (evren büyümeye devam ederse).

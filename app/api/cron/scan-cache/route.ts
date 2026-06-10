@@ -26,9 +26,10 @@ import { bistGuard } from '@/lib/bist-guard';
 //   Evren 295→619 sembole büyüdü, maxDuration 300'de kaldı. Tarama ~299s sürüyordu
 //   (300s limitinin 1sn altında). En ağır koşu olan 17:50 TRT (BIST kapanışına 10dk,
 //   Yahoo en yavaş) düzenli olarak 300s'i aşıp FUNCTION_INVOCATION_TIMEOUT ile
-//   öldürülüyordu. Çözüm: throughput artırıldı (BATCH_SIZE 10→15, DELAY 250→150) →
-//   batch sayısı 62→42, koşu ~200s'e indi (~100s marj). Fluid Compute açılırsa
-//   maxDuration 600+ yapılabilir (bkz. CLAUDE.md).
+//   öldürülüyordu. Çözüm: throughput artırıldı (BATCH_SIZE 10→20, DELAY 250→150) →
+//   batch sayısı 62→~31. Ara ölçüm (15, midday) 262s; 20 ile ~215s hedeflenir.
+//   failed 15→20 geçişinde 7'de sabit kaldı (Yahoo zorlanmıyor). Fluid Compute
+//   açılırsa maxDuration 600+ yapılabilir (bkz. CLAUDE.md).
 export const maxDuration = 300;
 
 /** RSI(14) — son değeri döndürür */
@@ -53,8 +54,8 @@ function calcLastRSI(candles: OHLCVCandle[], period = 14): number | null {
 }
 
 const CRON_SECRET  = process.env.CRON_SECRET;
-const BATCH_SIZE   = 15;  // 619 sembol / 15 = ~42 batch (eski: 10 → 62 batch, 300s'i aşıyordu)
-const BATCH_DELAY  = 150; // ms — Yahoo rate limit (eski: 250; 619 sembol için marj açıldı)
+const BATCH_SIZE   = 20;  // 619 sembol / 20 = ~31 batch (eski: 10→62 batch 300s aşıyordu; 15→42 batch 262s; 20→~31 batch ~215s)
+const BATCH_DELAY  = 150; // ms — Yahoo rate limit (15→20'de failed 7'de sabit kaldı, Yahoo zorlanmadı)
 
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
