@@ -117,6 +117,14 @@
       "schedule": "0 8 * * 1"
     },
     {
+      "path": "/api/cron/growth-momentum-bist?part=1",
+      "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/cron/growth-momentum-bist?part=2",
+      "schedule": "20 6 * * 1"
+    },
+    {
       "path": "/api/cron/sector-medians",
       "schedule": "0 7 * * 1"
     }

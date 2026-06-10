@@ -34,6 +34,7 @@ const navItems = [
     dropdown: [
       { href: '/temalar',          label: 'Temalar',          icon: Sparkles },
       { href: '/gelecek-sirketler', label: 'Geleceği Parlak',  icon: Brain },
+      { href: '/buyuyen-sirketler', label: 'Büyüyen Şirketler', icon: TrendingUp },
       { href: '/sektorler',        label: 'Sektör Analizi',   icon: TrendingUp },
       { href: '/emtia-endeks',     label: 'Emtia & Endeks',   icon: Layers },
       { href: '/makro',            label: 'Makro Radar',       icon: BarChart2 },

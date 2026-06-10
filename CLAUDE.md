@@ -55,6 +55,43 @@ görünmeye başlayınca `NavbarClient.tsx`'teki yorum satırını kaldır ve sa
 
 ---
 
+## 🚀 Büyüyen Şirketler — temel büyüme momentumu tarayıcısı (2026-06-10) ✅ TAMAMLANDI
+
+İşi büyüyen (gelir↑), kârlılığı artan (net marj + net kâr↑) ve EPS'i yükselen şirketleri
+tüm BIST evreninde tarayıp tek 0-100 skoruyla **sıralayan** yeni ekran. Hesaplama mantığı
+mevcut `fundamental-health.ts` üstüne kuruldu (yeniden yazma yok); eksik olan tek şey
+evren-geneli tarayıcı/sıralama katmanıydı.
+
+| Bileşen | Dosya |
+|---------|-------|
+| Skorlama motoru (saf TS, deterministik) | `lib/growth-momentum.ts` (YENİ) |
+| Çalıştırıcı + ai_cache store (merge'li, **migration YOK**) | `lib/growth-momentum-runner.ts` (YENİ) |
+| BIST cron (`?part=1\|2` bölme + bistGuard + reel enflasyon) | `app/api/cron/growth-momentum-bist/route.ts` (YENİ) |
+| Okuma API (`?market=BIST\|US`) | `app/api/growth-momentum/route.ts` (YENİ) |
+| Sayfa + UI (toggle, EPS sparkline, kalite rozeti, stale uyarı) | `app/buyuyen-sirketler/page.tsx` + `components/BuyuyenSirketler.tsx` (YENİ) |
+| Navbar linki (Piyasa dropdown) | `components/NavbarClient.tsx` |
+| Cron schedule (Pzt 09:00 + 09:20 TRT) | `vercel.json` |
+| Birim testleri (6 senaryo) | `lib/__tests__/growth-momentum.test.ts` (YENİ) |
+
+**Skor (0-100):** gelir büyümesi(25) + net kâr büyümesi(25) + EPS trendi(20) + marj
+genişlemesi(15) + tutarlılık(15), × kalite çarpanı (Beneish şüpheli/Piotroski<3/zayıf
+kazanç kalitesi → kısılır). **BIST'te büyümeler enflasyonla REELLEŞTİRİLİR.** Bankalar
+`isFinancialSector` ile hariç. EPS = netIncome/shares → hisse seyrelmesi cezalandırılır.
+
+**ai_cache anahtarı:** `growth-momentum:BIST` (tek JSON satır, 21g TTL). 619 sembol ×
+fundamentalsTimeSeries ağır → cron `?part=1\|2` ile ikiye bölünür, her parça kendi dilimini
+merge eder (scan-cache 17:50 timeout dersi). part'sız çağrı = tüm evren (manuel test).
+
+**Doğrulama:** 6/6 birim testi geçti. Canlı Yahoo (TÜFE≈35 sanity): ASELS=87 güçlü büyüme
+(net kâr reel +151%), FROTO=28 küçülüyor (nominal +37% ama reel −28% — enflasyon düzeltmesi
+çalışıyor), GARAN=uygulanmaz (banka). tsc temiz, build başarılı.
+
+**Bekleyen:** Push + deploy sonrası cron'u manuel tetikle (`curl ?part=1` & `?part=2`),
+ai_cache doluyor mu + `/buyuyen-sirketler` sayfası sıralı liste gösteriyor mu doğrula.
+US tarayıcısı sonraki adıma bırakıldı (BIST-öncelik).
+
+---
+
 ## 🐛 scan-cache 17:50 koşusu tetiklenmiyordu — FIX (2026-06-09) ✅
 
 **Belirti:** Kısa Vade Fırsatlar (BIST) sayfasında 17:50 TRT taraması güncellenmiyordu;
