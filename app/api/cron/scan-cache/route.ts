@@ -24,12 +24,13 @@ import { bistGuard } from '@/lib/bist-guard';
 //
 // ⚠️ 2026-06-09 — 17:50 koşusu tetiklenmiyor bug fix:
 //   Evren 295→619 sembole büyüdü, maxDuration 300'de kaldı. Tarama ~299s sürüyordu
-//   (300s limitinin 1sn altında). En ağır koşu olan 17:50 TRT (BIST kapanışına 10dk,
-//   Yahoo en yavaş) düzenli olarak 300s'i aşıp FUNCTION_INVOCATION_TIMEOUT ile
-//   öldürülüyordu. Çözüm: throughput artırıldı (BATCH_SIZE 10→20, DELAY 250→150) →
-//   batch sayısı 62→~31. Ara ölçüm (15, midday) 262s; 20 ile ~215s hedeflenir.
-//   failed 15→20 geçişinde 7'de sabit kaldı (Yahoo zorlanmıyor). Fluid Compute
-//   açılırsa maxDuration 600+ yapılabilir (bkz. CLAUDE.md).
+//   (300s limitinin 1sn altında). Çözüm: throughput artırıldı (BATCH_SIZE 10→20).
+//
+// ⚠️ 2026-06-12 — ?part=1|2 bölme (görülen sorun: tek koşu ~215s ile bile marj dar;
+//   ayrıca signal_performance yazımı koşunun SONUNDA — timeout'ta sinyaller tamamen
+//   kayboluyordu). Cron artık iki paralel yarı olarak tetiklenir (vercel.json'da
+//   aynı dakikada ?part=1 ve ?part=2): her parça ~310 sembol → ~120-160s, 300s
+//   limitine geniş marj. part'sız çağrı = tüm evren (manuel test için).
 export const maxDuration = 300;
 
 /** RSI(14) — son değeri döndürür */
@@ -54,7 +55,11 @@ function calcLastRSI(candles: OHLCVCandle[], period = 14): number | null {
 }
 
 const CRON_SECRET  = process.env.CRON_SECRET;
-const BATCH_SIZE   = 20;  // 619 sembol / 20 = ~31 batch (eski: 10→62 batch 300s aşıyordu; 15→42 batch 262s; 20→~31 batch ~215s)
+// Tam evren (part'sız): 20'li batch — ~31 batch, ~215s.
+// Part modunda iki invocation AYNI ANDA koşar → birleşik eşzamanlılık patlamasın
+// diye parça başına 12'li batch (2×12=24 ≈ eski 20'ye yakın; parça ~26 batch, ~150s).
+const BATCH_SIZE_FULL = 20;
+const BATCH_SIZE_PART = 12;
 const BATCH_DELAY  = 150; // ms — Yahoo rate limit (15→20'de failed 7'de sabit kaldı, Yahoo zorlanmadı)
 
 function createAdminClient() {
@@ -80,7 +85,16 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
   const startedAt = Date.now();
-  const symbols = [...BIST_SYMBOLS];
+
+  // ?part=1|2 → evrenin ilk/ikinci yarısı; part yok → tüm evren (manuel test)
+  const partParam = request.nextUrl.searchParams.get('part');
+  const part = partParam === '1' ? 1 : partParam === '2' ? 2 : null;
+  const all = [...BIST_SYMBOLS];
+  const half = Math.ceil(all.length / 2);
+  const symbols =
+    part === 1 ? all.slice(0, half) :
+    part === 2 ? all.slice(half)    : all;
+  const BATCH_SIZE = part ? BATCH_SIZE_PART : BATCH_SIZE_FULL;
 
   // Piyasa rejimini bir kez çek
   let regime = 'sideways';
@@ -368,10 +382,11 @@ export async function GET(request: NextRequest) {
   }
 
   const durationMs = Date.now() - startedAt;
-  console.log(`[cron/scan-cache] ${scanned}/${symbols.length} tarandı, ${signalsFound} sinyal, ${perfInserted} INSERT, ${perfRefreshed} UPDATE, ${failed.length} hata, ${durationMs}ms`);
+  console.log(`[cron/scan-cache] part=${part ?? 'full'} ${scanned}/${symbols.length} tarandı, ${signalsFound} sinyal, ${perfInserted} INSERT, ${perfRefreshed} UPDATE, ${failed.length} hata, ${durationMs}ms`);
 
   return NextResponse.json({
     ok: true,
+    part: part ?? 'full',
     scanned,
     total: symbols.length,
     signalsFound,

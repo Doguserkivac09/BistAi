@@ -14,10 +14,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
-import { getSector, getSectorId } from '@/lib/sectors';
+import { getSector, getSectorId, SECTOR_REPRESENTATIVES, type SectorId } from '@/lib/sectors';
+import { analyzeSector, type SectorMomentum } from '@/lib/sector-engine';
 import { calcTavanScore, type TavanResult } from '@/lib/tavan-score';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
-import { fetchKapDuyurular } from '@/lib/kap';
 import {
   computeDecision,
   dbRowsToStockSignals,
@@ -32,7 +32,9 @@ import {
   type InvestableRating,
 } from '@/lib/investment-score';
 import { fetchTurkeyInflation } from '@/lib/turkey-macro';
-import type { SymbolCatalyst } from '@/lib/news-impact';
+import { SIGNAL_CANONICAL_FIELD } from '@/lib/signal-horizons';
+import type { SymbolCatalyst, SymbolEventRisk } from '@/lib/news-impact';
+import type { OHLCVCandle } from '@/types';
 
 const MIN_CONFLUENCE    = 45;
 const LOOKBACK_DAYS     = 5;
@@ -40,30 +42,10 @@ const STATS_LOOKBACK_D  = 180;    // geçmiş win rate için örneklem penceresi
 const MIN_ADV_TL        = 10_000_000; // 10M TL altı likiditesi elenir (P0-3)
 const MIN_RR            = 1.5;        // 1.5 altı R/R sinyaller elenir (P2-1)
 
-// Canonical horizon map (signal-stats-summary ile senkronize)
-const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'> = {
-  'Altın Çapraz':           'return_30d',
-  'Ölüm Çaprazı':            'return_30d',
-  'Altın Çapraz Yaklaşıyor': 'return_30d', // pre-signal
-  'Trend Başlangıcı':        'return_14d',
-  'Destek/Direnç Kırılımı':  'return_14d',
-  'Higher Lows':             'return_14d',
-  'Trend Olgunlaşıyor':      'return_14d', // pre-signal
-  'Direnç Testi':            'return_14d', // pre-signal
-  'Çift Dip':                'return_14d', // formasyon
-  'Çift Tepe':               'return_14d', // formasyon
-  'Bull Flag':               'return_14d', // formasyon (devam)
-  'Bear Flag':               'return_14d', // formasyon (devam — bearish)
-  'Cup & Handle':            'return_30d', // uzun vadeli formasyon
-  'Ters Omuz-Baş-Omuz':      'return_30d', // güçlü reversal — uzun vadeli
-  'Yükselen Üçgen':          'return_14d', // sıkışma kırılımı
-  'MACD Kesişimi':           'return_7d',
-  'MACD Daralıyor':          'return_7d',  // pre-signal
-  'RSI Uyumsuzluğu':         'return_7d',
-  'Bollinger Sıkışması':     'return_7d',
-  'RSI Seviyesi':            'return_3d',
-  'Hacim Anomalisi':         'return_3d',
-};
+// BIST market filtresi — scan-us cron'u aynı tabloya market='US' yazıyor;
+// filtre olmadan US hisseleri BIST sayfasına sızıyordu (2026-06-11 fix).
+// Eski (migration öncesi) satırlar market=null olabilir → tolere edilir.
+const BIST_MARKET_OR = 'market.eq.BIST,market.is.null';
 
 const COMMISSION = 0.004;
 
@@ -108,12 +90,14 @@ export interface FirsatItem {
   kapUyarisi:          { var: boolean; mesaj: string; url?: string } | null;
   /** Skor ayarlamaları (şeffaflık için) */
   adjustments: {
-    timeDecay:  number;  // çarpan (0-1)
-    winRate:    number;  // ± puan
-    regimeFit:  number;  // ± puan
-    macroAlign: number;  // ± puan
-    mtfAlign:   number;  // ± puan (haftalık uyum)
-    kapEvent:   number;  // ± puan (KAP event riski)
+    timeDecay:     number;  // çarpan (0-1)
+    winRate:       number;  // ± puan
+    regimeFit:     number;  // ± puan
+    macroAlign:    number;  // ± puan
+    mtfAlign:      number;  // ± puan (haftalık uyum)
+    sectorAlign:   number;  // ± puan (sektör momentum uyumu, P1-1)
+    volumeConfirm: number;  // ± puan (rel_vol5 hacim teyidi, P1-2)
+    kapEvent:      number;  // ± puan (KAP-tipi event riski, haber tabanlı)
   };
   // ── Tavan / Taban ────────────────────────────────────────────────────
   /** 0-100 tavan ihtimal skoru */
@@ -209,23 +193,10 @@ function computeWinRates(
 
 // NOT: timeDecay / winRate / regime / macro / mtf ayarlamaları artık
 // `lib/decision-engine.ts` içinde merkezi olarak yapılıyor — duplikasyon kaldırıldı.
-
-// KAP event — son 7 gün kritik duyuru (finansal rapor, genel kurul, temettü vb.)
-// Bu tür event'ler sinyali yanıltabilir → skor penaltısı
-const KRITIK_KAP_KATEGORI = ['FR', 'FN', 'GK', 'ÖDA'];
-function isKritikKapDuyurusu(baslik: string, kategori: string): boolean {
-  const kat = kategori.toUpperCase();
-  const bas = baslik.toUpperCase();
-  if (KRITIK_KAP_KATEGORI.some((k) => kat.includes(k))) return true;
-  return (
-    bas.includes('FİNANSAL') ||
-    bas.includes('MALİ TABLO') ||
-    bas.includes('TEMETTÜ') ||
-    bas.includes('GENEL KURUL') ||
-    bas.includes('KÂR PAYI') ||
-    bas.includes('SERMAYE ARTIRIM')
-  );
-}
+//
+// KAP event riski artık kap.org.tr'den DEĞİL (site sunucu erişimini blokluyor,
+// faktör prod'da hiç tetiklenmiyordu), news-catalyst cron'unun haber tabanlı
+// eventRisks haritasından okunur (lib/news-impact deriveEventRisk).
 
 export async function GET(req: NextRequest) {
   try {
@@ -263,24 +234,26 @@ export async function GET(req: NextRequest) {
     const statsCutoff = new Date();
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);
 
-    // Paralel çek: geçmiş win rate verisi + makro + KAP duyuruları + TÜFE + scan_cache + katalist
-    const [statsRes, macroRes, kapRes, tufeRes, scanCacheRes, catalystRes] = await Promise.allSettled([
+    // Paralel çek: geçmiş win rate verisi + makro + TÜFE + scan_cache + katalist
+    const [statsRes, macroRes, tufeRes, scanCacheRes, catalystRes] = await Promise.allSettled([
+      // Win rate istatistiği — yalnızca BIST (BUG-B: market filtresi yokken
+      // scan-us kayıtları BIST win-rate'lerini kirletiyordu)
       supabase
         .from('signal_performance')
         .select('signal_type, direction, return_3d, return_7d, return_14d, return_30d')
         .eq('evaluated', true)
+        .or(BIST_MARKET_OR)
         .gte('entry_time', statsCutoff.toISOString()),
 
       getMacroFull(),
-      fetchKapDuyurular(200), // son 200 KAP duyurusu (cache'li, 15dk TTL)
       fetchTurkeyInflation(), // TÜFE YoY — Investment Score enflasyon düzeltmesi
-      // scan_cache: change_percent, rel_vol5, rsi — tavan skoru için (BIST only)
+      // scan_cache: change_percent, rel_vol5, rsi — tavan skoru + hacim teyidi (BIST only)
       supabase
         .from('scan_cache')
         .select('sembol, change_percent, rel_vol5, rsi')
         .eq('market', 'BIST')
         .gte('scanned_at', new Date(Date.now() - 2 * 86_400_000).toISOString()),
-      // Haber katalisti — cron precompute, tek satır (ai_cache, migration yok)
+      // Haber katalisti + KAP-tipi event riski — cron precompute, tek satır (ai_cache)
       supabase
         .from('ai_cache')
         .select('explanation')
@@ -289,15 +262,20 @@ export async function GET(req: NextRequest) {
         .single(),
     ]);
 
-    // Katalist haritası: sembol → SymbolCatalyst (cron'dan)
+    // Katalist + event risk haritaları: sembol → SymbolCatalyst / SymbolEventRisk
     const catalystMap = new Map<string, SymbolCatalyst>();
+    const eventRiskMap = new Map<string, SymbolEventRisk>();
     if (catalystRes.status === 'fulfilled' && catalystRes.value.data?.explanation) {
       try {
         const parsed = JSON.parse(catalystRes.value.data.explanation) as {
           items?: Record<string, SymbolCatalyst>;
+          eventRisks?: Record<string, SymbolEventRisk>;
         };
         for (const [sym, cat] of Object.entries(parsed.items ?? {})) {
           catalystMap.set(sym, cat);
+        }
+        for (const [sym, risk] of Object.entries(parsed.eventRisks ?? {})) {
+          eventRiskMap.set(sym, risk);
         }
       } catch { /* bozuk cache → katalist yok, normal devam */ }
     }
@@ -328,15 +306,20 @@ export async function GET(req: NextRequest) {
     const BASE_SELECT = 'sembol, signal_type, direction, entry_price, entry_time, confluence_score, regime, last_refreshed_at';
     const FULL_SELECT = `${BASE_SELECT}, avg_daily_volume_tl, weekly_aligned, stop_loss, target_price, risk_reward_ratio`;
 
+    // ÖNEMLİ: market filtresi olmadan scan-us'un US sinyalleri BIST sayfasına
+    // sızıyordu; üstelik Supabase'in 1000 satır tavanında US satırları BIST
+    // satırlarını listeden itiyordu (canlıda doğrulandı, 2026-06-11).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let sinyalData: { data: any[] | null; error: { message: string; code?: string } | null } =
       await supabase
         .from('signal_performance')
         .select(FULL_SELECT)
         .eq('evaluated', false)
+        .or(BIST_MARKET_OR)
         .gte('entry_time', cutoff.toISOString())
         .gte('confluence_score', MIN_CONFLUENCE)
-        .order('confluence_score', { ascending: false });
+        .order('confluence_score', { ascending: false })
+        .limit(1000);
 
     // Kolon bulunamadı hatası (migration henüz uygulanmamış) → temel sorguyla tekrar dene
     if (sinyalData.error && (sinyalData.error.code === '42703' || sinyalData.error.message?.includes('does not exist'))) {
@@ -344,9 +327,11 @@ export async function GET(req: NextRequest) {
         .from('signal_performance')
         .select(BASE_SELECT)
         .eq('evaluated', false)
+        .or(BIST_MARKET_OR)
         .gte('entry_time', cutoff.toISOString())
         .gte('confluence_score', MIN_CONFLUENCE)
-        .order('confluence_score', { ascending: false });
+        .order('confluence_score', { ascending: false })
+        .limit(1000);
     }
 
     if (sinyalData.error) {
@@ -391,23 +376,6 @@ export async function GET(req: NextRequest) {
     }
     const regime: string | null = rows[0]?.regime ?? null;
 
-    // KAP haritası: sembol → son 7 gün kritik duyuru (varsa en sonuncusu)
-    const kapMap = new Map<string, { baslik: string; url: string; tarih: string; kategori: string }>();
-    if (kapRes.status === 'fulfilled') {
-      const sinirTarih = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      for (const d of kapRes.value) {
-        const sym = d.sembol?.toUpperCase();
-        if (!sym) continue;
-        const ts = new Date(d.tarih).getTime();
-        if (!Number.isFinite(ts) || ts < sinirTarih) continue;
-        if (!isKritikKapDuyurusu(d.baslik, d.kategori)) continue;
-        // İlk gelen = en yeni (fetchKapDuyurular tarih azalan sırada döner)
-        if (!kapMap.has(sym)) {
-          kapMap.set(sym, { baslik: d.baslik, url: d.url, tarih: d.tarih, kategori: d.kategoriAdi });
-        }
-      }
-    }
-
     // Sembol bazında grupla
     const gruplar = new Map<string, typeof rows>();
     for (const row of rows) {
@@ -443,6 +411,7 @@ export async function GET(req: NextRequest) {
       const { data: oldSigs } = await supabase
         .from('signal_performance')
         .select('sembol, signal_type, entry_time')
+        .or(BIST_MARKET_OR)
         .gte('entry_time', since10d)
         .lte('entry_time', before3d)
         .is('user_id', null)
@@ -481,6 +450,48 @@ export async function GET(req: NextRequest) {
       }),
     );
 
+    // ── Sektör momentum (P1-1) — scan_cache'teki hazır mumlardan ────────
+    // Temsilci hisselerin candles_json'u (son 60 mum) ile analyzeSector çalışır;
+    // istek anında Yahoo'ya GİDİLMEZ. 60 mum perf20d için yeterli (perf60d null
+    // kalabilir → momentum hafif sönümlü ama yönü doğru).
+    const sectorMomentumMap = new Map<string, SectorMomentum>();
+    try {
+      const neededSectors = new Set<string>();
+      for (const sembol of gruplar.keys()) neededSectors.add(getSectorId(sembol));
+
+      const repSymbols = new Set<string>();
+      for (const secId of neededSectors) {
+        for (const s of SECTOR_REPRESENTATIVES[secId as SectorId] ?? []) repSymbols.add(s);
+      }
+
+      if (repSymbols.size > 0) {
+        const { data: repRows } = await supabase
+          .from('scan_cache')
+          .select('sembol, candles_json')
+          .eq('market', 'BIST')
+          .in('sembol', Array.from(repSymbols));
+
+        const candleMap = new Map<string, OHLCVCandle[]>();
+        for (const row of (repRows ?? []) as { sembol: string; candles_json: unknown }[]) {
+          if (Array.isArray(row.candles_json) && row.candles_json.length >= 5) {
+            candleMap.set(row.sembol, row.candles_json as OHLCVCandle[]);
+          }
+        }
+
+        const macroForSector = macroRes.status === 'fulfilled' ? macroRes.value.macroScore : null;
+        for (const secId of neededSectors) {
+          const reps = SECTOR_REPRESENTATIVES[secId as SectorId] ?? [];
+          const sectorData: Record<string, OHLCVCandle[]> = {};
+          for (const s of reps) {
+            const c = candleMap.get(s);
+            if (c) sectorData[s] = c;
+          }
+          if (Object.keys(sectorData).length === 0) continue;
+          sectorMomentumMap.set(secId, analyzeSector(secId as SectorId, sectorData, macroForSector));
+        }
+      }
+    } catch { /* sektör verisi yoksa faktör 0 kalır — karar yine üretilir */ }
+
     const now = Date.now();
     const firsatlar: FirsatItem[] = [];
 
@@ -508,8 +519,8 @@ export async function GET(req: NextRequest) {
       const histWr  = wrEntry?.winRate ?? null;
       const histN   = wrEntry?.n ?? 0;
 
-      // KAP event riski: son 7 gün kritik duyuru
-      const kapEvent = kapMap.get(sembol) ?? null;
+      // KAP-tipi event riski: son 7 gün kurumsal event (haber tabanlı, cron precompute)
+      const kapEvent = eventRiskMap.get(sembol) ?? null;
 
       // ── Birleşik Karar Motoru ────────────────────────────────────────
       // DB satırlarını StockSignal[] şekline çevir ve computeDecision çağır.
@@ -529,13 +540,18 @@ export async function GET(req: NextRequest) {
 
       const catalyst = catalystMap.get(sembol) ?? null;
 
+      // BUG-C fix: riskScore + sectorMomentum + relVol5 artık burada da veriliyor —
+      // /api/hisse-analiz ile aynı girdi seti → aynı hisse iki sayfada aynı skor.
       const decision = computeDecision({
         signals: stockSignals,
         macroScore: macroRes.status === 'fulfilled' ? macroRes.value.macroScore : null,
+        sectorMomentum: sectorMomentumMap.get(sektorId) ?? null,
+        riskScore: macroRes.status === 'fulfilled' ? macroRes.value.riskScore : null,
         historicalWinRate: wrEntry ? { winRate: wrEntry.winRate, n: wrEntry.n } : null,
         kapRisk: kapEvent ? { var: true, mesaj: kapEvent.baslik } : null,
         catalyst,
         regime: best.regime,
+        relVol5: scanCacheMap.get(sembol)?.rel_vol5 ?? null,
         scannedAt: best.entry_time,
         dataSource: 'db_snapshot',
       });
@@ -566,15 +582,17 @@ export async function GET(req: NextRequest) {
         targetPrice:        best.target_price,
         riskRewardRatio:    best.risk_reward_ratio,
         kapUyarisi: kapEvent
-          ? { var: true, mesaj: `${kapEvent.kategori}: ${kapEvent.baslik.slice(0, 80)}`, url: kapEvent.url }
+          ? { var: true, mesaj: `${kapEvent.kategori}: ${kapEvent.baslik.slice(0, 80)}`, url: kapEvent.link }
           : null,
         adjustments: {
-          timeDecay:  decision.factors.timeDecay,
-          winRate:    decision.factors.winRateAdj,
-          regimeFit:  decision.factors.regimeFit,
-          macroAlign: decision.factors.macroAlign,
-          mtfAlign:   decision.factors.mtfAlign,
-          kapEvent:   decision.factors.kapEvent,
+          timeDecay:     decision.factors.timeDecay,
+          winRate:       decision.factors.winRateAdj,
+          regimeFit:     decision.factors.regimeFit,
+          macroAlign:    decision.factors.macroAlign,
+          mtfAlign:      decision.factors.mtfAlign,
+          sectorAlign:   decision.factors.sectorAlign,
+          volumeConfirm: decision.factors.volumeConfirm,
+          kapEvent:      decision.factors.kapEvent,
         },
         decision,
         investmentScore: investmentScoreMap.get(sembol) ?? null,

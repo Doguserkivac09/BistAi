@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { fetchSymbolNews } from '@/lib/symbol-news';
-import { rankNewsImpact, deriveCatalyst, type SymbolCatalyst } from '@/lib/news-impact';
+import { rankNewsImpact, deriveCatalyst, deriveEventRisk, type SymbolCatalyst, type SymbolEventRisk } from '@/lib/news-impact';
 import { bistGuard } from '@/lib/bist-guard';
 
 export const maxDuration = 120;
@@ -85,8 +85,10 @@ export async function GET(request: NextRequest) {
   // 2) Endeks mumlarını bir kez çek
   const { candles: indexCandles } = await fetchOHLCV('XU100.IS', 90);
 
-  // 3) Her sembol için katalist çıkar (batch + delay)
+  // 3) Her sembol için katalist + KAP-tipi event riski çıkar (batch + delay)
+  // eventRisks: kap.org.tr bloklu olduğundan kapEvent faktörünün haber tabanlı ikamesi
   const items: Record<string, SymbolCatalyst> = {};
+  const eventRisks: Record<string, SymbolEventRisk> = {};
   let withCatalyst = 0;
   const failed: string[] = [];
 
@@ -103,6 +105,8 @@ export async function GET(request: NextRequest) {
           const result = rankNewsImpact(news, stock.candles, indexCandles ?? []);
           const cat = deriveCatalyst(sembol, result);
           if (cat) { items[sembol] = cat; withCatalyst++; }
+          const risk = deriveEventRisk(result);
+          if (risk) eventRisks[sembol] = risk;
         } catch {
           failed.push(sembol);
         }
@@ -113,8 +117,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 4) ai_cache'e tek satır yaz
-  const payload = JSON.stringify({ generatedAt: new Date().toISOString(), items });
+  // 4) ai_cache'e tek satır yaz (eventRisks: eski payload'larda yok → okuyan taraf tolere eder)
+  const payload = JSON.stringify({ generatedAt: new Date().toISOString(), items, eventRisks });
   const { error: writeErr } = await supabase.from('ai_cache').upsert({
     cache_key: CACHE_KEY,
     explanation: payload,
@@ -131,6 +135,7 @@ export async function GET(request: NextRequest) {
     ok: true,
     scanned: symbols.length,
     withCatalyst,
+    withEventRisk: Object.keys(eventRisks).length,
     failed: failed.length,
     durationMs: Date.now() - startedAt,
   });

@@ -10,32 +10,15 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
+import { SIGNAL_CANONICAL_FIELD } from '@/lib/signal-horizons';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 
 const MIN_CONFLUENCE = 50;
 const LOOKBACK_HOURS = 48;
 const COMMISSION = 0.004;
 
-/** Her sinyal tipinin win rate hesabında kullanılan canonical return alanı */
-const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'> = {
-  'Altın Çapraz':            'return_30d',
-  'Ölüm Çaprazı':            'return_30d',
-  'Cup & Handle':            'return_30d',
-  'Ters Omuz-Baş-Omuz':      'return_30d',
-  'Trend Başlangıcı':        'return_14d',
-  'Destek/Direnç Kırılımı':  'return_14d',
-  'Higher Lows':             'return_14d',
-  'Çift Dip':                'return_14d',
-  'Çift Tepe':               'return_14d',
-  'Bull Flag':               'return_14d',
-  'Bear Flag':               'return_14d',
-  'Yükselen Üçgen':          'return_14d',
-  'MACD Kesişimi':           'return_7d',
-  'RSI Uyumsuzluğu':         'return_7d',
-  'Bollinger Sıkışması':     'return_7d',
-  'RSI Seviyesi':            'return_3d',
-  'Hacim Anomalisi':         'return_3d',
-};
+// Canonical horizon haritası artık lib/signal-horizons'tan (BUG-A: tek kaynak;
+// eski yerel kopya pre-signal tiplerini içermiyordu).
 
 type PerfStatRow = {
   signal_type: string | null;
@@ -234,6 +217,8 @@ function buildFirsatItem(
       regimeFit:  0,
       macroAlign,
       mtfAlign:   weeklyAligned === true ? 5 : weeklyAligned === false ? -3 : 0,
+      sectorAlign:   0, // US tarafında sektör momentum hesabı yok (BIST-only faktör)
+      volumeConfirm: 0,
       kapEvent:   0,
     },
     tavanScore:      null,

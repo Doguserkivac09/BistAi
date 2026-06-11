@@ -16,6 +16,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { fetchOHLCV } from '@/lib/yahoo';
 import { fetchOHLCVUS } from '@/lib/yahoo-us';
+import { getMinEvalDays } from '@/lib/signal-horizons';
 import type { OHLCVCandle } from '@/types';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 
@@ -30,25 +31,9 @@ const MIN_AGE_DAYS = 3;
 /** Semboller arası bekleme süresi (Yahoo rate limit) */
 const SYMBOL_DELAY_MS = 300;
 
-/**
- * Her sinyal tipinin canonical horizon'u için gereken minimum gün sayısı.
- * Bu süre geçmeden sinyal evaluated=true yapılmaz — veri eksik kalmasın.
- */
-const SIGNAL_MIN_DAYS: Record<string, number> = {
-  'Altın Çapraz':            30,
-  'Ölüm Çaprazı':            30,
-  'Trend Başlangıcı':        14,
-  'Destek/Direnç Kırılımı':  14,
-  'MACD Kesişimi':            7,
-  'RSI Uyumsuzluğu':          7,
-  'Bollinger Sıkışması':      7,
-  'RSI Seviyesi':              3,
-  'Hacim Anomalisi':           3,
-};
-
-function getMinDays(signalType: string): number {
-  return SIGNAL_MIN_DAYS[signalType] ?? 7;
-}
+// Min değerlendirme yaşı artık lib/signal-horizons'tan türetilir (BUG-A fix):
+// eski yerel SIGNAL_MIN_DAYS tablosu formasyon/pre-signal tiplerini içermiyordu,
+// 14g/30g ufuklu sinyaller 7. günde kapanıp kanonik returnları kalıcı null kalıyordu.
 
 // ── Admin Client ──────────────────────────────────────────────────────
 
@@ -150,7 +135,7 @@ function computeMfeMae(
 /**
  * Değerlendirilmemiş sinyal kayıtlarını işle.
  */
-export async function runEvaluateEngine(): Promise<{ updated: number; error?: string }> {
+export async function runEvaluateEngine(): Promise<{ updated: number; remaining?: number; error?: string }> {
   try {
     const supabase = createAdminClient();
     const now = new Date();
@@ -219,7 +204,7 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
           const direction = rec.direction ?? 'yukari';
 
           // Sinyal tipinin canonical horizon'u için yeterli gün geçti mi?
-          const minDays = getMinDays(rec.signal_type ?? '');
+          const minDays = getMinEvalDays(rec.signal_type ?? '');
           if (daysBetween(rec.entry_time, now) < minDays) continue;
 
           // 3, 7, 14, 30 takvim günü sonraki kapanışlar
@@ -255,8 +240,20 @@ export async function runEvaluateEngine(): Promise<{ updated: number; error?: st
       }
     }
 
-    console.log(`[evaluate-engine] Tamamlandı: ${updatedCount} kayıt güncellendi.`);
-    return { updated: updatedCount };
+    // Backlog görünürlüğü: yaşı dolmuş ama hâlâ evaluated=false kalan kayıt sayısı
+    // (MAX_BATCH yetersizse burada birikme görünür — cron sıklığı/batch artırılmalı)
+    let remaining: number | undefined;
+    {
+      const { count } = await supabase
+        .from('signal_performance')
+        .select('id', { count: 'exact', head: true })
+        .eq('evaluated', false)
+        .lte('entry_time', cutoff.toISOString());
+      remaining = count ?? undefined;
+    }
+
+    console.log(`[evaluate-engine] Tamamlandı: ${updatedCount} kayıt güncellendi, backlog: ${remaining ?? '?'}.`);
+    return { updated: updatedCount, remaining };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Bilinmeyen hata';
     console.error('[evaluate-engine] Kritik hata:', message);

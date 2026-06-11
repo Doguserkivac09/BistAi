@@ -55,6 +55,37 @@ görünmeye başlayınca `NavbarClient.tsx`'teki yorum satırını kaldır ve sa
 
 ---
 
+## 🛠️ FAZ 0 — Hesaplama Hataları Sprint'i (2026-06-12) ✅ TAMAMLANDI
+
+> Denetim + tam plan: `GUCLENDIRME-PROMPTU.md`. Bu sprint FAZ 0 + 2 canlı şikâyeti kapattı.
+> **Migration YOK** — tüm değişiklikler kod seviyesinde.
+
+| Fix | Kök Neden | Dosyalar |
+|-----|-----------|----------|
+| **US sızıntısı** — BIST fırsatlarında ABD hisseleri (canlıda RSG/MDLZ/CVS doğrulandı) | `/api/firsatlar` ana sinyal + persistence sorgusunda market filtresi yoktu; Supabase 1000-satır tavanında US satırları BIST'i itiyordu | `api/firsatlar/route.ts` (`market.eq.BIST,market.is.null` + `.limit(1000)`) |
+| **scan-cache 17:50 güvencesi** — koşu ?part=1\|2 ile İKİ PARALEL YARI (her biri ~310 sembol, BATCH_SIZE 12, ~150s, 300s limite geniş marj). part'sız = tüm evren (manuel) | Tek koşu ~215s + Vercel cron gecikmesi → sinyal yazımı (koşunun SONUNDA) timeout'ta tamamen kayboluyordu | `cron/scan-cache/route.ts`, `vercel.json` (3 koşu × 2 part = 6 entry, hepsi aynı dakika: 07:30/12:00/17:50 TRT) |
+| **BUG-A** — SIGNAL_MIN_DAYS senkron kopukluğu: 12 formasyon/pre-signal tipi 7. günde kapanıp 14g/30g kanonik returnları kalıcı null kalıyordu → win-rate döngüsünden dışlanma | evaluate-engine yerel tablosu eskimişti; canonical harita 4 dosyada kopyaydı | **`lib/signal-horizons.ts` (YENİ, tek kaynak)**; evaluate-engine, firsatlar, firsatlar-us, signal-stats-summary, hisse-analiz oradan import |
+| **BUG-A kronik kök** — `cron/evaluate` maxDuration YOKTU (Vercel 15s default) → günde ~30-50 kayıt, dev backlog | 15s'de kesilen koşu | `cron/evaluate/route.ts` (**maxDuration=300** + response'a `remaining` backlog sayacı) |
+| **BUG-A onarım** — kanonik ufku null kalmış evaluated=true kayıtları yeniden açan endpoint; **38 kayıt onarıldı (apply edildi, 2026-06-12)** | — | `api/dev/repair-evaluations/route.ts` (YENİ; `?apply=true`, CRON_SECRET, idempotent) |
+| **BUG-B** — BIST win-rate istatistiği US kayıtlarıyla kirleniyordu | stats sorgularında market filtresi yoktu | `api/firsatlar`, `api/signal-stats-summary` (+`?market=US` param), `api/hisse-analiz` `fetchHistoricalWinRate(market)` |
+| **BUG-C** — aynı hisse iki sayfada farklı skor: firsatlar'da riskScore/sektör yok, hisse-analiz'de katalist/KAP yok | "tek karar motoru" farklı girdilerle çağrılıyordu | firsatlar: +riskScore (getMacroFull'dan hazır) +sectorMomentum +relVol5; hisse-analiz: +catalyst +kapRisk (ai_cache `news-catalyst:BIST` tek satır) +relVol5 (canlı hesap) |
+| **BUG-D** — KAP faktörü prod'da ölü (kap.org.tr bloklu, kapEvent hiç tetiklenmiyordu) | fetchKapDuyurular bloklu kaynağa gidiyordu | `lib/news-impact.ts` **`deriveEventRisk`** (Sermaye/Hukuk-Risk her zaman; Finansal Sonuç/Yönetim yalnızca nötr başlıkta → katalist faktörüyle çifte sayım yok); news-catalyst cron payload'a `eventRisks` eklendi; firsatlar `fetchKapDuyurular`'ı bıraktı |
+| **BUG-E** — atıl altyapı bağlandı: `sectorAlign` (±25 eşik, hizalı +5 / ters −6) + `volumeConfirm` (rel_vol5 ≥1.5 → +4, <0.7 → −4) | `void _sectorMomentum` rezervi + rel_vol5 sadece tavan skorundaydı | `lib/decision-engine.ts` (v1.1.0); firsatlar sektör momentumunu **scan_cache.candles_json'dan** hesaplar (temsilci hisseler, Yahoo fan-out YOK) |
+| **Bonus** — signal-stats-summary'de yeni tipler yanlış "7g" etiketi alıyordu | SIGNAL_HORIZON_LABEL eski 9 tiple sınırlıydı | etiket kanonik ufuktan türetilir |
+
+**Doğrulama:** 52/52 birim test (13 yeni: `lib/__tests__/decision-engine.test.ts`), tsc temiz,
+build başarılı. Dev sunucu + prod DB e2e: US sızıntısı TEMİZ, volumeConfirm 71 sembolde,
+sectorAlign enerji sektöründe doğru yönde (düşen sektörde long −6 / short +5) tetiklendi.
+
+**Deploy sonrası yapılacaklar:**
+1. Push + deploy sonrası news-catalyst cron'unu manuel tetikle (eventRisks dolsun):
+   `curl -H "Authorization: Bearer $CRON_SECRET" https://bistai.vercel.app/api/cron/news-catalyst`
+2. `cron/evaluate` response'unda `remaining` izle — backlog birkaç günde erimeli; erimezse
+   ikinci günlük koşu ekle.
+3. 17:50 koşusunu ertesi gün doğrula: `/api/firsatlar` `lastRefreshedAt` ≈ 17:50-17:53 TRT olmalı.
+
+---
+
 ## 🚀 Büyüyen Şirketler — temel büyüme momentumu tarayıcısı (2026-06-10) ✅ TAMAMLANDI
 
 İşi büyüyen (gelir↑), kârlılığı artan (net marj + net kâr↑) ve EPS'i yükselen şirketleri
@@ -535,19 +566,26 @@ BT1 Rejim verisi fix, BT2 Giriş fiyatı bias fix, BT3 Komisyon modeli, BT4 Her-
 
 ## Cron Job Tablosu (vercel.json)
 
+> NOT: Tam liste `vercel.json` — burası özet. scan-cache 2026-06-12'den beri
+> **?part=1|2 İKİ PARALEL YARI** olarak tetiklenir (timeout güvencesi).
+
 | Schedule (UTC) | TRT | Endpoint | Açıklama |
 |----------------|-----|----------|----------|
 | `0 6 * * 1-5` | 09:00 Pzt-Cum | `/api/cron/macro` | Makro snapshot |
 | `30 5 * * 1` | 08:30 Pzt | `/api/cron/weekly-picks` | Haftanın seçimleri al |
-| `50 14 * * 1-5` | 17:50 Pzt-Cum | `/api/cron/scan` | Sinyal taraması |
+| `30 4 * * 1-5` | 07:30 Pzt-Cum | `/api/cron/scan-cache?part=1` + `?part=2` | Sabah taraması (iki yarı, paralel) |
+| `0 9 * * 1-5` | 12:00 Pzt-Cum | `/api/cron/scan-cache?part=1` + `?part=2` | Gün-içi tarama (iki yarı, paralel) |
+| `50 14 * * 1-5` | **17:50** Pzt-Cum | `/api/cron/scan-cache?part=1` + `?part=2` | **Günün SON BIST taraması** (kapanış öncesi, iki yarı) |
+| `0 7 * * 1-5` | 10:00 Pzt-Cum | `/api/cron/scan` | Sinyal taraması |
+| `0 17 * * 1-5` | 20:00 Pzt-Cum | `/api/cron/evaluate` | Sinyal değerlendirme (maxDuration=300, `remaining` backlog sayacı) |
 | `50 14 * * 5` | 17:50 Cum | `/api/cron/ai-portfolio` | AI portföy kararları |
 | `30 18 * * 5` | 21:30 Cum | `/api/cron/weekly-picks-close` | Kapanış fiyatları güncelle |
 | `30 7 * * 1-5` | 10:30 Pzt-Cum | `/api/cron/alerts` | Email uyarıları |
-| `30 7 * * 1-5` | 10:30 Pzt-Cum | `/api/cron/price-alerts` | Fiyat alarmları |
-| `0 6 * * 1` | 09:00 Pzt | `/api/cron/bulten` | Haftalık AI bülten |
+| `0 10 * * 1-5` | 13:00 Pzt-Cum | `/api/cron/price-alerts` | Fiyat alarmları |
+| `30 6 * * 1` | 09:30 Pzt | `/api/cron/bulten` | Haftalık AI bülten |
 | `0 8 * * *` | 11:00 hergün | `/api/cron/future-scores` | Future Score (US, 13 tema) |
 | `0 8 * * 1` | 11:00 Pzt | `/api/cron/future-scores-bist` | Future Score (BIST, 5 tema) |
-| `0 5 * * 1-5` | 08:00 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti precompute (fırsatlar) |
+| `0 5 * * 1-5` | 08:00 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti + eventRisks precompute |
 | `30 9 * * 1-5` | 12:30 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti precompute (gün-içi) |
 
 ---

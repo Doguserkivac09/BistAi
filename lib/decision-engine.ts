@@ -51,6 +51,8 @@ export interface DecisionInput {
   catalyst?: SymbolCatalyst | null;
   /** Piyasa rejimi — getMarketRegime() çıktısı: bull_trend | bear_trend | sideways */
   regime?: string | null;
+  /** Göreli hacim (son hacim / 5g ort) — scan_cache.rel_vol5; hacim teyidi için */
+  relVol5?: number | null;
   /** Verinin toplandığı zaman (ISO) — time decay için */
   scannedAt: string;
   /** Veri kaynağı: DB snapshot (cron) vs canlı Yahoo */
@@ -70,6 +72,10 @@ export interface DecisionFactors {
   macroAlign: number;
   /** Multi-timeframe (haftalık) uyumu (±puan) */
   mtfAlign: number;
+  /** Sektör momentum uyumu (±puan) — sinyal yönü sektör rüzgârıyla hizalı mı */
+  sectorAlign: number;
+  /** Hacim teyidi (±puan) — rel_vol5 yüksek = hareket hacimle destekli */
+  volumeConfirm: number;
   /** KAP event riski (±puan, negatif) */
   kapEvent: number;
   /** Haber katalisti uyumu (±puan) — taze hizalı haber + / ters haber − */
@@ -142,6 +148,36 @@ function mtfAdjustment(dominantSignals: StockSignal[]): number {
   if (aligned === 0 && misaligned === 0) return 0;
   if (aligned > misaligned) return 6;
   if (misaligned > aligned) return -8;
+  return 0;
+}
+
+/**
+ * Sektör momentum ayarlaması (P1-1) — sektör kompozit skoru (-100..+100) sinyal
+ * yönüyle hizalıysa mütevazı bonus, tersse biraz daha ağır ceza.
+ * macroAlign ölçeğiyle uyumlu tutuldu (±5/−7 yerine ±5/−6).
+ */
+function sectorAdjustment(direction: DecisionDirection, sectorMomentum: SectorMomentum | null | undefined): number {
+  if (!sectorMomentum || direction === 'notr') return 0;
+  const s = sectorMomentum.compositeScore;
+  if (!Number.isFinite(s)) return 0;
+  // Eşik ±25: tanh ölçeğinde ~%10+ 20g sektör hareketi (canlı dağılım -28..+18
+  // gözlendi; ±30 pratikte hiç tetiklenmiyordu, macroAlign ±20 ile tutarlı)
+  if (direction === 'yukari' && s >=  25) return 5;
+  if (direction === 'asagi'  && s <= -25) return 5;
+  if (direction === 'yukari' && s <= -25) return -6;
+  if (direction === 'asagi'  && s >=  25) return -6;
+  return 0;
+}
+
+/**
+ * Hacim teyidi (P1-2) — rel_vol5 (son hacim / 5g ort):
+ *  ≥1.5 → hareket hacimle destekli (+4); <0.7 → ilgisiz/cansız tahta (−4).
+ * Yön-bağımsız: hacim her iki yönde de hareketin gerçekliğini teyit eder.
+ */
+function volumeAdjustment(direction: DecisionDirection, relVol5: number | null | undefined): number {
+  if (relVol5 == null || !Number.isFinite(relVol5) || direction === 'notr') return 0;
+  if (relVol5 >= 1.5) return 4;
+  if (relVol5 < 0.7)  return -4;
   return 0;
 }
 
@@ -233,7 +269,7 @@ function deriveConfidence(
   conf *= factors.timeDecay;
 
   // Çelişkili faktörler güveni düşürür
-  const factorSigns = [factors.regimeFit, factors.macroAlign, factors.mtfAlign].filter((f) => f !== 0);
+  const factorSigns = [factors.regimeFit, factors.macroAlign, factors.mtfAlign, factors.sectorAlign].filter((f) => f !== 0);
   if (factorSigns.length >= 2) {
     const positiveCount = factorSigns.filter((f) => f > 0).length;
     const negativeCount = factorSigns.filter((f) => f < 0).length;
@@ -261,10 +297,9 @@ function deriveConfidence(
  */
 export function computeDecision(input: DecisionInput): DecisionOutput {
   const {
-    signals, macroScore, sectorMomentum: _sectorMomentum, riskScore, historicalWinRate,
-    kapRisk, catalyst, regime, scannedAt, dataSource,
+    signals, macroScore, sectorMomentum, riskScore, historicalWinRate,
+    kapRisk, catalyst, regime, relVol5, scannedAt, dataSource,
   } = input;
-  void _sectorMomentum; // sector henüz skora direk yansımıyor (Phase 2 için rezerv)
 
   const now = Date.now();
   const scannedTs = new Date(scannedAt).getTime();
@@ -276,7 +311,8 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   if (!signals.length) {
     const emptyFactors: DecisionFactors = {
       confluence: 0, timeDecay: 1, winRateAdj: 0, regimeFit: 0,
-      macroAlign: 0, mtfAlign: 0, kapEvent: 0, catalyst: 0, riskMultiplier: 1,
+      macroAlign: 0, mtfAlign: 0, sectorAlign: 0, volumeConfirm: 0,
+      kapEvent: 0, catalyst: 0, riskMultiplier: 1,
     };
     return {
       score: 50,
@@ -307,6 +343,8 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   const regimeFit  = regimeAdjustment(direction, regime ?? null);
   const macroAlign = macroAdjustment(direction, macroScore?.score ?? null);
   const mtfAlign   = mtfAdjustment(dominantSignals);
+  const sectorAlign = sectorAdjustment(direction, sectorMomentum);
+  const volumeConfirm = volumeAdjustment(direction, relVol5);
   const kapEvent   = kapEventAdjustment(kapRisk);
   const catalystAdj = catalystAdjustment(direction, catalyst);
   const riskMult   = riskMultiplier(riskScore);
@@ -314,7 +352,8 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   // 4. Skor hesabı: confluence × timeDecay + ayarlamalar, sonra risk çarpanı
   const rawMagnitude =
     confluence.score * timeDecay +
-    winRateAdj + regimeFit + macroAlign + mtfAlign + kapEvent + catalystAdj;
+    winRateAdj + regimeFit + macroAlign + mtfAlign + sectorAlign + volumeConfirm +
+    kapEvent + catalystAdj;
 
   const riskAdjusted = rawMagnitude * riskMult;
   const score = Math.max(0, Math.min(100, Math.round(riskAdjusted)));
@@ -326,6 +365,8 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
     regimeFit,
     macroAlign,
     mtfAlign,
+    sectorAlign,
+    volumeConfirm,
     kapEvent,
     catalyst: catalystAdj,
     riskMultiplier: Math.round(riskMult * 100) / 100,
@@ -426,5 +467,6 @@ export function dbRowsToStockSignals(rows: DBSignalRow[]): StockSignal[] {
 
 // ── Dışa aktarılan sabitler ─────────────────────────────────────────
 
-export const DECISION_ENGINE_VERSION = '1.0.0';
+// 1.1.0 (2026-06-11): sectorAlign (P1-1) + volumeConfirm (P1-2) faktörleri eklendi
+export const DECISION_ENGINE_VERSION = '1.1.0';
 export const SIGNIFICANT_SCORE_DELTA = 15;

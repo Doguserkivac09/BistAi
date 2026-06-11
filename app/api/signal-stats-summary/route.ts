@@ -7,46 +7,14 @@
  * Tarama sayfası ve hisse detay sayfası tarafından kullanılır.
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js';
+import { getCanonicalField, HORIZON_DAYS } from '@/lib/signal-horizons';
 import type { SignalPerformanceRecord } from '@/lib/performance-types';
 
-// ── Canonical horizon map (evaluate-engine ve backtesting.ts ile senkronize) ──
-const SIGNAL_CANONICAL_FIELD: Record<string, keyof Pick<SignalPerformanceRecord, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'>> = {
-  'Altın Çapraz':            'return_30d',
-  'Ölüm Çaprazı':            'return_30d',
-  'Trend Başlangıcı':        'return_14d',
-  'Destek/Direnç Kırılımı':  'return_14d',
-  'Higher Lows':             'return_14d',
-  'Altın Çapraz Yaklaşıyor': 'return_30d',
-  'Trend Olgunlaşıyor':      'return_14d',
-  'Direnç Testi':            'return_14d',
-  'Çift Dip':                'return_14d',
-  'Çift Tepe':               'return_14d',
-  'Bull Flag':               'return_14d',
-  'Bear Flag':               'return_14d',
-  'Cup & Handle':            'return_30d',
-  'Ters Omuz-Baş-Omuz':      'return_30d',
-  'Yükselen Üçgen':          'return_14d',
-  'MACD Daralıyor':           'return_7d',
-  'MACD Kesişimi':            'return_7d',
-  'RSI Uyumsuzluğu':          'return_7d',
-  'Bollinger Sıkışması':      'return_7d',
-  'RSI Seviyesi':              'return_3d',
-  'Hacim Anomalisi':           'return_3d',
-};
-
-const SIGNAL_HORIZON_LABEL: Record<string, string> = {
-  'Altın Çapraz':            '30g',
-  'Ölüm Çaprazı':            '30g',
-  'Trend Başlangıcı':        '14g',
-  'Destek/Direnç Kırılımı':  '14g',
-  'MACD Kesişimi':            '7g',
-  'RSI Uyumsuzluğu':          '7g',
-  'Bollinger Sıkışması':      '7g',
-  'RSI Seviyesi':              '3g',
-  'Hacim Anomalisi':           '3g',
-};
+// Canonical horizon — tek kaynak: lib/signal-horizons (BUG-A fix).
+// Horizon etiketi de oradan türetilir; eski yerel SIGNAL_HORIZON_LABEL yeni
+// sinyal tiplerini içermediği için 14g/30g tipler UI'da yanlış "7g" görünüyordu.
 
 export interface SignalStatsSummaryEntry {
   signal_type:  string;
@@ -71,19 +39,27 @@ function createAdminClient() {
 // 5 dakika cache
 export const revalidate = 300;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient();
+
+    // Market filtresi (varsayılan BIST; null = eski migration-öncesi BIST kayıtları)
+    const market = request.nextUrl.searchParams.get('market') === 'US' ? 'US' : 'BIST';
 
     // Son 180 gün içinde evaluate edilmiş kayıtlar
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 180);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('signal_performance')
       .select('signal_type, direction, return_3d, return_7d, return_14d, return_30d')
       .eq('evaluated', true)
       .gte('entry_time', cutoff.toISOString());
+    query = market === 'US'
+      ? query.eq('market', 'US')
+      : query.or('market.eq.BIST,market.is.null');
+
+    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -102,8 +78,8 @@ export async function GET() {
     const stats: SignalStatsSummaryEntry[] = [];
 
     for (const [signalType, rows] of groups) {
-      const field = SIGNAL_CANONICAL_FIELD[signalType] ?? 'return_7d';
-      const horizon = SIGNAL_HORIZON_LABEL[signalType] ?? '7g';
+      const field = getCanonicalField(signalType) as keyof Pick<SignalPerformanceRecord, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'>;
+      const horizon = `${HORIZON_DAYS[getCanonicalField(signalType)]}g`;
 
       // Canonical field'ı dolu olan kayıtları filtrele
       const valid = rows.filter((r) => {

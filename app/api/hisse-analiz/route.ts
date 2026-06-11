@@ -33,6 +33,8 @@ import {
   toLegacyDecision,
   type DecisionOutput,
 } from '@/lib/decision-engine';
+import { SIGNAL_CANONICAL_FIELD } from '@/lib/signal-horizons';
+import type { SymbolCatalyst, SymbolEventRisk } from '@/lib/news-impact';
 import type { PriceTargets } from '@/lib/price-targets';
 import type { CompositeDecision } from '@/lib/composite-signal';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
@@ -93,36 +95,15 @@ export interface HisseAnalizResponse {
 }
 
 // ── Geçmiş win rate (decision engine girdisi) ──────────────────────
+// Canonical horizon — tek kaynak: lib/signal-horizons (BUG-A: yerel kopya silindi)
 
-const SIGNAL_CANONICAL_FIELD: Record<string, 'return_3d' | 'return_7d' | 'return_14d' | 'return_30d'> = {
-  'Altın Çapraz':           'return_30d',
-  'Ölüm Çaprazı':            'return_30d',
-  'Trend Başlangıcı':        'return_14d',
-  'Destek/Direnç Kırılımı':  'return_14d',
-  'Higher Lows':             'return_14d',
-  'Altın Çapraz Yaklaşıyor': 'return_30d',
-  'Trend Olgunlaşıyor':      'return_14d',
-  'Direnç Testi':            'return_14d',
-  'Çift Dip':                'return_14d',
-  'Çift Tepe':               'return_14d',
-  'Bull Flag':               'return_14d',
-  'Bear Flag':               'return_14d',
-  'Cup & Handle':            'return_30d',
-  'Ters Omuz-Baş-Omuz':      'return_30d',
-  'Yükselen Üçgen':          'return_14d',
-  'MACD Daralıyor':          'return_7d',
-  'MACD Kesişimi':           'return_7d',
-  'RSI Uyumsuzluğu':         'return_7d',
-  'Bollinger Sıkışması':     'return_7d',
-  'RSI Seviyesi':            'return_3d',
-  'Hacim Anomalisi':         'return_3d',
-};
 const COMMISSION = 0.004;
 const WR_STATS_LOOKBACK_D = 180;
 
 async function fetchHistoricalWinRate(
   signalType: string,
   direction: string,
+  market: 'BIST' | 'US',
 ): Promise<{ winRate: number; n: number } | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -135,13 +116,17 @@ async function fetchHistoricalWinRate(
     const supabase = createSupabaseClient(url, key);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - WR_STATS_LOOKBACK_D);
-    const { data, error } = await supabase
+    // Market filtresi (BUG-B): US kayıtları BIST win-rate'ini kirletmesin (ve tersi)
+    let query = supabase
       .from('signal_performance')
       .select(`signal_type, direction, ${field}`)
       .eq('evaluated', true)
       .eq('signal_type', signalType)
-      .gte('entry_time', cutoff.toISOString())
-      .limit(500);
+      .gte('entry_time', cutoff.toISOString());
+    query = market === 'US'
+      ? query.eq('market', 'US')
+      : query.or('market.eq.BIST,market.is.null');
+    const { data, error } = await query.limit(500);
     if (error || !data) return null;
 
     const valid = data.filter((r: Record<string, unknown>) => {
@@ -162,6 +147,39 @@ async function fetchHistoricalWinRate(
     return { winRate: wins / valid.length, n: valid.length };
   } catch {
     return null;
+  }
+}
+
+// ── Haber katalisti + KAP-tipi event riski (BUG-C: firsatlar ile girdi eşitliği) ──
+// news-catalyst cron'unun ai_cache'e yazdığı tek satırdan okunur — fan-out yok.
+// Sembol top-70 fırsat listesinde yoksa null döner (katalist faktörü 0 kalır).
+async function fetchSymbolCatalystContext(
+  sembol: string,
+): Promise<{ catalyst: SymbolCatalyst | null; eventRisk: SymbolEventRisk | null }> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  if (!url || !key) return { catalyst: null, eventRisk: null };
+
+  try {
+    const supabase = createSupabaseClient(url, key);
+    const { data } = await supabase
+      .from('ai_cache')
+      .select('explanation')
+      .eq('cache_key', 'news-catalyst:BIST')
+      .gt('expires_at', new Date().toISOString())
+      .single();
+    if (!data?.explanation) return { catalyst: null, eventRisk: null };
+
+    const parsed = JSON.parse(data.explanation) as {
+      items?: Record<string, SymbolCatalyst>;
+      eventRisks?: Record<string, SymbolEventRisk>;
+    };
+    return {
+      catalyst: parsed.items?.[sembol] ?? null,
+      eventRisk: parsed.eventRisks?.[sembol] ?? null,
+    };
+  } catch {
+    return { catalyst: null, eventRisk: null };
   }
 }
 
@@ -317,8 +335,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       macroScore = await getMacroScore().catch(() => null);
     }
 
-    // 4b. Geçmiş win rate — signal_performance tablosundan (dominant signal tipi için)
-    const historicalWinRate = await fetchHistoricalWinRate(dominantSignal.type, dominantSignal.direction);
+    // 4b. Geçmiş win rate + haber katalisti/event riski (BIST, intraday hariç)
+    // BUG-C fix: catalyst + kapRisk artık burada da veriliyor — /api/firsatlar ile
+    // aynı girdi seti → aynı hisse iki sayfada aynı skor.
+    const [historicalWinRate, catalystCtx] = await Promise.all([
+      fetchHistoricalWinRate(dominantSignal.type, dominantSignal.direction, isUS ? 'US' : 'BIST'),
+      (!isIntraday && !isUS)
+        ? fetchSymbolCatalystContext(symbol)
+        : Promise.resolve({ catalyst: null, eventRisk: null }),
+    ]);
+
+    // Göreli hacim (5g) — scan-cache cron'daki formülün canlı eşdeğeri (girdi eşitliği)
+    let relVol5: number | null = null;
+    if (candles.length >= 6) {
+      const lastVol = candles[candles.length - 1]?.volume ?? 0;
+      const prev5 = candles.slice(-6, -1);
+      const avg5 = prev5.reduce((s, c) => s + c.volume, 0) / prev5.length;
+      if (avg5 > 0) relVol5 = parseFloat((lastVol / avg5).toFixed(2));
+    }
 
     // 5. BİRLEŞİK KARAR — tüm sinyaller dikkate alınır (dominant-signal bug FIX)
     const decisionOut = computeDecision({
@@ -327,7 +361,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       sectorMomentum,
       riskScore,
       historicalWinRate,
+      kapRisk: catalystCtx.eventRisk ? { var: true, mesaj: catalystCtx.eventRisk.baslik } : null,
+      catalyst: catalystCtx.catalyst,
       regime,
+      relVol5,
       scannedAt: new Date().toISOString(),
       dataSource: 'live',
     });

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { runEvaluateEngine } from '@/lib/evaluate-engine';
 import { bistGuard } from '@/lib/bist-guard';
 
+// MAX_BATCH=200 kayıt × sembol başına OHLCV fetch + 300ms gecikme — Vercel
+// varsayılanı (15s) ile koşu yarıda kesiliyor, günde ancak ~30-50 kayıt
+// işlenebiliyordu ve backlog büyüyordu (BUG-A denetimi, 2026-06-11).
+export const maxDuration = 300;
+
 /**
  * Cron endpoint: Sinyal performans değerlendirmesi.
  * GET /api/cron/evaluate
@@ -39,6 +44,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     updated: result.updated,
+    remaining: result.remaining ?? null,
     timestamp: new Date().toISOString(),
   });
 }

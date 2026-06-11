@@ -372,6 +372,44 @@ const STATE_MULT: Record<CatalystState, number> = {
   unpriced: 1.0, reacting: 0.85, priced: 0.35, tepkisiz: 0.15, none: 0,
 }
 
+// ── KAP-tipi event riski — kap.org.tr bloklandığı için haber tabanlı ikame ──
+// Amaç: kapEvent (−10) faktörünün yön-körü BELİRSİZLİK cezası olarak yaşaması.
+// Katalist faktörü yönlü haberi zaten işler (çifte sayım olmasın diye):
+//  - Sermaye (bedelli/tahsisli vb.) ve Hukuk/Risk → her zaman event riski
+//  - Finansal Sonuç / Yönetim → yalnızca başlık yönü NÖTRSE (belirsiz event)
+
+export interface SymbolEventRisk {
+  kategori: string
+  baslik: string
+  link: string
+  yasSaat: number
+}
+
+const ALWAYS_RISK_CATS = new Set(['Sermaye', 'Hukuk/Risk'])
+const NEUTRAL_RISK_CATS = new Set(['Finansal Sonuç', 'Yönetim'])
+const EVENT_RISK_MAX_AGE_H = 7 * 24
+
+/**
+ * Son 7 günde sinyali yanıltabilecek kurumsal event var mı? (KAP ikamesi)
+ * En yenisini döner; yoksa null.
+ */
+export function deriveEventRisk(result: NewsImpactResult): SymbolEventRisk | null {
+  const pool = result.important.filter((n) => {
+    if (n.yasSaat > EVENT_RISK_MAX_AGE_H || n.materiality !== 'yüksek') return false
+    if (ALWAYS_RISK_CATS.has(n.kategori)) return true
+    if (NEUTRAL_RISK_CATS.has(n.kategori)) return headlineSentiment(n.baslik) === 'nötr'
+    return false
+  })
+  if (!pool.length) return null
+  const en = pool.reduce((a, b) => (b.yasSaat < a.yasSaat ? b : a)) // en taze
+  return {
+    kategori: en.kategori,
+    baslik: en.baslik,
+    link: en.link,
+    yasSaat: Math.round(en.yasSaat),
+  }
+}
+
 /**
  * Tek sembol için katalist özeti. Fırsat overlay'i için EN AKSİYON-ALINABİLİR
  * haberi seçer: fiyatlanmamış/tepki-veren + material + taze öncelikli; yoksa fiyatlanmış
