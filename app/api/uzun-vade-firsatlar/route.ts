@@ -1,24 +1,26 @@
 export const dynamic = 'force-dynamic';
 /**
- * Uzun Vade Fırsatlar API — v2
+ * Uzun Vade Fırsatlar API — v3 (FAZ 1 yeniden inşası)
  *
- * GET /api/uzun-vade-firsatlar
+ * v2 sorunları (çözüldü):
+ *  - ~60 hisselik HARDCODED liste → evrenin %90'ı yapısal olarak görünmezdi.
+ *    Artık TAM BIST evreni cron'da skorlanır (ai_cache long-term:BIST).
+ *  - İstek anında ~60 sembol × Yahoo fan-out + güvenilmez in-memory cache
+ *    (Vercel cold start'ta uçar) → artık istek anında Yahoo'ya GİDİLMEZ.
+ *  - Skor yalnızca Yatırım Skoru'ydu → artık bileşik Uzun Vade Skoru:
+ *    Yatırım Skoru + Finansal Sağlık (Piotroski/Altman/Beneish) +
+ *    Sektöre Göre Değerleme (peer) + Büyüme Momentumu + GARP verdict.
  *
- * v2 değişiklikleri:
- *  - Sabit likit hisse listesi (scan_cache sıralamasına bağımlılık kaldırıldı)
- *    → ENKAI, TUPRS gibi büyük şirketler artık garanti dahil
- *  - Uzun Vade Hedef Fiyat (F/K bazlı teorik değerleme)
- *  - Takas verisi entegrasyonu (yabancı sahiplik oranı)
- *  - Daha düşük score eşiği (50 → güvenilir veri varsa)
+ * Veri katmanları:
+ *  - Temel katman: ai_cache `long-term:BIST` (haftalık cron, Pzt 10:30-10:50 TRT)
+ *  - Teknik katman: scan_cache (günlük taze — fiyat, confluence, sparkline)
  */
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { fetchYahooFundamentals } from '@/lib/yahoo-fundamentals';
-import { computeInvestableScore, DEFAULT_WEIGHTS } from '@/lib/investment-score';
-import { fetchTurkeyInflation } from '@/lib/turkey-macro';
-import { getSector, getSectorId } from '@/lib/sectors';
-import { calcInstitutionalTarget, type ValuationResult } from '@/lib/valuation';
+import { getSector } from '@/lib/sectors';
+import { getStoredLongTerm, type LongTermRow } from '@/lib/long-term-runner';
+import type { ValuationResult } from '@/lib/valuation';
 import type { OHLCVCandle } from '@/types';
 
 function createAdmin() {
@@ -29,63 +31,15 @@ function createAdmin() {
   );
 }
 
-// ValuationResult'u re-export
+// ValuationResult'u re-export (sayfa import ediyor)
 export type { ValuationResult };
 
-// ── Sabit Likit Hisse Listesi ─────────────────────────────────────────
-// BIST'in en likit ve büyük hisseleri — scan_cache sıralamasından bağımsız.
-// Bu liste ENKAI, TUPRS gibi büyük şirketleri garanti olarak kapsar.
-const CORE_LIQUID_SYMBOLS = [
-  // Bankacılık (en likit)
-  'AKBNK','GARAN','ISCTR','VAKBN','YKBNK','HALKB','SKBNK',
-  // Enerji & Petrokimya
-  'TUPRS','AKSEN','ENJSA','PETKM','ODAS','AKENR',
-  // Holding
-  'KCHOL','SAHOL','DOHOL','TKFEN',
-  // Havacılık & Savunma
-  'THYAO','PGSUS','ASELS',
-  // Otomotiv
-  'FROTO','TOASO','OTKAR',
-  // Perakende & Tüketici
-  'BIMAS','MGROS','SOKM','ULKER','CCOLA',
-  // Telekom & Teknoloji
-  'TCELL','TTKOM','ASTOR',
-  // Demir-Çelik
-  'EREGL','KRDMD','KRDMA',
-  // İnşaat & GYO
-  'EKGYO','ENKAI','TKFEN',
-  // Cam & Kimya
-  'SISE','PETKM','GUBRF',
-  // Sanayi & Üretim
-  'ARCLK','VESTL','BRISA',
-  // Gıda
-  'ULKER','CCOLA','AEFES',
-  // Sağlık
-  'SELEC','DEVA',
-  // Ek likit mid-cap
-  'TAVHL','LOGO','MAVI','KCHOL','SASA','OYAKC','GESAN',
-  'ALGYO','KLGYO','TRGYO','EKGYO',
-  'KONTR','NATEN','AKSA',
-];
-
-const UNIQUE_SYMBOLS = [...new Set(CORE_LIQUID_SYMBOLS)];
-
-// In-memory cache (6 saat)
-let cache: { data: LongTermResult[]; ts: number } | null = null;
-const CACHE_TTL = 6 * 60 * 60 * 1000;
+/** Sayfaya dönen min bileşik skor */
 const MIN_SCORE = 50;
-
-// ── Uzun Vade Hedef Fiyat Hesaplama ─────────────────────────────────────
-// F/K bazlı teorik değerleme:
-//   Adil F/K = sektör ortalaması veya tarihsel ortalama
-//   Teorik Hedef = EPS × Adil F/K
-//
-// Alternatif — F/DD bazlı:
-//   Teorik Hedef = Book Value × Sektör Ortalama F/DD
-//
-// Temettü bazlı:
-//   Eğer şirket düzenli temettü ödüyorsa DDM yaklaşımı kullanılır.
-
+/** Max sonuç (payload kontrolü — sparkline mumları dahil) */
+const MAX_RESULTS = 150;
+/** Sparkline mum sayısı (payload küçük kalsın) */
+const SPARKLINE_CANDLES = 30;
 
 export interface LongTermResult {
   sembol: string;
@@ -96,20 +50,17 @@ export interface LongTermResult {
   investmentConfidence: string;
   technicalScore: number | null;
   lastPrice: number | null;
-  /** Son 60 günlük mum verisi — sparkline için */
+  /** Son mumlar — sparkline için */
   candles: OHLCVCandle[] | null;
   peRatio: number | null;
   dividendYield: number | null;
   marketCap: number | null;
   bookValue: number | null;
   eps: number | null;
-  // Kurumsal değerleme (yeni — 5 yöntemli)
   valuation: ValuationResult | null;
-  // Kurumsal sahiplik
   foreignOwnership: number | null;
   insidersOwnership: number | null;
   shortRatio: number | null;
-  // Temel metrikler
   returnOnEquity: number | null;
   debtToEquity: number | null;
   freeCashflow: number | null;
@@ -117,143 +68,153 @@ export interface LongTermResult {
   earningsGrowth: number | null;
   beta: number | null;
   category: 'cift_onay' | 'deger_firsati' | 'guclu_temel';
+  // ── FAZ 1: bileşik skor + temel analiz yığını ──────────────────────
+  /** Bileşik Uzun Vade Skoru (0-100) — sayfa bununla sıralar */
+  longTermScore: number;
+  /** Beneish/Altman kalite kısması (1 = kısma yok) */
+  qualityMultiplier: number;
+  healthScore: number | null;
+  piotroski: number | null;        // 0-9 (banka → null)
+  altmanZone: string | null;       // güvenli | gri | sıkıntı
+  beneishFlag: string | null;      // temiz | gri | şüpheli
+  earningsQualityRating: string | null;
+  isFinancial: boolean;
+  relativeScore: number | null;    // 0-100 (sektöre göre ucuzluk)
+  peerLabel: string | null;
+  peerReliable: boolean;
+  growthScore: number | null;      // 0-100 büyüme momentumu
+  growthVerdict: string | null;
+  garpCell: string | null;         // firsat | tuzak | pahali-hakli | pahali-gerceksiz
+  garpLabel: string | null;
+  advTL: number | null;
+}
+
+function toResult(
+  r: LongTermRow,
+  scan: { confluenceScore: number | null; lastPrice: number | null; candles: OHLCVCandle[] | null } | undefined,
+  withCandles: boolean,
+): LongTermResult {
+  const techScore = scan?.confluenceScore ?? null;
+
+  // Kategori:
+  //  - cift_onay: teknik VE temel birlikte güçlü
+  //  - deger_firsati: teknik zayıf/yok ama temel çok güçlü YA DA
+  //    sektöre göre belirgin ucuz + GARP "fırsat" (FAZ 1 genişletmesi)
+  //  - guclu_temel: kalanlar
+  const teknikGuclu = techScore !== null && techScore >= 65;
+  const teknikZayif = techScore === null || techScore < 50;
+  const temelGuclu = r.longTermScore >= 60;
+  const temelCokGuclu = r.longTermScore >= 65;
+  const peerUcuzFirsat = (r.relativeScore ?? 0) >= 60 && r.garpCell === 'firsat';
+
+  let category: LongTermResult['category'];
+  if (teknikGuclu && temelGuclu) category = 'cift_onay';
+  else if (teknikZayif && (temelCokGuclu || peerUcuzFirsat)) category = 'deger_firsati';
+  else category = 'guclu_temel';
+
+  return {
+    sembol: r.sembol,
+    sectorId: r.sector,
+    sectorName: getSector(r.sembol).shortName,
+    investmentScore: r.investmentScore,
+    investmentRating: r.investmentRating,
+    investmentConfidence: r.investmentConfidence,
+    technicalScore: techScore,
+    lastPrice: scan?.lastPrice ?? null,
+    candles: withCandles ? scan?.candles ?? null : null,
+    peRatio: r.peRatio,
+    dividendYield: r.dividendYield,
+    marketCap: r.marketCap,
+    bookValue: r.bookValue,
+    eps: r.eps,
+    valuation: r.valuation,
+    foreignOwnership: r.foreignOwnership,
+    insidersOwnership: r.insidersOwnership,
+    shortRatio: r.shortRatio,
+    returnOnEquity: r.returnOnEquity,
+    debtToEquity: r.debtToEquity,
+    freeCashflow: r.freeCashflow,
+    revenueGrowth: r.revenueGrowth,
+    earningsGrowth: r.earningsGrowth,
+    beta: r.beta,
+    category,
+    longTermScore: r.longTermScore,
+    qualityMultiplier: r.qualityMultiplier,
+    healthScore: r.healthScore,
+    piotroski: r.piotroski,
+    altmanZone: r.altmanZone,
+    beneishFlag: r.beneishFlag,
+    earningsQualityRating: r.earningsQualityRating,
+    isFinancial: r.isFinancial,
+    relativeScore: r.relativeScore,
+    peerLabel: r.peerLabel,
+    peerReliable: r.peerReliable,
+    growthScore: r.growthScore,
+    growthVerdict: r.growthVerdict,
+    garpCell: r.garpCell,
+    garpLabel: r.garpLabel,
+    advTL: r.advTL,
+  };
 }
 
 export async function GET() {
-  if (cache && Date.now() - cache.ts < CACHE_TTL) {
+  const admin = createAdmin();
+
+  // 1) Temel katman — haftalık cron'un yazdığı tek satır
+  const store = await getStoredLongTerm(admin);
+  if (!store || store.rows.length === 0) {
     return NextResponse.json(
-      { ok: true, results: cache.data, cached: true },
-      { headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=3600' } },
+      {
+        ok: true,
+        results: [] as LongTermResult[],
+        pending: true,
+        message: 'Uzun vade taraması henüz çalışmadı (Pzt sabahları koşar). Manuel: /api/cron/long-term?part=1|2|3',
+      },
+      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } },
     );
   }
 
-  const admin = createAdmin();
+  const candidates = store.rows.filter((r) => r.longTermScore >= MIN_SCORE).slice(0, MAX_RESULTS);
 
-  // scan_cache'den teknik skorlar + son fiyat + sparkline mumları (BIST only)
-  const { data: cacheRows } = await admin
-    .from('scan_cache')
-    .select('sembol, confluence_score, rsi, last_close, candles_json')
-    .eq('market', 'BIST')
-    .in('sembol', UNIQUE_SYMBOLS)
-    .order('scanned_at', { ascending: false });
-
-  // Her sembol için en güncel veriyi al
-  type ScanEntry = { confluenceScore: number | null; rsi: number | null; lastPrice: number | null; candles: OHLCVCandle[] | null };
+  // 2) Teknik katman — scan_cache'ten taze fiyat + confluence + sparkline (Yahoo YOK)
+  type ScanEntry = { confluenceScore: number | null; lastPrice: number | null; candles: OHLCVCandle[] | null };
   const scanMap = new Map<string, ScanEntry>();
-  for (const row of cacheRows ?? []) {
-    if (!scanMap.has(row.sembol)) {
+  if (candidates.length > 0) {
+    const { data: cacheRows } = await admin
+      .from('scan_cache')
+      .select('sembol, confluence_score, last_close, candles_json')
+      .eq('market', 'BIST')
+      .in('sembol', candidates.map((r) => r.sembol));
+    for (const row of cacheRows ?? []) {
       scanMap.set(row.sembol, {
         confluenceScore: row.confluence_score,
-        rsi: row.rsi,
         lastPrice: row.last_close,
-        candles: Array.isArray(row.candles_json) ? (row.candles_json as OHLCVCandle[]) : null,
+        candles: Array.isArray(row.candles_json)
+          ? (row.candles_json as OHLCVCandle[]).slice(-SPARKLINE_CANDLES)
+          : null,
       });
     }
   }
 
-  // Takas / sahiplik verisi Yahoo fundamentals'tan alınır (institutionalOwnershipPercent)
-  // Ayrı DB sorgusu gerekmez — investment score fetch sırasında çekilir
+  const results = candidates.map((r) => toResult(r, scanMap.get(r.sembol), true));
 
-  // Türkiye enflasyonu
-  const inflation = await fetchTurkeyInflation().catch(() => null);
-  const inflCtx = inflation && typeof inflation.value === 'number'
-    ? { tufeYoy: inflation.value, source: 'tcmb' as const }
-    : undefined;
-
-  // Investment score paralel çek
-  const BATCH = 8;
-  const results: LongTermResult[] = [];
-
-  for (let i = 0; i < UNIQUE_SYMBOLS.length; i += BATCH) {
-    const batch = UNIQUE_SYMBOLS.slice(i, i + BATCH);
-    const batchResults = await Promise.allSettled(
-      batch.map(async (sembol) => {
-        try {
-          const fundamentals = await fetchYahooFundamentals(sembol);
-          const inv = computeInvestableScore(fundamentals, DEFAULT_WEIGHTS, inflCtx);
-          if (inv.score < MIN_SCORE) return null;
-
-          const scanData  = scanMap.get(sembol);
-          const sectorId  = getSectorId(sembol);
-          const sector    = getSector(sectorId);
-          const techScore = scanData?.confluenceScore ?? null;
-          const price     = scanData?.lastPrice ?? null;
-
-          // Kurumsal değerleme — 5 yöntemli profesyonel model
-          const valuation = price
-            ? calcInstitutionalTarget(fundamentals, price, sectorId, inv.score)
-            : null;
-
-          // Sahiplik verileri
-          const foreignOwnership = fundamentals.institutionsPercentHeld != null
-            ? parseFloat((fundamentals.institutionsPercentHeld * 100).toFixed(1))
-            : null;
-          const insidersOwnership = fundamentals.insidersPercentHeld != null
-            ? parseFloat((fundamentals.insidersPercentHeld * 100).toFixed(1))
-            : null;
-
-          // Kategori
-          const teknikGuclu   = techScore !== null && techScore >= 65;
-          const temelGuclu    = inv.score >= 60;
-          const temelCokGuclu = inv.score >= 65;
-          const teknikZayif   = techScore === null || techScore < 50;
-
-          let category: LongTermResult['category'];
-          if (teknikGuclu && temelGuclu)       category = 'cift_onay';
-          else if (teknikZayif && temelCokGuclu) category = 'deger_firsati';
-          else                                   category = 'guclu_temel';
-
-          return {
-            sembol,
-            sectorId,
-            sectorName:             sector.shortName,
-            investmentScore:        inv.score,
-            investmentRating:       inv.ratingLabel,
-            investmentConfidence:   inv.confidence,
-            technicalScore:         techScore,
-            lastPrice:              price,
-            peRatio:                fundamentals.peRatio,
-            dividendYield:          fundamentals.dividendYield,
-            marketCap:              fundamentals.marketCap,
-            bookValue:              fundamentals.bookValue,
-            eps:                    fundamentals.eps,
-            valuation,
-            foreignOwnership,
-            insidersOwnership,
-            shortRatio:       fundamentals.shortRatio,
-            returnOnEquity:   fundamentals.returnOnEquity != null ? parseFloat((fundamentals.returnOnEquity * 100).toFixed(1)) : null,
-            debtToEquity:     fundamentals.debtToEquity,
-            freeCashflow:     fundamentals.freeCashflow,
-            revenueGrowth:    fundamentals.revenueGrowth != null ? parseFloat((fundamentals.revenueGrowth * 100).toFixed(1)) : null,
-            earningsGrowth:   fundamentals.earningsGrowth != null ? parseFloat((fundamentals.earningsGrowth * 100).toFixed(1)) : null,
-            beta:             fundamentals.beta,
-            category,
-            candles:          scanData?.candles ?? null,
-          } satisfies LongTermResult;
-        } catch {
-          return null;
-        }
-      }),
-    );
-
-    for (const r of batchResults) {
-      if (r.status === 'fulfilled' && r.value !== null) {
-        results.push(r.value);
-      }
-    }
-  }
-
+  // Kategori önceliği + bileşik skor sırası
+  const catOrder = { cift_onay: 0, deger_firsati: 1, guclu_temel: 2 } as const;
   results.sort((a, b) => {
-    const catOrder = { cift_onay: 0, deger_firsati: 1, guclu_temel: 2 };
     const catDiff = catOrder[a.category] - catOrder[b.category];
     if (catDiff !== 0) return catDiff;
-    return b.investmentScore - a.investmentScore;
+    return b.longTermScore - a.longTermScore;
   });
 
-  cache = { data: results, ts: Date.now() };
-
   return NextResponse.json(
-    { ok: true, results, cached: false },
-    { headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=3600' } },
+    {
+      ok: true,
+      results,
+      scoredAt: store.scoredAt,
+      inflationYoy: store.inflationYoy,
+      universeScored: store.rows.length,
+      cached: false,
+    },
+    { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' } },
   );
 }

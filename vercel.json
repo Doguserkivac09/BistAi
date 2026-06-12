@@ -98,7 +98,7 @@
     },
     {
       "path": "/api/cron/haftanin-secimi-uzun",
-      "schedule": "45 6 * * 1"
+      "schedule": "10 8 * * 1"
     },
     {
       "path": "/api/cron/scan-us",
@@ -139,6 +139,18 @@
     {
       "path": "/api/cron/sector-medians",
       "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/cron/long-term?part=1",
+      "schedule": "30 7 * * 1"
+    },
+    {
+      "path": "/api/cron/long-term?part=2",
+      "schedule": "40 7 * * 1"
+    },
+    {
+      "path": "/api/cron/long-term?part=3",
+      "schedule": "50 7 * * 1"
     }
   ]
 }

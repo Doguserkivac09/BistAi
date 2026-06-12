@@ -158,19 +158,60 @@ function UzunVadeKart({ r }: { r: LongTermResult }) {
           </div>
           <p className="text-[11px] text-text-muted mt-0.5">{r.sectorName}</p>
         </div>
-        {/* Yatırım Skoru */}
-        <div className="text-right shrink-0">
-          <div className={`text-2xl font-bold tabular-nums ${
-            r.investmentScore >= 75 ? 'text-emerald-400' :
-            r.investmentScore >= 60 ? 'text-sky-400' :
-            r.investmentScore >= 50 ? 'text-amber-400' : 'text-orange-400'
-          }`}>{r.investmentScore}</div>
-          <p className="text-[9px] text-text-muted">/{100} Skor</p>
-          <p className={`text-[10px] font-semibold ${
-            r.investmentRating.includes('İyi') ? 'text-emerald-400' : 'text-text-muted'
-          }`}>{r.investmentRating}</p>
-        </div>
+        {/* Bileşik Uzun Vade Skoru (FAZ 1) — yoksa eski Yatırım Skoru'na düş */}
+        {(() => {
+          const score = r.longTermScore ?? r.investmentScore;
+          return (
+            <div className="text-right shrink-0">
+              <div className={`text-2xl font-bold tabular-nums ${
+                score >= 75 ? 'text-emerald-400' :
+                score >= 60 ? 'text-sky-400' :
+                score >= 50 ? 'text-amber-400' : 'text-orange-400'
+              }`}>{score}</div>
+              <p className="text-[9px] text-text-muted">Uzun Vade Skoru</p>
+              <p className={`text-[10px] font-semibold ${
+                r.investmentRating.includes('İyi') ? 'text-emerald-400' : 'text-text-muted'
+              }`}>{r.investmentRating}</p>
+            </div>
+          );
+        })()}
       </div>
+
+      {/* Temel analiz yığını rozetleri (FAZ 1) */}
+      {(r.garpLabel || r.piotroski !== null || r.beneishFlag === 'şüpheli' || r.peerLabel || r.growthScore !== null) && (
+        <div className="flex flex-wrap gap-1.5 text-[9px]">
+          {r.garpLabel && (
+            <span className="rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-text-secondary">
+              {r.garpLabel.split(' — ')[0]}
+            </span>
+          )}
+          {r.piotroski !== null && (
+            <span className={`rounded-full border px-2 py-0.5 font-semibold ${
+              r.piotroski >= 7 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' :
+              r.piotroski >= 4 ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' :
+              'border-red-500/30 bg-red-500/10 text-red-300'
+            }`}>Piotroski {r.piotroski}/9</span>
+          )}
+          {r.beneishFlag === 'şüpheli' && (
+            <span className="rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 font-semibold text-red-300">
+              ⚠️ Beneish şüpheli
+            </span>
+          )}
+          {r.peerLabel && r.relativeScore !== null && (
+            <span className={`rounded-full border px-2 py-0.5 ${
+              r.relativeScore >= 60 ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' :
+              r.relativeScore <= 40 ? 'border-orange-500/30 bg-orange-500/10 text-orange-300' :
+              'border-border/60 bg-surface/60 text-text-secondary'
+            }`}>{r.peerLabel}</span>
+          )}
+          {r.growthScore !== null && (
+            <span className={`rounded-full border px-2 py-0.5 ${
+              r.growthScore >= 60 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' :
+              'border-border/60 bg-surface/60 text-text-secondary'
+            }`}>Büyüme {r.growthScore}</span>
+          )}
+        </div>
+      )}
 
       {/* Teknik Skor */}
       {r.technicalScore !== null && (
@@ -337,7 +378,7 @@ export default function UzunVadeFirsatlarPage() {
       if (sortBy === 'upside') return (b.valuation?.upside ?? -999) - (a.valuation?.upside ?? -999);
       if (sortBy === 'pe')     return (a.peRatio ?? 999) - (b.peRatio ?? 999);
       if (sortBy === 'divYield') return ((b.dividendYield ?? 0)) - ((a.dividendYield ?? 0));
-      return b.investmentScore - a.investmentScore;
+      return (b.longTermScore ?? b.investmentScore) - (a.longTermScore ?? a.investmentScore);
     });
 
   const counts = {
@@ -366,13 +407,13 @@ export default function UzunVadeFirsatlarPage() {
               <h1 className="text-2xl font-bold text-text-primary">Uzun Vade Fırsatlar</h1>
             </div>
             <p className="text-sm text-text-secondary">
-              5 yöntemli kurumsal değerleme modeli — Graham Sayısı · Sektör F/K · PEG · F/DD · ROE Momentumu
+              Tüm BIST evreni · Bileşik skor: Yatırım Skoru + Finansal Sağlık (Piotroski/Altman/Beneish) + Sektöre Göre Değerleme + Büyüme Momentumu
             </p>
           </div>
           <button onClick={() => void fetchData()} disabled={loading}
             className="flex items-center gap-1.5 rounded-lg border border-border bg-surface/50 px-3 py-2 text-xs text-text-secondary hover:text-text-primary disabled:opacity-50 self-start">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Yenile (6sa cache)
+            Yenile
           </button>
         </div>
 

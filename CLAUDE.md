@@ -55,6 +55,38 @@ görünmeye başlayınca `NavbarClient.tsx`'teki yorum satırını kaldır ve sa
 
 ---
 
+## 🔭 FAZ 1 — Uzun Vade Fırsatlar Yeniden İnşası (2026-06-12) ✅ TAMAMLANDI
+
+> Plan: `GUCLENDIRME-PROMPTU.md` FAZ 1. **Migration YOK** (ai_cache tek satır deseni).
+
+**Sorun:** `/uzun-vade-firsatlar` ~60 hisselik HARDCODED listeyle çalışıyordu (evren 619);
+in-memory cache cold start'ta uçuyor, istek anında ~60 sembol Yahoo fan-out; temel analiz
+yığını (Piotroski/Altman/Beneish, peer, GARP, growth-momentum) sayfaya hiç bağlı değildi.
+
+| Bileşen | Dosya |
+|---------|-------|
+| Bileşik skor motoru: inv(35)+sağlık(25)+peer(20)+büyüme(20), null bileşende ağırlık yeniden normalize (banka cezasız); Beneish şüpheli ×0.80 / gri ×0.93, Altman sıkıntı ×0.85 çarpan kısması | `lib/long-term-runner.ts` (YENİ) |
+| Haftalık cron: `?part=1\|2\|3`, ADV≥5M TL ön filtresi (scan_cache mumlarından — Yahoo'ya gitmeden eler), sonuç ai_cache `long-term:BIST` (8g TTL, max 400 satır) | `app/api/cron/long-term/route.ts` (YENİ) |
+| API v3: hardcoded liste + in-memory cache SİLİNDİ; temel katman ai_cache'ten + teknik katman (fiyat/confluence/sparkline) scan_cache'ten taze — istek anında Yahoo YOK | `app/api/uzun-vade-firsatlar/route.ts` (yeniden yazıldı) |
+| UI: başlık skoru = longTermScore; rozetler: GARP verdict + Piotroski n/9 + Beneish uyarı + peer etiketi + büyüme skoru | `app/uzun-vade-firsatlar/page.tsx` |
+| Cron schedule: Pzt 10:30/10:40/10:50 TRT (sector-medians 10:00'dan SONRA); haftanin-secimi-uzun 09:45→11:10 TRT (yeni store'u okusun) | `vercel.json` |
+| Birim testleri (11 senaryo: bileşik, kısma, banka normalize, sağlık türetme) | `lib/__tests__/long-term-runner.test.ts` (YENİ) |
+
+**Önemli tasarım kararları:**
+- Güvenilmez peer (sektörde <5 emsal) bileşiğe KATILMAZ — küçük sektörde medyan sapması
+  relativeScore'u 100'e clamp'leyip skoru haksız şişiriyordu (canlıda görülüp düzeltildi).
+- `deger_firsati` kategorisi artık peer-ucuz + GARP "fırsat" ile de tetiklenir.
+- haftanin-secimi-uzun cron'u API şemasını aynen tüketmeye devam eder (geriye uyumlu).
+
+**Doğrulama (canlı veri, dev+prod DB):** Tam evren koşusu 212s (570 likit, 495 skor, 0 veri
+hatası → part başına ~70s, 300s limite geniş marj). API 150 sonuç döndü, **128'i eski
+hardcoded listede yoktu** (AYDEM, SANKO, LKMNH, DESA...). Bankalar doğru: GARAN LV=70,
+sağlık "uygulanmaz", ceza yok. Kategoriler: 39 çift onay / 54 değer fırsatı / 57 güçlü temel.
+63/63 test, tsc + build temiz. **ai_cache `long-term:BIST` dev koşusuyla DOLU** — deploy
+sonrası sayfa hemen çalışır; bir sonraki Pzt cron otomatik tazeler.
+
+---
+
 ## 🛠️ FAZ 0 — Hesaplama Hataları Sprint'i (2026-06-12) ✅ TAMAMLANDI
 
 > Denetim + tam plan: `GUCLENDIRME-PROMPTU.md`. Bu sprint FAZ 0 + 2 canlı şikâyeti kapattı.
@@ -587,6 +619,9 @@ BT1 Rejim verisi fix, BT2 Giriş fiyatı bias fix, BT3 Komisyon modeli, BT4 Her-
 | `0 8 * * 1` | 11:00 Pzt | `/api/cron/future-scores-bist` | Future Score (BIST, 5 tema) |
 | `0 5 * * 1-5` | 08:00 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti + eventRisks precompute |
 | `30 9 * * 1-5` | 12:30 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti precompute (gün-içi) |
+| `0 7 * * 1` | 10:00 Pzt | `/api/cron/sector-medians` | Sektör medyanları (peer değerleme) |
+| `30/40/50 7 * * 1` | 10:30-10:50 Pzt | `/api/cron/long-term?part=1\|2\|3` | Uzun Vade Kompozit (FAZ 1, üç parça) |
+| `10 8 * * 1` | 11:10 Pzt | `/api/cron/haftanin-secimi-uzun` | Haftanın uzun vade seçimi (long-term store'dan SONRA) |
 
 ---
 
