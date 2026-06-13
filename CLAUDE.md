@@ -82,11 +82,16 @@ THYAO bilanço 3 gün → earningsRisk −8, skor 66→58, güven sıfırlandı 
 Precompute prod store'u 159 fırsat sembolüyle doldurdu (deploy sonrası sayfa hemen çalışır).
 FirsatKarti rozetleri render edildi (hacim 21 kart, sektör 1).
 
-**⏸️ Geçmiş Fırsatlar geri açma ERTELENDİ:** Veri kalitesi artık iyi (PRZMA +%176, 95/150
-kayıt >%10) AMA entry tarihleri hâlâ 10-24 Nisan'da takılı — Mayıs/Haziran sinyalleri
-evaluate backlog'unda (62.893 pending). FAZ 0 evaluate fix'i prod'a yeni gitti, backlog
-erimedi. Ayrıca `gecmis-firsatlar` `stats.winRate` hesabı bozuk (%3.3 derken kayıtların
-çoğu kazançlı). Backlog er", win-rate düzeltilince aç (CLAUDE.md "1-2 ay" notu geçerli).
+**✅ Geçmiş Fırsatlar `stats.winRate` BUG düzeltildi:** Eski hesap `return_7d - COMMISSION*100`
+yapıyordu — decimal getiriden (0.05) %40 sahte komisyon çıkarıyordu → winRate %3.3'e çöküyordu.
+Artık kanonik ufuk (`getCanonicalField`) + yön-düzeltmeli (`asagi` → işaret çevir) + doğru
+komisyon (decimal 0.004). Canlı: %3.3 → **%55.3** (83/150 kazanan, avgReturn %14 ile tutarlı).
+`app/api/gecmis-firsatlar/route.ts`.
+
+**⏸️ Geçmiş Fırsatlar SAYFA geri açma hâlâ ERTELENDİ:** Veri kalitesi + winRate artık doğru
+AMA entry tarihleri hâlâ 10-24 Nisan'da takılı — Mayıs/Haziran sinyalleri evaluate
+backlog'unda (62.893 pending). FAZ 0 evaluate fix'i prod'a yeni gitti, backlog erimedi.
+Backlog erip güncel fırsatlar görününce NavbarClient yorumunu kaldır ("1-2 ay" notu geçerli).
 
 **Deploy sonrası:** firsatlar-fundamentals cron'u Pzt sabah otomatik çalışır; hafta sonu
 deploy edildiyse prod store zaten manuel dolduruldu (159 sembol).

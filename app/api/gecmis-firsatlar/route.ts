@@ -14,6 +14,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCanonicalField } from '@/lib/signal-horizons';
 
 function createAdmin() {
   return createClient(
@@ -101,20 +102,35 @@ export async function GET(req: NextRequest) {
   }
 
   const now = Date.now();
-  const COMMISSION = 0.004;
+  const COMMISSION = 0.004; // gidiş-dönüş, return decimal kesir ile aynı ölçekte (0.004 = %0.4)
 
-  const items: GecmisFirsat[] = (data ?? []).map((row) => {
+  type Row = GecmisFirsat;
+  const rows = (data ?? []) as Omit<GecmisFirsat, 'daysAgo' | 'isWinner'>[];
+
+  /**
+   * Sinyalin kanonik ufkundaki yön-düzeltilmiş net getirisi (komisyon dahil).
+   * winRate ölçütü budur — signal-stats-summary / firsatlar ile aynı tanım (FAZ 0
+   * BUG-A/B/C tutarlılığı). 'asagi' sinyalde fiyat düşüşü kazançtır → işaret çevrilir.
+   */
+  function canonicalNetReturn(row: Omit<Row, 'daysAgo' | 'isWinner'>): number | null {
+    const field = getCanonicalField(row.signal_type);
+    const raw = row[field];
+    if (raw == null || !Number.isFinite(raw)) return null;
+    const dirAdj = row.direction === 'asagi' ? -raw : raw;
+    return dirAdj - COMMISSION;
+  }
+
+  const items: GecmisFirsat[] = rows.map((row) => {
     const daysAgo = Math.floor((now - new Date(row.entry_time).getTime()) / 86_400_000);
-    const r7 = row.return_7d != null ? row.return_7d - COMMISSION * 100 : null;
-    const isWinner = row.evaluated && r7 != null ? r7 > 0 : null;
-    return {
-      ...row,
-      daysAgo,
-      isWinner,
-    };
+    const net = canonicalNetReturn(row);
+    // Eski bug: `return_7d - COMMISSION*100` → decimal getiriden %40 sahte komisyon
+    // çıkarıyordu (winRate ~%3'e çöküyordu). Artık kanonik ufuk + yön-düzeltmeli net.
+    const isWinner = row.evaluated && net != null ? net > 0 : null;
+    return { ...row, daysAgo, isWinner };
   });
 
-  // İstatistikler
+  // İstatistikler — winRate kanonik ufuk net getirisinden; gösterim metrikleri
+  // (avgReturn7d/bestReturn7d) ham return_7d (UI etiketi "7g") korunur.
   const evaluated   = items.filter((i) => i.evaluated);
   const winners     = evaluated.filter((i) => i.isWinner);
   const returns7d   = evaluated.map((i) => i.return_7d).filter((v): v is number => v != null);
