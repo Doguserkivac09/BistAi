@@ -219,8 +219,10 @@ function buildFirsatItem(
       mtfAlign:   weeklyAligned === true ? 5 : weeklyAligned === false ? -3 : 0,
       sectorAlign:   0, // US tarafında sektör momentum hesabı yok (BIST-only faktör)
       volumeConfirm: 0,
+      earningsRisk:  0, // US bilanço precompute'u henüz yok (BIST-only, FAZ 2)
       kapEvent:   0,
     },
+    daysUntilEarnings: null,
     tavanScore:      null,
     isTavan:         false,
     isTaban:         false,

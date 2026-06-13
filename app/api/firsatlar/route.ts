@@ -24,14 +24,12 @@ import {
   type DecisionOutput,
 } from '@/lib/decision-engine';
 import { createServerClient } from '@/lib/supabase-server';
-import { fetchYahooFundamentals } from '@/lib/yahoo-fundamentals';
-import {
-  computeInvestableScore,
-  DEFAULT_WEIGHTS,
-  type InvestableConfidence,
-  type InvestableRating,
+import { daysUntilEarnings } from '@/lib/yahoo-fundamentals';
+import { getStoredFundamentals } from '@/lib/firsatlar-fundamentals-runner';
+import type {
+  InvestableConfidence,
+  InvestableRating,
 } from '@/lib/investment-score';
-import { fetchTurkeyInflation } from '@/lib/turkey-macro';
 import { SIGNAL_CANONICAL_FIELD } from '@/lib/signal-horizons';
 import type { SymbolCatalyst, SymbolEventRisk } from '@/lib/news-impact';
 import type { OHLCVCandle } from '@/types';
@@ -97,8 +95,11 @@ export interface FirsatItem {
     mtfAlign:      number;  // ± puan (haftalık uyum)
     sectorAlign:   number;  // ± puan (sektör momentum uyumu, P1-1)
     volumeConfirm: number;  // ± puan (rel_vol5 hacim teyidi, P1-2)
+    earningsRisk:  number;  // ± puan (yaklaşan bilanço binary event, FAZ 2)
     kapEvent:      number;  // ± puan (KAP-tipi event riski, haber tabanlı)
   };
+  /** Sonraki bilançoya kalan takvim günü — null = bilinmiyor; rozet için */
+  daysUntilEarnings: number | null;
   // ── Tavan / Taban ────────────────────────────────────────────────────
   /** 0-100 tavan ihtimal skoru */
   tavanScore:      number | null;
@@ -234,8 +235,8 @@ export async function GET(req: NextRequest) {
     const statsCutoff = new Date();
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);
 
-    // Paralel çek: geçmiş win rate verisi + makro + TÜFE + scan_cache + katalist
-    const [statsRes, macroRes, tufeRes, scanCacheRes, catalystRes] = await Promise.allSettled([
+    // Paralel çek: win rate + makro + scan_cache + katalist + temel-veri precompute
+    const [statsRes, macroRes, scanCacheRes, catalystRes, fundamentalsRes] = await Promise.allSettled([
       // Win rate istatistiği — yalnızca BIST (BUG-B: market filtresi yokken
       // scan-us kayıtları BIST win-rate'lerini kirletiyordu)
       supabase
@@ -246,7 +247,6 @@ export async function GET(req: NextRequest) {
         .gte('entry_time', statsCutoff.toISOString()),
 
       getMacroFull(),
-      fetchTurkeyInflation(), // TÜFE YoY — Investment Score enflasyon düzeltmesi
       // scan_cache: change_percent, rel_vol5, rsi — tavan skoru + hacim teyidi (BIST only)
       supabase
         .from('scan_cache')
@@ -260,6 +260,8 @@ export async function GET(req: NextRequest) {
         .eq('cache_key', 'news-catalyst:BIST')
         .gt('expires_at', new Date().toISOString())
         .single(),
+      // Yatırım Skoru + bilanço tarihi — cron precompute (FAZ 2; istek-anı Yahoo YOK)
+      getStoredFundamentals(supabase),
     ]);
 
     // Katalist + event risk haritaları: sembol → SymbolCatalyst / SymbolEventRisk
@@ -279,12 +281,6 @@ export async function GET(req: NextRequest) {
         }
       } catch { /* bozuk cache → katalist yok, normal devam */ }
     }
-
-    // TÜFE bağlamı (yoksa global formül)
-    const inflation =
-      tufeRes.status === 'fulfilled' && tufeRes.value && Number.isFinite(tufeRes.value.value)
-        ? { tufeYoy: tufeRes.value.value, source: 'tcmb' }
-        : undefined;
 
     // Aktif sinyal sorgusu — yeni kolonları önce dene, migration yoksa temel sorguya fall back
     type SignalRow = {
@@ -425,30 +421,30 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Yatırım Skoru (deterministik, ham temel veri → 0-100) ───────────
-    // Yahoo fundamentals 24h in-memory cache'li → çağrı maliyeti çok düşük.
-    // Hata olursa null döner; o sembolde rozet gösterilmez.
+    // ── Yatırım Skoru + bilanço tarihi (FAZ 2 precompute) ───────────────
+    // Eskiden sembol başına istek-anı fetchYahooFundamentals fan-out'u vardı
+    // (cold start'ta Yahoo'ya ~130 paralel çağrı). Artık cron precompute eder
+    // (firsatlar-fundamentals:BIST), burada TEK satır okunur — Yahoo YOK.
     const uniqueSymbols = Array.from(gruplar.keys());
-    const investmentScoreMap = new Map<
-      string,
-      FirsatItem['investmentScore']
-    >();
-    await Promise.all(
-      uniqueSymbols.map(async (sym) => {
-        try {
-          const fundamentals = await fetchYahooFundamentals(sym);
-          const inv = computeInvestableScore(fundamentals, DEFAULT_WEIGHTS, inflation);
+    const investmentScoreMap = new Map<string, FirsatItem['investmentScore']>();
+    const earningsTsMap = new Map<string, number | null>();
+    {
+      const store = fundamentalsRes.status === 'fulfilled' ? fundamentalsRes.value : null;
+      for (const sym of uniqueSymbols) {
+        const entry = store?.items?.[sym];
+        if (entry) {
           investmentScoreMap.set(sym, {
-            score: inv.score,
-            rating: inv.ratingLabel,
-            confidence: inv.confidence,
-            inflationAdjusted: inv.inflationAdjustment?.applied ?? false,
+            score: entry.score,
+            rating: entry.rating,
+            confidence: entry.confidence,
+            inflationAdjusted: entry.inflationAdjusted,
           });
-        } catch {
+          earningsTsMap.set(sym, entry.nextEarningsTs ?? null);
+        } else {
           investmentScoreMap.set(sym, null);
         }
-      }),
-    );
+      }
+    }
 
     // ── Sektör momentum (P1-1) — scan_cache'teki hazır mumlardan ────────
     // Temsilci hisselerin candles_json'u (son 60 mum) ile analyzeSector çalışır;
@@ -552,6 +548,7 @@ export async function GET(req: NextRequest) {
         catalyst,
         regime: best.regime,
         relVol5: scanCacheMap.get(sembol)?.rel_vol5 ?? null,
+        daysUntilEarnings: daysUntilEarnings(earningsTsMap.get(sembol) ?? null),
         scannedAt: best.entry_time,
         dataSource: 'db_snapshot',
       });
@@ -592,8 +589,10 @@ export async function GET(req: NextRequest) {
           mtfAlign:      decision.factors.mtfAlign,
           sectorAlign:   decision.factors.sectorAlign,
           volumeConfirm: decision.factors.volumeConfirm,
+          earningsRisk:  decision.factors.earningsRisk,
           kapEvent:      decision.factors.kapEvent,
         },
+        daysUntilEarnings: daysUntilEarnings(earningsTsMap.get(sembol) ?? null),
         decision,
         investmentScore: investmentScoreMap.get(sembol) ?? null,
         catalyst: catalyst

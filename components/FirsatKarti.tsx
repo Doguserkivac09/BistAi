@@ -274,6 +274,39 @@ function adjustmentBadges(f: FirsatItem) {
     });
   }
 
+  if (f.adjustments.sectorAlign !== 0) {
+    const positive = f.adjustments.sectorAlign > 0;
+    badges.push({
+      key: 'sec',
+      text: `Sektör ${positive ? '+' : ''}${f.adjustments.sectorAlign}`,
+      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
+                    : 'text-red-400 border-red-500/25 bg-red-500/10',
+      title: positive ? 'Sektör momentumu sinyal yönü ile uyumlu' : 'Sektör momentumu sinyal yönü ile ters',
+    });
+  }
+
+  if (f.adjustments.volumeConfirm !== 0) {
+    const positive = f.adjustments.volumeConfirm > 0;
+    badges.push({
+      key: 'vol',
+      text: `Hacim ${positive ? '+' : ''}${f.adjustments.volumeConfirm}`,
+      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
+                    : 'text-red-400 border-red-500/25 bg-red-500/10',
+      title: positive ? 'Hareket göreli hacimle destekleniyor' : 'Cansız hacim — hareket teyitsiz',
+    });
+  }
+
+  if (f.adjustments.earningsRisk !== 0) {
+    badges.push({
+      key: 'ern',
+      text: `📅 Bilanço ${f.adjustments.earningsRisk}`,
+      cls: 'text-amber-400 border-amber-500/25 bg-amber-500/10',
+      title: f.daysUntilEarnings != null
+        ? `Bilançoya ~${f.daysUntilEarnings} gün — binary event riski, skor düşürüldü`
+        : 'Yaklaşan bilanço — binary event riski',
+    });
+  }
+
   if (f.adjustments.kapEvent !== 0) {
     badges.push({
       key: 'kap',

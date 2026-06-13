@@ -34,6 +34,7 @@ import {
   type DecisionOutput,
 } from '@/lib/decision-engine';
 import { SIGNAL_CANONICAL_FIELD } from '@/lib/signal-horizons';
+import { fetchYahooFundamentals, daysUntilEarnings } from '@/lib/yahoo-fundamentals';
 import type { SymbolCatalyst, SymbolEventRisk } from '@/lib/news-impact';
 import type { PriceTargets } from '@/lib/price-targets';
 import type { CompositeDecision } from '@/lib/composite-signal';
@@ -335,14 +336,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       macroScore = await getMacroScore().catch(() => null);
     }
 
-    // 4b. Geçmiş win rate + haber katalisti/event riski (BIST, intraday hariç)
+    // 4b. Geçmiş win rate + haber katalisti/event riski + bilanço tarihi
     // BUG-C fix: catalyst + kapRisk artık burada da veriliyor — /api/firsatlar ile
     // aynı girdi seti → aynı hisse iki sayfada aynı skor.
-    const [historicalWinRate, catalystCtx] = await Promise.all([
+    // FAZ 2: BIST'te bilanço tarihi (tek hisse, tek Yahoo çağrısı, 24h cache).
+    const [historicalWinRate, catalystCtx, nextEarningsTs] = await Promise.all([
       fetchHistoricalWinRate(dominantSignal.type, dominantSignal.direction, isUS ? 'US' : 'BIST'),
       (!isIntraday && !isUS)
         ? fetchSymbolCatalystContext(symbol)
         : Promise.resolve({ catalyst: null, eventRisk: null }),
+      (!isIntraday && !isUS)
+        ? fetchYahooFundamentals(symbol).then((f) => f.nextEarningsTimestamp).catch(() => null)
+        : Promise.resolve(null),
     ]);
 
     // Göreli hacim (5g) — scan-cache cron'daki formülün canlı eşdeğeri (girdi eşitliği)
@@ -365,6 +370,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       catalyst: catalystCtx.catalyst,
       regime,
       relVol5,
+      daysUntilEarnings: daysUntilEarnings(nextEarningsTs),
       scannedAt: new Date().toISOString(),
       dataSource: 'live',
     });

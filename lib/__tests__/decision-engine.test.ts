@@ -114,6 +114,31 @@ describe('decision-engine: volumeConfirm (BUG-E / P1-2)', () => {
   })
 })
 
+describe('decision-engine: earningsRisk (FAZ 2 — bilanço yakınlığı)', () => {
+  it('bilanço ≤5 takvim günü → −8 + skor düşer + güven azalır', () => {
+    const clean = computeDecision(baseInput())
+    const soon = computeDecision(baseInput({ daysUntilEarnings: 2 }))
+    assert.equal(soon.factors.earningsRisk, -8)
+    assert.ok(soon.score < clean.score)
+    assert.ok(soon.confidence <= clean.confidence)
+  })
+
+  it('bilanço uzakta (>5 gün) → faktör 0', () => {
+    const out = computeDecision(baseInput({ daysUntilEarnings: 20 }))
+    assert.equal(out.factors.earningsRisk, 0)
+  })
+
+  it('geçmiş bilanço (gün < 0) → cezalandırılmaz (haberle fiyatlandı)', () => {
+    const out = computeDecision(baseInput({ daysUntilEarnings: -3 }))
+    assert.equal(out.factors.earningsRisk, 0)
+  })
+
+  it('bilanço tarihi bilinmiyor (null) → faktör 0', () => {
+    const out = computeDecision(baseInput())
+    assert.equal(out.factors.earningsRisk, 0)
+  })
+})
+
 describe('decision-engine: girdi eşitliği (BUG-C)', () => {
   it('aynı girdi → birebir aynı karar (skor, rating, faktörler)', () => {
     const input = baseInput({

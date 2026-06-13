@@ -33,6 +33,10 @@
       "schedule": "0 5 * * 1-5"
     },
     {
+      "path": "/api/cron/firsatlar-fundamentals",
+      "schedule": "15 5 * * 1-5"
+    },
+    {
       "path": "/api/cron/news-catalyst",
       "schedule": "30 9 * * 1-5"
     },

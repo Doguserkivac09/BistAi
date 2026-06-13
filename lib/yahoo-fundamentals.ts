@@ -99,6 +99,8 @@ export interface YahooFundamentals {
   targetMeanPrice: number | null;          // analist ortalama hedef fiyat
   numberOfAnalystOpinions: number | null;  // kapsam derinliği
   currentPrice: number | null;             // güncel fiyat (hedef getiri için)
+  // ── Bilanço takvimi (calendarEvents modülü) — FAZ 2 binary event riski ──
+  nextEarningsTimestamp: number | null;    // sonraki bilanço unix-saniye (yoksa null)
   reportedDate: string;
   source: 'yahoo';
 }
@@ -126,13 +128,27 @@ export async function fetchYahooFundamentals(symbol: string): Promise<YahooFunda
   if (cached) return cached;
 
   const result = await yahooFinance.quoteSummary(ticker, {
-    modules: ['summaryDetail', 'defaultKeyStatistics', 'financialData', 'price'],
+    modules: ['summaryDetail', 'defaultKeyStatistics', 'financialData', 'price', 'calendarEvents'],
   });
 
   const sd = result.summaryDetail        ?? {};
   const ks = result.defaultKeyStatistics ?? {};
   const fd = result.financialData        ?? {};
   const pr = result.price                ?? {};
+
+  // Sonraki bilanço tarihi (calendarEvents.earnings.earningsDate[0]) — unix saniye.
+  // yahoo-finance2 Date'e parse eder; null/eksik tolere edilir.
+  const calEvents = (result as { calendarEvents?: { earnings?: { earningsDate?: unknown[] } } }).calendarEvents;
+  const earningsDates = calEvents?.earnings?.earningsDate;
+  let nextEarningsTimestamp: number | null = null;
+  if (Array.isArray(earningsDates) && earningsDates.length > 0) {
+    const d0 = earningsDates[0];
+    const ms = d0 instanceof Date ? d0.getTime()
+      : typeof d0 === 'number' ? d0 * 1000
+      : typeof d0 === 'string' ? new Date(d0).getTime()
+      : NaN;
+    if (Number.isFinite(ms)) nextEarningsTimestamp = Math.round(ms / 1000);
+  }
 
   const fundamentals: YahooFundamentals = {
     symbol:    ticker,
@@ -172,12 +188,22 @@ export async function fetchYahooFundamentals(symbol: string): Promise<YahooFunda
     targetMeanPrice:         n(fd.targetMeanPrice),
     numberOfAnalystOpinions: n(fd.numberOfAnalystOpinions),
     currentPrice:            n(fd.currentPrice) ?? n(pr.regularMarketPrice),
+    nextEarningsTimestamp,
     reportedDate: '',
     source: 'yahoo',
   };
 
   setCached(cacheKey, fundamentals);
   return fundamentals;
+}
+
+/**
+ * Sonraki bilançoya kalan TAKVİM günü (negatif = geçmiş bilanço; null = bilinmiyor).
+ * Decision engine earningsAdjustment bunu tüketir (≤5 gün → binary event cezası).
+ */
+export function daysUntilEarnings(nextEarningsTimestamp: number | null): number | null {
+  if (nextEarningsTimestamp == null || !Number.isFinite(nextEarningsTimestamp)) return null;
+  return Math.round((nextEarningsTimestamp * 1000 - Date.now()) / 86_400_000);
 }
 
 // ── US + BIST: Fundamentals Tipi (future-scores için) ────────────────────

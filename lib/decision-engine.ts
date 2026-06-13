@@ -53,6 +53,8 @@ export interface DecisionInput {
   regime?: string | null;
   /** Göreli hacim (son hacim / 5g ort) — scan_cache.rel_vol5; hacim teyidi için */
   relVol5?: number | null;
+  /** Sonraki bilançoya kalan takvim günü — binary event riski (precompute'tan) */
+  daysUntilEarnings?: number | null;
   /** Verinin toplandığı zaman (ISO) — time decay için */
   scannedAt: string;
   /** Veri kaynağı: DB snapshot (cron) vs canlı Yahoo */
@@ -76,6 +78,8 @@ export interface DecisionFactors {
   sectorAlign: number;
   /** Hacim teyidi (±puan) — rel_vol5 yüksek = hareket hacimle destekli */
   volumeConfirm: number;
+  /** Bilanço yakınlığı riski (±puan, negatif) — yaklaşan bilanço binary event */
+  earningsRisk: number;
   /** KAP event riski (±puan, negatif) */
   kapEvent: number;
   /** Haber katalisti uyumu (±puan) — taze hizalı haber + / ters haber − */
@@ -181,6 +185,19 @@ function volumeAdjustment(direction: DecisionDirection, relVol5: number | null |
   return 0;
 }
 
+/**
+ * Bilanço yakınlığı (FAZ 2) — yaklaşan bilanço bir "binary event"tir: teknik
+ * sinyal o belirsizliği bilemez. Bilanço ≤3 işlem günü (~5 takvim günü) içindeyse
+ * skoru düşürür ve güveni azaltır. Yön-bağımsız (her iki yönde de risk).
+ * Geçmiş bilanço (gün < 0) cezalandırılmaz — etki haberle zaten fiyatlandı.
+ */
+function earningsAdjustment(daysUntilEarnings: number | null | undefined): number {
+  if (daysUntilEarnings == null || !Number.isFinite(daysUntilEarnings)) return 0;
+  if (daysUntilEarnings < 0) return 0;
+  if (daysUntilEarnings <= 5) return -8;
+  return 0;
+}
+
 function kapEventAdjustment(kapRisk: DecisionInput['kapRisk']): number {
   return kapRisk?.var ? -10 : 0;
 }
@@ -276,6 +293,9 @@ function deriveConfidence(
     if (positiveCount > 0 && negativeCount > 0) conf -= 10; // çelişki
   }
 
+  // Yaklaşan bilanço → binary event, güven düşer
+  if (factors.earningsRisk < 0) conf -= 8;
+
   // KAP event → güven ciddi düşer
   if (factors.kapEvent < 0) conf -= 10;
 
@@ -298,7 +318,7 @@ function deriveConfidence(
 export function computeDecision(input: DecisionInput): DecisionOutput {
   const {
     signals, macroScore, sectorMomentum, riskScore, historicalWinRate,
-    kapRisk, catalyst, regime, relVol5, scannedAt, dataSource,
+    kapRisk, catalyst, regime, relVol5, daysUntilEarnings, scannedAt, dataSource,
   } = input;
 
   const now = Date.now();
@@ -312,7 +332,7 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
     const emptyFactors: DecisionFactors = {
       confluence: 0, timeDecay: 1, winRateAdj: 0, regimeFit: 0,
       macroAlign: 0, mtfAlign: 0, sectorAlign: 0, volumeConfirm: 0,
-      kapEvent: 0, catalyst: 0, riskMultiplier: 1,
+      earningsRisk: 0, kapEvent: 0, catalyst: 0, riskMultiplier: 1,
     };
     return {
       score: 50,
@@ -345,6 +365,7 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   const mtfAlign   = mtfAdjustment(dominantSignals);
   const sectorAlign = sectorAdjustment(direction, sectorMomentum);
   const volumeConfirm = volumeAdjustment(direction, relVol5);
+  const earningsRisk = earningsAdjustment(daysUntilEarnings);
   const kapEvent   = kapEventAdjustment(kapRisk);
   const catalystAdj = catalystAdjustment(direction, catalyst);
   const riskMult   = riskMultiplier(riskScore);
@@ -353,7 +374,7 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   const rawMagnitude =
     confluence.score * timeDecay +
     winRateAdj + regimeFit + macroAlign + mtfAlign + sectorAlign + volumeConfirm +
-    kapEvent + catalystAdj;
+    earningsRisk + kapEvent + catalystAdj;
 
   const riskAdjusted = rawMagnitude * riskMult;
   const score = Math.max(0, Math.min(100, Math.round(riskAdjusted)));
@@ -367,6 +388,7 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
     mtfAlign,
     sectorAlign,
     volumeConfirm,
+    earningsRisk,
     kapEvent,
     catalyst: catalystAdj,
     riskMultiplier: Math.round(riskMult * 100) / 100,
@@ -468,5 +490,6 @@ export function dbRowsToStockSignals(rows: DBSignalRow[]): StockSignal[] {
 // ── Dışa aktarılan sabitler ─────────────────────────────────────────
 
 // 1.1.0 (2026-06-11): sectorAlign (P1-1) + volumeConfirm (P1-2) faktörleri eklendi
-export const DECISION_ENGINE_VERSION = '1.1.0';
+// 1.2.0 (2026-06-12): earningsRisk (FAZ 2) — yaklaşan bilanço binary event cezası
+export const DECISION_ENGINE_VERSION = '1.2.0';
 export const SIGNIFICANT_SCORE_DELTA = 15;

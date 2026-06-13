@@ -55,6 +55,44 @@ görünmeye başlayınca `NavbarClient.tsx`'teki yorum satırını kaldır ve sa
 
 ---
 
+## ⚡ FAZ 2 — Kısa Vade Fırsatlar Güçlendirme (2026-06-13) ✅ TAMAMLANDI
+
+> Plan: `GUCLENDIRME-PROMPTU.md` FAZ 2. **Migration YOK** (ai_cache tek satır deseni).
+
+| Bileşen | Dosya |
+|---------|-------|
+| **Bilanço yakınlığı faktörü** — yaklaşan bilanço binary event; ≤5 takvim günü (~3 işlem günü) → −8 + güven düşüşü; geçmiş bilanço (gün<0) cezasız. `daysUntilEarnings` decision girdisi, `earningsRisk` DecisionFactors | `lib/decision-engine.ts` (v1.2.0) |
+| Bilanço tarihi Yahoo `calendarEvents` modülünden — `fetchYahooFundamentals`'a eklendi (mevcut quoteSummary çağrısına tek modül, ekstra istek yok); `nextEarningsTimestamp` + `daysUntilEarnings()` helper | `lib/yahoo-fundamentals.ts` |
+| **İstek-anı Yahoo fan-out KALDIRILDI** — `/api/firsatlar` her açılışta ~140 paralel `fetchYahooFundamentals` çağırıyordu (cold start'ta Yahoo'ya yük). Artık cron precompute eder → route tek satır okur | `lib/firsatlar-fundamentals-runner.ts` (YENİ), `app/api/firsatlar/route.ts` |
+| Precompute cron: aktif fırsat sembolleri (firsatlar ile aynı filtre) → Yatırım Skoru + bilanço tarihi → ai_cache `firsatlar-fundamentals:BIST` (36h TTL) | `app/api/cron/firsatlar-fundamentals/route.ts` (YENİ), `vercel.json` (08:15 TRT) |
+| hisse-analiz girdi eşitliği: bilanço tarihi de besleniyor (tek hisse, tek çağrı, 24h cache) — firsatlar ile aynı `earningsRisk` | `app/api/hisse-analiz/route.ts` |
+| UI: FirsatKarti'na **sektör + hacim + 📅 bilanço** şeffaflık rozetleri (FAZ 0/BUG-E sectorAlign+volumeConfirm artık görünür) | `components/FirsatKarti.tsx` |
+| Birim testler (4 yeni earningsRisk senaryosu) | `lib/__tests__/decision-engine.test.ts` |
+
+**Önemli kararlar:**
+- earningsRisk yön-bağımsız (bilanço hem long hem short için belirsizlik). Eşik ≤5 takvim
+  günü; geçmiş bilanço cezalandırılmaz (etki haberle zaten fiyatlandı → BUG-D katalist/event
+  riski yakalar, çifte sayım yok).
+- Investment score precompute, firsatlar'ı Yahoo'ya bağımlı olmaktan çıkardı — store yoksa
+  rozet gösterilmez ama skor yine decision'dan üretilir (zarif düşüş).
+
+**Doğrulama (canlı veri, dev+prod DB):** 67/67 test, tsc+build temiz. Gerçek Yahoo bilanço
+tarihleri doğru (ASELS/GARAN Nisan→geçmiş cezasız; THYAO/TUPRS Ağustos→uzak). Yapay enjeksiyon:
+THYAO bilanço 3 gün → earningsRisk −8, skor 66→58, güven sıfırlandı (uçtan uca zincir).
+Precompute prod store'u 159 fırsat sembolüyle doldurdu (deploy sonrası sayfa hemen çalışır).
+FirsatKarti rozetleri render edildi (hacim 21 kart, sektör 1).
+
+**⏸️ Geçmiş Fırsatlar geri açma ERTELENDİ:** Veri kalitesi artık iyi (PRZMA +%176, 95/150
+kayıt >%10) AMA entry tarihleri hâlâ 10-24 Nisan'da takılı — Mayıs/Haziran sinyalleri
+evaluate backlog'unda (62.893 pending). FAZ 0 evaluate fix'i prod'a yeni gitti, backlog
+erimedi. Ayrıca `gecmis-firsatlar` `stats.winRate` hesabı bozuk (%3.3 derken kayıtların
+çoğu kazançlı). Backlog er", win-rate düzeltilince aç (CLAUDE.md "1-2 ay" notu geçerli).
+
+**Deploy sonrası:** firsatlar-fundamentals cron'u Pzt sabah otomatik çalışır; hafta sonu
+deploy edildiyse prod store zaten manuel dolduruldu (159 sembol).
+
+---
+
 ## 🔭 FAZ 1 — Uzun Vade Fırsatlar Yeniden İnşası (2026-06-12) ✅ TAMAMLANDI
 
 > Plan: `GUCLENDIRME-PROMPTU.md` FAZ 1. **Migration YOK** (ai_cache tek satır deseni).
@@ -618,6 +656,7 @@ BT1 Rejim verisi fix, BT2 Giriş fiyatı bias fix, BT3 Komisyon modeli, BT4 Her-
 | `0 8 * * *` | 11:00 hergün | `/api/cron/future-scores` | Future Score (US, 13 tema) |
 | `0 8 * * 1` | 11:00 Pzt | `/api/cron/future-scores-bist` | Future Score (BIST, 5 tema) |
 | `0 5 * * 1-5` | 08:00 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti + eventRisks precompute |
+| `15 5 * * 1-5` | 08:15 Pzt-Cum | `/api/cron/firsatlar-fundamentals` | Yatırım Skoru + bilanço tarihi precompute (FAZ 2) |
 | `30 9 * * 1-5` | 12:30 Pzt-Cum | `/api/cron/news-catalyst` | Haber katalisti precompute (gün-içi) |
 | `0 7 * * 1` | 10:00 Pzt | `/api/cron/sector-medians` | Sektör medyanları (peer değerleme) |
 | `30/40/50 7 * * 1` | 10:30-10:50 Pzt | `/api/cron/long-term?part=1\|2\|3` | Uzun Vade Kompozit (FAZ 1, üç parça) |

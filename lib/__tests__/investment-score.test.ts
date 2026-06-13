@@ -72,6 +72,7 @@ function makeFundamentals(overrides: Partial<YahooFundamentals> = {}): YahooFund
     targetMeanPrice: null,
     numberOfAnalystOpinions: null,
     currentPrice: null,
+    nextEarningsTimestamp: null,
     reportedDate: new Date().toISOString(),
     source: 'yahoo',
     ...overrides,
