@@ -78,6 +78,10 @@ export interface YahooFundamentals {
   institutionsPercentHeld: number | null;  // 0-1 arası (örn: 0.45 = %45)
   insidersPercentHeld: number | null;      // 0-1 arası
   shortRatio: number | null;               // açığa satış oranı
+  // ── Yapısal kıtlık (Bebek Hisseler / babyScore) — defaultKeyStatistics + price ──
+  floatShares: number | null;              // dolaşımdaki (serbest) pay adedi
+  sharesOutstanding: number | null;        // toplam pay adedi → freeFloat = float/shares
+  firstTradeMs: number | null;             // ilk işlem tarihi (unix ms) → IPO yaşı (yoksa null)
   // ── Investment Score için ek metrikler ────────────────────────────────
   // Valuation
   pegRatio: number | null;            // ks.pegRatio — büyümeye göre F/K
@@ -172,6 +176,11 @@ export async function fetchYahooFundamentals(symbol: string): Promise<YahooFunda
     institutionsPercentHeld: n(ks.heldPercentInstitutions),
     insidersPercentHeld:     n(ks.heldPercentInsiders),
     shortRatio:              n(ks.shortRatio),
+    floatShares:             n(ks.floatShares),
+    sharesOutstanding:       n(ks.sharesOutstanding) ?? n(pr.sharesOutstanding),
+    // firstTradeDateMilliseconds price/quote modülüne göre değişir → defansif oku (yoksa null)
+    firstTradeMs:            n((pr as Record<string, unknown>).firstTradeDateMilliseconds)
+                              ?? n((ks as Record<string, unknown>).firstTradeDateMilliseconds),
     // Investment Score metrikleri (ratio olarak — 0.15 = %15)
     pegRatio:           n(ks.pegRatio),
     enterpriseToEbitda: n(ks.enterpriseToEbitda),
