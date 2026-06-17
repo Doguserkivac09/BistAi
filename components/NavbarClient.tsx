@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond, Brain, History, Bookmark, Layers, Sparkles,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond, Brain, History, Bookmark, Layers, Sparkles, Rocket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,7 @@ const navItems = [
       { href: '/temalar',          label: 'Temalar',          icon: Sparkles },
       { href: '/gelecek-sirketler', label: 'Geleceği Parlak',  icon: Brain },
       { href: '/buyuyen-sirketler', label: 'Büyüyen Şirketler', icon: TrendingUp },
+      { href: '/yukselis-adaylari', label: 'Yükseliş Adayları', icon: Rocket },
       { href: '/sektorler',        label: 'Sektör Analizi',   icon: TrendingUp },
       { href: '/emtia-endeks',     label: 'Emtia & Endeks',   icon: Layers },
       { href: '/makro',            label: 'Makro Radar',       icon: BarChart2 },

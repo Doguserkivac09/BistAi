@@ -189,18 +189,22 @@ Her kart şu rozetlerden uygun olanları taşır:
 - **Bilinen sınır:** `growth-momentum:BIST` MAX_STORED=250 → ~yarı evrende ignition pillar
   düşer (renormalize zarif). v2: growth cap artır veya on-demand fetch.
 
-### FAZ 2 — Okuma API + sayfa
-- `app/api/yukselis-adaylari/route.ts` (YENİ): `baby-candidates:BIST` oku +
-  scan_cache'ten **taze** fiyat/teknik/sparkline ekle (istek-anı Yahoo YOK). `?market=BIST`.
-- `app/yukselis-adaylari/page.tsx` + `components/YukselisAdaylari.tsx` (YENİ): skora
-  sıralı liste, 5-bileşen kırılım barı, risk rozetleri, float/cap/ADV/IPO-yaşı şeffaflık
-  rozetleri, stale-veri uyarısı, **"spekülatif/yatırım tavsiyesi değil" notu**.
-- `components/NavbarClient.tsx`: Piyasa dropdown'a link.
+### FAZ 2 — Okuma API + sayfa ✅ TAMAMLANDI (2026-06-17)
+- ✅ `app/api/yukselis-adaylari/route.ts` (YENİ): `baby-candidates:BIST` oku +
+  scan_cache'ten taze fiyat/confluence/sparkline ekle (istek-anı Yahoo YOK). MIN 50, MAX 120.
+- ✅ `app/yukselis-adaylari/page.tsx` (server, metadata) + `components/YukselisAdaylari.tsx`
+  (YENİ): skora sıralı liste, 5-bileşen kırılım barı, risk rozetleri (kırmızı=tehlike),
+  52H konumu/yıl-içi-salınım/float/cap/ADV/IPO şeffaflık çipleri, verdict filtreleri +
+  "Düşük riskli" toggle + kıtlık/birikim/zamanlama sıralaması, **kalın spekülasyon uyarısı**.
+- ✅ `components/NavbarClient.tsx`: Piyasa dropdown'a "Yükseliş Adayları" (Rocket).
+- **Doğrulama (preview, canlı store):** sayfa render oldu (120 aday, 5 güçlü kurulum),
+  desktop + mobil responsive, "Düşük riskli" toggle 120→116 (riskli kalan 0), konsol hatası
+  yok, tsc + build temiz.
 
-### FAZ 3 — Birim test + canlı doğrulama
-- 67+ mevcut teste ekle; tsc + build temiz.
-- Canlı sanity: bilinen düşük-float küçükler `scarcity` yüksek; bankalar düşük; zaten
-  koşmuş bir hisse `timing`/`extendedGate` ile bastırılmış olmalı.
+### FAZ 3 — Birim test + canlı doğrulama ✅ TAMAMLANDI (FAZ 0-2 boyunca)
+- ✅ 19 birim test (baby-score) — 86/86 toplam.
+- ✅ Canlı sanity: düşük-float küçükler scarcity yüksek (MARBL 92, SAYAS 90); zaten koşmuş
+  GUNDG/KTLEV/ODINE/HEDEF timing+extendedGate ile 17-21'e bastırıldı; bankalar ignition düşer.
 
 ### FAZ 4 — Forward-tracking (model gerçekten işe yarıyor mu?) ⏳
 - Geçmişe bakıp "GUNDG'yi yükselmeden önce yakalar mıydık" testi zor (scan_cache geçmişi

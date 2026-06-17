@@ -557,6 +557,7 @@ git push -u origin feat/<feature-name>
 | Haftanın Seçimleri | `/haftalik-secimler` | Algoritmik haftalık hisse portföyü |
 | Yapay Zeka Portföyü | `/yapay-zeka-portfoyu` | 100.000₺ sanal AI fon simülasyonu |
 | Uzun Vade | `/uzun-vade` | Temel veri odaklı uzun vade fırsatlar |
+| Yükseliş Adayları | `/yukselis-adaylari` | Bebek Hisseler — henüz yükselmemiş yüksek potansiyel (babyScore) |
 | Backtesting | `/backtesting` | Geçmiş sinyal performans analizi |
 | AI Sohbet | `/sohbet` | Claude ile portföy bağlamlı sohbet |
 | Haberler | `/haberler` | Gündem, KAP duyuruları, ekonomi takvimi |
