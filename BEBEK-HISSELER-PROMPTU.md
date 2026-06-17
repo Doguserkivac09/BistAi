@@ -206,12 +206,22 @@ Her kart şu rozetlerden uygun olanları taşır:
 - ✅ Canlı sanity: düşük-float küçükler scarcity yüksek (MARBL 92, SAYAS 90); zaten koşmuş
   GUNDG/KTLEV/ODINE/HEDEF timing+extendedGate ile 17-21'e bastırıldı; bankalar ignition düşer.
 
-### FAZ 4 — Forward-tracking (model gerçekten işe yarıyor mu?) ⏳
-- Geçmişe bakıp "GUNDG'yi yükselmeden önce yakalar mıydık" testi zor (scan_cache geçmişi
-  sınırlı). Bu yüzden **ileriye dönük takip**: her hafta top-N adayı fiyat snapshot'ıyla
-  sakla → 1/3/6 ay sonra getiriyi ölç (mevcut `evaluate` altyapısı mantığı).
-- Karar: yeni `baby_picks` tablosu (idempotent migration) vs `ai_cache` snapshot serisi.
-  Hit-rate + ortalama getiri sayfada gösterilir (Haftanın Seçimleri/winRate deseni).
+### FAZ 4 — Forward-tracking (model gerçekten işe yarıyor mu?) ✅ TAMAMLANDI (2026-06-17)
+- ✅ **Karar: yeni `baby_picks` tablosu** (weekly_picks deseni, çoklu ufuk). ai_cache
+  tek-satır TTL'li → zaman serisi biriktiremez; tablo doğru seçim.
+- ✅ `supabase/migrations/20260617_baby_picks.sql` (idempotent, RLS public-read) — 4/12/26
+  hafta ufukları + BIST100 benchmark kolonları. **MANUEL: Supabase'de çalıştırılmalı.**
+- ✅ `lib/baby-picks.ts`: `selectBabyPicks` (disiplinli kohort: güçlü/umut + risksiz +
+  likit ≥3M + skor ≥65, top 25) + `computeBabyPicksPerformance` (ufuk bazlı winRate /
+  beatRate / avgReturn / alpha) — saf, 7 test.
+- ✅ `cron/baby-picks-snapshot` (Pzt 09:00 UTC): en temiz adayları fiyat+XU100 snapshot'la
+  yaz (idempotent). `cron/baby-picks-evaluate` (Pzt 09:30 UTC): ufuk dolanların getirisini
+  scan_cache son fiyatından + XU100'den doldur.
+- ✅ `api/baby-picks-performance` + sayfa "Model Performansı" kartı (3 ufuk: ort. getiri,
+  BIST'i geçen %, alfa); veri yokken "veri birikiyor" (dürüst — geçmişe uydurma yok).
+- **Doğrulama:** 93/93 test, tsc + build temiz, preview'de performans kartı pending durumu
+  render oldu, performans API tablo yokken zarif (200 pending).
+- **Bekleyen manuel adım:** migration + ilk snapshot Pazartesi otomatik; ilk sonuçlar ~1 ay sonra.
 
 ---
 

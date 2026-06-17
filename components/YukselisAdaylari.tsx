@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Rocket, RefreshCw, AlertTriangle, Filter, ShieldCheck, Info } from 'lucide-react';
+import { Rocket, RefreshCw, AlertTriangle, Filter, ShieldCheck, Info, Trophy } from 'lucide-react';
 import type { YukselisResult } from '@/app/api/yukselis-adaylari/route';
+import type { BabyPicksPerformance } from '@/lib/baby-picks';
 import { MiniChart } from '@/components/MiniChart';
 
 type VerdictFilter = 'tumu' | 'güçlü kurulum' | 'umut vadeden' | 'izlemede';
@@ -65,6 +66,59 @@ function Chip({ label, value, color }: { label: string; value: string; color?: s
     <div className="rounded-lg border border-border/40 bg-surface/30 px-2 py-1 text-center">
       <div className={`text-xs font-bold tabular-nums ${color ?? 'text-text-primary'}`}>{value}</div>
       <div className="text-[9px] text-text-muted">{label}</div>
+    </div>
+  );
+}
+
+// ── Model Performansı (forward-tracking) ──────────────────────────────
+function ModelPerfCard({ perf, pending }: { perf: BabyPicksPerformance | null; pending: boolean }) {
+  if (!perf) return null;
+  return (
+    <div className="mb-5 rounded-xl border border-border bg-surface p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Trophy className="h-4 w-4 text-emerald-400" />
+        <h2 className="text-sm font-bold text-text-primary">Model Performansı</h2>
+        <span className="text-[10px] text-text-muted">· {perf.totalPicks} takip edilen aday · BIST100 karşılaştırmalı</span>
+      </div>
+      {pending ? (
+        <p className="text-[11px] text-text-muted">
+          📈 Veri birikiyor — adaylar her Pazartesi snapshot&apos;lanır, ilk sonuçlar ~1 ay sonra görünür.
+          Model dürüstçe kendini ileriye dönük kanıtlar (geçmişe uydurma yok).
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {perf.horizons.map((h) => (
+            <div key={h.key} className="rounded-lg border border-border/40 bg-surface/30 px-3 py-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-text-secondary">{h.label}</span>
+                <span className="text-[9px] text-text-muted">{h.n} aday</span>
+              </div>
+              {h.n === 0 ? (
+                <p className="text-[10px] text-text-muted">henüz ufuk dolmadı</p>
+              ) : (
+                <div className="flex flex-col gap-0.5 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Ort. getiri</span>
+                    <span className={`font-bold tabular-nums ${(h.avgReturn ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {(h.avgReturn ?? 0) > 0 ? '+' : ''}{h.avgReturn}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">BIST&apos;i geçen</span>
+                    <span className="font-semibold tabular-nums text-text-primary">%{h.beatRate ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Alfa</span>
+                    <span className={`font-semibold tabular-nums ${(h.alpha ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {(h.alpha ?? 0) > 0 ? '+' : ''}{h.alpha} puan
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -172,6 +226,8 @@ export function YukselisAdaylari() {
   const [safeOnly, setSafeOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'score' | 'scarcity' | 'accumulation' | 'timing'>('score');
   const [scoredAt, setScoredAt] = useState<string | null>(null);
+  const [perf, setPerf] = useState<BabyPicksPerformance | null>(null);
+  const [perfPending, setPerfPending] = useState(true);
 
   const fetchData = async () => {
     setLoading(true);
@@ -188,8 +244,20 @@ export function YukselisAdaylari() {
     }
   };
 
+  const fetchPerf = async () => {
+    try {
+      const res = await fetch('/api/baby-picks-performance');
+      const json = (await res.json()) as { performance: BabyPicksPerformance | null; pending?: boolean };
+      setPerf(json.performance ?? null);
+      setPerfPending(json.pending ?? true);
+    } catch {
+      /* performans gösterilemezse gizlenir */
+    }
+  };
+
   useEffect(() => {
     void fetchData();
+    void fetchPerf();
   }, []);
 
   const filtered = data
@@ -252,6 +320,9 @@ export function YukselisAdaylari() {
             yatırım tavsiyesi değildir.
           </p>
         </div>
+
+        {/* Model performansı (forward-tracking) */}
+        <ModelPerfCard perf={perf} pending={perfPending} />
 
         {pending ? (
           <div className="rounded-xl border border-border bg-surface/30 p-8 text-center text-text-muted">

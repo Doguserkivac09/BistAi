@@ -163,6 +163,14 @@
     {
       "path": "/api/cron/baby-candidates?part=2",
       "schedule": "35 8 * * 1"
+    },
+    {
+      "path": "/api/cron/baby-picks-snapshot",
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/baby-picks-evaluate",
+      "schedule": "30 9 * * 1"
     }
   ]
 }
