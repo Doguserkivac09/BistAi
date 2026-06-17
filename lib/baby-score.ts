@@ -247,7 +247,8 @@ function qualityAndFlags(
   if (i.ipoMonths !== null && i.ipoMonths < 12) flags.push('🆕 yeni halka arz')
   if (i.pos52 < 0.2 && i.priceSlope60 < -20) flags.push('📉 düşen bıçak')
   if (i.freeFloat !== null && i.freeFloat < 0.05) flags.push('🔒 çok düşük float')
-  if (i.freeFloat === null || i.growthScore === null) flags.push('❓ veri eksik')
+  // Sadece yapısal float açığı → flag (growthScore null yaygın/beklenen; ignition=null UI'da görünür)
+  if (i.freeFloat === null) flags.push('❓ float verisi yok')
 
   return { gate: Math.round(gate * 100) / 100, antiPump, flags }
 }

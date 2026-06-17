@@ -155,6 +155,14 @@
     {
       "path": "/api/cron/long-term?part=3",
       "schedule": "50 7 * * 1"
+    },
+    {
+      "path": "/api/cron/baby-candidates?part=1",
+      "schedule": "30 8 * * 1"
+    },
+    {
+      "path": "/api/cron/baby-candidates?part=2",
+      "schedule": "35 8 * * 1"
     }
   ]
 }

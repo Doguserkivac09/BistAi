@@ -137,10 +137,15 @@ describe('yapısal kıtlık', () => {
     assert.ok(r.qualityMultiplier <= 0.8 + 1e-9)
   })
 
-  it('freeFloat null → ❓ veri eksik rozeti + çökmez', () => {
+  it('freeFloat null → ❓ float verisi yok rozeti + çökmez', () => {
     const r = computeBabyScore(ideal({ freeFloat: null }))
-    assert.ok(r.riskFlags.includes('❓ veri eksik'))
+    assert.ok(r.riskFlags.includes('❓ float verisi yok'))
     assert.equal(r.excluded, false)
+  })
+
+  it('growthScore null (banka/kapsam dışı) tek başına ❓ rozeti TETİKLEMEZ', () => {
+    const r = computeBabyScore(ideal({ growthScore: null, freeFloat: 0.1 }))
+    assert.ok(!r.riskFlags.some((f) => f.startsWith('❓')))
   })
 })
 

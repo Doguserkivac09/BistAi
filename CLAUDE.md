@@ -666,6 +666,7 @@ BT1 Rejim verisi fix, BT2 Giriş fiyatı bias fix, BT3 Komisyon modeli, BT4 Her-
 | `0 7 * * 1` | 10:00 Pzt | `/api/cron/sector-medians` | Sektör medyanları (peer değerleme) |
 | `30/40/50 7 * * 1` | 10:30-10:50 Pzt | `/api/cron/long-term?part=1\|2\|3` | Uzun Vade Kompozit (FAZ 1, üç parça) |
 | `10 8 * * 1` | 11:10 Pzt | `/api/cron/haftanin-secimi-uzun` | Haftanın uzun vade seçimi (long-term store'dan SONRA) |
+| `30/35 8 * * 1` | 11:30-11:35 Pzt | `/api/cron/baby-candidates?part=1\|2` | Bebek Hisseler — babyScore (growth+catalyst store'dan SONRA) |
 
 ---
 

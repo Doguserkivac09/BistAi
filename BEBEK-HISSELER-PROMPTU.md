@@ -171,16 +171,23 @@ Her kart şu rozetlerden uygun olanları taşır:
   anti-pump/banka-normalize/aşırı-uzama/turnaround/düşen-bıçak).
 - **Doğrulama:** 85/85 test (67→85), `tsc --noEmit` temiz, `npm run build` başarılı.
 
-### FAZ 1 — Çalıştırıcı + cron (precompute)
-- `lib/baby-runner.ts` (YENİ, `long-term-runner` ikizi): paylaşılan bağlamı TEK sorguda
-  oku (`growth-momentum:BIST`, `news-catalyst:BIST`, sektör temaları, scan_cache mumları),
-  sembol başına `fetchYahooFundamentals` (float) çek, `computeBabyScore` çağır, sonucu
-  `ai_cache` `baby-candidates:BIST` tek satıra yaz (TTL ~8g, MAX ~300, merge'li).
-  ADV ön filtresi: scan_cache mumlarından (çok illikit/ölü tahtayı Yahoo'ya gitmeden ele).
-- `app/api/cron/baby-candidates/route.ts` (YENİ): `?part=1|2`, GET, `maxDuration=300`,
-  CRON_SECRET, bistGuard, reel enflasyon (`fetchTurkeyInflation`).
-- `vercel.json`: Pzt ~11:30/11:40 TRT (scan-cache + growth-momentum + news-catalyst
-  store'ları dolduktan SONRA). CLAUDE.md cron tablosu güncelle.
+### FAZ 1 — Çalıştırıcı + cron (precompute) ✅ TAMAMLANDI (2026-06-17)
+- ✅ `lib/baby-runner.ts` (YENİ): paylaşılan bağlamı TEK sorguda oku (`growth-momentum:BIST`,
+  `news-catalyst:BIST`, tema seti), sembol başına TEK `fetchYahooFundamentals` çağrısı,
+  `computeMicrostructure` (scan_cache mumlarından — teknik için Yahoo YOK) + `computeBabyScore`,
+  sonuç `ai_cache baby-candidates:BIST` (TTL 8g, MAX 300, merge'li). `buildBabyInputs`
+  saf/export edildi (runner + doğrulama drift olmasın).
+- ✅ `app/api/cron/baby-candidates/route.ts` (YENİ): `?part=1|2`, GET, `maxDuration=300`,
+  CRON_SECRET, bistGuard, `fetchTurkeyInflation`, scan_cache TEK sorgu → ADV ön filtre
+  (<1M TL ele) + candlesMap.
+- ✅ `vercel.json`: Pzt 08:30/08:35 UTC (11:30 TRT) — diğer store'lardan SONRA.
+- **Doğrulama (canlı, prod DB):** 605 likit → 494 skor / 57s (300s'e geniş marj). Patlamış
+  GUNDG/KTLEV/ODINE/HEDEF **17-21'e bastırıldı** (pos52~0.99, rangeWidth 23-27x, extendedGate
+  ×0.5). Top adaylar gerçek bebek profili: FMIZP 78, GOODY/SANKO/KIMMR/TSGYO 75 (pos52 0.2-0.5,
+  rangeWidth 1.4-2.3, düşük float, küçük cap). **Prod store 300 satırla dolu → deploy sonrası
+  sayfa hemen çalışır.**
+- **Bilinen sınır:** `growth-momentum:BIST` MAX_STORED=250 → ~yarı evrende ignition pillar
+  düşer (renormalize zarif). v2: growth cap artır veya on-demand fetch.
 
 ### FAZ 2 — Okuma API + sayfa
 - `app/api/yukselis-adaylari/route.ts` (YENİ): `baby-candidates:BIST` oku +
@@ -342,7 +349,7 @@ MIN_STORE_SCORE = 40  (çöpü ele; sayfa filtresi API'de)
 🆕 yeni halka arz   : ipoAy < 12
 📉 düşen bıçak      : pos52 < .20  VE  priceSlope60 < −20%
 🔒 çok düşük float  : freeFloat < .05
-❓ veri eksik       : freeFloat null  VEYA  growthStore yok
+❓ float verisi yok : freeFloat null   (growthScore null flag TETİKLEMEZ — ignition=null UI'da görünür)
 ```
 
 ### 7.10 BabyScoreBreakdown (çıktı şekli)
