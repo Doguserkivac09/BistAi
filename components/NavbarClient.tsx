@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond, Brain, History, Bookmark, Layers, Sparkles, Rocket,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond, History, Bookmark, Layers, Sparkles, Radar, Rocket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ const navItems = [
       // /gecmis-firsatlar — veri henüz yetersiz (backfill kaynaklı, tüm returnlar ~0%)
       // Gerçek günlük tarama verisi 1-2 ay birikince navbar'a geri ekle
       { href: '/sinyal-takip',        label: 'Sinyal Takipçisi',     icon: Bookmark },
-      { href: '/uzun-vade-firsatlar', label: 'Uzun Vade Fırsatlar', icon: Diamond },
+      { href: '/yatirim-radari?tab=uzun-vade', label: 'Uzun Vade Fırsatlar', icon: Diamond },
       { href: '/ters-portfolyo',      label: 'Portföy Dışı',        icon: Zap },
       { href: '/karsilastir',    label: 'Karşılaştır',    icon: GitCompare },
     ],
@@ -33,8 +33,7 @@ const navItems = [
     label: 'Piyasa',
     dropdown: [
       { href: '/temalar',          label: 'Temalar',          icon: Sparkles },
-      { href: '/gelecek-sirketler', label: 'Geleceği Parlak',  icon: Brain },
-      { href: '/buyuyen-sirketler', label: 'Büyüyen Şirketler', icon: TrendingUp },
+      { href: '/yatirim-radari',   label: 'Yatırım Radarı',    icon: Radar },
       { href: '/yukselis-adaylari', label: 'Yükseliş Adayları', icon: Rocket },
       { href: '/sektorler',        label: 'Sektör Analizi',   icon: TrendingUp },
       { href: '/emtia-endeks',     label: 'Emtia & Endeks',   icon: Layers },
