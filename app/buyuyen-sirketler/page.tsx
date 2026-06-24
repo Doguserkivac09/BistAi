@@ -1,12 +1,9 @@
-import type { Metadata } from 'next'
-import BuyuyenSirketler from '@/components/BuyuyenSirketler'
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Büyüyen Şirketler — Investable Edge',
-  description:
-    'İşi büyüyen, kârlılığı artan ve hisse başı kazancı (EPS) yükselen BIST şirketleri. Son 5 yıllık finansallardan enflasyona göre reel büyüme momentumu skoru.',
-}
-
+/**
+ * /buyuyen-sirketler → Yatırım Radarı hub'ına taşındı (FAZ 3A konsolidasyonu).
+ * Eski URL/bookmark korunur: ilgili sekmeye yönlendirir.
+ */
 export default function Page() {
-  return <BuyuyenSirketler />
+  redirect('/yatirim-radari?tab=buyuyen');
 }
