@@ -171,6 +171,10 @@
     {
       "path": "/api/cron/baby-picks-evaluate",
       "schedule": "30 9 * * 1"
+    },
+    {
+      "path": "/api/cron/smart-signal",
+      "schedule": "10 15 * * 1-5"
     }
   ]
 }
