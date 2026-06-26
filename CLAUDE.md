@@ -559,6 +559,7 @@ git push -u origin feat/<feature-name>
 | Yapay Zeka Portföyü | `/yapay-zeka-portfoyu` | 100.000₺ sanal AI fon simülasyonu |
 | Uzun Vade | `/uzun-vade` | Temel veri odaklı uzun vade fırsatlar |
 | Yükseliş Adayları | `/yukselis-adaylari` | Bebek Hisseler — henüz yükselmemiş yüksek potansiyel (babyScore) |
+| Akıllı Para Sinyali | `/akilli-para` | Teknik + akıllı para (OHLCV proxy) → tek basit aksiyon (ne yapmalı?) |
 | Backtesting | `/backtesting` | Geçmiş sinyal performans analizi |
 | AI Sohbet | `/sohbet` | Claude ile portföy bağlamlı sohbet |
 | Haberler | `/haberler` | Gündem, KAP duyuruları, ekonomi takvimi |
@@ -671,6 +672,7 @@ BT1 Rejim verisi fix, BT2 Giriş fiyatı bias fix, BT3 Komisyon modeli, BT4 Her-
 | `30/35 8 * * 1` | 11:30-11:35 Pzt | `/api/cron/baby-candidates?part=1\|2` | Bebek Hisseler — babyScore (growth+catalyst store'dan SONRA) |
 | `0 9 * * 1` | 12:00 Pzt | `/api/cron/baby-picks-snapshot` | Bebek Hisseler forward-tracking — haftalık temiz aday snapshot |
 | `30 9 * * 1` | 12:30 Pzt | `/api/cron/baby-picks-evaluate` | Bebek Hisseler — ufuk dolan pick'lerin getirisi (4/12/26h) |
+| `10 15 * * 1-5` | 18:10 Pzt-Cum | `/api/cron/smart-signal` | Akıllı Para Sinyali — teknik+akıllı para skoru (scan-cache'ten SONRA) |
 
 ---
 
