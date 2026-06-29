@@ -6,6 +6,7 @@ import {
   Trophy, Brain, Flame, TrendingUp, TrendingDown,
   ChevronRight, Activity, Target, Zap, Shield, Lock,
 } from 'lucide-react';
+import { ENABLE_US } from '@/lib/flags';
 
 // ── Tipler ───────────────────────────────────────────────────────────
 
@@ -188,7 +189,7 @@ function ComparisonTable() {
     <div className="rounded-2xl border border-border bg-surface/40 overflow-hidden">
       <div className="px-6 py-4 border-b border-border">
         <h2 className="text-sm font-semibold text-text-primary">Strateji Karşılaştırması</h2>
-        <p className="text-xs text-text-muted mt-0.5">APEX (kısa vade) vs Aegis (orta vade) — BIST ve ABD</p>
+        <p className="text-xs text-text-muted mt-0.5">APEX (kısa vade) vs Aegis (orta vade){ENABLE_US ? ' — BIST ve ABD' : ''}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -198,9 +199,11 @@ function ComparisonTable() {
               <th className="text-center px-4 py-3 text-[11px] font-semibold text-orange-400 uppercase tracking-wider">
                 <Flame className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />🇹🇷 APEX BIST
               </th>
-              <th className="text-center px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wider">
-                <Flame className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />🇺🇸 APEX US
-              </th>
+              {ENABLE_US && (
+                <th className="text-center px-4 py-3 text-[11px] font-semibold text-blue-400 uppercase tracking-wider">
+                  <Flame className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />🇺🇸 APEX US
+                </th>
+              )}
               <th className="text-center px-4 py-3 text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
                 <Shield className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />🇹🇷 Aegis
               </th>
@@ -211,7 +214,7 @@ function ComparisonTable() {
               <tr key={row.label} className="hover:bg-surface/50 transition-colors">
                 <td className="px-6 py-2.5 font-medium text-text-secondary text-xs">{row.label}</td>
                 <td className="px-4 py-2.5 text-center text-text-muted text-xs">{row.apexBIST}</td>
-                <td className="px-4 py-2.5 text-center text-text-muted text-xs">{row.apexUS}</td>
+                {ENABLE_US && <td className="px-4 py-2.5 text-center text-text-muted text-xs">{row.apexUS}</td>}
                 <td className="px-4 py-2.5 text-center text-text-muted text-xs">{row.aegis}</td>
               </tr>
             ))}
@@ -409,8 +412,9 @@ export default function AiPortfoylerPage() {
             AI Portföyler
           </h1>
           <p className="text-text-muted max-w-xl mx-auto text-sm leading-relaxed">
-            BIST ve ABD borsasında dört algoritmik strateji — muhafazakârdan agresife,
-            Türkiye'den Amerika'ya. Hangisi sizi temsil ediyor?
+            {ENABLE_US
+              ? 'BIST ve ABD borsasında dört algoritmik strateji — muhafazakârdan agresife, Türkiye\'den Amerika\'ya. Hangisi sizi temsil ediyor?'
+              : 'BIST\'te algoritmik stratejiler — muhafazakârdan agresife. Hangisi sizi temsil ediyor?'}
           </p>
         </div>
 
@@ -423,9 +427,9 @@ export default function AiPortfoylerPage() {
           <Zap className="h-3.5 w-3.5 text-orange-400" />
         </div>
 
-        {/* ── 4 Portföy Kartı — 2×2 grid ── */}
+        {/* ── Portföy Kartları — 2×2 grid (US gizliyken BIST-only) ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-10">
-          {cards.map((card) => (
+          {cards.filter((card) => ENABLE_US || card.cfg.flag !== '🇺🇸').map((card) => (
             <PortfolioCard
               key={card.cfg.name}
               cfg={card.cfg}
@@ -447,7 +451,7 @@ export default function AiPortfoylerPage() {
             { href: '/yapay-zeka-portfoyu', label: '🇹🇷 Aegis BIST',       cls: 'text-emerald-400 hover:text-emerald-300' },
             { href: '/aegis-us-portfoyu',   label: '🇺🇸 Aegis US',         cls: 'text-emerald-400/70 hover:text-emerald-300' },
             { href: '/haftalik-secimler',   label: '→ Haftanın Seçimleri', cls: 'text-sky-400 hover:text-sky-300' },
-          ].map((l) => (
+          ].filter((l) => ENABLE_US || !l.label.includes('🇺🇸')).map((l) => (
             <Link key={l.href} href={l.href} className={`transition-colors ${l.cls}`}>
               {l.label}
             </Link>

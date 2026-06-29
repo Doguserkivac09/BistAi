@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Sparkles, TrendingUp, TrendingDown, AlertTriangle, Info } from 'lucide-react'
 import { scoreToColor, scoreToLabel } from '@/lib/future-score'
+import { ENABLE_US } from '@/lib/flags'
 
 interface FutureScore {
   sembol: string
@@ -55,9 +56,10 @@ const BIST_THEMES: ThemeTab[] = [
 const STALE_DAYS = 7
 
 export default function GelecekSirketler() {
-  const [market, setMarket] = useState<Market>('US')
+  // US gizliyken (ölü kod) BIST-only başla; toggle gizlenir
+  const [market, setMarket] = useState<Market>(ENABLE_US ? 'US' : 'BIST')
   const themes = market === 'BIST' ? BIST_THEMES : US_THEMES
-  const [activeTab, setActiveTab] = useState(US_THEMES[0].id)
+  const [activeTab, setActiveTab] = useState(ENABLE_US ? US_THEMES[0].id : BIST_THEMES[0].id)
   const [scores, setScores] = useState<FutureScore[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -113,27 +115,29 @@ export default function GelecekSirketler() {
             7 bileşenli 0-100 skor.
           </p>
 
-          {/* Market toggle */}
-          <div className='mt-6 inline-flex rounded-xl bg-slate-900/60 border border-slate-700 p-1'>
-            <button
-              onClick={() => switchMarket('US')}
-              className={
-                'px-5 py-2 rounded-lg font-semibold transition-all ' +
-                (market === 'US' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white')
-              }
-            >
-              🇺🇸 ABD
-            </button>
-            <button
-              onClick={() => switchMarket('BIST')}
-              className={
-                'px-5 py-2 rounded-lg font-semibold transition-all ' +
-                (market === 'BIST' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white')
-              }
-            >
-              🇹🇷 BIST
-            </button>
-          </div>
+          {/* Market toggle — US gizliyken (ölü kod) hiç gösterilmez (BIST-only) */}
+          {ENABLE_US && (
+            <div className='mt-6 inline-flex rounded-xl bg-slate-900/60 border border-slate-700 p-1'>
+              <button
+                onClick={() => switchMarket('US')}
+                className={
+                  'px-5 py-2 rounded-lg font-semibold transition-all ' +
+                  (market === 'US' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white')
+                }
+              >
+                🇺🇸 ABD
+              </button>
+              <button
+                onClick={() => switchMarket('BIST')}
+                className={
+                  'px-5 py-2 rounded-lg font-semibold transition-all ' +
+                  (market === 'BIST' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white')
+                }
+              >
+                🇹🇷 BIST
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

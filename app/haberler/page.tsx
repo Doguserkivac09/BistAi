@@ -4,22 +4,28 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { Newspaper, Calendar, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ENABLE_ECONOMIC_CALENDAR } from '@/lib/flags';
 import { TabHaberler } from './TabHaberler';
 import { TabTakvim }   from './TabTakvim';
 import { TabKap }      from './TabKap';
 
 type Tab = 'haberler' | 'takvim' | 'kap';
 
-const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+const ALL_TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'haberler', label: 'Haberler',        icon: Newspaper },
   { id: 'takvim',   label: 'Ekonomi Takvimi', icon: Calendar  },
   { id: 'kap',      label: 'KAP Duyuruları',  icon: FileText  },
 ];
 
+// Ekonomi Takvimi verisi hardcoded/bozuk → şimdilik gizli (flag açılınca geri gelir)
+const TABS = ALL_TABS.filter((t) => ENABLE_ECONOMIC_CALENDAR || t.id !== 'takvim');
+
 function GundemHub() {
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const activeTab    = (searchParams.get('tab') as Tab | null) ?? 'haberler';
+  const requested    = searchParams.get('tab') as Tab | null;
+  // takvim gizliyken ?tab=takvim isteği → haberler'e düş
+  const activeTab    = requested && TABS.some((t) => t.id === requested) ? requested : 'haberler';
 
   function switchTab(tab: Tab) {
     router.push(`/haberler?tab=${tab}`, { scroll: false });

@@ -101,7 +101,10 @@ function Kart({ r }: { r: SmartSignalResult }) {
   );
 }
 
-export function AkilliPara() {
+export function AkilliPara({
+  heading = 'Akıllı Para Sinyali',
+  intro,
+}: { heading?: string; intro?: React.ReactNode } = {}) {
   const [data, setData] = useState<SmartSignalResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -137,11 +140,15 @@ export function AkilliPara() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Crosshair className="h-6 w-6 text-fuchsia-400" />
-              <h1 className="text-2xl font-bold text-text-primary">Akıllı Para Sinyali</h1>
+              <h1 className="text-2xl font-bold text-text-primary">{heading}</h1>
             </div>
             <p className="text-sm text-text-secondary max-w-2xl">
-              Teknik sinyal + akıllı para (fiyat-hacim) birikimini tek basit karara çevirir:
-              <strong> ne yapmalı?</strong> Tüm hesaplar kural-tabanlı; özet AI ile sadeleştirilir.
+              {intro ?? (
+                <>
+                  Teknik sinyal + akıllı para (fiyat-hacim) birikimini tek basit karara çevirir:
+                  <strong> ne yapmalı?</strong> Tüm hesaplar kural-tabanlı; özet AI ile sadeleştirilir.
+                </>
+              )}
             </p>
             {scoredAt && (
               <p className="text-[11px] text-text-muted mt-1">
