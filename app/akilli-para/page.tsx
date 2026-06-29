@@ -1,12 +1,9 @@
-import type { Metadata } from 'next';
-import { AkilliPara } from '@/components/AkilliPara';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Akıllı Para Sinyali — BistAI',
-  description:
-    'BIST hisseleri için teknik sinyal + akıllı para (fiyat-hacim) birikimini tek basit karara çeviren kural-tabanlı motor: ne yapmalı? (Uzak Dur / İzle / Değerlendir / Güçlü İzle)',
-};
-
-export default function AkilliParaPage() {
-  return <AkilliPara />;
+/**
+ * /akilli-para → "Bugün" hero'suna taşındı (sadeleştirme konsolidasyonu).
+ * Eski URL/bookmark korunur.
+ */
+export default function Page() {
+  redirect('/bugun');
 }

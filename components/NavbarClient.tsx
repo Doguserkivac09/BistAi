@@ -5,59 +5,61 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu, X, User, LogOut, LayoutDashboard, ChevronDown, Users,
-  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, Diamond, History, Bookmark, Layers, Sparkles, Radar, Rocket, Crosshair,
+  Briefcase, Star, Newspaper, BarChart2, GitCompare, TrendingUp, Calculator, CalendarClock, Bell, FileText, Compass, Bot, FlaskConical, Activity, SlidersHorizontal, Zap, BookOpen, Trophy, History, Bookmark, Layers, Sparkles, Radar, Rocket, Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 // ─── Nav yapısı ───────────────────────────────────────────────────────────────
 
+// Sadeleştirme: 24 link → 6 ana hedef. Çekirdek = "Bugün" (günlük aksiyon).
+// (Görsel ince tasarım sonraki UI track'inde; bu katman IA/yönlendirme.)
 const navItems = [
-  { href: '/', label: 'Ana Sayfa' },
-  { href: '/tarama', label: 'Tarama' },
+  { href: '/bugun', label: 'Bugün' },
   {
-    label: 'Portföy',
+    label: 'Fırsatlar',
     dropdown: [
-      { href: '/portfolyo',       label: 'Portföyüm',      icon: Briefcase },
-      { href: '/watchlist',       label: 'Watchlist',      icon: Star },
-      { href: '/firsatlar',           label: 'Kısa Vade Fırsatlar', icon: Compass },
-      // /gecmis-firsatlar — veri henüz yetersiz (backfill kaynaklı, tüm returnlar ~0%)
-      // Gerçek günlük tarama verisi 1-2 ay birikince navbar'a geri ekle
-      { href: '/sinyal-takip',        label: 'Sinyal Takipçisi',     icon: Bookmark },
-      { href: '/yatirim-radari?tab=uzun-vade', label: 'Uzun Vade Fırsatlar', icon: Diamond },
-      { href: '/ters-portfolyo',      label: 'Portföy Dışı',        icon: Zap },
-      { href: '/karsilastir',    label: 'Karşılaştır',    icon: GitCompare },
+      { href: '/yatirim-radari',    label: 'Yatırım Radarı',      icon: Radar },
+      { href: '/yukselis-adaylari', label: 'Yükseliş Adayları',   icon: Rocket },
+      { href: '/firsatlar',         label: 'Kısa Vade Fırsatlar', icon: Compass },
+      { href: '/temalar',           label: 'Temalar',             icon: Sparkles },
+      { href: '/tarama',            label: 'Tarama',              icon: SlidersHorizontal },
+      { href: '/haftalik-secimler', label: 'Haftanın Seçimleri',  icon: Trophy },
+    ],
+  },
+  {
+    label: 'Portföyüm',
+    dropdown: [
+      { href: '/portfolyo',      label: 'Portföyüm',       icon: Briefcase },
+      { href: '/watchlist',      label: 'Watchlist',       icon: Star },
+      { href: '/fiyat-alertler', label: 'Fiyat Alarmları', icon: Bell },
+      { href: '/karsilastir',    label: 'Karşılaştır',     icon: GitCompare },
     ],
   },
   {
     label: 'Piyasa',
     dropdown: [
-      { href: '/temalar',          label: 'Temalar',          icon: Sparkles },
-      { href: '/yatirim-radari',   label: 'Yatırım Radarı',    icon: Radar },
-      { href: '/yukselis-adaylari', label: 'Yükseliş Adayları', icon: Rocket },
-      { href: '/akilli-para',      label: 'Akıllı Para Sinyali', icon: Crosshair },
-      { href: '/sektorler',        label: 'Sektör Analizi',   icon: TrendingUp },
-      { href: '/emtia-endeks',     label: 'Emtia & Endeks',   icon: Layers },
-      { href: '/makro',            label: 'Makro Radar',       icon: BarChart2 },
-      { href: '/simulasyon',       label: 'Makro Simülatör',   icon: FlaskConical },
-      { href: '/haberler',            label: 'Gündem Merkezi',   icon: Newspaper },
-      { href: '/araclar',          label: 'Araçlar',            icon: Calculator },
+      { href: '/makro',        label: 'Makro Radar',    icon: BarChart2 },
+      { href: '/sektorler',    label: 'Sektörler',      icon: TrendingUp },
+      { href: '/haberler',     label: 'Gündem',         icon: Newspaper },
+      { href: '/emtia-endeks', label: 'Emtia & Endeks', icon: Layers },
+      { href: '/araclar',      label: 'Araçlar',        icon: Calculator },
     ],
   },
+  { href: '/ai-portfoyler', label: 'AI Portföyleri' },
   {
-    label: 'Keşfet',
+    label: 'Gelişmiş',
     dropdown: [
-      { href: '/sohbet',       label: 'AI Asistan',    icon: Bot },
-      { href: '/backtesting',  label: 'Backtest',      icon: Activity },
-      { href: '/topluluk',     label: 'Topluluk',      icon: Users },
-      { href: '/dashboard',    label: 'Dashboard',     icon: LayoutDashboard },
-      { href: '/yardim',       label: 'Eğitim Merkezi', icon: BookOpen },
-      { href: '/ai-portfoyler', label: 'AI Portföyler', icon: Trophy },
+      { href: '/sohbet',         label: 'AI Asistan',       icon: Bot,          locked: true },
+      { href: '/backtesting',    label: 'Backtest',         icon: Activity,     locked: true },
+      { href: '/simulasyon',     label: 'Simülatör',        icon: FlaskConical, locked: true },
+      { href: '/ters-portfolyo', label: 'Portföy Dışı',     icon: Zap,          locked: true },
+      { href: '/sinyal-takip',   label: 'Sinyal Takipçisi', icon: Bookmark,     locked: true },
     ],
   },
 ];
 
-type DropdownItem = { href: string; label: string; icon: React.ElementType };
+type DropdownItem = { href: string; label: string; icon: React.ElementType; locked?: boolean };
 type NavItem =
   | { href: string; label: string; dropdown?: undefined }
   | { href?: undefined; label: string; dropdown: DropdownItem[] };
@@ -140,7 +142,8 @@ function NavDropdown({ item, pathname }: { item: NavItem & { dropdown: DropdownI
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {d.label}
+                <span className="flex-1">{d.label}</span>
+                {d.locked && <Lock className="h-3 w-3 shrink-0 text-amber-400/70" />}
               </Link>
             );
           })}
@@ -269,6 +272,9 @@ export function NavbarClient({ user }: NavbarClientProps) {
                       <Link href="/topluluk" className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors">
                         <Users className="h-4 w-4" /> Topluluk
                       </Link>
+                      <Link href="/yardim" className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/5 hover:text-text-primary transition-colors">
+                        <BookOpen className="h-4 w-4" /> Eğitim Merkezi
+                      </Link>
                     </div>
                     <div className="border-t border-border py-1">
                       <form action="/auth/logout" method="post">
@@ -336,7 +342,8 @@ export function NavbarClient({ user }: NavbarClientProps) {
                       )}
                     >
                       <Icon className="h-4 w-4" />
-                      {d.label}
+                      <span className="flex-1">{d.label}</span>
+                      {d.locked && <Lock className="h-3 w-3 text-amber-400/70" />}
                     </Link>
                   );
                 })}
