@@ -1,7 +1,72 @@
 # Investable Edge — Claude Code Proje Hafızası
 
 > Bu dosya Claude Code tarafından otomatik okunur. Tüm ekip üyeleri aynı bağlamı paylaşır.
-> Son güncelleme: 2026-06-03
+> Son güncelleme: 2026-07-01
+
+---
+
+## 🎨 YENİ TASARIM — Frontend Redesign (Modern-Minimalist Açık Tema) — DEVAM EDİYOR
+
+> **Bu, AKTİF frontend iş akışıdır. Tasarım işine yeni pencerede devam ederken BURAYI oku.**
+> Ekran-ekran ilerliyor; aşağıdaki 6 ekran CANLI (main'de), kalanlar revize aşamasında.
+
+### Bağlam & kaynak paket
+- **`design_handoff_bistai/`** (repo kökü): tasarım teslim paketi. **`README.md` = tam spec**
+  (renk/tipografi token'ları, her ekranın layout'u, etkileşimler, auth kuralı, veri modeli).
+  `*.dc.html` = yalnız **görsel referans** (porting ETME; `support.js` runtime'ı TAŞIMA).
+- Hedef: borsa bilmeyen kullanıcıya basit "Bugün ne yapmalıyım?" deneyimi; açık tema,
+  minimalist, kendi kabuğu (AppShell). Mevcut veri katmanları/API'ler aynen kullanılır.
+
+### Mimari / DESEN (yeni ekran eklerken birebir izle)
+1. `components/new/<Ekran>Screen.tsx` — `'use client'`, tasarım token'larıyla, **mevcut API'leri** tüketir.
+2. `app/<route>/page.tsx` — eski dev sayfayı `<AppShell><Ekran/></AppShell>` ile **DEĞİŞTİR**
+   (metadata + thin wrapper; eski kod git geçmişinde — fonksiyon kaybetme, koru/taşı, gerekirse kullanıcıya sor).
+3. `lib/new-design-routes.ts` → `NEW_DESIGN_ROUTES`'a route ekle → `components/ChromeGate.tsx`
+   eski global `Navbar`/`Footer`'ı o rotada gizler (yeni ekran kendi kabuğunu getirir).
+4. Auth gerekiyorsa `middleware.ts` matcher + koruma listesine ekle.
+- **Kabuk:** `components/new/AppShell.tsx` — masaüstü sol sidebar + üst topbar, mobil alt tab bar.
+  Sidebar/tab route'ları: /bugun /firsatlar /portfolyo /makro /ai-portfoyler /sohbet /profil.
+
+### Tasarım token'ları (`tailwind.config.js`'te TANIMLI — bunları kullan)
+`ink #16181d` · `up #16a35b` · `up-on-dark #3fce8a` · `down #e5484d` · `ai #6b6ff5` ·
+`ai-on-dark #8b8fff` · `t2 #7b818c` · `t3 #9aa0ad` · `t4 #b4b8bf` · `page #fcfcfd` ·
+`panel #fff` · `fill #f4f5f6` · `hairline #eef0f2` · `ai-panel #faf9ff` ·
+`ai-panel-border #ece9fb` · `up-badge #eaf7ef`. Font: `font-manrope` (gövde), `font-mono`
+(JetBrains Mono — **TÜM fiyat/yüzde/sayı**). Fontlar `app/layout.tsx`'te yüklü.
+
+### Tamamlanan ekranlar (6 — CANLI, main'de)
+| Ekran | Route | Component | Veri kaynağı | Korunan / sadeleştirilen |
+|-------|-------|-----------|--------------|--------------------------|
+| Bugün | `/bugun` | `BugunScreen` | /api/smart-signal + /api/watchlist + /api/macro(+history) | verdict listesi (watchlist→top8 fallback), Makro/Rejim/Risk metrikleri, BIST100 kartı, değişim% |
+| Portföyüm | `/portfolyo` | `PortfoyumScreen` | /api/portfolyo + /api/ohlcv | **ekle/düzenle/sil** + CSV + hedef-fiyat; e-posta bildirim → Profil'e taşındı |
+| Fırsatlar | `/firsatlar` | `FirsatlarScreen` | /api/firsatlar | filtre çipleri (Tümü/Momentum/Akıllı Para/Katalist) + skor barı + verdict + etiket; en yüksek 50 |
+| Piyasa | `/makro` | `PiyasaScreen` | /api/macro + /api/sectors | makro kartları + sektör diverging barları + kompakt göstergeler; skor/risk → Bugün'de |
+| AI Asistan | `/sohbet` | `AiAsistanScreen` | /api/chat (SSE) | **streaming sohbet** + öneri çipleri; oturum geçmişi sidebar'ı sadeleştirildi |
+| Profil | `/profil` | `ProfilScreen` | /api/profile + portfolyo/watchlist | tier + istatistik + **çalışan bildirim toggle** (newsletter_enabled, PATCH) + çıkış |
+
+### Auth yönlendirme (`middleware.ts`)
+Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Korumalı: `/bugun`,
+`/portfolyo`, `/profil` (+ eski liste). Public: `/firsatlar`, `/makro`, `/sohbet` (chat API auth ister).
+
+### Bu redesign için yapılan BACKEND eklemeleri
+- `lib/macro-service.ts` `formatMacroResponse` → yanıta **`risk`** alanı (Bugün metrikleri).
+- `lib/smart-signal` → `SmartSignalResult`'a **`changePercent`** (engine + types + cron `scan_cache.change_percent` select).
+
+### KALAN İŞ (revize aşaması — kullanıcı talimat verecek)
+- **Henüz ESKİ koyu tema** (redesign bekliyor): AI Portföyleri (`/ai-portfoyler` + alt portföyler),
+  Sektör detay (`/sektorler`, `/sektorler/[id]`), **Hisse detay** (`/hisse/[sembol]`), Yardım (`/yardim`),
+  Onboarding/Giriş/Kayıt (`/giris`,`/kayit` — handoff'ta var: `bistAI Frontend v2.dc.html`), Tarama, vb.
+- Ekran-ekran geçişte yeni→eski sayfa link karışımı NORMAL (eski navbar eski sayfalarda görünür;
+  tüm ekranlar geçince eski kabuk tamamen kaldırılacak).
+- **Bilinen:** preview `screenshot` aracı bu oturumda uzun yeni-tasarım sayfalarında zaman aşımına
+  uğradı (sayfa sağlam — `preview_eval` + konsol ile doğrulandı). Auth-gated ekranların VERİ görseli
+  oturum gerektirir → Vercel preview deploy'da giriş yapıp doğrula.
+- Revize işi (renk/spacing/etkileşim ince ayarı, eksik ekranların redesign'ı) için kullanıcı
+  ayrı pencerede talimat verecek.
+
+### Doğrulama kuralı (her yeni ekran)
+`npx tsc --noEmit` + `npm run build` temiz olmalı. Public ekranlar gerçek veriyle preview'de doğrulanır.
+Migration GEREKMEZ (saf UI + mevcut API'ler).
 
 ---
 
