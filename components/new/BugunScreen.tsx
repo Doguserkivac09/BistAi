@@ -2,20 +2,26 @@
 
 /**
  * "Bugün" ekranı (design_handoff_bistai/bistAI Bugun.dc.html) — hi-fi.
- * Çekirdek: günlük tek net aksiyon. Verdict listesi GERÇEK smart-signal verisinden
- * (action → verdict). Açık tema, Manrope + JetBrains Mono.
+ * Çekirdek: günlük tek net aksiyon.
+ *
+ * Veri: /api/smart-signal (verdict) · /api/watchlist (kişisel liste) ·
+ * /api/macro (Makro rüzgar / Rejim / Risk + BIST 100) · /api/macro?history (sparkline).
+ * Açık tema, Manrope + JetBrains Mono.
  */
 
 import { useEffect, useState } from 'react';
 import type { SmartSignalResult } from '@/lib/smart-signal/types';
 
-interface ApiResponse {
-  ok: boolean;
-  pending?: boolean;
-  results: SmartSignalResult[];
+interface SignalResp { ok: boolean; pending?: boolean; results: SmartSignalResult[] }
+interface WatchItem { sembol: string }
+interface MacroResp {
+  score?: { score: number; wind: string; label: string };
+  risk?: { label: string; color: string };
+  indicators?: { bist100?: { price: number; changePercent: number } | null };
 }
+interface MacroHistResp { history?: Array<{ bist100: number | null }> }
 
-// action → tasarım verdict'i (README verdict ölçeği)
+// action → tasarım verdict'i
 const VERDICT: Record<string, { label: string; color: string; bg: string }> = {
   'Strong Watch': { label: 'Güçlü İzle', color: '#16a35b', bg: 'rgba(22,163,91,0.12)' },
   Consider:       { label: 'Değerlendir', color: '#4aa84a', bg: 'rgba(74,168,74,0.12)' },
@@ -40,6 +46,45 @@ function fmtPrice(v: number | null): string {
   if (v == null) return '—';
   return v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function fmtPct(v: number | null): string {
+  if (v == null) return '—';
+  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+}
+function pctColor(v: number | null): string {
+  if (v == null) return '#9aa0ad';
+  return v >= 0 ? '#16a35b' : '#e5484d';
+}
+
+// Makro wind → Rejim etiketi + renk (koyu zemin uyumlu)
+function regimeOf(wind?: string): { label: string; color: string } {
+  if (!wind) return { label: '—', color: '#9aa0ad' };
+  if (wind.includes('positive')) return { label: 'Yükseliş', color: '#3fce8a' };
+  if (wind.includes('negative')) return { label: 'Düşüş', color: '#ff5d62' };
+  return { label: 'Yatay', color: '#e6b54a' };
+}
+// risk.color → koyu zemin hex (API hex döndürür; isim de tolere edilir)
+function riskHex(c?: string): string {
+  if (!c) return '#9aa0ad';
+  if (c.startsWith('#')) return c;
+  if (c === 'green') return '#3fce8a';
+  if (c === 'red') return '#ff5d62';
+  if (c === 'yellow') return '#e6b54a';
+  return '#9aa0ad';
+}
+
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) return null;
+  const w = 132, h = 40;
+  const min = Math.min(...values), max = Math.max(...values), rng = max - min || 1;
+  const pts = values
+    .map((v, i) => `${((i / (values.length - 1)) * w).toFixed(1)},${(h - ((v - min) / rng) * (h - 4) - 2).toFixed(1)}`)
+    .join(' ');
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="mt-2">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function VerdictRow({ r }: { r: SmartSignalResult }) {
   const v = VERDICT[r.action] ?? VERDICT.Avoid;
@@ -57,41 +102,89 @@ function VerdictRow({ r }: { r: SmartSignalResult }) {
         <div className="truncate text-[12px] font-medium text-t2 lg:hidden">{r.summary}</div>
       </div>
       <div className="hidden min-w-0 flex-1 truncate text-[13px] font-medium text-t2 lg:block">{r.summary}</div>
-      <span className="hidden w-[80px] shrink-0 text-right font-mono text-[13px] font-semibold text-ink lg:block">
+      <span className="hidden w-[78px] shrink-0 text-right font-mono text-[13px] font-semibold text-ink lg:block">
         {fmtPrice(r.price)} ₺
       </span>
-      <div className="shrink-0 text-right">
+      <span
+        className="hidden w-[64px] shrink-0 text-right font-mono text-[13px] font-semibold lg:block"
+        style={{ color: pctColor(r.changePercent) }}
+      >
+        {fmtPct(r.changePercent)}
+      </span>
+      <div className="flex shrink-0 flex-col items-end gap-1">
         <span
           className="inline-block rounded-[9px] px-[11px] py-[5px] text-[12px] font-extrabold lg:px-[13px] lg:py-1.5"
           style={{ background: v.bg, color: v.color }}
         >
           {v.label}
         </span>
+        <span className="font-mono text-[11px] font-semibold lg:hidden" style={{ color: pctColor(r.changePercent) }}>
+          {fmtPct(r.changePercent)}
+        </span>
       </div>
+    </div>
+  );
+}
+
+function Metric({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div>
+      <div className="text-[11px] font-medium text-t3">{label}</div>
+      <div className="mt-0.5 font-mono text-[15px] font-semibold lg:text-[18px]" style={{ color }}>{value}</div>
     </div>
   );
 }
 
 export function BugunScreen() {
   const [data, setData] = useState<SmartSignalResult[]>([]);
-  const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [watchSyms, setWatchSyms] = useState<string[]>([]);
+  const [macro, setMacro] = useState<MacroResp | null>(null);
+  const [bistSeries, setBistSeries] = useState<number[]>([]);
 
   useEffect(() => {
+    // Smart-signal (verdict) — zorunlu
     fetch('/api/smart-signal')
-      .then((r) => r.json() as Promise<ApiResponse>)
-      .then((j) => {
-        setData(j.results ?? []);
-        setPending(j.pending ?? false);
-      })
+      .then((r) => r.json() as Promise<SignalResp>)
+      .then((j) => { setData(j.results ?? []); setPending(j.pending ?? false); })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    // Watchlist — auth-gated; 401/boş → fallback top-N
+    fetch('/api/watchlist')
+      .then((r) => (r.ok ? (r.json() as Promise<WatchItem[]>) : []))
+      .then((items) => setWatchSyms(Array.isArray(items) ? items.map((i) => i.sembol) : []))
+      .catch(() => {});
+
+    // Makro: Makro rüzgar / Rejim / Risk + BIST 100
+    fetch('/api/macro')
+      .then((r) => r.json() as Promise<MacroResp>)
+      .then((m) => setMacro(m))
+      .catch(() => {});
+
+    // BIST 100 sparkline serisi (son ~30 gün)
+    fetch('/api/macro?history=true&days=30')
+      .then((r) => r.json() as Promise<MacroHistResp>)
+      .then((h) => setBistSeries((h.history ?? []).map((x) => x.bist100).filter((v): v is number => v != null)))
+      .catch(() => {});
   }, []);
 
-  // Günün aksiyonu: en yüksek skorlu (en aksiyon-alınabilir) ~8 hisse
-  const list = [...data].sort((a, b) => b.total_score - a.total_score).slice(0, 8);
+  // Verdict listesi: takip listesi (varsa) → smart-signal ile eşleşenler; yoksa en güçlü 8
+  const bySym = new Map(data.map((r) => [r.symbol, r]));
+  const watchMatched = watchSyms.map((s) => bySym.get(s)).filter((r): r is SmartSignalResult => !!r);
+  const usingWatchlist = watchMatched.length > 0;
+  const list = usingWatchlist
+    ? watchMatched.sort((a, b) => b.total_score - a.total_score)
+    : [...data].sort((a, b) => b.total_score - a.total_score).slice(0, 8);
+
   const strong = data.filter((r) => r.status === 'STRONG').length;
   const positive = data.filter((r) => r.status === 'POSITIVE').length;
+
+  const macroScore = macro?.score?.score;
+  const regime = regimeOf(macro?.score?.wind);
+  const macroColor = regime.color; // makro rüzgar rengi rejimle aynı yönde
+  const bist = macro?.indicators?.bist100 ?? null;
 
   const dateStr = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -127,19 +220,11 @@ export function BugunScreen() {
                   </>
                 )}
             </p>
-            <div className="mt-4 flex gap-[18px] border-t border-white/10 pt-4">
-              <div>
-                <div className="text-[11px] font-medium text-t3">Güçlü İzle</div>
-                <div className="mt-0.5 font-mono text-[15px] font-semibold text-up-on-dark lg:text-[18px]">{strong}</div>
-              </div>
-              <div>
-                <div className="text-[11px] font-medium text-t3">Değerlendir</div>
-                <div className="mt-[3px] text-[14px] font-bold text-white lg:text-[15px]">{positive}</div>
-              </div>
-              <div>
-                <div className="text-[11px] font-medium text-t3">Taranan</div>
-                <div className="mt-[3px] text-[14px] font-bold text-white lg:text-[15px]">{data.length}</div>
-              </div>
+            {/* Makro rüzgar / Rejim / Risk */}
+            <div className="mt-4 flex gap-7 border-t border-white/10 pt-4">
+              <Metric label="Makro rüzgar" value={macroScore != null ? String(macroScore) : '—'} color={macroColor} />
+              <Metric label="Rejim" value={regime.label} color={regime.label === '—' ? '#9aa0ad' : '#f4f5f6'} />
+              <Metric label="Risk" value={macro?.risk?.label ?? '—'} color={riskHex(macro?.risk?.color)} />
             </div>
           </div>
 
@@ -148,7 +233,9 @@ export function BugunScreen() {
             <span className="text-[16px] font-extrabold tracking-[-0.02em] text-ink lg:text-[17px]">
               Bugün ne yapmalıyım?
             </span>
-            <span className="text-[12px] font-semibold text-t3">En güçlü kurulumlar</span>
+            <span className="text-[12px] font-semibold text-t3">
+              {usingWatchlist ? 'Takip listem' : 'En güçlü kurulumlar'}
+            </span>
           </div>
 
           <div className="flex flex-col gap-[11px]">
@@ -166,8 +253,28 @@ export function BugunScreen() {
           </div>
         </div>
 
-        {/* Sağ kolon (masaüstü): verdict ölçeği */}
+        {/* Sağ kolon: BIST 100 + verdict ölçeği */}
         <div className="flex w-full flex-col gap-[18px] lg:w-[330px]">
+          {/* BIST 100 mini kart */}
+          <div className="rounded-[18px] border border-[#f0f1f3] p-[18px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-extrabold tracking-[-0.01em] text-ink">BIST 100</span>
+              {bist && (
+                <span className="font-mono text-[13px] font-semibold" style={{ color: pctColor(bist.changePercent) }}>
+                  {fmtPct(bist.changePercent)}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 font-mono text-[24px] font-bold tracking-[-0.02em] text-ink">
+              {bist ? bist.price.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) : '—'}
+            </div>
+            <Sparkline
+              values={bistSeries}
+              color={bist && bist.changePercent < 0 ? '#e5484d' : '#16a35b'}
+            />
+          </div>
+
+          {/* Verdict ölçeği */}
           <div className="flex flex-col rounded-[18px] border border-[#f0f1f3] p-[18px]">
             <div className="text-[15px] font-extrabold tracking-[-0.01em] text-ink">Verdict ölçeği</div>
             <div className="mt-4 flex flex-col gap-3">

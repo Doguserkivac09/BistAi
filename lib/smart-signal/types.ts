@@ -59,4 +59,5 @@ export interface SmartSignalResult {
   flags: BonusFlag[]
   smart_money_source: SmartMoneySource
   price: number | null
+  changePercent: number | null
 }
