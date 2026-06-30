@@ -4,7 +4,7 @@
  * Eski global Navbar/Footer bu rotalarda gizlenir (ChromeGate). Yeni ekran ekledikçe
  * buraya ekle; tüm ekranlar geçince eski kabuk tamamen kaldırılır.
  */
-export const NEW_DESIGN_ROUTES = ['/bugun', '/portfolyo', '/firsatlar'];
+export const NEW_DESIGN_ROUTES = ['/bugun', '/portfolyo', '/firsatlar', '/makro'];
 
 export function isNewDesignRoute(pathname: string | null): boolean {
   if (!pathname) return false;
