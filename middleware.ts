@@ -27,14 +27,15 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  if (user && (pathname.startsWith('/giris') || pathname.startsWith('/kayit'))) {
-    const dashboardUrl = new URL('/dashboard', request.url);
-    return NextResponse.redirect(dashboardUrl);
+  // Oturum varsa: giriş/kayıt VEYA kök → "Bugün" (varsayılan landing, yeni tasarım)
+  if (user && (pathname.startsWith('/giris') || pathname.startsWith('/kayit') || pathname === '/')) {
+    return NextResponse.redirect(new URL('/bugun', request.url));
   }
 
   if (
     !user &&
-    (pathname.startsWith('/dashboard') ||
+    (pathname.startsWith('/bugun') ||
+      pathname.startsWith('/dashboard') ||
       pathname.startsWith('/tarama') ||
       pathname.startsWith('/hisse/') ||
       pathname.startsWith('/profil') ||
@@ -54,6 +55,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard', '/tarama', '/hisse/:path*', '/profil', '/portfolyo', '/watchlist', '/backtesting', '/topluluk/:path*', '/karsilastir', '/giris', '/kayit'],
+  matcher: ['/', '/bugun', '/dashboard', '/tarama', '/hisse/:path*', '/profil', '/portfolyo', '/watchlist', '/backtesting', '/topluluk/:path*', '/karsilastir', '/giris', '/kayit'],
 };
 

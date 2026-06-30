@@ -1,14 +1,18 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { ChromeGate } from '@/components/ChromeGate';
 import { Toaster } from 'sonner';
 import { PwaRegister } from '@/components/PwaRegister';
 import { PwaInstallBanner } from '@/components/PwaInstallBanner';
 import { OnboardingBanner } from '@/components/OnboardingBanner';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+// Yeni modern-minimalist tasarım fontları (design_handoff_bistai)
+const manrope = Manrope({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-manrope' });
+const jetbrains = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-jetbrains' });
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://investableedge.vercel.app';
 
@@ -68,7 +72,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body className={`${inter.variable} antialiased min-h-screen bg-background text-text-primary flex flex-col`}>
+      <body className={`${inter.variable} ${manrope.variable} ${jetbrains.variable} antialiased min-h-screen bg-background text-text-primary flex flex-col`}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -86,13 +90,13 @@ export default function RootLayout({
           }}
         />
         <PwaRegister />
-        <PwaInstallBanner />
-        <OnboardingBanner />
-        <Navbar />
+        <ChromeGate><PwaInstallBanner /></ChromeGate>
+        <ChromeGate><OnboardingBanner /></ChromeGate>
+        <ChromeGate><Navbar /></ChromeGate>
         <div className="flex-1">
           {children}
         </div>
-        <Footer />
+        <ChromeGate><Footer /></ChromeGate>
         <Toaster
           position="bottom-right"
           toastOptions={{

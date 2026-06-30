@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     // scan_cache TEK sorgu → mum + meta (rsi/rel_vol5/last_close)
     const { data: scanRows } = await sb
       .from('scan_cache')
-      .select('sembol, candles_json, rsi, rel_vol5, last_close')
+      .select('sembol, candles_json, rsi, rel_vol5, last_close, change_percent')
       .eq('market', 'BIST')
       .limit(1000)
 
@@ -58,10 +58,11 @@ export async function GET(request: NextRequest) {
       rsi: number | null
       rel_vol5: number | null
       last_close: number | null
+      change_percent: number | null
     }>) {
       if (!Array.isArray(row.candles_json)) continue
       candlesMap.set(row.sembol, row.candles_json as OHLCVCandle[])
-      scanMap.set(row.sembol, { rsi: row.rsi, rel_vol5: row.rel_vol5, last_close: row.last_close })
+      scanMap.set(row.sembol, { rsi: row.rsi, rel_vol5: row.rel_vol5, last_close: row.last_close, change_percent: row.change_percent })
       symbols.push(row.sembol)
     }
 

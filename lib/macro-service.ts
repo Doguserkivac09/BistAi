@@ -136,7 +136,7 @@ export async function getRiskScore(): Promise<RiskScoreResult> {
  * /api/macro endpoint'inin response formatını oluşturur.
  */
 export function formatMacroResponse(full: MacroFullResult) {
-  const { bundle, macroScore, usEconomy } = full;
+  const { bundle, macroScore, riskScore, usEconomy } = full;
   const { yahoo, turkey, fred } = bundle;
 
   // usEconomy'yi frontend formatına dönüştür (label + color)
@@ -148,6 +148,12 @@ export function formatMacroResponse(full: MacroFullResult) {
 
   return {
     score: macroScore,
+    risk: {
+      score: riskScore.score,
+      level: riskScore.level,
+      label: riskScore.label,
+      color: riskScore.color,
+    },
     indicators: {
       vix: yahoo.vix,
       dxy: yahoo.dxy,

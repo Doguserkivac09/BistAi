@@ -22,6 +22,7 @@ import type { SmartMoneyProvider, SmartSignalResult, SignalStatus, SignalAction 
 
 export interface EngineScanRow extends ScanRowLite {
   last_close?: number | null
+  change_percent?: number | null
 }
 
 /** Mikro-yapı için gereken minimum mum sayısı */
@@ -94,5 +95,6 @@ export function runSmartSignal(
     flags,
     smart_money_source: sm.source,
     price: scan?.last_close ?? micro.lastClose,
+    changePercent: scan?.change_percent ?? null,
   }
 }
