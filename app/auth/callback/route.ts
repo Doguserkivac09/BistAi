@@ -16,5 +16,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/giris', request.url));
   }
 
-  return NextResponse.redirect(new URL('/dashboard', request.url));
+  // Onboarding tamamlanmadıysa (yeni kullanıcı / sosyal giriş) önce karşılama akışı
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const onboarded = user?.user_metadata?.onboarded === true;
+
+  return NextResponse.redirect(new URL(onboarded ? '/bugun' : '/karsilama', request.url));
 }

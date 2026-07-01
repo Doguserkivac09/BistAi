@@ -44,8 +44,18 @@
 | AI Asistan | `/sohbet` | `AiAsistanScreen` | /api/chat (SSE) | **streaming sohbet** + öneri çipleri; oturum geçmişi sidebar'ı sadeleştirildi |
 | Profil | `/profil` | `ProfilScreen` | /api/profile + portfolyo/watchlist | tier + istatistik + **çalışan bildirim toggle** (newsletter_enabled, PATCH) + çıkış |
 
+### Giriş / Kayıt + Onboarding (✅ TAMAMLANDI 2026-07-02) — yeni handoff `design_handoff_kalan_ekranlar/`
+| Ekran | Route | Component | Not |
+|-------|-------|-----------|-----|
+| Karşılama / Giriş | `/giris` | `GirisScreen` | koyu hero + beyaz form; email/şifre (signInWithPassword) + Google/Apple (signInWithOAuth) + şifremi-unuttum + redirect param (open-redirect koruması). Giriş sonrası onboarded değilse → `/karsilama` |
+| Kayıt | `/kayit` | `KayitScreen` | aynı dil; Ad/Soyad/E-posta/Şifre (signUp + user_metadata) + e-posta doğrulama success. Oturum açıldıysa → `/karsilama` |
+| Onboarding | `/karsilama` | `KarsilamaScreen` | Risk Profili (2/3) + İlgi Alanları (3/3). Seçimler **user_metadata**'ya (`risk_profile`, `interests`, `onboarded:true` — MIGRATION YOK). Bitince → `/bugun`. Auth korumalı |
+- `/giris`,`/kayit`,`/karsilama` → `NEW_DESIGN_ROUTES` (eski chrome gizli). `middleware.ts` `/karsilama` auth-korumalı.
+- `app/auth/callback/route.ts`: e-posta onay/OAuth sonrası onboarded'a göre `/karsilama` veya `/bugun` (eski `/dashboard` kaldırıldı).
+- **BEKLEYEN MANUEL ADIM:** Supabase panelinde Google/Apple OAuth provider'ları açılmalı (açılana dek sosyal butonlar zarif hata verir). Migration gibi manuel dashboard adımı.
+
 ### Auth yönlendirme (`middleware.ts`)
-Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Korumalı: `/bugun`,
+Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Korumalı: `/bugun`, `/karsilama`,
 `/portfolyo`, `/profil` (+ eski liste). Public: `/firsatlar`, `/makro`, `/sohbet` (chat API auth ister).
 
 ### Bu redesign için yapılan BACKEND eklemeleri
@@ -53,9 +63,9 @@ Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Ko
 - `lib/smart-signal` → `SmartSignalResult`'a **`changePercent`** (engine + types + cron `scan_cache.change_percent` select).
 
 ### KALAN İŞ (revize aşaması — kullanıcı talimat verecek)
-- **Henüz ESKİ koyu tema** (redesign bekliyor): AI Portföyleri (`/ai-portfoyler` + alt portföyler),
-  Sektör detay (`/sektorler`, `/sektorler/[id]`), **Hisse detay** (`/hisse/[sembol]`), Yardım (`/yardim`),
-  Onboarding/Giriş/Kayıt (`/giris`,`/kayit` — handoff'ta var: `bistAI Frontend v2.dc.html`), Tarama, vb.
+- **Henüz ESKİ koyu tema** (redesign bekliyor — handoff: `design_handoff_kalan_ekranlar/bistAI Kalan Ekranlar.dc.html`):
+  **Hisse detay** (`/hisse/[sembol]`), Sektör detay (`/sektorler/[id]`), Tarama (`/tarama`),
+  AI Portföyleri (`/ai-portfoyler` + alt portföyler), Yardım (`/yardim`). (Giriş/Kayıt+Onboarding ✅ bitti.)
 - Ekran-ekran geçişte yeni→eski sayfa link karışımı NORMAL (eski navbar eski sayfalarda görünür;
   tüm ekranlar geçince eski kabuk tamamen kaldırılacak).
 - **Bilinen:** preview `screenshot` aracı bu oturumda uzun yeni-tasarım sayfalarında zaman aşımına
