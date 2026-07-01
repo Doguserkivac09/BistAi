@@ -3,7 +3,7 @@
 ## Overview
 bistAI, BIST (Borsa İstanbul) için yapay zekâ destekli bir yatırım uygulamasıdır. Ana 6 ekran (Bugün, Portföyüm, Fırsatlar, Piyasa, AI Asistan, Profil) zaten kodlandı ve canlıda. Bu paket, **henüz entegre edilmemiş kalan ekranları** içerir ve hepsi mevcut uygulamanın görsel diliyle birebir tasarlanmıştır.
 
-Bu handoff'taki 8 ekran:
+Bu handoff'taki ekranlar (her biri mobil + masaüstü):
 1. **Karşılama / Giriş** (onboarding adım 0)
 2. **Risk Profili** (onboarding adım 2/3)
 3. **İlgi Alanları** (onboarding adım 3/3)
@@ -12,6 +12,18 @@ Bu handoff'taki 8 ekran:
 6. **Tarama** (hisse tarayıcı / filtre kurucu)
 7. **AI Portföyleri** (model portföy setleri)
 8. **Yardım & Destek**
+
+### Masaüstü versiyonları
+Aynı dosyada, mobil ekranların altındaki iki satırda 7 masaüstü düzeni bulunur (1180×780 çerçeveler):
+- **Giriş:** Split layout — sol %46 koyu marka paneli (başlık + grafik + 3 değer önerisi), sağda ortalanmış 380px form. Sidebar yok.
+- **Onboarding (Risk profili):** Üst çubukta logo + 220px ilerleme çubuğu + "2/3"; içerik ortalanmış 560px sütun; altta "Geri" + 220px "Devam et".
+- **Hisse detay:** Standart uygulama kabuğu (sidebar'da **Piyasa** aktif). Topbar: geri + THYAO + yıldız + Sat/Al butonları. İçerik 2 sütun: sol (fiyat, 190px grafik, zaman sekmeleri, 3 sütunlu istatistik gridi), sağ 320px (AI Sinyal kartı, Sektör bağlantı kartı, koyu "AI Asistan'a sor" kartı).
+- **Sektör detay:** Kabuk (Piyasa aktif). Sol: koyu endeks kartı + şirketler tablosu; sağ 300px: 3 istatistik satırı + AI sektör notu.
+- **Tarama:** Kabuk (Fırsatlar aktif). Sol 300px filtre paneli (segment, 2 slider, toggle, "Filtreleri sıfırla") + sağda sonuç tablosu (42 eşleşme, AI skor barları). Topbar'da "Filtreyi kaydet".
+- **AI Portföyleri:** Kabuk (AI Portföyleri aktif). Topbar'da risk filtreleri; içerik 2×2 kart gridi (her kartta "İncele" butonu) + altta AI açıklama bandı.
+- **Yardım:** Kabuk (sidebar altında **Yardım** aktif). Ortalanmış 640px sütun: arama, 4'lü kategori satırı, SSS, koyu destek kartı ("Sohbet başlat").
+
+**Masaüstü kabuğu (mevcut uygulamayla aynı):** 230px sidebar (`#fcfcfd` bg, 1px `#f0f1f3` sağ kenar; logo, nav öğeleri 12px radius — aktif `#16181d` bg/beyaz + yeşil nokta; altta kullanıcı kartı) + 68px topbar (1px alt kenar, 22px/800 başlık) + içerik alanı 24-28px padding. Onboarding/giriş ekranlarında sidebar yoktur.
 
 ## About the Design Files
 Bu pakette bulunan dosyalar **HTML ile oluşturulmuş tasarım referanslarıdır** — nihai görünümü ve davranışı gösteren prototiplerdir, doğrudan kopyalanacak production kodu değildir. Görev, bu HTML tasarımlarını **hedef kod tabanının mevcut ortamında** (React/Next, Vue, React Native, SwiftUI, vb.) o projenin yerleşik desenleri ve kütüphaneleriyle yeniden oluşturmaktır. Eğer henüz bir ortam yoksa, proje için en uygun framework seçilip tasarımlar orada uygulanmalıdır.
