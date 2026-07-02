@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SECTORS } from '@/lib/sectors';
 import type { SectorId } from '@/lib/sectors';
-import { SectorDetailClient } from './SectorDetailClient';
+import { AppShell } from '@/components/new/AppShell';
+import { SektorDetayScreen } from '@/components/new/SektorDetayScreen';
 
 export async function generateMetadata({
   params,
@@ -17,8 +18,13 @@ export async function generateMetadata({
   };
 }
 
+// Yeni tasarım (açık tema) — Sektör detay. /sektorler listesi eski temada kalır.
 export default function SectorDetailPage({ params }: { params: { id: string } }) {
   const sector = SECTORS[params.id as SectorId];
   if (!sector) notFound();
-  return <SectorDetailClient sectorId={params.id as SectorId} />;
+  return (
+    <AppShell>
+      <SektorDetayScreen sectorId={params.id as SectorId} />
+    </AppShell>
+  );
 }

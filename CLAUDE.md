@@ -63,9 +63,16 @@ Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Ko
 - `lib/smart-signal` → `SmartSignalResult`'a **`changePercent`** (engine + types + cron `scan_cache.change_percent` select).
 
 ### KALAN İŞ (revize aşaması — kullanıcı talimat verecek)
+- ✅ TAMAMLANDI (2026-07-02): **Tarama** (`TaramaScreen` — basit filtre kurucu, /api/screener; eski
+  gelişmiş screener git geçmişinde), **Sektör detay** (`SektorDetayScreen` — /api/sectors?id + OHLCV
+  fan-out; `/sektorler` listesi ESKİ temada), **AI Portföyleri** (`AiPortfoyleriScreen` — 5 gerçek
+  portföy API'si + risk filtreleri; apex/aegis detay sayfaları eski temada), **Yardım** (`YardimScreen`
+  — SSS + arama; formasyon/sinyal rehber içeriği KORUNDU, `/yardim/*` alt sayfaları eski temada).
+  `lib/new-design-routes.ts` artık 3 liste: prefix + `NEW_DESIGN_EXACT` (/yardim) +
+  `NEW_DESIGN_CHILD_ONLY` (/sektorler).
 - **Henüz ESKİ koyu tema** (redesign bekliyor — handoff: `design_handoff_kalan_ekranlar/bistAI Kalan Ekranlar.dc.html`):
-  **Hisse detay** (`/hisse/[sembol]`), Sektör detay (`/sektorler/[id]`), Tarama (`/tarama`),
-  AI Portföyleri (`/ai-portfoyler` + alt portföyler), Yardım (`/yardim`). (Giriş/Kayıt+Onboarding ✅ bitti.)
+  **Hisse detay** (`/hisse/[sembol]`) — eski sayfa çok zengin (Temel/Haberler/KAP sekmeleri, 5 yöntemli
+  değerleme); fonksiyon envanteri çıkarılıp korunarak taşınmalı. (Giriş/Kayıt+Onboarding ✅ bitti.)
 - Ekran-ekran geçişte yeni→eski sayfa link karışımı NORMAL (eski navbar eski sayfalarda görünür;
   tüm ekranlar geçince eski kabuk tamamen kaldırılacak).
 - **Bilinen:** preview `screenshot` aracı bu oturumda uzun yeni-tasarım sayfalarında zaman aşımına
