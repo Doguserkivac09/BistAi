@@ -197,6 +197,14 @@ Tüm sayısal değerler (`renderVals()` içindeki `holdings`, `opps`, `sectorSto
 - **İkonlar:** Tümü inline SVG (chevron, arama, ok, yıldız). Mevcut ikon kütüphanenizle (ör. Lucide/Feather) eşleştirin — kullanılanlar: chevron-left/right, search, arrow-right, star. "✦" karakteri AI rozetidir (metin glifi).
 - Görsel/logo dosyası yok; logo basit kompozisyon (yuvarlatılmış kare + iç kare).
 
+## Yeni: Bugün sayfası hızlı tarama alanı
+`Investable Edge Bugun.dc.html` dosyasında, canlı Bugün sayfasına eklenecek **hızlı sembol arama** tasarımı ve çalışan prototipi var (mobil + masaüstü):
+- **Input:** beyaz kart, 1px `#eef0f2` kenar, radius 14px, solda yeşil `›` (JetBrains Mono), placeholder "Sembol yaz — THY, GAR…"; yazı 600/14px, `text-transform:uppercase`, `letter-spacing:0.04em`. Mobilde selamlamanın altında; masaüstünde topbar'da (320px).
+- **Davranış:** her tuş vuruşunda sembol **prefix** eşleşmesi (`startsWith`, TR locale büyük harf); en fazla **8 sonuç**; sonuç varken input sağında `N/8` sayacı.
+- **Dropdown:** inputun altında yüzen panel (radius 16px, `0 18px 44px -10px rgba(15,20,30,0.18)` gölge, z-index yüksek). Her satır: 32px mono etiket kutusu + sembol (eşleşen prefix `#16a35b` renkli ve `rgba(22,163,91,0.35)` 2px alt çizgili) + şirket adı + fiyat + günlük değişim (yeşil/kırmızı mono).
+- Boş sorguda panel görünmez. Amaç detaylı Tarama sayfasının yerini almak değil; gündelik hızlı erişim. Satıra tıklama → Hisse detay.
+- Prototipteki 31 hisselik liste örnek veridir; production'da sembol arama endpoint'ine bağlanır.
+
 ## Files
 - `Investable Edge Ekranlar.dc.html` — bu handoff'taki 8 ekranın tasarım kaynağı (şablon + örnek veri + grafik yardımcıları `renderVals()` içinde).
 - `Investable Edge Sayfalar.dc.html` — **referans**: hâlihazırda kodlanmış ana ekranlar (Portföyüm, Fırsatlar, Piyasa, AI Asistan, Profil) + masaüstü düzenleri. Yeni ekranların paylaştığı bileşen/stil sistemini buradan doğrulayın.

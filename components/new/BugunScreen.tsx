@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import type { SmartSignalResult } from '@/lib/smart-signal/types';
+import { SymbolSearch } from '@/components/new/SymbolSearch';
 
 interface SignalResp { ok: boolean; pending?: boolean; results: SmartSignalResult[] }
 interface WatchItem { sembol: string }
@@ -200,7 +201,12 @@ export function BugunScreen() {
         </div>
       </div>
 
-      <div className="mt-[22px] flex flex-col gap-6 lg:flex-row lg:gap-6">
+      {/* Hızlı sembol arama — mobil (masaüstünde topbar'da) */}
+      <div className="mt-4 lg:hidden">
+        <SymbolSearch />
+      </div>
+
+      <div className="mt-4 flex flex-col gap-6 lg:mt-[22px] lg:flex-row lg:gap-6">
         {/* Sol: AI özet + verdict listesi */}
         <div className="flex min-w-0 flex-col lg:flex-[1.6]">
           {/* AI günlük özet (koyu kart) */}

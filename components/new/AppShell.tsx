@@ -9,6 +9,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/components/new/brand';
+import { SymbolSearch } from '@/components/new/SymbolSearch';
 
 interface NavItem {
   href: string;
@@ -93,15 +94,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* ── Ana alan ── */}
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Topbar (masaüstü) */}
+          {/* Topbar (masaüstü) — çalışan hızlı sembol arama */}
           <div className="hidden h-[68px] items-center justify-between border-b border-[#f0f1f3] px-7 lg:flex">
-            <div className="flex h-[42px] w-[320px] items-center gap-[9px] rounded-[13px] bg-fill px-[15px]">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa0ad" strokeWidth="2.4">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M21 21l-4-4" />
-              </svg>
-              <span className="font-manrope text-[14px] font-medium text-t3">Hisse, sembol ara…</span>
-            </div>
+            <SymbolSearch className="w-[320px]" />
             <MarketChip />
           </div>
 
