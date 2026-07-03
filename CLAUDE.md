@@ -70,7 +70,7 @@ Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Ko
   — SSS + arama; formasyon/sinyal rehber içeriği KORUNDU, `/yardim/*` alt sayfaları eski temada).
   `lib/new-design-routes.ts` artık 3 liste: prefix + `NEW_DESIGN_EXACT` (/yardim) +
   `NEW_DESIGN_CHILD_ONLY` (/sektorler).
-- **Henüz ESKİ koyu tema** (redesign bekliyor — handoff: `design_handoff_kalan_ekranlar/bistAI Kalan Ekranlar.dc.html`):
+- **Henüz ESKİ koyu tema** (redesign bekliyor — handoff: `design_handoff_kalan_ekranlar/Investable Edge Ekranlar.dc.html`):
   **Hisse detay** (`/hisse/[sembol]`) — eski sayfa çok zengin (Temel/Haberler/KAP sekmeleri, 5 yöntemli
   değerleme); fonksiyon envanteri çıkarılıp korunarak taşınmalı. (Giriş/Kayıt+Onboarding ✅ bitti.)
 - Ekran-ekran geçişte yeni→eski sayfa link karışımı NORMAL (eski navbar eski sayfalarda görünür;

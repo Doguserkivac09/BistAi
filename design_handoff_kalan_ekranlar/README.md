@@ -1,7 +1,7 @@
-# Handoff: bistAI — Kalan Ekranlar (Giriş, Onboarding, Hisse Detay, Sektör Detay, Tarama, AI Portföyleri, Yardım)
+# Handoff: Investable Edge — Kalan Ekranlar (Giriş, Onboarding, Hisse Detay, Sektör Detay, Tarama, AI Portföyleri, Yardım)
 
 ## Overview
-bistAI, BIST (Borsa İstanbul) için yapay zekâ destekli bir yatırım uygulamasıdır. Ana 6 ekran (Bugün, Portföyüm, Fırsatlar, Piyasa, AI Asistan, Profil) zaten kodlandı ve canlıda. Bu paket, **henüz entegre edilmemiş kalan ekranları** içerir ve hepsi mevcut uygulamanın görsel diliyle birebir tasarlanmıştır.
+Investable Edge (marka adı: **Investable**), BIST (Borsa İstanbul) için yapay zekâ destekli bir yatırım uygulamasıdır. Ana 6 ekran (Bugün, Portföyüm, Fırsatlar, Piyasa, AI Asistan, Profil) zaten kodlandı ve canlıda. Bu paket, **henüz entegre edilmemiş kalan ekranları** içerir ve hepsi mevcut uygulamanın görsel diliyle birebir tasarlanmıştır.
 
 Bu handoff'taki ekranlar (her biri mobil + masaüstü):
 1. **Karşılama / Giriş** (onboarding adım 0)
@@ -30,7 +30,7 @@ Bu pakette bulunan dosyalar **HTML ile oluşturulmuş tasarım referanslarıdır
 
 Tasarım dosyaları "Design Component" (`.dc.html`) formatındadır; bir runtime (`support.js`) ile `<x-dc>` şablonu + `renderVals()` mantığını render eder. **Bu runtime'ı production'a taşımayın** — yalnızca tasarımı tarayıcıda görüntülemek içindir. İlgili veriler (hisse listeleri, portföyler, SSS vb.) `<script data-dc-script>` bloğundaki `renderVals()` içinde örnek veri olarak yer alır; gerçek uygulamada API'den gelmelidir.
 
-Dosyayı tarayıcıda açmak için: `bistAI Kalan Ekranlar.dc.html` dosyasını `support.js` ile aynı klasörde açın. Canvas modunda tüm ekranlar yan yana görünür.
+Dosyayı tarayıcıda açmak için: `Investable Edge Ekranlar.dc.html` dosyasını `support.js` ile aynı klasörde açın. Canvas modunda tüm ekranlar yan yana görünür.
 
 ## Fidelity
 **High-fidelity (hifi).** Tüm renkler, tipografi, boşluklar, köşe yarıçapları ve bileşen stilleri nihaidir. Geliştirici, UI'ı kod tabanının mevcut kütüphaneleriyle **piksel hassasiyetinde** yeniden oluşturmalıdır. Mevcut uygulamada zaten kodlanmış olan ekranlardaki bileşenleri (telefon kabuğu yok — gerçek ekran; status bar; alt navigasyon; kartlar) **yeniden kullanın**; bu ekranlar onlarla aynı tasarım sistemini paylaşır.
@@ -104,8 +104,10 @@ Dosyayı tarayıcıda açmak için: `bistAI Kalan Ekranlar.dc.html` dosyasını 
 
 ### 1. Karşılama / Giriş
 - **Amaç:** İlk açılış; e-posta veya sosyal hesapla giriş/kayıt.
-- **Layout:** Üst ~%50 koyu (`#16181d`) hero bölümü; alt beyaz form bölümü (flex column).
-- **Hero (koyu):** Sol üstte logo — 34px beyaz yuvarlatılmış kare içinde 13px yeşil (`#16a35b`) kare + "bistAI" 21px/800 beyaz. Başlık "Borsa, yapay zekâ ile sade." 32px/800/-0.035em beyaz. Alt metin `#9aa0ad` 14px. Altında dekoratif area grafik (yeşil `#3fce8a`).
+- **Layout:** Üst ~%50 sinematik koyu hero (`#0b0d11`); alt beyaz form bölümü (flex column).
+- **Hero sahnesi:** Derin koyu zemin + yeşil/mor radial ışık haleleri + çapraz ışık huzmesi. Sağda hafif yandan açılı (rotateY -26° / rotateX 11° / rotateZ -5°) 3D logo: koyu metalik squircle gövde (spekülar highlight, yeşil rim light, kalın yan yüz) içinde camsı yeşil squircle + beyaz yükselen trend oku; zeminde eliptik gölge. Tüm sahnenin üzerinde tam alanı kaplayan hafif blur'lu koyu cam katman (`rgba(11,13,17,0.44)` + blur 6px) ve 6-7 adet minimal parçacık (2-3px nokta, beyaz/yeşil/mor düşük opaklık). Yazılar bu katmanın üstünde.
+- **Logo yazımı:** "Investable" 800 beyaz + "Edge" 600 açık yeşil (`#9fe8c6`). Uygulama adı **Investable Edge**, marka adı **Investable** — hiçbir yerde eski ad kullanılmamalı.
+- **Hero (koyu):** Sol üstte logo — 34px beyaz yuvarlatılmış kare içinde 13px yeşil (`#16a35b`) kare + "Investable Edge" 21px/800 beyaz. Başlık "Borsa, yapay zekâ ile sade." 32px/800/-0.035em beyaz. Alt metin `#9aa0ad` 14px. Altında dekoratif area grafik (yeşil `#3fce8a`).
 - **Form (beyaz):** "E-posta veya telefon" etiketi → dolu input alanı (`#f4f5f6`, 52px, radius 14) → birincil "Devam et" butonu → "veya" ayraç → yan yana Google / Apple butonları (outline, 50px) → en altta "Hesabın yok mu? **Kayıt ol**".
 - **Davranış:** Status bar bu ekranda koyu zemine uyacak şekilde beyaz metin/pil. Gerçekte e-posta validasyonu, sosyal OAuth akışları.
 
@@ -119,7 +121,7 @@ Dosyayı tarayıcıda açmak için: `bistAI Kalan Ekranlar.dc.html` dosyasını 
 
 ### 3. İlgi Alanları (Onboarding 3/3)
 - **Amaç:** Kullanıcının ilgilendiği sektörleri seçmesi (çoklu seçim); radar/fırsat önceliklendirmesi için.
-- **Layout:** Geri oku + 3/3 dolu ilerleme + "3/3". Başlık "Hangi sektörler ilgini çekiyor?". Sektör chip'lerinden oluşan sarmalı (wrap) grid. Altta AI ipucu kutusu (mor) + "bistAI'a başla" butonu.
+- **Layout:** Geri oku + 3/3 dolu ilerleme + "3/3". Başlık "Hangi sektörler ilgini çekiyor?". Sektör chip'lerinden oluşan sarmalı (wrap) grid. Altta AI ipucu kutusu (mor) + "Investable Edge'a başla" butonu.
 - **Chip'ler:** Seçili = `#16181d` bg / beyaz metin; seçili değil = beyaz bg / `#16181d` metin / 1px `#e7e9ec` kenar. 13px radius, 14px/700. Sektörler: Bankacılık*, Teknoloji, Havacılık*, Enerji, Perakende, Sanayi*, Sağlık, Gayrimenkul, Temettü (*seçili).
 - **AI ipucu:** `#faf9ff` kutu, "✦ 3 sektör seçtin — AI bunlara göre seni yönlendirecek."
 
@@ -170,7 +172,7 @@ Dosyayı tarayıcıda açmak için: `bistAI Kalan Ekranlar.dc.html` dosyasını 
 ---
 
 ## Interactions & Behavior
-- **Onboarding akışı:** Karşılama → (giriş) → Risk Profili (2/3) → İlgi Alanları (3/3) → uygulamaya giriş ("bistAI'a başla"). Geri oku önceki adıma döner. İlerleme çubuğu adım sayısını yansıtır.
+- **Onboarding akışı:** Karşılama → (giriş) → Risk Profili (2/3) → İlgi Alanları (3/3) → uygulamaya giriş ("Investable Edge'a başla"). Geri oku önceki adıma döner. İlerleme çubuğu adım sayısını yansıtır.
 - **Seçim durumları:** Risk kartı (tek seçim/radio), sektör chip'leri (çoklu seçim/toggle). Seçili stil yukarıda tanımlı.
 - **Hisse detay:** Zaman aralığı sekmeleri grafiği günceller (1G/1H/1A/1Y/Tümü). Yıldız ikonu takip listesine ekler/çıkarır. Al/Sat → emir akışı (bu pakette tasarlanmadı).
 - **Tarama:** Filtre değişince "X hisse eşleşiyor" ve önizleme canlı güncellenir. "Sonuçları gör" tam sonuç listesine gider.
@@ -196,8 +198,8 @@ Tüm sayısal değerler (`renderVals()` içindeki `holdings`, `opps`, `sectorSto
 - Görsel/logo dosyası yok; logo basit kompozisyon (yuvarlatılmış kare + iç kare).
 
 ## Files
-- `bistAI Kalan Ekranlar.dc.html` — bu handoff'taki 8 ekranın tasarım kaynağı (şablon + örnek veri + grafik yardımcıları `renderVals()` içinde).
-- `bistAI Sayfalar.dc.html` — **referans**: hâlihazırda kodlanmış ana ekranlar (Portföyüm, Fırsatlar, Piyasa, AI Asistan, Profil) + masaüstü düzenleri. Yeni ekranların paylaştığı bileşen/stil sistemini buradan doğrulayın.
+- `Investable Edge Ekranlar.dc.html` — bu handoff'taki 8 ekranın tasarım kaynağı (şablon + örnek veri + grafik yardımcıları `renderVals()` içinde).
+- `Investable Edge Sayfalar.dc.html` — **referans**: hâlihazırda kodlanmış ana ekranlar (Portföyüm, Fırsatlar, Piyasa, AI Asistan, Profil) + masaüstü düzenleri. Yeni ekranların paylaştığı bileşen/stil sistemini buradan doğrulayın.
 - `support.js` — yalnızca `.dc.html` dosyalarını tarayıcıda render etmek için runtime. **Production'a dahil etmeyin.**
 
-Dosyayı tarayıcıda görüntülemek için `bistAI Kalan Ekranlar.dc.html` ile `support.js` aynı klasörde olmalı; canvas üzerinde tüm ekranlar görünür.
+Dosyayı tarayıcıda görüntülemek için `Investable Edge Ekranlar.dc.html` ile `support.js` aynı klasörde olmalı; canvas üzerinde tüm ekranlar görünür.

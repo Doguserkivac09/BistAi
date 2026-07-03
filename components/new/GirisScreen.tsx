@@ -13,23 +13,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
-
-// Hero dekoratif alan grafiği (statik — gerçek veri değil, yalnız görsel)
-const HERO_LINE = 'M4 44 L30 40 L56 46 L82 33 L108 38 L134 27 L160 31 L186 21 L212 25 L238 15 L264 19 L290 11 L316 7';
-const HERO_AREA = `${HERO_LINE} L316 60 L4 60 Z`;
-const DESK_LINE = 'M6 96 L42 88 L78 98 L114 74 L150 82 L186 62 L222 68 L258 48 L294 54 L330 34 L366 40 L402 22 L434 14';
-const DESK_AREA = `${DESK_LINE} L434 120 L6 120 Z`;
-
-function Logo({ size = 34 }: { size?: number }) {
-  return (
-    <span
-      className="flex items-center justify-center rounded-[10px] bg-white"
-      style={{ width: size, height: size }}
-    >
-      <span className="rounded-[4px] bg-up" style={{ width: size * 0.38, height: size * 0.38 }} />
-    </span>
-  );
-}
+import { Wordmark, CinematicHeroScene } from '@/components/new/brand';
 
 function AppleIcon() {
   return (
@@ -101,43 +85,33 @@ export function GirisScreen() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-page lg:flex-row">
-      {/* ── Masaüstü: sol koyu marka paneli (%46) ── */}
-      <div className="hidden bg-ink text-white lg:flex lg:w-[46%] lg:flex-col lg:px-12 lg:py-11">
-        <div className="flex items-center gap-2.5">
-          <Logo />
-          <span className="text-[21px] font-extrabold tracking-[-0.03em]">bistAI</span>
-        </div>
-        <h1 className="mt-16 text-[42px] font-extrabold leading-[1.1] tracking-[-0.035em]">
-          Borsa, yapay
-          <br />
-          zekâ ile sade.
-        </h1>
-        <p className="mt-4 max-w-[330px] text-[15px] font-medium leading-[1.6] text-t3">
-          Portföyünü izle, AI sinyalleriyle fırsatları yakala, riskini anla.
-        </p>
-        <svg width="100%" height="120" viewBox="0 0 440 120" preserveAspectRatio="none" className="mt-10">
-          <defs>
-            <linearGradient id="giris-hero-desk" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="rgba(63,206,138,0.32)" />
-              <stop offset="1" stopColor="rgba(63,206,138,0)" />
-            </linearGradient>
-          </defs>
-          <path d={DESK_AREA} fill="url(#giris-hero-desk)" />
-          <path d={DESK_LINE} fill="none" stroke="#3fce8a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <div className="flex-1" />
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-[12px] font-bold text-ai-on-dark">✦</span>
-            <span className="text-[13px] font-semibold text-[#c9ccd4]">Kişiselleştirilmiş AI sinyalleri</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="h-1.5 w-1.5 rounded-full bg-up-on-dark" />
-            <span className="text-[13px] font-semibold text-[#c9ccd4]">Gerçek zamanlı BIST verisi</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="h-1.5 w-1.5 rounded-full bg-up-on-dark" />
-            <span className="text-[13px] font-semibold text-[#c9ccd4]">Risk profiline göre model portföyler</span>
+      {/* ── Masaüstü: sol sinematik marka paneli (%46) ── */}
+      <div className="relative hidden overflow-hidden bg-[#0b0d11] text-white lg:flex lg:w-[46%]">
+        <CinematicHeroScene desktop />
+        <div className="relative flex flex-1 flex-col px-12 py-11">
+          <Wordmark onDark size={20} markSize={34} />
+          <h1 className="mt-14 text-[42px] font-extrabold leading-[1.1] tracking-[-0.035em]">
+            Borsa, yapay
+            <br />
+            zekâ ile sade.
+          </h1>
+          <p className="mt-4 max-w-[330px] text-[15px] font-medium leading-[1.6] text-[#a7adba]">
+            Portföyünü izle, AI sinyalleriyle fırsatları yakala, riskini anla.
+          </p>
+          <div className="flex-1" />
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[12px] font-bold text-ai-on-dark">✦</span>
+              <span className="text-[13px] font-semibold text-[#dfe2e8]">Kişiselleştirilmiş AI sinyalleri</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="h-1.5 w-1.5 rounded-full bg-up-on-dark" />
+              <span className="text-[13px] font-semibold text-[#dfe2e8]">Gerçek zamanlı BIST verisi</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="h-1.5 w-1.5 rounded-full bg-up-on-dark" />
+              <span className="text-[13px] font-semibold text-[#dfe2e8]">Risk profiline göre model portföyler</span>
+            </div>
           </div>
         </div>
       </div>
@@ -145,30 +119,17 @@ export function GirisScreen() {
       {/* ── Sağ taraf: form (mobilde hero + form dikey) ── */}
       <div className="flex flex-1 flex-col lg:items-center lg:justify-center">
         <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col lg:max-w-[380px] lg:flex-none">
-          {/* Mobil koyu hero (masaüstünde gizli — sol panel var) */}
-          <div className="bg-ink px-7 pb-8 pt-10 text-white sm:rounded-b-[28px] lg:hidden">
-            <div className="flex items-center gap-2.5">
-              <Logo />
-              <span className="text-[21px] font-extrabold tracking-[-0.03em]">bistAI</span>
+          {/* Mobil sinematik hero (masaüstünde gizli — sol panel var) */}
+          <div className="relative flex min-h-[280px] flex-col justify-end overflow-hidden bg-[#0b0d11] text-white sm:rounded-b-[28px] lg:hidden">
+            <CinematicHeroScene />
+            <div className="relative px-[26px] pb-5 pt-4">
+              <Wordmark onDark size={18} markSize={30} />
+              <h1 className="mt-3 text-[25px] font-extrabold leading-[1.12] tracking-[-0.035em]">
+                Borsa, yapay
+                <br />
+                zekâ ile sade.
+              </h1>
             </div>
-            <h1 className="mt-9 text-[32px] font-extrabold leading-[1.12] tracking-[-0.035em]">
-              Borsa, yapay
-              <br />
-              zekâ ile sade.
-            </h1>
-            <p className="mt-3.5 max-w-[280px] text-[14px] font-medium leading-[1.55] text-t3">
-              Portföyünü izle, AI sinyalleriyle fırsatları yakala, riskini anla.
-            </p>
-            <svg width="100%" height="60" viewBox="0 0 320 60" preserveAspectRatio="none" className="mt-6">
-              <defs>
-                <linearGradient id="giris-hero" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="rgba(63,206,138,0.32)" />
-                  <stop offset="1" stopColor="rgba(63,206,138,0)" />
-                </linearGradient>
-              </defs>
-              <path d={HERO_AREA} fill="url(#giris-hero)" />
-              <path d={HERO_LINE} fill="none" stroke="#3fce8a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-3.5 px-7 py-7 lg:flex-none lg:p-0">

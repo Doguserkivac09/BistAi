@@ -8,6 +8,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Wordmark } from '@/components/new/brand';
 
 interface NavItem {
   href: string;
@@ -52,11 +53,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex min-h-screen w-full">
         {/* ── Sidebar (masaüstü) ── */}
         <aside className="hidden w-[230px] shrink-0 flex-col border-r border-[#f0f1f3] bg-page p-4 lg:flex">
-          <Link href="/bugun" className="flex items-center gap-[10px] px-2">
-            <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-ink">
-              <span className="h-[11px] w-[11px] rounded-[3px] bg-up" />
-            </span>
-            <span className="text-[18px] font-extrabold tracking-[-0.03em] text-ink">bistAI</span>
+          <Link href="/bugun" className="flex items-center px-2">
+            <Wordmark size={16} markSize={30} />
           </Link>
 
           <nav className="mt-6 flex flex-col gap-0.5">
@@ -109,11 +107,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Mobil üst bar (logo + chip) */}
           <div className="flex h-[56px] items-center justify-between border-b border-hairline bg-panel px-6 lg:hidden">
-            <Link href="/bugun" className="flex items-center gap-2">
-              <span className="flex h-[26px] w-[26px] items-center justify-center rounded-[8px] bg-ink">
-                <span className="h-[9px] w-[9px] rounded-[2px] bg-up" />
-              </span>
-              <span className="text-[16px] font-extrabold tracking-[-0.03em] text-ink">bistAI</span>
+            <Link href="/bugun" className="flex items-center">
+              <Wordmark size={16} markSize={26} />
             </Link>
             <MarketChip />
           </div>

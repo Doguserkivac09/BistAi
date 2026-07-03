@@ -12,6 +12,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
+import { Wordmark } from '@/components/new/brand';
 
 type RiskId = 'temkinli' | 'dengeli' | 'atilgan';
 
@@ -85,12 +86,7 @@ export function KarsilamaScreen() {
     <div className="flex min-h-[100dvh] flex-col bg-page">
       {/* ── Masaüstü üst çubuğu: logo + ilerleme + adım ── */}
       <div className="hidden h-[68px] items-center justify-between border-b border-[#f0f1f3] bg-panel px-8 lg:flex">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-ink">
-            <span className="h-[11px] w-[11px] rounded-[3px] bg-up" />
-          </span>
-          <span className="text-[18px] font-extrabold tracking-[-0.03em] text-ink">bistAI</span>
-        </div>
+        <Wordmark size={18} markSize={30} />
         <div className="flex items-center gap-3.5">
           {progress}
           <span className="font-mono text-[12px] font-semibold text-t3">{stepLabel}</span>
@@ -218,7 +214,7 @@ export function KarsilamaScreen() {
                 disabled={saving}
                 className="flex h-[54px] w-full items-center justify-center rounded-[15px] bg-ink text-[15px] font-bold text-white transition-colors hover:bg-ink/90 disabled:opacity-60 lg:w-[220px]"
               >
-                {saving ? 'Hazırlanıyor…' : "bistAI'a başla"}
+                {saving ? 'Hazırlanıyor…' : "Investable Edge'e başla"}
               </button>
             </div>
           </div>
