@@ -24,6 +24,11 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 .na{display:flex;flex-direction:column;align-items:center;gap:5px;font:700 10px Manrope;color:#16181d}
 .dot{width:5px;height:5px;border-radius:50%;background:#d4d7dc}
 .doa{width:5px;height:5px;border-radius:50%;background:#16181d}
+@keyframes glowA{0%,100%{opacity:0.75;transform:translate(0,0) scale(1)}50%{opacity:1;transform:translate(-14px,10px) scale(1.08)}}
+@keyframes glowB{0%,100%{opacity:0.7;transform:translate(0,0) scale(1)}50%{opacity:1;transform:translate(12px,-8px) scale(1.1)}}
+@keyframes glowC{0%,100%{opacity:0.5}50%{opacity:0.95}}
+@keyframes beam{0%,100%{opacity:0.5;transform:rotate(-16deg) translateX(0)}50%{opacity:1;transform:rotate(-16deg) translateX(26px)}}
+@keyframes tw{0%,100%{opacity:0.2}50%{opacity:0.8}}
 </style>
 </helmet>
 
@@ -37,46 +42,41 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Karşılama + giriş</div>
 <div class="ph">
   <div class="sb" style="background:#0b0d11;color:#fff"><span>9:41</span><span class="bat" style="border-color:#fff"></span></div>
-  <div style="background:#0b0d11;color:#fff;position:relative;overflow:hidden;flex:0 0 30%;min-height:0;display:flex;flex-direction:column;justify-content:flex-end">
-    <div style="position:absolute;right:-70px;top:-50px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(22,163,91,0.36),rgba(22,163,91,0) 70%);filter:blur(28px)"></div>
-    <div style="position:absolute;left:-70px;bottom:-90px;width:250px;height:250px;border-radius:50%;background:radial-gradient(circle,rgba(107,111,245,0.22),rgba(107,111,245,0) 70%);filter:blur(32px)"></div>
-    <div style="position:absolute;left:-60px;top:34%;width:160%;height:110px;background:linear-gradient(100deg,rgba(255,255,255,0) 32%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0) 68%);transform:rotate(-16deg)"></div>
-    <div style="position:absolute;right:0px;top:14px;width:160px;height:180px;perspective:640px">
-      <div style="position:absolute;left:26px;top:14px;width:108px;height:108px;border-radius:31px;transform:rotateY(-42deg) rotateX(12deg) rotateZ(-4deg);background:linear-gradient(135deg,#3a414c 0%,#181b21 46%,#0b0d11 100%);box-shadow:-14px 9px 0 -1px #05070a,-16px 10px 0 -1px rgba(87,233,165,0.07),-30px 36px 52px rgba(0,0,0,0.66),inset 2px 2px 3px rgba(255,255,255,0.38),inset -7px -10px 20px rgba(0,0,0,0.66),inset 5px 0 13px -2px rgba(87,233,165,0.26),inset 0 0 0 1px rgba(255,255,255,0.09)">
-        <div style="position:absolute;inset:0;border-radius:31px;background:linear-gradient(115deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.05) 26%,rgba(255,255,255,0) 46%)"></div>
-        <div style="position:absolute;left:12px;top:9px;width:28px;height:11px;border-radius:50%;background:radial-gradient(ellipse,rgba(255,255,255,0.4),rgba(255,255,255,0) 70%);filter:blur(2.5px);transform:rotate(-18deg)"></div>
-        <div style="position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:15px;transform:translate(-50%,-50%) translateZ(14px);background:linear-gradient(140deg,#5eeeaa 0%,#16a35b 55%,#087a41 100%);box-shadow:-5px 4px 0 -1px rgba(4,50,27,0.85),0 0 0 4px rgba(255,255,255,0.06),0 9px 22px rgba(22,163,91,0.65),inset 1.5px 2px 3px rgba(255,255,255,0.6),inset -4px -5px 9px rgba(0,58,29,0.55)">
-          <div style="position:absolute;inset:0;border-radius:15px;background:linear-gradient(120deg,rgba(255,255,255,0.35),rgba(255,255,255,0) 52%)"></div>
-          <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);filter:drop-shadow(0 2px 3px rgba(0,40,20,0.45))"><path d="M4 15l5.5-5.5 3.5 3.5L20 7"/><path d="M15 7h5v5"/></svg>
+  <div style="flex:1;background:#0b0d11;color:#fff;position:relative;overflow:hidden;display:flex;flex-direction:column;min-height:0">
+    <div style="position:absolute;right:-90px;top:-60px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(22,163,91,0.38),rgba(22,163,91,0) 70%);filter:blur(30px);animation:glowA 7s ease-in-out infinite"></div>
+    <div style="position:absolute;left:-90px;top:30%;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(107,111,245,0.26),rgba(107,111,245,0) 70%);filter:blur(34px);animation:glowB 9s ease-in-out infinite"></div>
+    <div style="position:absolute;right:-70px;bottom:-100px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(63,206,138,0.2),rgba(63,206,138,0) 70%);filter:blur(36px);animation:glowC 11s ease-in-out infinite"></div>
+    <div style="position:absolute;left:-60px;top:24%;width:160%;height:120px;background:linear-gradient(100deg,rgba(255,255,255,0) 32%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0) 68%);animation:beam 10s ease-in-out infinite"></div>
+    <div style="position:absolute;left:-60px;top:62%;width:160%;height:90px;background:linear-gradient(100deg,rgba(87,233,165,0) 35%,rgba(87,233,165,0.05) 50%,rgba(87,233,165,0) 65%);animation:beam 13s ease-in-out infinite"></div>
+    <div style="position:absolute;left:12%;top:12%;width:3px;height:3px;border-radius:50%;background:#fff;animation:tw 4s ease-in-out infinite"></div>
+    <div style="position:absolute;left:78%;top:8%;width:2px;height:2px;border-radius:50%;background:#57e9a5;animation:tw 5s ease-in-out 1s infinite"></div>
+    <div style="position:absolute;left:64%;top:26%;width:3px;height:3px;border-radius:50%;background:#fff;animation:tw 6s ease-in-out 2s infinite"></div>
+    <div style="position:absolute;left:26%;top:34%;width:2px;height:2px;border-radius:50%;background:#8b8fff;animation:tw 5s ease-in-out 0.5s infinite"></div>
+    <div style="position:absolute;left:88%;top:40%;width:3px;height:3px;border-radius:50%;background:#57e9a5;animation:tw 7s ease-in-out 3s infinite"></div>
+    <div style="position:absolute;left:8%;top:56%;width:2px;height:2px;border-radius:50%;background:#fff;animation:tw 6s ease-in-out 1.5s infinite"></div>
+    <div style="position:absolute;left:70%;top:66%;width:2px;height:2px;border-radius:50%;background:#8b8fff;animation:tw 5s ease-in-out 2.5s infinite"></div>
+    <div style="position:absolute;left:34%;top:78%;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.9);animation:tw 8s ease-in-out 1s infinite"></div>
+    <div style="position:absolute;left:90%;top:84%;width:2px;height:2px;border-radius:50%;background:#57e9a5;animation:tw 6s ease-in-out 4s infinite"></div>
+    <div style="position:absolute;left:52%;top:90%;width:2px;height:2px;border-radius:50%;background:rgba(255,255,255,0.8);animation:tw 7s ease-in-out 0.8s infinite"></div>
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;padding:20px 28px 18px;min-height:0">
+      <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center"><div style="width:11px;height:11px;border-radius:3px;background:#16a35b"></div></div><span style="font:800 18px Manrope;letter-spacing:-0.03em">Investable <span style="font-weight:600;color:#9fe8c6">Edge</span></span></div>
+      <div style="font:800 24px Manrope;letter-spacing:-0.035em;line-height:1.12;margin-top:14px">Borsa, yapay<br>zekâ ile sade.</div>
+      <div style="flex:1"></div>
+      <div style="display:flex;flex-direction:column">
+        <div style="font:500 12px Manrope;color:#8f95a3">E-posta</div>
+        <div style="height:50px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:14px;display:flex;align-items:center;padding:0 16px;font:500 15px Manrope;color:#fff;margin-top:8px">ahmet@ornek.com</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px"><span style="font:500 12px Manrope;color:#8f95a3">Şifre</span><span style="font:600 12px Manrope;color:#3fce8a">Şifremi unuttum</span></div>
+        <div style="height:50px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:14px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:8px"><span style="font:600 15px Manrope;color:#fff;letter-spacing:0.18em">••••••••</span><span style="font:600 13px Manrope;color:#8f95a3">Göster</span></div>
+        <div style="height:52px;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;font:700 15px Manrope;color:#0b0d11;margin-top:16px">Giriş yap</div>
+        <div style="display:flex;align-items:center;gap:12px;margin:14px 0"><div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div><span style="font:600 11px Manrope;color:#6f7581">veya</span><div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div></div>
+        <div style="display:flex;gap:11px">
+          <div style="flex:1;height:48px;border:1px solid rgba(255,255,255,0.16);border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 13px Manrope;color:#fff"><span style="font:800 15px Manrope;color:#8ab4f8">G</span>Google</div>
+          <div style="flex:1;height:48px;border:1px solid rgba(255,255,255,0.16);border-radius:14px;display:flex;align-items:center;justify-content:center;gap:7px;font:700 13px Manrope;color:#fff"><span style="font-size:16px">⌘</span>Apple</div>
         </div>
       </div>
-      <div style="position:absolute;left:36px;top:132px;width:96px;height:19px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,0.65),rgba(0,0,0,0) 70%);filter:blur(5px)"></div>
+      <div style="flex:1"></div>
+      <div style="text-align:center;font:500 13px Manrope;color:#8f95a3">Hesabın yok mu? <span style="font:700 13px Manrope;color:#fff">Kayıt ol</span></div>
     </div>
-    <div style="position:absolute;inset:0;background:rgba(11,13,17,0.44);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)"></div>
-    <div style="position:absolute;left:12%;top:18%;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.35)"></div>
-    <div style="position:absolute;left:78%;top:12%;width:2px;height:2px;border-radius:50%;background:rgba(87,233,165,0.5)"></div>
-    <div style="position:absolute;left:64%;top:56%;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.22)"></div>
-    <div style="position:absolute;left:30%;top:70%;width:2px;height:2px;border-radius:50%;background:rgba(139,143,255,0.45)"></div>
-    <div style="position:absolute;left:88%;top:44%;width:3px;height:3px;border-radius:50%;background:rgba(87,233,165,0.3)"></div>
-    <div style="position:absolute;left:46%;top:30%;width:2px;height:2px;border-radius:50%;background:rgba(255,255,255,0.3)"></div>
-    <div style="position:relative;padding:16px 26px 20px">
-      <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center"><div style="width:11px;height:11px;border-radius:3px;background:#16a35b"></div></div><span style="font:800 18px Manrope;letter-spacing:-0.03em">Investable <span style="font-weight:600;color:#9fe8c6">Edge</span></span></div>
-      <div style="font:800 25px Manrope;letter-spacing:-0.035em;line-height:1.12;margin-top:12px">Borsa, yapay<br>zekâ ile sade.</div>
-    </div>
-  </div>
-  <div style="flex:1;background:#fff;padding:26px 28px 18px;display:flex;flex-direction:column;min-height:0">
-    <div style="font:500 12px Manrope;color:#9aa0ad">E-posta</div>
-    <div style="height:52px;background:#f4f5f6;border-radius:14px;display:flex;align-items:center;padding:0 16px;font:500 15px Manrope;color:#16181d;margin-top:8px">ahmet@ornek.com</div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px"><span style="font:500 12px Manrope;color:#9aa0ad">Şifre</span><span style="font:600 12px Manrope;color:#16a35b">Şifremi unuttum</span></div>
-    <div style="height:52px;background:#f4f5f6;border-radius:14px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:8px"><span style="font:600 15px Manrope;color:#16181d;letter-spacing:0.18em">••••••••</span><span style="font:600 13px Manrope;color:#9aa0ad">Göster</span></div>
-    <div style="height:52px;background:#16181d;border-radius:14px;display:flex;align-items:center;justify-content:center;font:700 15px Manrope;color:#fff;margin-top:18px">Giriş yap</div>
-    <div style="display:flex;align-items:center;gap:12px;margin:16px 0"><div style="flex:1;height:1px;background:#eef0f2"></div><span style="font:600 11px Manrope;color:#b4b8bf">veya</span><div style="flex:1;height:1px;background:#eef0f2"></div></div>
-    <div style="display:flex;gap:11px">
-      <div style="flex:1;height:50px;border:1px solid #e7e9ec;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 13px Manrope;color:#16181d"><span style="font:800 15px Manrope;color:#4285F4">G</span>Google</div>
-      <div style="flex:1;height:50px;border:1px solid #e7e9ec;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:7px;font:700 13px Manrope;color:#16181d"><span style="font-size:16px">⌘</span>Apple</div>
-    </div>
-    <div style="flex:1"></div>
-    <div style="text-align:center;font:500 13px Manrope;color:#9aa0ad">Hesabın yok mu? <span style="font:700 13px Manrope;color:#16181d">Kayıt ol</span></div>
   </div>
 </div>
 </div>
@@ -373,55 +373,51 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 <!-- DESKTOP: GİRİŞ -->
 <div style="position:absolute;left:80px;top:2098px;width:1180px">
 <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Masaüstü · Karşılama + giriş</div>
-<div style="background:#fff;border-radius:24px;box-shadow:0 20px 60px -12px rgba(15,20,30,.16);border:1px solid #eef0f2;overflow:hidden;height:780px;display:flex">
-  <div style="width:46%;background:#0b0d11;color:#fff;position:relative;overflow:hidden;display:flex">
-    <div style="position:absolute;right:-100px;top:-80px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(22,163,91,0.34),rgba(22,163,91,0) 70%);filter:blur(38px)"></div>
-    <div style="position:absolute;left:-110px;bottom:-130px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(107,111,245,0.22),rgba(107,111,245,0) 70%);filter:blur(42px)"></div>
-    <div style="position:absolute;left:-80px;top:36%;width:170%;height:170px;background:linear-gradient(100deg,rgba(255,255,255,0) 32%,rgba(255,255,255,0.06) 50%,rgba(255,255,255,0) 68%);transform:rotate(-15deg)"></div>
-    <div style="position:absolute;left:50%;top:46%;width:360px;height:420px;transform:translate(-50%,-50%);perspective:1100px">
-      <div style="position:absolute;left:60px;top:60px;width:236px;height:236px;border-radius:62px;transform:rotateY(-42deg) rotateX(12deg) rotateZ(-4deg);background:linear-gradient(135deg,#3c434e 0%,#181b21 46%,#0b0d11 100%);box-shadow:-24px 16px 0 -2px #05070a,-28px 18px 0 -2px rgba(87,233,165,0.07),-48px 62px 96px rgba(0,0,0,0.66),inset 3px 3px 4px rgba(255,255,255,0.38),inset -12px -18px 36px rgba(0,0,0,0.66),inset 9px 0 22px -4px rgba(87,233,165,0.26),inset 0 0 0 1.5px rgba(255,255,255,0.09)">
-        <div style="position:absolute;inset:0;border-radius:62px;background:linear-gradient(115deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.05) 26%,rgba(255,255,255,0) 46%)"></div>
-        <div style="position:absolute;left:26px;top:20px;width:58px;height:22px;border-radius:50%;background:radial-gradient(ellipse,rgba(255,255,255,0.4),rgba(255,255,255,0) 70%);filter:blur(4px);transform:rotate(-18deg)"></div>
-        <div style="position:absolute;left:50%;top:50%;width:100px;height:100px;border-radius:32px;transform:translate(-50%,-50%) translateZ(20px);background:linear-gradient(140deg,#5eeeaa 0%,#16a35b 55%,#087a41 100%);box-shadow:-9px 7px 0 -2px rgba(4,50,27,0.85),0 0 0 8px rgba(255,255,255,0.05),0 20px 48px rgba(22,163,91,0.65),inset 3px 3.5px 6px rgba(255,255,255,0.6),inset -8px -11px 20px rgba(0,58,29,0.55)">
-          <div style="position:absolute;inset:0;border-radius:32px;background:linear-gradient(120deg,rgba(255,255,255,0.35),rgba(255,255,255,0) 52%)"></div>
-          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);filter:drop-shadow(0 3px 5px rgba(0,40,20,0.45))"><path d="M4 15l5.5-5.5 3.5 3.5L20 7"/><path d="M15 7h5v5"/></svg>
-        </div>
+<div style="background:#0b0d11;border-radius:24px;box-shadow:0 20px 60px -12px rgba(15,20,30,.16);border:1px solid #1a1d24;overflow:hidden;height:780px;position:relative;color:#fff">
+  <div style="position:absolute;right:-120px;top:-100px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(22,163,91,0.36),rgba(22,163,91,0) 70%);filter:blur(42px);animation:glowA 8s ease-in-out infinite"></div>
+  <div style="position:absolute;left:-130px;top:24%;width:480px;height:480px;border-radius:50%;background:radial-gradient(circle,rgba(107,111,245,0.24),rgba(107,111,245,0) 70%);filter:blur(46px);animation:glowB 10s ease-in-out infinite"></div>
+  <div style="position:absolute;right:-100px;bottom:-140px;width:460px;height:460px;border-radius:50%;background:radial-gradient(circle,rgba(63,206,138,0.18),rgba(63,206,138,0) 70%);filter:blur(48px);animation:glowC 12s ease-in-out infinite"></div>
+  <div style="position:absolute;left:-100px;top:28%;width:170%;height:180px;background:linear-gradient(100deg,rgba(255,255,255,0) 32%,rgba(255,255,255,0.06) 50%,rgba(255,255,255,0) 68%);animation:beam 11s ease-in-out infinite"></div>
+  <div style="position:absolute;left:-100px;top:62%;width:170%;height:130px;background:linear-gradient(100deg,rgba(87,233,165,0) 35%,rgba(87,233,165,0.045) 50%,rgba(87,233,165,0) 65%);animation:beam 14s ease-in-out infinite"></div>
+  <div style="position:absolute;left:10%;top:12%;width:3px;height:3px;border-radius:50%;background:#fff;animation:tw 4s ease-in-out infinite"></div>
+  <div style="position:absolute;left:30%;top:8%;width:2px;height:2px;border-radius:50%;background:#57e9a5;animation:tw 5s ease-in-out 1s infinite"></div>
+  <div style="position:absolute;left:56%;top:16%;width:3px;height:3px;border-radius:50%;background:#fff;animation:tw 6s ease-in-out 2s infinite"></div>
+  <div style="position:absolute;left:78%;top:10%;width:2px;height:2px;border-radius:50%;background:#8b8fff;animation:tw 5s ease-in-out 0.5s infinite"></div>
+  <div style="position:absolute;left:92%;top:30%;width:3px;height:3px;border-radius:50%;background:#57e9a5;animation:tw 7s ease-in-out 3s infinite"></div>
+  <div style="position:absolute;left:6%;top:44%;width:2px;height:2px;border-radius:50%;background:#fff;animation:tw 6s ease-in-out 1.5s infinite"></div>
+  <div style="position:absolute;left:20%;top:66%;width:2px;height:2px;border-radius:50%;background:#8b8fff;animation:tw 5s ease-in-out 2.5s infinite"></div>
+  <div style="position:absolute;left:44%;top:82%;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.9);animation:tw 8s ease-in-out 1s infinite"></div>
+  <div style="position:absolute;left:70%;top:74%;width:2px;height:2px;border-radius:50%;background:#57e9a5;animation:tw 6s ease-in-out 4s infinite"></div>
+  <div style="position:absolute;left:88%;top:88%;width:2px;height:2px;border-radius:50%;background:rgba(255,255,255,0.8);animation:tw 7s ease-in-out 0.8s infinite"></div>
+  <div style="position:absolute;left:38%;top:38%;width:2px;height:2px;border-radius:50%;background:#57e9a5;animation:tw 9s ease-in-out 2s infinite"></div>
+  <div style="position:relative;height:100%;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:38px 48px 0">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center"><div style="width:13px;height:13px;border-radius:4px;background:#16a35b"></div></div><span style="font:800 20px Manrope;letter-spacing:-0.03em">Investable <span style="font-weight:600;color:#9fe8c6">Edge</span></span></div>
+        <div style="font:800 40px Manrope;letter-spacing:-0.035em;line-height:1.1;margin-top:26px">Borsa, yapay<br>zekâ ile sade.</div>
       </div>
-      <div style="position:absolute;left:84px;top:326px;width:206px;height:36px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,0.65),rgba(0,0,0,0) 70%);filter:blur(9px)"></div>
-    </div>
-    <div style="position:absolute;inset:0;background:rgba(11,13,17,0.44);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)"></div>
-    <div style="position:absolute;left:14%;top:14%;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.35)"></div>
-    <div style="position:absolute;left:74%;top:10%;width:2px;height:2px;border-radius:50%;background:rgba(87,233,165,0.5)"></div>
-    <div style="position:absolute;left:82%;top:38%;width:3px;height:3px;border-radius:50%;background:rgba(87,233,165,0.3)"></div>
-    <div style="position:absolute;left:62%;top:64%;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.22)"></div>
-    <div style="position:absolute;left:24%;top:76%;width:2px;height:2px;border-radius:50%;background:rgba(139,143,255,0.45)"></div>
-    <div style="position:absolute;left:44%;top:26%;width:2px;height:2px;border-radius:50%;background:rgba(255,255,255,0.3)"></div>
-    <div style="position:absolute;left:90%;top:70%;width:2px;height:2px;border-radius:50%;background:rgba(255,255,255,0.25)"></div>
-    <div style="position:relative;flex:1;padding:44px 48px;display:flex;flex-direction:column">
-      <div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center"><div style="width:13px;height:13px;border-radius:4px;background:#16a35b"></div></div><span style="font:800 20px Manrope;letter-spacing:-0.03em">Investable <span style="font-weight:600;color:#9fe8c6">Edge</span></span></div>
-      <div style="font:800 42px Manrope;letter-spacing:-0.035em;line-height:1.1;margin-top:56px">Borsa, yapay<br>zekâ ile sade.</div>
-      <div style="font:500 15px Manrope;color:#a7adba;line-height:1.6;margin-top:16px;max-width:330px">Portföyünü izle, AI sinyalleriyle fırsatları yakala, riskini anla.</div>
-      <div style="flex:1"></div>
-      <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;flex-direction:column;gap:12px;padding-top:8px">
         <div style="display:flex;align-items:center;gap:11px"><span style="font:700 12px 'JetBrains Mono';color:#8b8fff">✦</span><span style="font:600 13px Manrope;color:#dfe2e8">Kişiselleştirilmiş AI sinyalleri</span></div>
         <div style="display:flex;align-items:center;gap:11px"><div style="width:6px;height:6px;border-radius:50%;background:#3fce8a"></div><span style="font:600 13px Manrope;color:#dfe2e8">Gerçek zamanlı BIST verisi</span></div>
         <div style="display:flex;align-items:center;gap:11px"><div style="width:6px;height:6px;border-radius:50%;background:#3fce8a"></div><span style="font:600 13px Manrope;color:#dfe2e8">Risk profiline göre model portföyler</span></div>
       </div>
     </div>
-  </div>
-  <div style="flex:1;display:flex;align-items:center;justify-content:center">
-    <div style="width:380px;display:flex;flex-direction:column;gap:14px">
-      <div style="font:800 26px Manrope;color:#16181d;letter-spacing:-0.03em">Tekrar hoş geldin</div>
-      <div style="font:500 13px Manrope;color:#9aa0ad;margin-top:-8px">Hesabına giriş yap</div>
-      <div style="font:500 12px Manrope;color:#9aa0ad;margin-top:10px">E-posta veya telefon</div>
-      <div style="height:52px;background:#f4f5f6;border-radius:14px;display:flex;align-items:center;padding:0 16px;font:500 15px Manrope;color:#16181d;margin-top:-8px">ahmet@ornek.com</div>
-      <div style="height:52px;background:#16181d;border-radius:14px;display:flex;align-items:center;justify-content:center;font:700 15px Manrope;color:#fff;margin-top:4px">Devam et</div>
-      <div style="display:flex;align-items:center;gap:12px;margin:6px 0"><div style="flex:1;height:1px;background:#eef0f2"></div><span style="font:600 11px Manrope;color:#b4b8bf">veya</span><div style="flex:1;height:1px;background:#eef0f2"></div></div>
-      <div style="display:flex;gap:11px">
-        <div style="flex:1;height:50px;border:1px solid #e7e9ec;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 13px Manrope;color:#16181d"><span style="font:800 15px Manrope;color:#4285F4">G</span>Google</div>
-        <div style="flex:1;height:50px;border:1px solid #e7e9ec;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:7px;font:700 13px Manrope;color:#16181d"><span style="font-size:16px">⌘</span>Apple</div>
+    <div style="flex:1;display:flex;align-items:center;justify-content:center">
+      <div style="width:400px;display:flex;flex-direction:column;gap:14px">
+        <div style="font:800 26px Manrope;letter-spacing:-0.03em">Tekrar hoş geldin</div>
+        <div style="font:500 13px Manrope;color:#8f95a3;margin-top:-8px">Hesabına giriş yap</div>
+        <div style="font:500 12px Manrope;color:#8f95a3;margin-top:8px">E-posta</div>
+        <div style="height:52px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:14px;display:flex;align-items:center;padding:0 16px;font:500 15px Manrope;color:#fff;margin-top:-8px">ahmet@ornek.com</div>
+        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:500 12px Manrope;color:#8f95a3">Şifre</span><span style="font:600 12px Manrope;color:#3fce8a">Şifremi unuttum</span></div>
+        <div style="height:52px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:14px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;margin-top:-8px"><span style="font:600 15px Manrope;color:#fff;letter-spacing:0.18em">••••••••</span><span style="font:600 13px Manrope;color:#8f95a3">Göster</span></div>
+        <div style="height:52px;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;font:700 15px Manrope;color:#0b0d11;margin-top:4px">Giriş yap</div>
+        <div style="display:flex;align-items:center;gap:12px;margin:4px 0"><div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div><span style="font:600 11px Manrope;color:#6f7581">veya</span><div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div></div>
+        <div style="display:flex;gap:11px">
+          <div style="flex:1;height:50px;border:1px solid rgba(255,255,255,0.16);border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 13px Manrope;color:#fff"><span style="font:800 15px Manrope;color:#8ab4f8">G</span>Google</div>
+          <div style="flex:1;height:50px;border:1px solid rgba(255,255,255,0.16);border-radius:14px;display:flex;align-items:center;justify-content:center;gap:7px;font:700 13px Manrope;color:#fff"><span style="font-size:16px">⌘</span>Apple</div>
+        </div>
+        <div style="text-align:center;font:500 13px Manrope;color:#8f95a3;margin-top:12px">Hesabın yok mu? <span style="font:700 13px Manrope;color:#fff">Kayıt ol</span></div>
       </div>
-      <div style="text-align:center;font:500 13px Manrope;color:#9aa0ad;margin-top:14px">Hesabın yok mu? <span style="font:700 13px Manrope;color:#16181d">Kayıt ol</span></div>
     </div>
   </div>
 </div>

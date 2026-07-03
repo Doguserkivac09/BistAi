@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * "Kayıt ol" ekranı (design_handoff_kalan_ekranlar ile aynı dil) — hi-fi, açık tema.
- * Mobil: koyu hero + beyaz form. Masaüstü (lg): split layout — sol %46 koyu marka
- * paneli (başlık + grafik + 3 değer önerisi), sağda 380px form. Supabase signUp.
+ * "Kayıt ol" ekranı (design_handoff_kalan_ekranlar fullekran sürümüyle aynı dil) — hi-fi.
+ * TAMAMEN koyu (#0b0d11) tek ekran: animasyonlu gece sahnesi + camsı inputlar +
+ * beyaz birincil buton. Supabase signUp.
  * KORUNAN: Ad/Soyad zorunlu doğrulama, user_metadata (full_name/first_name/last_name),
  * e-posta doğrulama success durumu. Oturum açıldıysa → /karsilama (onboarding).
  */
@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
-import { Wordmark, CinematicHeroScene } from '@/components/new/brand';
+import { Wordmark, AnimatedNightScene } from '@/components/new/brand';
 
 function AppleIcon() {
   return (
@@ -20,6 +20,9 @@ function AppleIcon() {
     </svg>
   );
 }
+
+const inputCls =
+  'h-[52px] w-full rounded-[14px] border border-white/[0.12] bg-white/[0.06] px-4 text-[15px] font-medium text-white outline-none transition-colors placeholder:text-[#6f7581] focus:border-white/30';
 
 export function KayitScreen() {
   const [firstName, setFirstName] = useState('');
@@ -104,22 +107,31 @@ export function KayitScreen() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-page lg:flex-row">
-      {/* ── Masaüstü: sol sinematik marka paneli (%46) ── */}
-      <div className="relative hidden overflow-hidden bg-[#0b0d11] text-white lg:flex lg:w-[46%]">
-        <CinematicHeroScene desktop />
-        <div className="relative flex flex-1 flex-col px-12 py-11">
-          <Wordmark onDark size={20} markSize={34} />
-          <h1 className="mt-14 text-[42px] font-extrabold leading-[1.1] tracking-[-0.035em]">
-            Birkaç saniyede
-            <br />
-            başla.
-          </h1>
-          <p className="mt-4 max-w-[330px] text-[15px] font-medium leading-[1.6] text-[#a7adba]">
-            Ücretsiz hesap oluştur, AI destekli sinyallerle BIST&apos;i takip et.
-          </p>
-          <div className="flex-1" />
-          <div className="flex flex-col gap-3">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#0b0d11] text-white">
+      <div className="lg:hidden">
+        <AnimatedNightScene />
+      </div>
+      <div className="hidden lg:block">
+        <AnimatedNightScene desktop />
+      </div>
+
+      <div className="relative flex min-h-[100dvh] flex-1 flex-col">
+        {/* Üst: wordmark + başlık (+ masaüstünde sağda değer önerileri) */}
+        <div className="flex items-start justify-between px-7 pt-8 lg:px-12 lg:pt-[38px]">
+          <div>
+            <span className="lg:hidden">
+              <Wordmark onDark size={18} markSize={30} />
+            </span>
+            <span className="hidden lg:block">
+              <Wordmark onDark size={20} markSize={34} />
+            </span>
+            <h1 className="mt-3.5 text-[24px] font-extrabold leading-[1.12] tracking-[-0.035em] lg:mt-[26px] lg:text-[40px] lg:leading-[1.1]">
+              Birkaç saniyede
+              <br />
+              başla.
+            </h1>
+          </div>
+          <div className="hidden flex-col gap-3 pt-2 lg:flex">
             <div className="flex items-center gap-3">
               <span className="font-mono text-[12px] font-bold text-ai-on-dark">✦</span>
               <span className="text-[13px] font-semibold text-[#dfe2e8]">Kişiselleştirilmiş AI sinyalleri</span>
@@ -134,180 +146,166 @@ export function KayitScreen() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Sağ taraf: form (mobilde hero + form dikey) ── */}
-      <div className="flex flex-1 flex-col lg:items-center lg:justify-center">
-        <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col lg:max-w-[380px] lg:flex-none">
-          {/* Mobil sinematik hero (masaüstünde gizli — sol panel var) */}
-          <div className="relative flex min-h-[280px] flex-col justify-end overflow-hidden bg-[#0b0d11] text-white sm:rounded-b-[28px] lg:hidden">
-            <CinematicHeroScene />
-            <div className="relative px-[26px] pb-5 pt-4">
-              <Wordmark onDark size={18} markSize={30} />
-              <h1 className="mt-3 text-[25px] font-extrabold leading-[1.12] tracking-[-0.035em]">
-                Birkaç saniyede
-                <br />
-                başla.
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex flex-1 flex-col px-7 py-7 lg:flex-none lg:p-0">
-            {success ? (
-              <div className="flex flex-1 flex-col lg:flex-none lg:gap-4">
-                <div className="rounded-[14px] border border-up/30 bg-up/10 px-4 py-4 text-[14px] font-medium text-up">
-                  Kayıt başarılı! E-posta adresine doğrulama bağlantısı gönderdik. Gelen kutunu kontrol edip
-                  hesabını onayla.
-                </div>
-                <div className="flex-1 lg:hidden" />
-                <Link
-                  href="/giris"
-                  className="flex h-[52px] items-center justify-center rounded-[14px] bg-ink text-[15px] font-bold text-white transition-colors hover:bg-ink/90"
-                >
-                  Giriş ekranına dön
-                </Link>
+        {/* Orta: form / success */}
+        <div className="flex flex-1 flex-col lg:items-center lg:justify-center">
+          {success ? (
+            <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col px-7 pt-7 lg:max-w-[400px] lg:flex-none lg:px-0 lg:pt-0">
+              <div className="rounded-[14px] border border-up/40 bg-up/15 px-4 py-4 text-[14px] font-medium text-up-on-dark">
+                Kayıt başarılı! E-posta adresine doğrulama bağlantısı gönderdik. Gelen kutunu kontrol edip
+                hesabını onayla.
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-3.5 lg:flex-none">
-                {/* Masaüstü form başlığı */}
-                <div className="hidden lg:block">
-                  <h2 className="text-[26px] font-extrabold tracking-[-0.03em] text-ink">Hesap oluştur</h2>
-                  <p className="mt-1 text-[13px] font-medium text-t3">Ücretsiz başla, kart gerekmez</p>
+              <div className="flex-1 lg:hidden" />
+              <Link
+                href="/giris"
+                className="mb-6 mt-5 flex h-[52px] items-center justify-center rounded-[14px] bg-white text-[15px] font-bold text-[#0b0d11] transition-colors hover:bg-white/90 lg:mb-0"
+              >
+                Giriş ekranına dön
+              </Link>
+            </div>
+          ) : (
+            <form
+              onSubmit={handleSubmit}
+              className="mx-auto flex w-full max-w-[440px] flex-1 flex-col gap-3.5 px-7 pt-7 lg:max-w-[400px] lg:flex-none lg:px-0 lg:pt-0"
+            >
+              {/* Masaüstü form başlığı */}
+              <div className="hidden lg:block">
+                <h2 className="text-[26px] font-extrabold tracking-[-0.03em] text-white">Hesap oluştur</h2>
+                <p className="mt-1 text-[13px] font-medium text-[#8f95a3]">Ücretsiz başla, kart gerekmez</p>
+              </div>
+
+              {error && (
+                <div className="rounded-[12px] border border-down/40 bg-down/15 px-3 py-2 text-[13px] font-medium text-[#f58b8e]">
+                  {error}
                 </div>
+              )}
 
-                {error && (
-                  <div className="rounded-[12px] border border-down/30 bg-down/10 px-3 py-2 text-[13px] font-medium text-down">
-                    {error}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3 lg:mt-2">
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="firstName" className="text-[12px] font-medium text-t3">
-                      Ad
-                    </label>
-                    <input
-                      id="firstName"
-                      type="text"
-                      autoComplete="given-name"
-                      placeholder="Adınız"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="h-[52px] w-full rounded-[14px] border border-transparent bg-fill px-4 text-[15px] font-medium text-ink outline-none transition-colors placeholder:text-t4 focus:border-ink focus:bg-panel"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="lastName" className="text-[12px] font-medium text-t3">
-                      Soyad
-                    </label>
-                    <input
-                      id="lastName"
-                      type="text"
-                      autoComplete="family-name"
-                      placeholder="Soyadınız"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="h-[52px] w-full rounded-[14px] border border-transparent bg-fill px-4 text-[15px] font-medium text-ink outline-none transition-colors placeholder:text-t4 focus:border-ink focus:bg-panel"
-                    />
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-2 gap-3 lg:mt-2">
                 <div className="flex flex-col gap-2">
-                  <label htmlFor="email" className="text-[12px] font-medium text-t3">
-                    E-posta
+                  <label htmlFor="firstName" className="text-[12px] font-medium text-[#8f95a3]">
+                    Ad
                   </label>
                   <input
-                    id="email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    placeholder="ahmet@ornek.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="firstName"
+                    type="text"
+                    autoComplete="given-name"
+                    placeholder="Adınız"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     required
                     disabled={loading}
-                    className="h-[52px] w-full rounded-[14px] border border-transparent bg-fill px-4 text-[15px] font-medium text-ink outline-none transition-colors placeholder:text-t4 focus:border-ink focus:bg-panel"
+                    className={inputCls}
                   />
                 </div>
-
                 <div className="flex flex-col gap-2">
-                  <label htmlFor="password" className="text-[12px] font-medium text-t3">
-                    Şifre
+                  <label htmlFor="lastName" className="text-[12px] font-medium text-[#8f95a3]">
+                    Soyad
                   </label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      type={show ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      placeholder="En az 6 karakter"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      disabled={loading}
-                      className="h-[52px] w-full rounded-[14px] border border-transparent bg-fill px-4 pr-16 text-[15px] font-medium text-ink outline-none transition-colors placeholder:text-t4 focus:border-ink focus:bg-panel"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShow((s) => !s)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-medium text-t3 hover:text-ink"
-                      tabIndex={-1}
-                    >
-                      {show ? 'Gizle' : 'Göster'}
-                    </button>
-                  </div>
+                  <input
+                    id="lastName"
+                    type="text"
+                    autoComplete="family-name"
+                    placeholder="Soyadınız"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    disabled={loading}
+                    className={inputCls}
+                  />
                 </div>
+              </div>
 
-                <button
-                  type="submit"
+              <div className="flex flex-col gap-2">
+                <label htmlFor="email" className="text-[12px] font-medium text-[#8f95a3]">
+                  E-posta
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="ahmet@ornek.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   disabled={loading}
-                  className="mt-1 flex h-[52px] items-center justify-center rounded-[14px] bg-ink text-[15px] font-bold text-white transition-colors hover:bg-ink/90 disabled:opacity-60"
+                  className={inputCls}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label htmlFor="password" className="text-[12px] font-medium text-[#8f95a3]">
+                  Şifre
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={show ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder="En az 6 karakter"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={loading}
+                    className={`${inputCls} pr-16`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow((s) => !s)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-medium text-[#8f95a3] hover:text-white"
+                    tabIndex={-1}
+                  >
+                    {show ? 'Gizle' : 'Göster'}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-1 flex h-[52px] items-center justify-center rounded-[14px] bg-white text-[15px] font-bold text-[#0b0d11] transition-colors hover:bg-white/90 disabled:opacity-60"
+              >
+                {loading ? 'Hesap oluşturuluyor…' : 'Hesap oluştur'}
+              </button>
+
+              <div className="my-1 flex items-center gap-3">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-[11px] font-semibold text-[#6f7581]">veya</span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => oauth('google')}
+                  disabled={oauthLoading !== null}
+                  className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-[14px] border border-white/[0.16] text-[13px] font-bold text-white transition-colors hover:bg-white/[0.06] disabled:opacity-60"
                 >
-                  {loading ? 'Hesap oluşturuluyor…' : 'Hesap oluştur'}
+                  <span className="text-[15px] font-extrabold text-[#8ab4f8]">G</span>
+                  {oauthLoading === 'google' ? '…' : 'Google'}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => oauth('apple')}
+                  disabled={oauthLoading !== null}
+                  className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-[14px] border border-white/[0.16] text-[13px] font-bold text-white transition-colors hover:bg-white/[0.06] disabled:opacity-60"
+                >
+                  <AppleIcon />
+                  {oauthLoading === 'apple' ? '…' : 'Apple'}
+                </button>
+              </div>
 
-                <div className="my-1.5 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-hairline" />
-                  <span className="text-[11px] font-semibold text-t4">veya</span>
-                  <div className="h-px flex-1 bg-hairline" />
-                </div>
+              <div className="flex-1 lg:hidden" />
 
-                <div className="flex gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => oauth('google')}
-                    disabled={oauthLoading !== null}
-                    className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-[14px] border border-[#e7e9ec] bg-panel text-[13px] font-bold text-ink transition-colors hover:bg-fill disabled:opacity-60"
-                  >
-                    <span className="text-[15px] font-extrabold text-[#4285F4]">G</span>
-                    {oauthLoading === 'google' ? '…' : 'Google'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => oauth('apple')}
-                    disabled={oauthLoading !== null}
-                    className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-[14px] border border-[#e7e9ec] bg-panel text-[13px] font-bold text-ink transition-colors hover:bg-fill disabled:opacity-60"
-                  >
-                    <AppleIcon />
-                    {oauthLoading === 'apple' ? '…' : 'Apple'}
-                  </button>
-                </div>
-
-                <div className="flex-1 lg:hidden" />
-
-                <p className="text-center text-[13px] font-medium text-t3 lg:mt-3.5">
-                  Zaten hesabın var mı?{' '}
-                  <Link href="/giris" className="font-bold text-ink hover:underline">
-                    Giriş yap
-                  </Link>
-                </p>
-              </form>
-            )}
-          </div>
+              <p className="pb-6 text-center text-[13px] font-medium text-[#8f95a3] lg:mt-3 lg:pb-0">
+                Zaten hesabın var mı?{' '}
+                <Link href="/giris" className="font-bold text-white hover:underline">
+                  Giriş yap
+                </Link>
+              </p>
+            </form>
+          )}
         </div>
       </div>
     </div>
