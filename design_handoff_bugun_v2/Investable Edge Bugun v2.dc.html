@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+</style>
+</helmet>
+
+<div style="position:absolute;left:80px;top:14px;font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Investable Edge <span style="font-weight:600;color:#9aa0ad">— Bugün v2 · güne-başlama merkezi · mobil + masaüstü</span></div>
+
+<div style="position:absolute;left:80px;top:66px;font:700 12px Manrope;color:#9aa0ad;letter-spacing:0.08em;text-transform:uppercase">Mobil — Bugün v2 (tam kaydırma uzunluğu)</div>
+<div style="position:absolute;left:540px;top:66px;font:700 12px Manrope;color:#9aa0ad;letter-spacing:0.08em;text-transform:uppercase">Masaüstü — Bugün v2</div>
+<div style="position:absolute;left:80px;top:1230px;font:700 12px Manrope;color:#9aa0ad;letter-spacing:0.08em;text-transform:uppercase">Koyu liquid-glass — Bugün v2 (mobil + masaüstü)</div>
+<div style="position:absolute;left:80px;top:2394px;font:700 12px Manrope;color:#9aa0ad;letter-spacing:0.08em;text-transform:uppercase">Açık liquid-glass — Bugün v2 (mobil + masaüstü)</div>
+
+<!-- ============ MOBILE — BUGÜN V2 ============ -->
+<div style="position:absolute;left:80px;top:104px;width:380px" data-screen-label="Mobil Bugün v2">
+<div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Önce karar, sonra bağlam</div>
+<div style="background:linear-gradient(165deg,#e7f0ff 0%,#fbfcff 24%,#fcfcfd 58%,#eafaf1 100%);border-radius:40px;box-shadow:0 20px 60px -12px rgba(15,20,30,.16);border:1px solid #eef0f2;overflow:hidden;height:1030px;display:flex;flex-direction:column">
+  <div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font:700 13px Manrope;color:#16181d;background:#fff"><span>9:41</span><span style="width:17px;height:10px;border:1.5px solid #16181d;border-radius:3px;display:inline-block"></span></div>
+
+  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+    <!-- greeting -->
+    <div style="background:transparent;padding:12px 24px 16px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font:800 25px Manrope;color:#16181d;letter-spacing:-0.03em">Günaydın, Ahmet</div>
+        <div style="font:500 13px Manrope;color:#9aa0ad;margin-top:2px">Cuma, 3 Temmuz</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:#eaf7ef;padding:7px 12px;border-radius:10px"><span style="width:7px;height:7px;border-radius:50%;background:#16a35b"></span><span style="font:700 11px Manrope;color:#16a35b">BIST açık</span></div>
+    </div>
+
+    <div style="flex:1;overflow:hidden;padding:0 24px;display:flex;flex-direction:column;gap:14px">
+      <!-- quick search (canlıdaki gibi) -->
+      <div style="position:relative">
+        <div style="display:flex;align-items:center;gap:10px;height:46px;background:#fff;border:1px solid #eef0f2;border-radius:14px;padding:0 15px;box-shadow:0 1px 2px rgba(15,20,30,0.03)">
+          <span class="mono" style="font:600 13px 'JetBrains Mono';color:#16a35b">›</span>
+          <input value="{{ qm }}" onChange="{{ onQm }}" placeholder="Sembol yaz — THY, GAR…" style="flex:1;border:none;outline:none;background:transparent;font:600 14px Manrope;color:#16181d;letter-spacing:0.04em;text-transform:uppercase;min-width:0"></input>
+          <sc-if value="{{ hasResM }}" hint-placeholder-val="{{ false }}">
+            <span class="mono" style="font:600 11px 'JetBrains Mono';color:#9aa0ad">{{ resMCount }}/8</span>
+          </sc-if>
+        </div>
+        <sc-if value="{{ hasResM }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;right:0;top:52px;z-index:30;background:#fff;border:1px solid #eef0f2;border-radius:16px;box-shadow:0 18px 44px -10px rgba(15,20,30,0.18);overflow:hidden">
+            <sc-for list="{{ resM }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:12px;padding:11px 15px;border-bottom:1px solid #f6f7f8">
+                <div class="mono" style="width:32px;height:32px;border-radius:10px;background:#f4f5f6;display:flex;align-items:center;justify-content:center;font:600 10px 'JetBrains Mono';color:#16181d">{{ r.tag }}</div>
+                <div style="flex:1;min-width:0">
+                  <div class="mono" style="font:600 13px 'JetBrains Mono';color:#16181d"><span style="color:#16a35b;border-bottom:2px solid rgba(22,163,91,0.35)">{{ r.symPre }}</span>{{ r.symRest }}</div>
+                  <div style="font:500 11px Manrope;color:#9aa0ad;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                </div>
+                <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16181d">{{ r.priceStr }}</span>
+                <span class="mono" style="width:52px;text-align:right;font:600 12px 'JetBrains Mono';color:{{ r.chgColor }}">{{ r.chgStr }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- portföy günlük K/Z tek şerit -->
+      <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:14px;padding:12px 15px;display:flex;align-items:center;gap:10px" style-hover="border-color:#d9dce1">
+        <span style="font:700 12px Manrope;color:#16181d;white-space:nowrap;flex-shrink:0">Portföyüm</span>
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#16181d;white-space:nowrap;flex-shrink:0">486.240 ₺</span>
+        <div style="flex:1"></div>
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#16a35b;white-space:nowrap;flex-shrink:0">+1,24%</span>
+        <span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa0ad;white-space:nowrap;flex-shrink:0">+5.940 ₺ bugün</span>
+      </div>
+
+      <!-- AI daily brief (tek koyu kart) -->
+      <div style="background:rgba(18,20,26,0.66);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.14);box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 18px 44px -18px rgba(0,0,0,0.55);border-radius:22px;padding:18px 20px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px 'JetBrains Mono';color:#8b8fff;letter-spacing:0.06em">✦ AI</span><span style="font:600 12px Manrope;color:#9aa0ad">Bugünün özeti</span></div>
+        <div style="font:600 15px Manrope;color:#f4f5f6;line-height:1.5;margin-top:10px">Risk iştahı pozitif. Akıllı para <b style="color:#fff">bankacılık ve havacılıkta</b> birikiyor; bugün <b style="color:#fff">2 hisse</b> "değerlendir" eşiğini geçti.</div>
+        <div style="display:flex;gap:18px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.10)">
+          <div><div style="font:500 11px Manrope;color:#9aa0ad">Makro rüzgar</div><div class="mono" style="font:600 15px 'JetBrains Mono';color:#3fce8a;margin-top:2px">+34</div></div>
+          <div><div style="font:500 11px Manrope;color:#9aa0ad">Rejim</div><div style="font:700 14px Manrope;color:#fff;margin-top:3px">Yükseliş</div></div>
+          <div><div style="font:500 11px Manrope;color:#9aa0ad">Risk</div><div style="font:700 14px Manrope;color:#f5c451;margin-top:3px">Orta</div></div>
+        </div>
+      </div>
+
+      <!-- Section: Bugün ne yapmalıyım -->
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
+        <span style="font:600 12px Manrope;color:#9aa0ad">Takip listem</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
+        <sc-for list="{{ verdicts }}" as="v" hint-placeholder-count="4">
+          <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:13px 15px;display:flex;align-items:center;gap:13px" style-hover="border-color:#d9dce1;box-shadow:0 4px 14px -6px rgba(15,20,30,0.12)">
+            <div style="width:4px;align-self:stretch;border-radius:3px;background:{{ v.color }}"></div>
+            <div class="mono" style="width:42px;height:42px;border-radius:12px;background:#f4f5f6;display:flex;align-items:center;justify-content:center;font:600 12px 'JetBrains Mono';color:#16181d">{{ v.tag }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="font:700 15px Manrope;color:#16181d">{{ v.sym }}</span>
+                <span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa0ad">{{ v.priceStr }} ₺</span>
+                <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:11px;padding:2px 6px;border-radius:6px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span>
+                </sc-if>
+              </div>
+              <div style="font:500 12px Manrope;color:#7b818c;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
+              <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ v.chgColor }};margin-top:5px">{{ v.chgStr }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- günün fırsatları — yatay ray -->
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font:800 15px Manrope;color:#16181d;letter-spacing:-0.02em">Günün fırsatları</span>
+        <span style="font:600 12px Manrope;color:#16a35b">Tümü →</span>
+      </div>
+      <div style="display:flex;gap:10px;overflow:hidden">
+        <sc-for list="{{ opps }}" as="o" hint-placeholder-count="3">
+          <div style="flex:1;min-width:0;background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:16px;padding:13px 14px" style-hover="border-color:#d9dce1;box-shadow:0 4px 14px -6px rgba(15,20,30,0.12)">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 14px Manrope;color:#16181d">{{ o.sym }}</span><span class="mono" style="font:700 12px 'JetBrains Mono';color:#6b6ff5">{{ o.score }}</span></div>
+            <div style="font:600 10px Manrope;color:#9aa0ad;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em">{{ o.tagLabel }}</div>
+            <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ o.chgColor }};margin-top:8px">{{ o.chgStr }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- sektör momentumu tek satır -->
+      <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:14px;padding:11px 15px;display:flex;align-items:center;gap:8px">
+        <span style="font:600 11px Manrope;color:#9aa0ad;text-transform:uppercase;letter-spacing:0.05em">Sektör</span>
+        <span style="font:700 12px Manrope;color:#16a35b">▲ {{ secStrongName }}</span>
+        <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">{{ secStrongChg }}</span>
+        <div style="width:1px;height:14px;background:#eef0f2;margin:0 4px"></div>
+        <span style="font:700 12px Manrope;color:#e5484d">▼ {{ secWeakName }}</span>
+        <span class="mono" style="font:600 12px 'JetBrains Mono';color:#e5484d">{{ secWeakChg }}</span>
+      </div>
+
+      <!-- BIST snapshot mini -->
+      <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+        <div style="flex:1"><div style="font:600 12px Manrope;color:#9aa0ad">BIST 100</div><div class="mono" style="font:700 20px 'JetBrains Mono';color:#16181d;margin-top:1px">9.842,17</div></div>
+        <svg width="96" height="40" viewBox="0 0 96 40" fill="none"><path d="{{ bistMini }}" stroke="#16a35b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#16a35b">+0,87%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#9aa0ad;margin-top:2px">+84,90</div></div>
+      </div>
+      <div style="height:4px"></div>
+    </div>
+  </div>
+
+  <!-- bottom nav -->
+  <div style="height:68px;background:#fff;border-top:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-around;padding-bottom:6px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:700 10px Manrope;color:#16181d"><div style="width:5px;height:5px;border-radius:50%;background:#16181d"></div>Bugün</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#b4b8bf"><div style="width:5px;height:5px;border-radius:50%;background:#d4d7dc"></div>Fırsatlar</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#b4b8bf"><div style="width:5px;height:5px;border-radius:50%;background:#d4d7dc"></div>Portföy</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#b4b8bf"><span style="font:700 11px 'JetBrains Mono';color:#6b6ff5">✦</span>AI</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#b4b8bf"><div style="width:5px;height:5px;border-radius:50%;background:#d4d7dc"></div>Profil</div>
+  </div>
+</div>
+</div>
+
+<!-- ============ DESKTOP — BUGÜN V2 ============ -->
+<div style="position:absolute;left:540px;top:104px;width:1180px" data-screen-label="Masaüstü Bugün v2">
+<div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">12 kolon düşüncesi: sol karar, sağ bağlam, üstte bilgi şeridi</div>
+<div style="background:#fff;border-radius:24px;box-shadow:0 20px 60px -12px rgba(15,20,30,.16);border:1px solid #eef0f2;overflow:hidden;height:800px;display:flex">
+  <!-- sidebar -->
+  <div style="width:230px;background:#fcfcfd;border-right:1px solid #f0f1f3;display:flex;flex-direction:column;padding:24px 16px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 8px">
+      <div style="width:30px;height:30px;border-radius:9px;background:#16181d;display:flex;align-items:center;justify-content:center"><div style="width:11px;height:11px;border-radius:3px;background:#16a35b"></div></div>
+      <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.03em">Investable <span style="color:#16a35b">Edge</span></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-top:26px">
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;background:#16181d;color:#fff;font:700 14px Manrope"><div style="width:6px;height:6px;border-radius:50%;background:#16a35b"></div>Bugün</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#7b818c;font:600 14px Manrope" style-hover="background:#f4f5f6;color:#16181d"><div style="width:6px;height:6px;border-radius:50%;background:#d4d7dc"></div>Fırsatlar</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#7b818c;font:600 14px Manrope" style-hover="background:#f4f5f6;color:#16181d"><div style="width:6px;height:6px;border-radius:50%;background:#d4d7dc"></div>Portföyüm</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#7b818c;font:600 14px Manrope" style-hover="background:#f4f5f6;color:#16181d"><div style="width:6px;height:6px;border-radius:50%;background:#d4d7dc"></div>Piyasa</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#7b818c;font:600 14px Manrope" style-hover="background:#f4f5f6;color:#16181d"><div style="width:6px;height:6px;border-radius:50%;background:#d4d7dc"></div>AI Portföyleri</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#7b818c;font:600 14px Manrope" style-hover="background:#f4f5f6;color:#16181d"><span style="font:700 11px 'JetBrains Mono';color:#6b6ff5">✦</span>AI Asistan</div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:13px">
+      <div style="width:34px;height:34px;border-radius:50%;background:#16181d;color:#fff;display:flex;align-items:center;justify-content:center;font:700 13px Manrope">AY</div>
+      <div style="min-width:0"><div style="font:700 13px Manrope;color:#16181d">Ahmet Yılmaz</div><div style="font:500 11px Manrope;color:#9aa0ad">Bireysel hesap</div></div>
+    </div>
+  </div>
+
+  <!-- main -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <!-- topbar -->
+    <div style="height:68px;border-bottom:1px solid #f0f1f3;display:flex;align-items:center;justify-content:space-between;padding:0 28px">
+      <div style="position:relative;width:320px">
+        <div style="display:flex;align-items:center;gap:10px;height:44px;background:#fff;border:1px solid #eef0f2;border-radius:14px;padding:0 15px;box-shadow:0 1px 2px rgba(15,20,30,0.03)">
+          <span class="mono" style="font:600 13px 'JetBrains Mono';color:#16a35b">›</span>
+          <input value="{{ qd }}" onChange="{{ onQd }}" placeholder="Sembol yaz — THY, GAR…" style="flex:1;border:none;outline:none;background:transparent;font:600 14px Manrope;color:#16181d;letter-spacing:0.04em;text-transform:uppercase;min-width:0"></input>
+          <sc-if value="{{ hasResD }}" hint-placeholder-val="{{ false }}">
+            <span class="mono" style="font:600 11px 'JetBrains Mono';color:#9aa0ad">{{ resDCount }}/8</span>
+          </sc-if>
+        </div>
+        <sc-if value="{{ hasResD }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;top:52px;width:380px;z-index:40;background:#fff;border:1px solid #eef0f2;border-radius:16px;box-shadow:0 18px 44px -10px rgba(15,20,30,0.18);overflow:hidden">
+            <sc-for list="{{ resD }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid #f6f7f8" style-hover="background:#fcfcfd">
+                <div class="mono" style="width:32px;height:32px;border-radius:10px;background:#f4f5f6;display:flex;align-items:center;justify-content:center;font:600 10px 'JetBrains Mono';color:#16181d">{{ r.tag }}</div>
+                <div style="flex:1;min-width:0">
+                  <div class="mono" style="font:600 13px 'JetBrains Mono';color:#16181d"><span style="color:#16a35b;border-bottom:2px solid rgba(22,163,91,0.35)">{{ r.symPre }}</span>{{ r.symRest }}</div>
+                  <div style="font:500 11px Manrope;color:#9aa0ad;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                </div>
+                <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16181d">{{ r.priceStr }}</span>
+                <span class="mono" style="width:56px;text-align:right;font:600 12px 'JetBrains Mono';color:{{ r.chgColor }}">{{ r.chgStr }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:7px;background:#eaf7ef;padding:7px 12px;border-radius:10px"><span style="width:7px;height:7px;border-radius:50%;background:#16a35b"></span><span style="font:700 11px Manrope;color:#16a35b">BIST açık</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="font:600 12px Manrope;color:#9aa0ad">BIST 100</span><span class="mono" style="font:700 14px 'JetBrains Mono';color:#16181d">9.842</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#16a35b">+0,87%</span></div>
+      </div>
+    </div>
+
+    <div style="flex:1;padding:22px 28px;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:radial-gradient(120% 80% at 100% 0%,#eef4ff 0%,transparent 44%),radial-gradient(110% 80% at 0% 100%,#eafaf1 0%,transparent 42%)">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <div style="font:800 27px Manrope;color:#16181d;letter-spacing:-0.03em">Günaydın, Ahmet</div>
+          <div style="font:500 13px Manrope;color:#9aa0ad;margin-top:2px">Cuma, 3 Temmuz · Önce karar, sonra bağlam</div>
+        </div>
+      </div>
+
+      <!-- bilgi şeridi: sektör + hafta + AI portföyleri -->
+      <div style="display:flex;align-items:center;gap:0;background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:14px;padding:11px 18px;margin-top:14px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:600 11px Manrope;color:#9aa0ad;text-transform:uppercase;letter-spacing:0.05em">Sektör</span>
+          <span style="font:700 12px Manrope;color:#16a35b">▲ {{ secStrongName }}</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">{{ secStrongChg }}</span>
+          <span style="font:700 12px Manrope;color:#e5484d;margin-left:6px">▼ {{ secWeakName }}</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#e5484d">{{ secWeakChg }}</span>
+        </div>
+        <div style="width:1px;height:18px;background:#eef0f2;margin:0 18px"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:600 11px Manrope;color:#9aa0ad;text-transform:uppercase;letter-spacing:0.05em">Haftanın seçimleri</span>
+          <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">+5,2%</span>
+          <span style="padding:2px 8px;border-radius:6px;background:rgba(22,163,91,0.12);font:700 10px Manrope;color:#16a35b">BIST'i geçti</span>
+        </div>
+        <div style="width:1px;height:18px;background:#eef0f2;margin:0 18px"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:700 11px 'JetBrains Mono';color:#6b6ff5">✦</span>
+          <span style="font:600 11px Manrope;color:#9aa0ad;text-transform:uppercase;letter-spacing:0.05em">AI Portföyleri</span>
+          <span style="font:700 12px Manrope;color:#16181d">Aegis</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">+18,4%</span>
+          <span style="font:700 12px Manrope;color:#16181d;margin-left:4px">APEX</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">+26,1%</span>
+        </div>
+        <div style="flex:1"></div>
+        <span style="font:600 12px Manrope;color:#9aa0ad" style-hover="color:#16181d">Detay →</span>
+      </div>
+
+      <div style="flex:1;display:flex;gap:24px;margin-top:16px;min-height:0">
+        <!-- left: decision -->
+        <div style="flex:1.6;display:flex;flex-direction:column;min-width:0">
+          <!-- AI brief -->
+          <div style="background:rgba(18,20,26,0.66);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.14);box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 18px 44px -18px rgba(0,0,0,0.55);border-radius:20px;padding:18px 22px;display:flex;gap:24px;align-items:center">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px 'JetBrains Mono';color:#8b8fff;letter-spacing:0.06em">✦ AI</span><span style="font:600 12px Manrope;color:#9aa0ad">Bugünün özeti</span></div>
+              <div style="font:600 15px Manrope;color:#f4f5f6;line-height:1.5;margin-top:8px">Risk iştahı pozitif. Akıllı para bankacılık ve havacılıkta birikiyor; 2 hisse "değerlendir" eşiğini geçti.</div>
+            </div>
+            <div style="display:flex;gap:22px;padding-left:24px;border-left:1px solid rgba(255,255,255,0.10)">
+              <div><div style="font:500 11px Manrope;color:#9aa0ad">Makro</div><div class="mono" style="font:600 17px 'JetBrains Mono';color:#3fce8a;margin-top:2px">+34</div></div>
+              <div><div style="font:500 11px Manrope;color:#9aa0ad">Rejim</div><div style="font:700 14px Manrope;color:#fff;margin-top:3px">Yükseliş</div></div>
+              <div><div style="font:500 11px Manrope;color:#9aa0ad">Risk</div><div style="font:700 14px Manrope;color:#f5c451;margin-top:3px">Orta</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
+            <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
+            <span style="font:600 12px Manrope;color:#9aa0ad">Takip listem · 4 hisse</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ verdicts }}" as="v" hint-placeholder-count="4">
+              <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:14px" style-hover="border-color:#d9dce1;box-shadow:0 4px 14px -6px rgba(15,20,30,0.12)">
+                <div style="width:4px;height:38px;border-radius:3px;background:{{ v.color }}"></div>
+                <div class="mono" style="width:38px;height:38px;border-radius:11px;background:#f4f5f6;display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#16181d">{{ v.tag }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:7px"><span style="font:700 14px Manrope;color:#16181d">{{ v.sym }}</span><span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa0ad">{{ v.priceStr }} ₺</span>
+                    <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;padding:1px 5px;border-radius:5px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span></sc-if>
+                  </div>
+                  <div style="font:500 12px Manrope;color:#7b818c;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
+                </div>
+                <div class="mono" style="width:58px;text-align:right;font:600 13px 'JetBrains Mono';color:{{ v.chgColor }}">{{ v.chgStr }}</div>
+                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope">{{ v.verdict }}</span></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- fırsat rayı -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
+            <span style="font:800 15px Manrope;color:#16181d;letter-spacing:-0.02em">Günün fırsatları</span>
+            <span style="font:600 12px Manrope;color:#16a35b" style-hover="color:#0e7a43">Tümü →</span>
+          </div>
+          <div style="display:flex;gap:12px">
+            <sc-for list="{{ opps }}" as="o" hint-placeholder-count="3">
+              <div style="flex:1;background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:14px;padding:13px 15px" style-hover="border-color:#d9dce1;box-shadow:0 4px 14px -6px rgba(15,20,30,0.12)">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 14px Manrope;color:#16181d">{{ o.sym }}</span><span class="mono" style="font:700 13px 'JetBrains Mono';color:#6b6ff5">{{ o.score }}</span></div>
+                <div style="font:600 10px Manrope;color:#9aa0ad;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em">{{ o.tagLabel }}</div>
+                <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ o.chgColor }};margin-top:8px">{{ o.chgStr }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- right rail: context -->
+        <div style="width:330px;display:flex;flex-direction:column;gap:14px">
+          <!-- BIST -->
+          <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:16px 18px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div><div style="font:600 12px Manrope;color:#9aa0ad">BIST 100</div><div class="mono" style="font:700 22px 'JetBrains Mono';color:#16181d;margin-top:2px">9.842,17</div></div>
+              <div style="text-align:right;padding-bottom:3px"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#16a35b">+0,87%</div></div>
+            </div>
+            <svg width="100%" height="58" viewBox="0 0 290 58" preserveAspectRatio="none" style="margin-top:8px">
+              <defs><linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(22,163,91,0.16)"/><stop offset="1" stop-color="rgba(22,163,91,0)"/></linearGradient></defs>
+              <path d="{{ bistArea }}" fill="url(#bg1)"/>
+              <path d="{{ bistLine }}" fill="none" stroke="#16a35b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <!-- portföy -->
+          <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:16px 18px" style-hover="border-color:#d9dce1">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#16181d">Portföyüm</span><span style="font:600 11px Manrope;color:#9aa0ad" style-hover="color:#16181d">Detay →</span></div>
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:10px">
+              <div class="mono" style="font:700 21px 'JetBrains Mono';color:#16181d">486.240 ₺</div>
+              <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#16a35b">+1,24%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#9aa0ad;margin-top:1px">+5.940 ₺ bugün</div></div>
+            </div>
+          </div>
+          <!-- verdict ölçeği -->
+          <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column">
+            <div style="font:800 14px Manrope;color:#16181d;letter-spacing:-0.01em">Verdict ölçeği</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:13px">
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#16a35b"></span><div><div style="font:700 12px Manrope;color:#16181d">Güçlü İzle</div><div style="font:500 11px Manrope;color:#9aa0ad">Teknik + akıllı para güçlü hizalı</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#4aa84a"></span><div><div style="font:700 12px Manrope;color:#16181d">Değerlendir</div><div style="font:500 11px Manrope;color:#9aa0ad">Pozitif sinyal, eşiği geçti</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#c98a00"></span><div><div style="font:700 12px Manrope;color:#16181d">İzle</div><div style="font:500 11px Manrope;color:#9aa0ad">Belirsiz, teyit bekle</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><div><div style="font:700 12px Manrope;color:#16181d">Uzak Dur</div><div style="font:500 11px Manrope;color:#9aa0ad">Sinyal zayıf veya negatif</div></div></div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="font:500 11px Manrope;color:#b4b8bf;line-height:1.5;margin-top:12px">Kararlar kural-tabanlı; AI yalnızca özetler. Yatırım tavsiyesi değildir.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+
+<!-- ============ MOBILE — DARK LIQUID GLASS ============ -->
+<div style="position:absolute;left:80px;top:1268px;width:380px" data-screen-label="Mobil Bugün v2 · koyu">
+<div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Koyu tema · cam paneller derin zemin üstünde</div>
+<div style="border-radius:40px;box-shadow:0 30px 70px -18px rgba(6,10,20,.6);border:1px solid #141a26;overflow:hidden;height:1030px;display:flex;flex-direction:column;position:relative;background:#0a0e17">
+  <div style="position:absolute;left:-40px;top:-60px;width:300px;height:260px;background:radial-gradient(circle at 60% 40%,rgba(107,111,245,0.42),rgba(107,111,245,0) 68%);filter:blur(20px)"></div>
+  <div style="position:absolute;right:-70px;top:-40px;width:300px;height:240px;background:radial-gradient(circle at 40% 40%,rgba(22,163,91,0.4),rgba(22,163,91,0) 66%);filter:blur(22px)"></div>
+  <div style="position:absolute;left:20%;top:32%;width:280px;height:280px;background:radial-gradient(circle,rgba(63,206,138,0.10),rgba(63,206,138,0) 70%);filter:blur(30px)"></div>
+
+  <div style="position:relative;height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font:700 13px Manrope;color:#f4f6fa"><span>9:41</span><span style="width:17px;height:10px;border:1.5px solid #f4f6fa;border-radius:3px;display:inline-block"></span></div>
+
+  <div style="position:relative;flex:1;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:12px 24px 16px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font:800 25px Manrope;color:#f4f6fa;letter-spacing:-0.03em">Günaydın, Ahmet</div>
+        <div style="font:500 13px Manrope;color:#9aa3b2;margin-top:2px">Cuma, 3 Temmuz</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:rgba(63,206,138,0.14);border:1px solid rgba(63,206,138,0.25);padding:7px 12px;border-radius:10px"><span style="width:7px;height:7px;border-radius:50%;background:#3fce8a"></span><span style="font:700 11px Manrope;color:#3fce8a">BIST açık</span></div>
+    </div>
+
+    <div style="flex:1;overflow:hidden;padding:0 24px;display:flex;flex-direction:column;gap:14px">
+      <!-- search -->
+      <div style="display:flex;align-items:center;gap:10px;height:46px;background:rgba(255,255,255,0.06);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:0 15px">
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#3fce8a">›</span>
+        <input value="{{ qm }}" onChange="{{ onQm }}" placeholder="Sembol yaz — THY, GAR…" style="flex:1;border:none;outline:none;background:transparent;font:600 14px Manrope;color:#f4f6fa;letter-spacing:0.04em;text-transform:uppercase;min-width:0"></input>
+      </div>
+
+      <!-- portföy şerit -->
+      <div style="background:rgba(255,255,255,0.055);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.1);box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 20px 50px -26px rgba(0,0,0,0.7);border-radius:14px;padding:12px 15px;display:flex;align-items:center;gap:10px">
+        <span style="font:700 12px Manrope;color:#f4f6fa;white-space:nowrap;flex-shrink:0">Portföyüm</span>
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#f4f6fa;white-space:nowrap;flex-shrink:0">486.240 ₺</span>
+        <div style="flex:1"></div>
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#3fce8a;white-space:nowrap;flex-shrink:0">+1,24%</span>
+        <span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa3b2;white-space:nowrap;flex-shrink:0">+5.940 ₺ bugün</span>
+      </div>
+
+      <!-- AI özet -->
+      <div style="background:linear-gradient(150deg,rgba(107,111,245,0.16),rgba(63,206,138,0.10)),rgba(255,255,255,0.045);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12);box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 24px 54px -26px rgba(0,0,0,0.7);border-radius:22px;padding:18px 20px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px 'JetBrains Mono';color:#a6a9ff;letter-spacing:0.06em">✦ AI</span><span style="font:600 12px Manrope;color:#9aa3b2">Bugünün özeti</span></div>
+        <div style="font:600 15px Manrope;color:#eef1f6;line-height:1.5;margin-top:10px">Risk iştahı pozitif. Akıllı para <b style="color:#fff">bankacılık ve havacılıkta</b> birikiyor; bugün <b style="color:#fff">2 hisse</b> "değerlendir" eşiğini geçti.</div>
+        <div style="display:flex;gap:18px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.10)">
+          <div><div style="font:500 11px Manrope;color:#9aa3b2">Makro rüzgar</div><div class="mono" style="font:600 15px 'JetBrains Mono';color:#3fce8a;margin-top:2px">+34</div></div>
+          <div><div style="font:500 11px Manrope;color:#9aa3b2">Rejim</div><div style="font:700 14px Manrope;color:#fff;margin-top:3px">Yükseliş</div></div>
+          <div><div style="font:500 11px Manrope;color:#9aa3b2">Risk</div><div style="font:700 14px Manrope;color:#f5c451;margin-top:3px">Orta</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font:800 16px Manrope;color:#f4f6fa;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
+        <span style="font:600 12px Manrope;color:#9aa3b2">Takip listem</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
+        <sc-for list="{{ verdictsDark }}" as="v" hint-placeholder-count="4">
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 18px 44px -26px rgba(0,0,0,0.7);border-radius:18px;padding:13px 15px;display:flex;align-items:center;gap:13px">
+            <div style="width:4px;align-self:stretch;border-radius:3px;background:{{ v.color }}"></div>
+            <div class="mono" style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font:600 12px 'JetBrains Mono';color:#eef1f6">{{ v.tag }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="font:700 15px Manrope;color:#f4f6fa">{{ v.sym }}</span>
+                <span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa3b2">{{ v.priceStr }} ₺</span>
+                <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:11px;padding:2px 6px;border-radius:6px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span>
+                </sc-if>
+              </div>
+              <div style="font:500 12px Manrope;color:#9aa3b2;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
+              <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ v.chgColor }};margin-top:5px">{{ v.chgStr }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font:800 15px Manrope;color:#f4f6fa;letter-spacing:-0.02em">Günün fırsatları</span>
+        <span style="font:600 12px Manrope;color:#3fce8a">Tümü →</span>
+      </div>
+      <div style="display:flex;gap:10px;overflow:hidden">
+        <sc-for list="{{ opps }}" as="o" hint-placeholder-count="3">
+          <div style="flex:1;min-width:0;background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 18px 44px -26px rgba(0,0,0,0.7);border-radius:16px;padding:13px 14px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 14px Manrope;color:#f4f6fa">{{ o.sym }}</span><span class="mono" style="font:700 12px 'JetBrains Mono';color:#a6a9ff">{{ o.score }}</span></div>
+            <div style="font:600 10px Manrope;color:#9aa3b2;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em">{{ o.tagLabel }}</div>
+            <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ o.chgColorDark }};margin-top:8px">{{ o.chgStr }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- sektör -->
+      <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:14px;padding:11px 15px;display:flex;align-items:center;gap:8px">
+        <span style="font:600 11px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.05em">Sektör</span>
+        <span style="font:700 12px Manrope;color:#3fce8a">▲ {{ secStrongName }}</span>
+        <span class="mono" style="font:600 12px 'JetBrains Mono';color:#3fce8a">{{ secStrongChg }}</span>
+        <div style="width:1px;height:14px;background:rgba(255,255,255,0.12);margin:0 4px"></div>
+        <span style="font:700 12px Manrope;color:#ff6b6b">▼ {{ secWeakName }}</span>
+        <span class="mono" style="font:600 12px 'JetBrains Mono';color:#ff6b6b">{{ secWeakChg }}</span>
+      </div>
+
+      <!-- BIST mini -->
+      <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 18px 44px -26px rgba(0,0,0,0.7);border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+        <div style="flex:1"><div style="font:600 12px Manrope;color:#9aa3b2">BIST 100</div><div class="mono" style="font:700 20px 'JetBrains Mono';color:#f4f6fa;margin-top:1px">9.842,17</div></div>
+        <svg width="96" height="40" viewBox="0 0 96 40" fill="none"><path d="{{ bistMini }}" stroke="#3fce8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#3fce8a">+0,87%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#9aa3b2;margin-top:2px">+84,90</div></div>
+      </div>
+      <div style="height:4px"></div>
+    </div>
+  </div>
+
+  <div style="position:relative;height:68px;background:rgba(10,14,23,0.72);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-around;padding-bottom:6px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:700 10px Manrope;color:#f4f6fa"><div style="width:5px;height:5px;border-radius:50%;background:#3fce8a"></div>Bugün</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#6b7280"><div style="width:5px;height:5px;border-radius:50%;background:#3a4150"></div>Fırsatlar</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#6b7280"><div style="width:5px;height:5px;border-radius:50%;background:#3a4150"></div>Portföy</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#6b7280"><span style="font:700 11px 'JetBrains Mono';color:#8b8fff">✦</span>AI</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#6b7280"><div style="width:5px;height:5px;border-radius:50%;background:#3a4150"></div>Profil</div>
+  </div>
+</div>
+</div>
+
+<!-- ============ DESKTOP — DARK LIQUID GLASS ============ -->
+<div style="position:absolute;left:540px;top:1268px;width:1180px" data-screen-label="Masaüstü Bugün v2 · koyu">
+<div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Koyu tema · aynı 12 kolon kurgusu</div>
+<div style="border-radius:24px;box-shadow:0 30px 70px -18px rgba(6,10,20,.6);border:1px solid #141a26;overflow:hidden;height:800px;display:flex;position:relative;background:#0a0e17">
+  <div style="position:absolute;left:180px;top:-80px;width:520px;height:360px;background:radial-gradient(circle,rgba(107,111,245,0.28),rgba(107,111,245,0) 68%);filter:blur(34px)"></div>
+  <div style="position:absolute;right:-60px;top:-60px;width:460px;height:340px;background:radial-gradient(circle,rgba(22,163,91,0.26),rgba(22,163,91,0) 66%);filter:blur(36px)"></div>
+
+  <!-- sidebar -->
+  <div style="position:relative;width:230px;background:rgba(255,255,255,0.03);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid rgba(255,255,255,0.07);display:flex;flex-direction:column;padding:24px 16px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 8px">
+      <div style="width:30px;height:30px;border-radius:9px;background:#3fce8a;display:flex;align-items:center;justify-content:center"><div style="width:11px;height:11px;border-radius:3px;background:#0a0e17"></div></div>
+      <span style="font:800 16px Manrope;color:#f4f6fa;letter-spacing:-0.03em">Investable <span style="color:#3fce8a">Edge</span></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-top:26px">
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,0.08);color:#f4f6fa;font:700 14px Manrope"><div style="width:6px;height:6px;border-radius:50%;background:#3fce8a"></div>Bugün</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#9aa3b2;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.05);color:#f4f6fa"><div style="width:6px;height:6px;border-radius:50%;background:#3a4150"></div>Fırsatlar</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#9aa3b2;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.05);color:#f4f6fa"><div style="width:6px;height:6px;border-radius:50%;background:#3a4150"></div>Portföyüm</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#9aa3b2;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.05);color:#f4f6fa"><div style="width:6px;height:6px;border-radius:50%;background:#3a4150"></div>Piyasa</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#9aa3b2;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.05);color:#f4f6fa"><div style="width:6px;height:6px;border-radius:50%;background:#3a4150"></div>AI Portföyleri</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#9aa3b2;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.05);color:#f4f6fa"><span style="font:700 11px 'JetBrains Mono';color:#8b8fff">✦</span>AI Asistan</div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:13px">
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.08);color:#f4f6fa;display:flex;align-items:center;justify-content:center;font:700 13px Manrope">AY</div>
+      <div style="min-width:0"><div style="font:700 13px Manrope;color:#f4f6fa">Ahmet Yılmaz</div><div style="font:500 11px Manrope;color:#9aa3b2">Bireysel hesap</div></div>
+    </div>
+  </div>
+
+  <!-- main -->
+  <div style="position:relative;flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="height:68px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;padding:0 28px">
+      <div style="display:flex;align-items:center;gap:10px;width:320px;height:44px;background:rgba(255,255,255,0.06);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:0 15px">
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#3fce8a">›</span>
+        <input value="{{ qd }}" onChange="{{ onQd }}" placeholder="Sembol yaz — THY, GAR…" style="flex:1;border:none;outline:none;background:transparent;font:600 14px Manrope;color:#f4f6fa;letter-spacing:0.04em;text-transform:uppercase;min-width:0"></input>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:7px;background:rgba(63,206,138,0.14);border:1px solid rgba(63,206,138,0.25);padding:7px 12px;border-radius:10px"><span style="width:7px;height:7px;border-radius:50%;background:#3fce8a"></span><span style="font:700 11px Manrope;color:#3fce8a">BIST açık</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="font:600 12px Manrope;color:#9aa3b2">BIST 100</span><span class="mono" style="font:700 14px 'JetBrains Mono';color:#f4f6fa">9.842</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#3fce8a">+0,87%</span></div>
+      </div>
+    </div>
+
+    <div style="flex:1;padding:22px 28px;display:flex;flex-direction:column;min-height:0;overflow:hidden">
+      <div style="font:800 27px Manrope;color:#f4f6fa;letter-spacing:-0.03em">Günaydın, Ahmet</div>
+      <div style="font:500 13px Manrope;color:#9aa3b2;margin-top:2px">Cuma, 3 Temmuz · Önce karar, sonra bağlam</div>
+
+      <!-- bilgi şeridi -->
+      <div style="display:flex;align-items:center;gap:0;background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:14px;padding:11px 18px;margin-top:14px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:600 11px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.05em">Sektör</span>
+          <span style="font:700 12px Manrope;color:#3fce8a">▲ {{ secStrongName }}</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#3fce8a">{{ secStrongChg }}</span>
+          <span style="font:700 12px Manrope;color:#ff6b6b;margin-left:6px">▼ {{ secWeakName }}</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#ff6b6b">{{ secWeakChg }}</span>
+        </div>
+        <div style="width:1px;height:18px;background:rgba(255,255,255,0.12);margin:0 18px"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:600 11px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.05em">Haftanın seçimleri</span>
+          <span class="mono" style="font:600 12px 'JetBrains Mono';color:#3fce8a">+5,2%</span>
+          <span style="padding:2px 8px;border-radius:6px;background:rgba(63,206,138,0.16);font:700 10px Manrope;color:#3fce8a">BIST'i geçti</span>
+        </div>
+        <div style="width:1px;height:18px;background:rgba(255,255,255,0.12);margin:0 18px"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:700 11px 'JetBrains Mono';color:#8b8fff">✦</span>
+          <span style="font:600 11px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.05em">AI Portföyleri</span>
+          <span style="font:700 12px Manrope;color:#f4f6fa">Aegis</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#3fce8a">+18,4%</span>
+          <span style="font:700 12px Manrope;color:#f4f6fa;margin-left:4px">APEX</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#3fce8a">+26,1%</span>
+        </div>
+        <div style="flex:1"></div>
+        <span style="font:600 12px Manrope;color:#9aa3b2" style-hover="color:#f4f6fa">Detay →</span>
+      </div>
+
+      <div style="flex:1;display:flex;gap:24px;margin-top:16px;min-height:0">
+        <div style="flex:1.6;display:flex;flex-direction:column;min-width:0">
+          <!-- AI brief -->
+          <div style="background:linear-gradient(120deg,rgba(107,111,245,0.18),rgba(63,206,138,0.10)),rgba(255,255,255,0.04);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12);box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 24px 54px -28px rgba(0,0,0,0.7);border-radius:20px;padding:18px 22px;display:flex;gap:24px;align-items:center">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px 'JetBrains Mono';color:#a6a9ff;letter-spacing:0.06em">✦ AI</span><span style="font:600 12px Manrope;color:#9aa3b2">Bugünün özeti</span></div>
+              <div style="font:600 15px Manrope;color:#eef1f6;line-height:1.5;margin-top:8px">Risk iştahı pozitif. Akıllı para bankacılık ve havacılıkta birikiyor; 2 hisse "değerlendir" eşiğini geçti.</div>
+            </div>
+            <div style="display:flex;gap:22px;padding-left:24px;border-left:1px solid rgba(255,255,255,0.12)">
+              <div><div style="font:500 11px Manrope;color:#9aa3b2">Makro</div><div class="mono" style="font:600 17px 'JetBrains Mono';color:#3fce8a;margin-top:2px">+34</div></div>
+              <div><div style="font:500 11px Manrope;color:#9aa3b2">Rejim</div><div style="font:700 14px Manrope;color:#fff;margin-top:3px">Yükseliş</div></div>
+              <div><div style="font:500 11px Manrope;color:#9aa3b2">Risk</div><div style="font:700 14px Manrope;color:#f5c451;margin-top:3px">Orta</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
+            <span style="font:800 16px Manrope;color:#f4f6fa;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
+            <span style="font:600 12px Manrope;color:#9aa3b2">Takip listem · 4 hisse</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ verdictsDark }}" as="v" hint-placeholder-count="4">
+              <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 18px 44px -28px rgba(0,0,0,0.7);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:14px">
+                <div style="width:4px;height:38px;border-radius:3px;background:{{ v.color }}"></div>
+                <div class="mono" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#eef1f6">{{ v.tag }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:7px"><span style="font:700 14px Manrope;color:#f4f6fa">{{ v.sym }}</span><span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa3b2">{{ v.priceStr }} ₺</span>
+                    <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;padding:1px 5px;border-radius:5px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span></sc-if>
+                  </div>
+                  <div style="font:500 12px Manrope;color:#9aa3b2;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
+                </div>
+                <div class="mono" style="width:58px;text-align:right;font:600 13px 'JetBrains Mono';color:{{ v.chgColor }}">{{ v.chgStr }}</div>
+                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope">{{ v.verdict }}</span></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
+            <span style="font:800 15px Manrope;color:#f4f6fa;letter-spacing:-0.02em">Günün fırsatları</span>
+            <span style="font:600 12px Manrope;color:#3fce8a">Tümü →</span>
+          </div>
+          <div style="display:flex;gap:12px">
+            <sc-for list="{{ opps }}" as="o" hint-placeholder-count="3">
+              <div style="flex:1;background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 18px 44px -28px rgba(0,0,0,0.7);border-radius:14px;padding:13px 15px">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 14px Manrope;color:#f4f6fa">{{ o.sym }}</span><span class="mono" style="font:700 13px 'JetBrains Mono';color:#a6a9ff">{{ o.score }}</span></div>
+                <div style="font:600 10px Manrope;color:#9aa3b2;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em">{{ o.tagLabel }}</div>
+                <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ o.chgColorDark }};margin-top:8px">{{ o.chgStr }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="width:330px;display:flex;flex-direction:column;gap:14px">
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:18px;padding:16px 18px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div><div style="font:600 12px Manrope;color:#9aa3b2">BIST 100</div><div class="mono" style="font:700 22px 'JetBrains Mono';color:#f4f6fa;margin-top:2px">9.842,17</div></div>
+              <div style="text-align:right;padding-bottom:3px"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#3fce8a">+0,87%</div></div>
+            </div>
+            <svg width="100%" height="58" viewBox="0 0 290 58" preserveAspectRatio="none" style="margin-top:8px">
+              <defs><linearGradient id="bgd1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(63,206,138,0.24)"/><stop offset="1" stop-color="rgba(63,206,138,0)"/></linearGradient></defs>
+              <path d="{{ bistArea }}" fill="url(#bgd1)"/>
+              <path d="{{ bistLine }}" fill="none" stroke="#3fce8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:18px;padding:16px 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#f4f6fa">Portföyüm</span><span style="font:600 11px Manrope;color:#9aa3b2" style-hover="color:#f4f6fa">Detay →</span></div>
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:10px">
+              <div class="mono" style="font:700 21px 'JetBrains Mono';color:#f4f6fa">486.240 ₺</div>
+              <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#3fce8a">+1,24%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#9aa3b2;margin-top:1px">+5.940 ₺ bugün</div></div>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column">
+            <div style="font:800 14px Manrope;color:#f4f6fa;letter-spacing:-0.01em">Verdict ölçeği</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:13px">
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#3fce8a"></span><div><div style="font:700 12px Manrope;color:#f4f6fa">Güçlü İzle</div><div style="font:500 11px Manrope;color:#9aa3b2">Teknik + akıllı para güçlü hizalı</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#5cc85c"></span><div><div style="font:700 12px Manrope;color:#f4f6fa">Değerlendir</div><div style="font:500 11px Manrope;color:#9aa3b2">Pozitif sinyal, eşiği geçti</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#f5c451"></span><div><div style="font:700 12px Manrope;color:#f4f6fa">İzle</div><div style="font:500 11px Manrope;color:#9aa3b2">Belirsiz, teyit bekle</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><div><div style="font:700 12px Manrope;color:#f4f6fa">Uzak Dur</div><div style="font:500 11px Manrope;color:#9aa3b2">Sinyal zayıf veya negatif</div></div></div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="font:500 11px Manrope;color:#6b7280;line-height:1.5;margin-top:12px">Kararlar kural-tabanlı; AI yalnızca özetler. Yatırım tavsiyesi değildir.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ MOBILE — LIGHT LIQUID GLASS ============ -->
+<div style="position:absolute;left:80px;top:2432px;width:380px" data-screen-label="Mobil Bugün v2 · açık cam">
+<div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Açık tema · pastel zemin üstünde frosted cam</div>
+<div style="border-radius:40px;box-shadow:0 30px 70px -18px rgba(80,90,120,.28);border:1px solid #e7ecf5;overflow:hidden;height:1030px;display:flex;flex-direction:column;position:relative;background:linear-gradient(162deg,#e9f0ff 0%,#f4f0ff 30%,#eafaf2 68%,#fef4ec 100%)">
+  <div style="position:absolute;left:-50px;top:-50px;width:280px;height:250px;background:radial-gradient(circle,rgba(107,111,245,0.22),rgba(107,111,245,0) 68%);filter:blur(24px)"></div>
+  <div style="position:absolute;right:-60px;top:-30px;width:280px;height:230px;background:radial-gradient(circle,rgba(22,163,91,0.2),rgba(22,163,91,0) 66%);filter:blur(26px)"></div>
+  <div style="position:absolute;left:30%;top:40%;width:280px;height:280px;background:radial-gradient(circle,rgba(255,183,120,0.14),rgba(255,183,120,0) 70%);filter:blur(32px)"></div>
+
+  <div style="position:relative;height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font:700 13px Manrope;color:#16181d"><span>9:41</span><span style="width:17px;height:10px;border:1.5px solid #16181d;border-radius:3px;display:inline-block"></span></div>
+
+  <div style="position:relative;flex:1;overflow:hidden;display:flex;flex-direction:column">
+    <div style="padding:12px 24px 16px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font:800 25px Manrope;color:#16181d;letter-spacing:-0.03em">Günaydın, Ahmet</div>
+        <div style="font:500 13px Manrope;color:#6b7280;margin-top:2px">Cuma, 3 Temmuz</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;background:rgba(22,163,91,0.12);border:1px solid rgba(22,163,91,0.2);padding:7px 12px;border-radius:10px"><span style="width:7px;height:7px;border-radius:50%;background:#16a35b"></span><span style="font:700 11px Manrope;color:#16a35b">BIST açık</span></div>
+    </div>
+
+    <div style="flex:1;overflow:hidden;padding:0 24px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px;height:46px;background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:14px;padding:0 15px">
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#16a35b">›</span>
+        <input value="{{ qm }}" onChange="{{ onQm }}" placeholder="Sembol yaz — THY, GAR…" style="flex:1;border:none;outline:none;background:transparent;font:600 14px Manrope;color:#16181d;letter-spacing:0.04em;text-transform:uppercase;min-width:0"></input>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 12px 30px -18px rgba(80,90,120,0.3);border-radius:14px;padding:12px 15px;display:flex;align-items:center;gap:10px">
+        <span style="font:700 12px Manrope;color:#16181d;white-space:nowrap;flex-shrink:0">Portföyüm</span>
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#16181d;white-space:nowrap;flex-shrink:0">486.240 ₺</span>
+        <div style="flex:1"></div>
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#16a35b;white-space:nowrap;flex-shrink:0">+1,24%</span>
+        <span class="mono" style="font:500 12px 'JetBrains Mono';color:#6b7280;white-space:nowrap;flex-shrink:0">+5.940 ₺ bugün</span>
+      </div>
+
+      <div style="background:linear-gradient(150deg,rgba(107,111,245,0.12),rgba(22,163,91,0.08)),rgba(255,255,255,0.5);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 14px 34px -18px rgba(80,90,120,0.3);border-radius:22px;padding:18px 20px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px 'JetBrains Mono';color:#6b6ff5;letter-spacing:0.06em">✦ AI</span><span style="font:600 12px Manrope;color:#6b7280">Bugünün özeti</span></div>
+        <div style="font:600 15px Manrope;color:#16181d;line-height:1.5;margin-top:10px">Risk iştahı pozitif. Akıllı para <b>bankacılık ve havacılıkta</b> birikiyor; bugün <b>2 hisse</b> "değerlendir" eşiğini geçti.</div>
+        <div style="display:flex;gap:18px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(80,90,120,0.14)">
+          <div><div style="font:500 11px Manrope;color:#6b7280">Makro rüzgar</div><div class="mono" style="font:600 15px 'JetBrains Mono';color:#16a35b;margin-top:2px">+34</div></div>
+          <div><div style="font:500 11px Manrope;color:#6b7280">Rejim</div><div style="font:700 14px Manrope;color:#16181d;margin-top:3px">Yükseliş</div></div>
+          <div><div style="font:500 11px Manrope;color:#6b7280">Risk</div><div style="font:700 14px Manrope;color:#c98a00;margin-top:3px">Orta</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
+        <span style="font:600 12px Manrope;color:#6b7280">Takip listem</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
+        <sc-for list="{{ verdicts }}" as="v" hint-placeholder-count="4">
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 12px 30px -18px rgba(80,90,120,0.28);border-radius:18px;padding:13px 15px;display:flex;align-items:center;gap:13px">
+            <div style="width:4px;align-self:stretch;border-radius:3px;background:{{ v.color }}"></div>
+            <div class="mono" style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.65);border:1px solid rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;font:600 12px 'JetBrains Mono';color:#16181d">{{ v.tag }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="font:700 15px Manrope;color:#16181d">{{ v.sym }}</span>
+                <span class="mono" style="font:500 12px 'JetBrains Mono';color:#6b7280">{{ v.priceStr }} ₺</span>
+                <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:11px;padding:2px 6px;border-radius:6px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span>
+                </sc-if>
+              </div>
+              <div style="font:500 12px Manrope;color:#6b7280;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
+              <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ v.chgColor }};margin-top:5px">{{ v.chgStr }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font:800 15px Manrope;color:#16181d;letter-spacing:-0.02em">Günün fırsatları</span>
+        <span style="font:600 12px Manrope;color:#16a35b">Tümü →</span>
+      </div>
+      <div style="display:flex;gap:10px;overflow:hidden">
+        <sc-for list="{{ opps }}" as="o" hint-placeholder-count="3">
+          <div style="flex:1;min-width:0;background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 12px 30px -18px rgba(80,90,120,0.28);border-radius:16px;padding:13px 14px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 14px Manrope;color:#16181d">{{ o.sym }}</span><span class="mono" style="font:700 12px 'JetBrains Mono';color:#6b6ff5">{{ o.score }}</span></div>
+            <div style="font:600 10px Manrope;color:#6b7280;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em">{{ o.tagLabel }}</div>
+            <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ o.chgColor }};margin-top:8px">{{ o.chgStr }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:14px;padding:11px 15px;display:flex;align-items:center;gap:8px">
+        <span style="font:600 11px Manrope;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Sektör</span>
+        <span style="font:700 12px Manrope;color:#16a35b">▲ {{ secStrongName }}</span>
+        <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">{{ secStrongChg }}</span>
+        <div style="width:1px;height:14px;background:rgba(80,90,120,0.16);margin:0 4px"></div>
+        <span style="font:700 12px Manrope;color:#e5484d">▼ {{ secWeakName }}</span>
+        <span class="mono" style="font:600 12px 'JetBrains Mono';color:#e5484d">{{ secWeakChg }}</span>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 12px 30px -18px rgba(80,90,120,0.28);border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+        <div style="flex:1"><div style="font:600 12px Manrope;color:#6b7280">BIST 100</div><div class="mono" style="font:700 20px 'JetBrains Mono';color:#16181d;margin-top:1px">9.842,17</div></div>
+        <svg width="96" height="40" viewBox="0 0 96 40" fill="none"><path d="{{ bistMini }}" stroke="#16a35b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#16a35b">+0,87%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#6b7280;margin-top:2px">+84,90</div></div>
+      </div>
+      <div style="height:4px"></div>
+    </div>
+  </div>
+
+  <div style="position:relative;height:68px;background:rgba(255,255,255,0.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:space-around;padding-bottom:6px">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:700 10px Manrope;color:#16181d"><div style="width:5px;height:5px;border-radius:50%;background:#16a35b"></div>Bugün</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#9aa0ad"><div style="width:5px;height:5px;border-radius:50%;background:#cbd0d8"></div>Fırsatlar</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#9aa0ad"><div style="width:5px;height:5px;border-radius:50%;background:#cbd0d8"></div>Portföy</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#9aa0ad"><span style="font:700 11px 'JetBrains Mono';color:#6b6ff5">✦</span>AI</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font:600 10px Manrope;color:#9aa0ad"><div style="width:5px;height:5px;border-radius:50%;background:#cbd0d8"></div>Profil</div>
+  </div>
+</div>
+</div>
+
+<!-- ============ DESKTOP — LIGHT LIQUID GLASS ============ -->
+<div style="position:absolute;left:540px;top:2432px;width:1180px" data-screen-label="Masaüstü Bugün v2 · açık cam">
+<div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Açık tema · aynı 12 kolon kurgusu</div>
+<div style="border-radius:24px;box-shadow:0 30px 70px -18px rgba(80,90,120,.28);border:1px solid #e7ecf5;overflow:hidden;height:800px;display:flex;position:relative;background:linear-gradient(160deg,#e9f0ff 0%,#f4f0ff 34%,#eafaf2 72%,#fef4ec 100%)">
+  <div style="position:absolute;left:200px;top:-70px;width:520px;height:340px;background:radial-gradient(circle,rgba(107,111,245,0.16),rgba(107,111,245,0) 68%);filter:blur(36px)"></div>
+  <div style="position:absolute;right:-50px;top:-50px;width:440px;height:320px;background:radial-gradient(circle,rgba(22,163,91,0.14),rgba(22,163,91,0) 66%);filter:blur(38px)"></div>
+
+  <div style="position:relative;width:230px;background:rgba(255,255,255,0.42);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-right:1px solid rgba(255,255,255,0.6);display:flex;flex-direction:column;padding:24px 16px">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 8px">
+      <div style="width:30px;height:30px;border-radius:9px;background:#16181d;display:flex;align-items:center;justify-content:center"><div style="width:11px;height:11px;border-radius:3px;background:#16a35b"></div></div>
+      <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.03em">Investable <span style="color:#16a35b">Edge</span></span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-top:26px">
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.7);color:#16181d;font:700 14px Manrope"><div style="width:6px;height:6px;border-radius:50%;background:#16a35b"></div>Bugün</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#6b7280;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.5);color:#16181d"><div style="width:6px;height:6px;border-radius:50%;background:#cbd0d8"></div>Fırsatlar</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#6b7280;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.5);color:#16181d"><div style="width:6px;height:6px;border-radius:50%;background:#cbd0d8"></div>Portföyüm</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#6b7280;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.5);color:#16181d"><div style="width:6px;height:6px;border-radius:50%;background:#cbd0d8"></div>Piyasa</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#6b7280;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.5);color:#16181d"><div style="width:6px;height:6px;border-radius:50%;background:#cbd0d8"></div>AI Portföyleri</div>
+      <div style="display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;color:#6b7280;font:600 14px Manrope" style-hover="background:rgba(255,255,255,0.5);color:#16181d"><span style="font:700 11px 'JetBrains Mono';color:#6b6ff5">✦</span>AI Asistan</div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:13px">
+      <div style="width:34px;height:34px;border-radius:50%;background:#16181d;color:#fff;display:flex;align-items:center;justify-content:center;font:700 13px Manrope">AY</div>
+      <div style="min-width:0"><div style="font:700 13px Manrope;color:#16181d">Ahmet Yılmaz</div><div style="font:500 11px Manrope;color:#6b7280">Bireysel hesap</div></div>
+    </div>
+  </div>
+
+  <div style="position:relative;flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="height:68px;border-bottom:1px solid rgba(255,255,255,0.6);display:flex;align-items:center;justify-content:space-between;padding:0 28px">
+      <div style="display:flex;align-items:center;gap:10px;width:320px;height:44px;background:rgba(255,255,255,0.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.8);border-radius:14px;padding:0 15px">
+        <span class="mono" style="font:600 13px 'JetBrains Mono';color:#16a35b">›</span>
+        <input value="{{ qd }}" onChange="{{ onQd }}" placeholder="Sembol yaz — THY, GAR…" style="flex:1;border:none;outline:none;background:transparent;font:600 14px Manrope;color:#16181d;letter-spacing:0.04em;text-transform:uppercase;min-width:0"></input>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:7px;background:rgba(22,163,91,0.12);border:1px solid rgba(22,163,91,0.2);padding:7px 12px;border-radius:10px"><span style="width:7px;height:7px;border-radius:50%;background:#16a35b"></span><span style="font:700 11px Manrope;color:#16a35b">BIST açık</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="font:600 12px Manrope;color:#6b7280">BIST 100</span><span class="mono" style="font:700 14px 'JetBrains Mono';color:#16181d">9.842</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#16a35b">+0,87%</span></div>
+      </div>
+    </div>
+
+    <div style="flex:1;padding:22px 28px;display:flex;flex-direction:column;min-height:0;overflow:hidden">
+      <div style="font:800 27px Manrope;color:#16181d;letter-spacing:-0.03em">Günaydın, Ahmet</div>
+      <div style="font:500 13px Manrope;color:#6b7280;margin-top:2px">Cuma, 3 Temmuz · Önce karar, sonra bağlam</div>
+
+      <div style="display:flex;align-items:center;gap:0;background:rgba(255,255,255,0.5);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:14px;padding:11px 18px;margin-top:14px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:600 11px Manrope;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Sektör</span>
+          <span style="font:700 12px Manrope;color:#16a35b">▲ {{ secStrongName }}</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">{{ secStrongChg }}</span>
+          <span style="font:700 12px Manrope;color:#e5484d;margin-left:6px">▼ {{ secWeakName }}</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#e5484d">{{ secWeakChg }}</span>
+        </div>
+        <div style="width:1px;height:18px;background:rgba(80,90,120,0.16);margin:0 18px"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:600 11px Manrope;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">Haftanın seçimleri</span>
+          <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">+5,2%</span>
+          <span style="padding:2px 8px;border-radius:6px;background:rgba(22,163,91,0.14);font:700 10px Manrope;color:#16a35b">BIST'i geçti</span>
+        </div>
+        <div style="width:1px;height:18px;background:rgba(80,90,120,0.16);margin:0 18px"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font:700 11px 'JetBrains Mono';color:#6b6ff5">✦</span>
+          <span style="font:600 11px Manrope;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em">AI Portföyleri</span>
+          <span style="font:700 12px Manrope;color:#16181d">Aegis</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">+18,4%</span>
+          <span style="font:700 12px Manrope;color:#16181d;margin-left:4px">APEX</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">+26,1%</span>
+        </div>
+        <div style="flex:1"></div>
+        <span style="font:600 12px Manrope;color:#6b7280" style-hover="color:#16181d">Detay →</span>
+      </div>
+
+      <div style="flex:1;display:flex;gap:24px;margin-top:16px;min-height:0">
+        <div style="flex:1.6;display:flex;flex-direction:column;min-width:0">
+          <div style="background:linear-gradient(120deg,rgba(107,111,245,0.14),rgba(22,163,91,0.08)),rgba(255,255,255,0.5);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 14px 34px -20px rgba(80,90,120,0.3);border-radius:20px;padding:18px 22px;display:flex;gap:24px;align-items:center">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:8px"><span style="font:700 11px 'JetBrains Mono';color:#6b6ff5;letter-spacing:0.06em">✦ AI</span><span style="font:600 12px Manrope;color:#6b7280">Bugünün özeti</span></div>
+              <div style="font:600 15px Manrope;color:#16181d;line-height:1.5;margin-top:8px">Risk iştahı pozitif. Akıllı para bankacılık ve havacılıkta birikiyor; 2 hisse "değerlendir" eşiğini geçti.</div>
+            </div>
+            <div style="display:flex;gap:22px;padding-left:24px;border-left:1px solid rgba(80,90,120,0.16)">
+              <div><div style="font:500 11px Manrope;color:#6b7280">Makro</div><div class="mono" style="font:600 17px 'JetBrains Mono';color:#16a35b;margin-top:2px">+34</div></div>
+              <div><div style="font:500 11px Manrope;color:#6b7280">Rejim</div><div style="font:700 14px Manrope;color:#16181d;margin-top:3px">Yükseliş</div></div>
+              <div><div style="font:500 11px Manrope;color:#6b7280">Risk</div><div style="font:700 14px Manrope;color:#c98a00;margin-top:3px">Orta</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
+            <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
+            <span style="font:600 12px Manrope;color:#6b7280">Takip listem · 4 hisse</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ verdicts }}" as="v" hint-placeholder-count="4">
+              <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 12px 30px -20px rgba(80,90,120,0.28);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:14px">
+                <div style="width:4px;height:38px;border-radius:3px;background:{{ v.color }}"></div>
+                <div class="mono" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,0.65);border:1px solid rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#16181d">{{ v.tag }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:7px"><span style="font:700 14px Manrope;color:#16181d">{{ v.sym }}</span><span class="mono" style="font:500 12px 'JetBrains Mono';color:#6b7280">{{ v.priceStr }} ₺</span>
+                    <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;padding:1px 5px;border-radius:5px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span></sc-if>
+                  </div>
+                  <div style="font:500 12px Manrope;color:#6b7280;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
+                </div>
+                <div class="mono" style="width:58px;text-align:right;font:600 13px 'JetBrains Mono';color:{{ v.chgColor }}">{{ v.chgStr }}</div>
+                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope">{{ v.verdict }}</span></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
+            <span style="font:800 15px Manrope;color:#16181d;letter-spacing:-0.02em">Günün fırsatları</span>
+            <span style="font:600 12px Manrope;color:#16a35b">Tümü →</span>
+          </div>
+          <div style="display:flex;gap:12px">
+            <sc-for list="{{ opps }}" as="o" hint-placeholder-count="3">
+              <div style="flex:1;background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 12px 30px -20px rgba(80,90,120,0.28);border-radius:14px;padding:13px 15px">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 14px Manrope;color:#16181d">{{ o.sym }}</span><span class="mono" style="font:700 13px 'JetBrains Mono';color:#6b6ff5">{{ o.score }}</span></div>
+                <div style="font:600 10px Manrope;color:#6b7280;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em">{{ o.tagLabel }}</div>
+                <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ o.chgColor }};margin-top:8px">{{ o.chgStr }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="width:330px;display:flex;flex-direction:column;gap:14px">
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:18px;padding:16px 18px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div><div style="font:600 12px Manrope;color:#6b7280">BIST 100</div><div class="mono" style="font:700 22px 'JetBrains Mono';color:#16181d;margin-top:2px">9.842,17</div></div>
+              <div style="text-align:right;padding-bottom:3px"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#16a35b">+0,87%</div></div>
+            </div>
+            <svg width="100%" height="58" viewBox="0 0 290 58" preserveAspectRatio="none" style="margin-top:8px">
+              <defs><linearGradient id="bgl1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(22,163,91,0.18)"/><stop offset="1" stop-color="rgba(22,163,91,0)"/></linearGradient></defs>
+              <path d="{{ bistArea }}" fill="url(#bgl1)"/>
+              <path d="{{ bistLine }}" fill="none" stroke="#16a35b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:18px;padding:16px 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#16181d">Portföyüm</span><span style="font:600 11px Manrope;color:#6b7280" style-hover="color:#16181d">Detay →</span></div>
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:10px">
+              <div class="mono" style="font:700 21px 'JetBrains Mono';color:#16181d">486.240 ₺</div>
+              <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#16a35b">+1,24%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#6b7280;margin-top:1px">+5.940 ₺ bugün</div></div>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column">
+            <div style="font:800 14px Manrope;color:#16181d;letter-spacing:-0.01em">Verdict ölçeği</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:13px">
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#16a35b"></span><div><div style="font:700 12px Manrope;color:#16181d">Güçlü İzle</div><div style="font:500 11px Manrope;color:#6b7280">Teknik + akıllı para güçlü hizalı</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#4aa84a"></span><div><div style="font:700 12px Manrope;color:#16181d">Değerlendir</div><div style="font:500 11px Manrope;color:#6b7280">Pozitif sinyal, eşiği geçti</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#c98a00"></span><div><div style="font:700 12px Manrope;color:#16181d">İzle</div><div style="font:500 11px Manrope;color:#6b7280">Belirsiz, teyit bekle</div></div></div>
+              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><div><div style="font:700 12px Manrope;color:#16181d">Uzak Dur</div><div style="font:500 11px Manrope;color:#6b7280">Sinyal zayıf veya negatif</div></div></div>
+            </div>
+            <div style="flex:1"></div>
+            <div style="font:500 11px Manrope;color:#9aa0ad;line-height:1.5;margin-top:12px">Kararlar kural-tabanlı; AI yalnızca özetler. Yatırım tavsiyesi değildir.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  linePath(vals, w, h, pad) {
+    const min = Math.min(...vals), max = Math.max(...vals), rng = (max - min) || 1, n = vals.length;
+    return vals.map((v, i) => {
+      const x = pad + i * (w - 2 * pad) / (n - 1);
+      const y = pad + (h - 2 * pad) * (1 - (v - min) / rng);
+      return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }).join(' ');
+  }
+  areaPath(vals, w, h, pad) {
+    return this.linePath(vals, w, h, pad) + ' L ' + (w - pad).toFixed(1) + ' ' + (h - pad).toFixed(1) + ' L ' + pad.toFixed(1) + ' ' + (h - pad).toFixed(1) + ' Z';
+  }
+  wave(seed, n, drift, amp, start) {
+    let x = seed; const r = () => { x = (x * 9301 + 49297) % 233280; return x / 233280; };
+    let v = start; const a = [];
+    for (let i = 0; i < n; i++) { v += drift + (r() - 0.5) * amp; a.push(v); }
+    return a;
+  }
+  fmt(n) { return n.toFixed(2).replace('.', ','); }
+
+  state = { qm: '', qd: '' };
+
+  allStocks() {
+    return [
+      { sym: 'THYAO', name: 'Türk Hava Yolları', price: 312.75, chg: 2.40 },
+      { sym: 'TUPRS', name: 'Tüpraş', price: 178.60, chg: -0.60 },
+      { sym: 'TCELL', name: 'Turkcell', price: 112.30, chg: 0.90 },
+      { sym: 'TOASO', name: 'Tofaş Oto', price: 246.80, chg: 1.30 },
+      { sym: 'TAVHL', name: 'TAV Havalimanları', price: 292.50, chg: 1.80 },
+      { sym: 'TTKOM', name: 'Türk Telekom', price: 48.62, chg: -0.30 },
+      { sym: 'TKFEN', name: 'Tekfen Holding', price: 64.10, chg: 0.40 },
+      { sym: 'TSKB', name: 'TSKB', price: 12.84, chg: 1.10 },
+      { sym: 'GARAN', name: 'Garanti BBVA', price: 128.90, chg: 1.10 },
+      { sym: 'AKBNK', name: 'Akbank', price: 64.82, chg: 1.70 },
+      { sym: 'ASELS', name: 'Aselsan', price: 78.45, chg: -0.80 },
+      { sym: 'ASTOR', name: 'Astor Enerji', price: 96.20, chg: 3.10 },
+      { sym: 'ARCLK', name: 'Arçelik', price: 142.70, chg: -1.20 },
+      { sym: 'ALARK', name: 'Alarko Holding', price: 88.35, chg: 0.60 },
+      { sym: 'SISE', name: 'Şişecam', price: 52.15, chg: 1.80 },
+      { sym: 'SASA', name: 'Sasa Polyester', price: 38.90, chg: -2.10 },
+      { sym: 'SAHOL', name: 'Sabancı Holding', price: 94.60, chg: 0.80 },
+      { sym: 'BIMAS', name: 'BİM Mağazalar', price: 542.00, chg: 0.90 },
+      { sym: 'FROTO', name: 'Ford Otosan', price: 1096.50, chg: 2.20 },
+      { sym: 'EREGL', name: 'Ereğli Demir Çelik', price: 48.36, chg: -1.10 },
+      { sym: 'EKGYO', name: 'Emlak Konut GYO', price: 14.22, chg: 0.30 },
+      { sym: 'ENKAI', name: 'Enka İnşaat', price: 62.90, chg: 0.50 },
+      { sym: 'KCHOL', name: 'Koç Holding', price: 218.40, chg: 1.40 },
+      { sym: 'KOZAL', name: 'Koza Altın', price: 32.56, chg: -0.90 },
+      { sym: 'PGSUS', name: 'Pegasus', price: 224.10, chg: 2.60 },
+      { sym: 'PETKM', name: 'Petkim', price: 21.48, chg: -0.40 },
+      { sym: 'ISCTR', name: 'İş Bankası C', price: 12.86, chg: 0.60 },
+      { sym: 'YKBNK', name: 'Yapı Kredi', price: 28.14, chg: 1.10 },
+      { sym: 'VAKBN', name: 'VakıfBank', price: 21.40, chg: -0.40 },
+      { sym: 'MGROS', name: 'Migros', price: 486.25, chg: 1.50 },
+      { sym: 'HEKTS', name: 'Hektaş', price: 18.73, chg: -1.60 }
+    ];
+  }
+
+  search(q) {
+    const up = '#16a35b', down = '#e5484d';
+    const t = (q || '').trim().toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+    if (!t) return [];
+    return this.allStocks()
+      .filter(s => s.sym.startsWith(t))
+      .slice(0, 8)
+      .map(s => {
+        const pos = s.chg >= 0;
+        return {
+          ...s,
+          tag: s.sym.slice(0, 2),
+          symPre: s.sym.slice(0, t.length),
+          symRest: s.sym.slice(t.length),
+          priceStr: this.fmt(s.price),
+          chgStr: (pos ? '+' : '') + this.fmt(s.chg) + '%',
+          chgColor: pos ? up : down
+        };
+      });
+  }
+
+  renderVals() {
+    const up = '#16a35b', down = '#e5484d';
+    const V = {
+      'Güçlü İzle': { color: '#16a35b', bg: 'rgba(22,163,91,0.12)' },
+      'Değerlendir': { color: '#4aa84a', bg: 'rgba(74,168,74,0.12)' },
+      'İzle': { color: '#c98a00', bg: 'rgba(201,138,0,0.12)' },
+      'Uzak Dur': { color: '#8a909b', bg: 'rgba(138,144,155,0.14)' }
+    };
+    // haber katalisti: cat 'pos' (🗞 destekliyor) | 'neg' (⚠ çelişiyor) | null
+    const raw = [
+      { sym: 'THYAO', name: 'Türk Hava Yolları', price: 312.75, chg: 2.40, verdict: 'Güçlü İzle', reason: 'Güçlü hacim + akıllı para girişi, trend yukarı', cat: 'pos', catNote: 'KAP: filo genişleme haberi sinyali destekliyor' },
+      { sym: 'GARAN', name: 'Garanti BBVA', price: 128.90, chg: 1.10, verdict: 'Değerlendir', reason: 'Bankacılık pozitif ayrışıyor, destek korunuyor', cat: null, catNote: '' },
+      { sym: 'ASELS', name: 'Aselsan', price: 78.45, chg: -0.80, verdict: 'İzle', reason: 'Yatay seyir, hacim teyidi bekleniyor', cat: null, catNote: '' },
+      { sym: 'SASA', name: 'Sasa Polyester', price: 38.90, chg: -2.10, verdict: 'Uzak Dur', reason: 'Trend kırıldı, akıllı para çıkışı sürüyor', cat: 'neg', catNote: 'Kapasite haberi pozitif ama sinyalle çelişiyor' }
+    ];
+    const verdicts = raw.map(s => {
+      const pos = s.chg >= 0;
+      return {
+        ...s,
+        tag: s.sym.slice(0, 2),
+        priceStr: this.fmt(s.price),
+        chgStr: (pos ? '+' : '') + this.fmt(s.chg) + '%',
+        chgColor: pos ? up : down,
+        color: V[s.verdict].color,
+        bg: V[s.verdict].bg,
+        hasCat: !!s.cat,
+        catIcon: s.cat === 'pos' ? '🗞' : '⚠',
+        catBg: s.cat === 'pos' ? 'rgba(22,163,91,0.10)' : 'rgba(201,138,0,0.14)'
+      };
+    });
+
+    // günün fırsatları (skor 0-100, etiket: momentum / akıllı para / katalist)
+    const oppsRaw = [
+      { sym: 'ASTOR', score: 91, tagLabel: 'Momentum', chg: 3.10 },
+      { sym: 'PGSUS', score: 86, tagLabel: 'Akıllı para', chg: 2.60 },
+      { sym: 'FROTO', score: 82, tagLabel: 'Katalist', chg: 2.20 }
+    ];
+    const opps = oppsRaw.map(o => {
+      const pos = o.chg >= 0;
+      return { ...o, chgStr: (pos ? '+' : '') + this.fmt(o.chg) + '%', chgColor: pos ? up : down, chgColorDark: pos ? '#3fce8a' : '#ff6b6b' };
+    });
+
+    // koyu tema verdict renkleri (parlak zeminde okunur)
+    const VD = {
+      'Güçlü İzle': { color: '#3fce8a', bg: 'rgba(63,206,138,0.16)' },
+      'Değerlendir': { color: '#5cc85c', bg: 'rgba(92,200,92,0.16)' },
+      'İzle': { color: '#f5c451', bg: 'rgba(245,196,81,0.16)' },
+      'Uzak Dur': { color: '#aab0bd', bg: 'rgba(170,176,189,0.16)' }
+    };
+    const verdictsDark = raw.map(s => {
+      const pos = s.chg >= 0;
+      return {
+        ...s,
+        tag: s.sym.slice(0, 2),
+        priceStr: this.fmt(s.price),
+        chgStr: (pos ? '+' : '') + this.fmt(s.chg) + '%',
+        chgColor: pos ? '#3fce8a' : '#ff6b6b',
+        color: VD[s.verdict].color,
+        bg: VD[s.verdict].bg,
+        hasCat: !!s.cat,
+        catIcon: s.cat === 'pos' ? '🗞' : '⚠',
+        catBg: s.cat === 'pos' ? 'rgba(63,206,138,0.16)' : 'rgba(245,196,81,0.18)'
+      };
+    });
+
+    const bist = this.wave(42, 24, 0.5, 6, 96);
+    const bistMini = this.wave(11, 14, 0.5, 5, 50);
+    const resM = this.search(this.state.qm);
+    const resD = this.search(this.state.qd);
+    return {
+      verdicts, verdictsDark, opps,
+      secStrongName: 'Havacılık', secStrongChg: '+2,1%',
+      secWeakName: 'Kimya', secWeakChg: '-1,4%',
+      qm: this.state.qm,
+      qd: this.state.qd,
+      onQm: (e) => this.setState({ qm: e.target.value }),
+      onQd: (e) => this.setState({ qd: e.target.value }),
+      resM, resD,
+      hasResM: resM.length > 0,
+      hasResD: resD.length > 0,
+      resMCount: resM.length,
+      resDCount: resD.length,
+      bistArea: this.areaPath(bist, 290, 58, 5),
+      bistLine: this.linePath(bist, 290, 58, 5),
+      bistMini: this.linePath(bistMini, 96, 40, 4)
+    };
+  }
+}
+</script>
+</body>
+</html>

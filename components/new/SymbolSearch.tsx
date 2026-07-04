@@ -21,7 +21,7 @@ interface Result {
 const fmt = (v: number | null, d = 2) =>
   v == null ? '—' : v.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
-export function SymbolSearch({ className = '' }: { className?: string }) {
+export function SymbolSearch({ className = '', glass = false }: { className?: string; glass?: boolean }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [open, setOpen] = useState(false);
@@ -59,7 +59,11 @@ export function SymbolSearch({ className = '' }: { className?: string }) {
 
   return (
     <div className={`relative ${className}`}>
-      <div className="flex h-[46px] items-center gap-2.5 rounded-[14px] border border-hairline bg-panel px-[15px] shadow-[0_1px_2px_rgba(15,20,30,0.03)] lg:h-[44px]">
+      <div
+        className={`flex h-[46px] items-center gap-2.5 rounded-[14px] px-[15px] lg:h-[44px] ${
+          glass ? 'ie-glass-flat' : 'border border-hairline bg-panel shadow-[0_1px_2px_rgba(15,20,30,0.03)]'
+        }`}
+      >
         <span className="font-mono text-[13px] font-semibold text-up">›</span>
         <input
           value={q}
