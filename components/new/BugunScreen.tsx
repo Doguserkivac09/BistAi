@@ -373,21 +373,22 @@ export function BugunScreen() {
 
         {/* Portföy günlük K/Z şeridi — mobil (masaüstünde sağ rayda kart) */}
         {portfolio && (
-          <Link href="/portfolyo" className="ie-glass mt-3.5 flex items-center gap-2.5 rounded-[14px] px-[15px] py-3 lg:hidden">
+          <Link href="/portfolyo" className="ie-glass mt-3.5 flex items-center gap-2.5 rounded-[14px] px-[15px] py-2.5 lg:hidden">
             <span className="shrink-0 text-[12px] font-bold text-ink">Portföyüm</span>
-            <span className="shrink-0 font-mono text-[13px] font-semibold text-ink">
+            <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold text-ink">
               {portfolio.value.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
             </span>
-            <span className="flex-1" />
-            <span className="shrink-0 font-mono text-[13px] font-semibold" style={{ color: pctColor(portfolio.dayPct) }}>
-              {fmtPct(portfolio.dayPct)}
-            </span>
-            {portfolio.dayTL != null && (
-              <span className="shrink-0 font-mono text-[12px] font-medium text-t3">
-                {portfolio.dayTL >= 0 ? '+' : ''}
-                {portfolio.dayTL.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺ bugün
+            <span className="shrink-0 text-right leading-[1.2]">
+              <span className="block font-mono text-[13px] font-semibold" style={{ color: pctColor(portfolio.dayPct) }}>
+                {fmtPct(portfolio.dayPct)}
               </span>
-            )}
+              {portfolio.dayTL != null && (
+                <span className="block font-mono text-[11px] font-medium text-t3">
+                  {portfolio.dayTL >= 0 ? '+' : ''}
+                  {portfolio.dayTL.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺ bugün
+                </span>
+              )}
+            </span>
           </Link>
         )}
 
