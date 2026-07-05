@@ -221,7 +221,7 @@ export function AiPortfoyleriScreen() {
               key={f.id}
               onClick={() => setFilter(f.id)}
               className={`rounded-[11px] px-3.5 py-2 text-[12px] transition-colors ${
-                filter === f.id ? 'bg-ink font-bold text-white' : 'bg-fill font-semibold text-t2 hover:bg-hairline'
+                filter === f.id ? 'bg-ink font-bold text-onink' : 'bg-fill font-semibold text-t2 hover:bg-hairline'
               }`}
             >
               {f.label}

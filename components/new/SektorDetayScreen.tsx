@@ -121,7 +121,7 @@ export function SektorDetayScreen({ sectorId }: { sectorId: SectorId }) {
   const sig = analysis ? SIGNAL_LABEL[analysis.signal] : null;
 
   const darkCard = (
-    <div className="flex items-center gap-6 rounded-[20px] bg-ink p-5 lg:px-[22px]">
+    <div className="flex items-center gap-6 rounded-[20px] bg-surface-dark p-5 lg:px-[22px]">
       <div>
         <div className="text-[12px] font-medium text-t3">Sektör momentumu · 20g</div>
         <div className="mt-1 font-mono text-[28px] font-bold tracking-[-0.02em] lg:text-[32px]" style={{ color: analysis ? (analysis.perf20d >= 0 ? '#3fce8a' : '#f07171') : '#9aa0ad' }}>

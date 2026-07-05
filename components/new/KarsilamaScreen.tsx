@@ -129,7 +129,7 @@ export function KarsilamaScreen() {
                       <div className="flex items-center gap-2.5">
                         <span className="text-[16px] font-bold text-ink lg:text-[17px]">{r.label}</span>
                         {active && (
-                          <span className="rounded-[7px] bg-ink px-2.5 py-1 text-[10px] font-bold text-white">Seçili</span>
+                          <span className="rounded-[7px] bg-ink px-2.5 py-1 text-[10px] font-bold text-onink">Seçili</span>
                         )}
                       </div>
                       <span className="font-mono text-[12px] font-semibold text-up lg:text-[13px]">{r.ret}</span>
@@ -155,7 +155,7 @@ export function KarsilamaScreen() {
               </button>
               <button
                 onClick={() => setStep('interests')}
-                className="flex h-[54px] w-full items-center justify-center rounded-[15px] bg-ink text-[15px] font-bold text-white transition-colors hover:bg-ink/90 lg:w-[220px]"
+                className="flex h-[54px] w-full items-center justify-center rounded-[15px] bg-ink text-[15px] font-bold text-onink transition-colors hover:bg-ink/90 lg:w-[220px]"
               >
                 Devam et
               </button>
@@ -179,7 +179,7 @@ export function KarsilamaScreen() {
                     key={s}
                     onClick={() => toggleSector(s)}
                     className={`rounded-[13px] px-4 py-2.5 text-[14px] font-bold transition-colors ${
-                      active ? 'bg-ink text-white' : 'border border-[#e7e9ec] bg-panel text-ink hover:bg-fill'
+                      active ? 'bg-ink text-onink' : 'border border-[#e7e9ec] bg-panel text-ink hover:bg-fill'
                     }`}
                     aria-pressed={active}
                   >
@@ -212,7 +212,7 @@ export function KarsilamaScreen() {
               <button
                 onClick={finish}
                 disabled={saving}
-                className="flex h-[54px] w-full items-center justify-center rounded-[15px] bg-ink text-[15px] font-bold text-white transition-colors hover:bg-ink/90 disabled:opacity-60 lg:w-[220px]"
+                className="flex h-[54px] w-full items-center justify-center rounded-[15px] bg-ink text-[15px] font-bold text-onink transition-colors hover:bg-ink/90 disabled:opacity-60 lg:w-[220px]"
               >
                 {saving ? 'Hazırlanıyor…' : "Investable Edge'e başla"}
               </button>

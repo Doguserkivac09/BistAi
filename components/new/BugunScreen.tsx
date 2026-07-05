@@ -101,12 +101,12 @@ function VerdictRow({ r }: { r: SmartSignalResult }) {
       <div className="min-w-0 lg:w-[150px] lg:shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-[15px] font-bold text-ink lg:text-[14px]">{r.symbol}</span>
-          <span className="font-mono text-[12px] font-medium text-[#6b7280] lg:hidden">{fmtPrice(r.price)} ₺</span>
+          <span className="font-mono text-[12px] font-medium text-t3 lg:hidden">{fmtPrice(r.price)} ₺</span>
         </div>
-        <div className="truncate text-[12px] font-medium text-[#6b7280] lg:hidden">{r.summary}</div>
-        <span className="hidden font-mono text-[12px] font-medium text-[#6b7280] lg:block">{fmtPrice(r.price)} ₺</span>
+        <div className="truncate text-[12px] font-medium text-t3 lg:hidden">{r.summary}</div>
+        <span className="hidden font-mono text-[12px] font-medium text-t3 lg:block">{fmtPrice(r.price)} ₺</span>
       </div>
-      <div className="hidden min-w-0 flex-1 truncate text-[12px] font-medium text-[#6b7280] lg:block">{r.summary}</div>
+      <div className="hidden min-w-0 flex-1 truncate text-[12px] font-medium text-t3 lg:block">{r.summary}</div>
       <span
         className="hidden w-[58px] shrink-0 text-right font-mono text-[13px] font-semibold lg:block"
         style={{ color: pctColor(r.changePercent) }}
@@ -136,7 +136,7 @@ function OppCard({ o }: { o: FirsatItem }) {
         <span className="truncate text-[14px] font-bold text-ink">{o.sembol}</span>
         <span className="font-mono text-[12px] font-bold text-ai lg:text-[13px]">{Math.round(o.adjustedScore)}</span>
       </div>
-      <div className="mt-1 truncate text-[10px] font-semibold uppercase tracking-[0.05em] text-[#6b7280]">{tag}</div>
+      <div className="mt-1 truncate text-[10px] font-semibold uppercase tracking-[0.05em] text-t3">{tag}</div>
       <div className="mt-2 font-mono text-[12px] font-semibold" style={{ color: pctColor(o.changePercent) }}>
         {fmtPct(o.changePercent)}
       </div>
@@ -147,7 +147,7 @@ function OppCard({ o }: { o: FirsatItem }) {
 function Metric({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div>
-      <div className="text-[11px] font-medium text-[#6b7280]">{label}</div>
+      <div className="text-[11px] font-medium text-t3">{label}</div>
       <div className="mt-0.5 font-mono text-[15px] font-semibold lg:text-[17px]" style={{ color }}>{value}</div>
     </div>
   );
@@ -281,10 +281,10 @@ export function BugunScreen() {
   // ── Paylaşılan bloklar ──
   const sectorStrip = secStrong && secWeak && (
     <div className="ie-glass-flat flex items-center gap-2 rounded-[14px] px-[15px] py-[11px]">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6b7280]">Sektör · 20g</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-t3">Sektör · 20g</span>
       <span className="text-[12px] font-bold text-up">▲ {secStrong.shortName}</span>
       <span className="font-mono text-[12px] font-semibold text-up">{fmtPct(secStrong.perf20d)}</span>
-      <span className="mx-1 h-3.5 w-px bg-[#50587814]" />
+      <span className="mx-1 h-3.5 w-px bg-hairline" />
       <span className="text-[12px] font-bold text-down">▼ {secWeak.shortName}</span>
       <span className="font-mono text-[12px] font-semibold text-down">{fmtPct(secWeak.perf20d)}</span>
     </div>
@@ -295,7 +295,7 @@ export function BugunScreen() {
       <div className="lg:flex-1">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] font-bold tracking-[0.06em] text-ai">✦ AI</span>
-          <span className="text-[12px] font-semibold text-[#6b7280]">Bugünün özeti</span>
+          <span className="text-[12px] font-semibold text-t3">Bugünün özeti</span>
         </div>
         <p className="mt-2.5 text-[15px] font-semibold leading-[1.5] text-ink">
           {pending
@@ -309,9 +309,9 @@ export function BugunScreen() {
             )}
         </p>
       </div>
-      <div className="mt-3.5 flex gap-[18px] border-t border-[#50587824] pt-3.5 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+      <div className="mt-3.5 flex gap-[18px] border-t border-hairline pt-3.5 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
         <Metric label="Makro rüzgar" value={macroScore != null ? String(macroScore) : '—'} color={regime.color} />
-        <Metric label="Rejim" value={regime.label} color={regime.label === '—' ? '#9aa0ad' : '#16181d'} />
+        <Metric label="Rejim" value={regime.label} color={regime.label === '—' ? '#9aa0ad' : 'var(--ink)'} />
         <Metric label="Risk" value={macro?.risk?.label ?? '—'} color={riskHex(macro?.risk?.color)} />
       </div>
     </div>
@@ -334,7 +334,7 @@ export function BugunScreen() {
   const bistCard = (
     <div className="ie-glass rounded-[18px] px-4 py-3.5 lg:px-[18px] lg:py-4">
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-[#6b7280]">BIST 100</span>
+        <span className="text-[12px] font-semibold text-t3">BIST 100</span>
         {bist && (
           <span className="font-mono text-[13px] font-semibold" style={{ color: pctColor(bist.changePercent) }}>
             {fmtPct(bist.changePercent)}
@@ -361,7 +361,7 @@ export function BugunScreen() {
         {/* Selamlama */}
         <div>
           <h1 className="text-[25px] font-extrabold tracking-[-0.03em] text-ink lg:text-[27px]">{greeting()}</h1>
-          <p className="mt-0.5 text-[13px] font-medium capitalize text-[#6b7280]">
+          <p className="mt-0.5 text-[13px] font-medium capitalize text-t3">
             {dateStr} · Önce karar, sonra bağlam
           </p>
         </div>
@@ -383,7 +383,7 @@ export function BugunScreen() {
               {fmtPct(portfolio.dayPct)}
             </span>
             {portfolio.dayTL != null && (
-              <span className="shrink-0 font-mono text-[12px] font-medium text-[#6b7280]">
+              <span className="shrink-0 font-mono text-[12px] font-medium text-t3">
                 {portfolio.dayTL >= 0 ? '+' : ''}
                 {portfolio.dayTL.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺ bugün
               </span>
@@ -395,7 +395,7 @@ export function BugunScreen() {
         <div className="ie-glass-flat mt-3.5 hidden items-center rounded-[14px] px-[18px] py-[11px] lg:flex">
           {secStrong && secWeak && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6b7280]">Sektör · 20g</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-t3">Sektör · 20g</span>
               <span className="text-[12px] font-bold text-up">▲ {secStrong.shortName}</span>
               <span className="font-mono text-[12px] font-semibold text-up">{fmtPct(secStrong.perf20d)}</span>
               <span className="ml-1.5 text-[12px] font-bold text-down">▼ {secWeak.shortName}</span>
@@ -404,9 +404,9 @@ export function BugunScreen() {
           )}
           {weekly?.avg != null && (
             <>
-              <span className="mx-[18px] h-[18px] w-px bg-[#50587829]" />
+              <span className="mx-[18px] h-[18px] w-px bg-hairline" />
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6b7280]">Haftanın seçimleri</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-t3">Haftanın seçimleri</span>
                 <span className="font-mono text-[12px] font-semibold" style={{ color: pctColor(weekly.avg) }}>{fmtPct(weekly.avg)}</span>
                 {weekly.beatRate != null && weekly.beatRate >= 50 && (
                   <span className="rounded-[6px] bg-up/[0.14] px-2 py-0.5 text-[10px] font-bold text-up">
@@ -418,10 +418,10 @@ export function BugunScreen() {
           )}
           {(aiRet.aegis != null || aiRet.apex != null) && (
             <>
-              <span className="mx-[18px] h-[18px] w-px bg-[#50587829]" />
+              <span className="mx-[18px] h-[18px] w-px bg-hairline" />
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[11px] font-bold text-ai">✦</span>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6b7280]">AI Portföyleri</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-t3">AI Portföyleri</span>
                 {aiRet.aegis != null && (
                   <>
                     <span className="text-[12px] font-bold text-ink">Aegis</span>
@@ -438,7 +438,7 @@ export function BugunScreen() {
             </>
           )}
           <span className="flex-1" />
-          <Link href="/ai-portfoyler" className="text-[12px] font-semibold text-[#6b7280] hover:text-ink">
+          <Link href="/ai-portfoyler" className="text-[12px] font-semibold text-t3 hover:text-ink">
             Detay →
           </Link>
         </div>
@@ -450,7 +450,7 @@ export function BugunScreen() {
 
             <div className="flex items-center justify-between">
               <span className="text-[16px] font-extrabold tracking-[-0.02em] text-ink">Bugün ne yapmalıyım?</span>
-              <span className="text-[12px] font-semibold text-[#6b7280]">
+              <span className="text-[12px] font-semibold text-t3">
                 {usingWatchlist ? `Takip listem · ${list.length} hisse` : 'En güçlü kurulumlar'}
               </span>
             </div>
@@ -459,7 +459,7 @@ export function BugunScreen() {
               {loading ? (
                 [...Array(5)].map((_, i) => <div key={i} className="ie-glass h-[72px] animate-pulse rounded-[18px]" />)
               ) : list.length === 0 ? (
-                <div className="ie-glass rounded-[18px] px-4 py-8 text-center text-[13px] font-medium text-[#6b7280]">
+                <div className="ie-glass rounded-[18px] px-4 py-8 text-center text-[13px] font-medium text-t3">
                   Tarama henüz çalışmadı. Günlük cron otomatik koşar.
                 </div>
               ) : (
@@ -484,7 +484,7 @@ export function BugunScreen() {
               <div className="ie-glass rounded-[18px] px-[18px] py-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[14px] font-extrabold text-ink">Portföyüm</span>
-                  <Link href="/portfolyo" className="text-[11px] font-semibold text-[#6b7280] hover:text-ink">
+                  <Link href="/portfolyo" className="text-[11px] font-semibold text-t3 hover:text-ink">
                     Detay →
                   </Link>
                 </div>
@@ -497,7 +497,7 @@ export function BugunScreen() {
                       {fmtPct(portfolio.dayPct)}
                     </span>
                     {portfolio.dayTL != null && (
-                      <span className="mt-0.5 block font-mono text-[11px] font-medium text-[#6b7280]">
+                      <span className="mt-0.5 block font-mono text-[11px] font-medium text-t3">
                         {portfolio.dayTL >= 0 ? '+' : ''}
                         {portfolio.dayTL.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺ bugün
                       </span>
@@ -515,7 +515,7 @@ export function BugunScreen() {
                     <span className="h-[10px] w-[10px] shrink-0 rounded-[3px]" style={{ background: l.c }} />
                     <div>
                       <div className="text-[12px] font-bold text-ink">{l.t}</div>
-                      <div className="text-[11px] font-medium text-[#6b7280]">{l.d}</div>
+                      <div className="text-[11px] font-medium text-t3">{l.d}</div>
                     </div>
                   </div>
                 ))}

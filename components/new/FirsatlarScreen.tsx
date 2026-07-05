@@ -153,7 +153,7 @@ export function FirsatlarScreen() {
               key={f.id}
               onClick={() => setFiltre(f.id)}
               className={`flex items-center gap-1.5 rounded-full px-3.5 py-[7px] text-[13px] font-semibold transition-colors ${
-                active ? 'bg-ink text-white' : 'bg-fill text-t2 hover:text-ink'
+                active ? 'bg-ink text-onink' : 'bg-fill text-t2 hover:text-ink'
               }`}
             >
               {f.label}

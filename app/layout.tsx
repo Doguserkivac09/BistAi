@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import { PwaRegister } from '@/components/PwaRegister';
 import { PwaInstallBanner } from '@/components/PwaInstallBanner';
 import { OnboardingBanner } from '@/components/OnboardingBanner';
+import { ThemeProvider, THEME_INIT_SCRIPT } from '@/components/ThemeProvider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 // Yeni modern-minimalist tasarım fontları (design_handoff_bistai)
@@ -71,7 +72,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
+    <html lang="tr" suppressHydrationWarning>
+      <head>
+        {/* Tema FOUC önleyici — paint'ten önce .dark sınıfını uygular */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className={`${inter.variable} ${manrope.variable} ${jetbrains.variable} antialiased min-h-screen bg-background text-text-primary flex flex-col`}>
         <script
           type="application/ld+json"
@@ -89,14 +94,16 @@ export default function RootLayout({
             }),
           }}
         />
-        <PwaRegister />
-        <ChromeGate><PwaInstallBanner /></ChromeGate>
-        <ChromeGate><OnboardingBanner /></ChromeGate>
-        <ChromeGate><Navbar /></ChromeGate>
-        <div className="flex-1">
-          {children}
-        </div>
-        <ChromeGate><Footer /></ChromeGate>
+        <ThemeProvider>
+          <PwaRegister />
+          <ChromeGate><PwaInstallBanner /></ChromeGate>
+          <ChromeGate><OnboardingBanner /></ChromeGate>
+          <ChromeGate><Navbar /></ChromeGate>
+          <div className="flex-1">
+            {children}
+          </div>
+          <ChromeGate><Footer /></ChromeGate>
+        </ThemeProvider>
         <Toaster
           position="bottom-right"
           toastOptions={{

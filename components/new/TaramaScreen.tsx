@@ -130,7 +130,7 @@ export function TaramaScreen() {
               key={label}
               onClick={() => setDirection(v)}
               className={`flex-1 rounded-[11px] py-[9px] text-center text-[12px] transition-colors ${
-                direction === v ? 'bg-ink font-bold text-white' : 'bg-fill font-semibold text-t2 hover:bg-hairline'
+                direction === v ? 'bg-ink font-bold text-onink' : 'bg-fill font-semibold text-t2 hover:bg-hairline'
               }`}
             >
               {label}
@@ -257,7 +257,7 @@ export function TaramaScreen() {
         {!showAllMobile && rows.length > 5 && (
           <button
             onClick={() => setShowAllMobile(true)}
-            className="mt-4 flex h-[50px] w-full items-center justify-center rounded-[15px] bg-ink text-[15px] font-bold text-white lg:hidden"
+            className="mt-4 flex h-[50px] w-full items-center justify-center rounded-[15px] bg-ink text-[15px] font-bold text-onink lg:hidden"
           >
             {rows.length} sonucu gör
           </button>

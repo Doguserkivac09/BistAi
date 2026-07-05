@@ -126,7 +126,7 @@ export function AiAsistanScreen() {
               placeholder="Bir soru sor…"
               className="flex-1 rounded-[14px] border border-hairline bg-fill px-4 py-3 text-[14px] text-ink outline-none focus:border-ink"
             />
-            <button type="submit" disabled={loading || !input.trim()} className="flex h-[46px] w-[46px] items-center justify-center rounded-[14px] bg-ink text-white disabled:opacity-40" aria-label="Gönder">
+            <button type="submit" disabled={loading || !input.trim()} className="flex h-[46px] w-[46px] items-center justify-center rounded-[14px] bg-ink text-onink disabled:opacity-40" aria-label="Gönder">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </button>
           </form>
@@ -144,7 +144,7 @@ function Bubble({ role, content }: { role: 'user' | 'assistant'; content: string
       <div
         className={`max-w-[85%] whitespace-pre-wrap px-4 py-2.5 text-[14px] leading-[1.55] ${
           user
-            ? 'rounded-[18px_18px_6px_18px] bg-ink font-medium text-white'
+            ? 'rounded-[18px_18px_6px_18px] bg-ink font-medium text-onink'
             : 'rounded-[18px_18px_18px_6px] border border-hairline bg-panel font-medium text-ink'
         }`}
       >

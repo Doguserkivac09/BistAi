@@ -144,7 +144,7 @@ export function YardimScreen() {
         </div>
 
         {/* Destek kartı */}
-        <Link href="/sohbet" className="mt-6 flex items-center gap-3.5 rounded-[18px] bg-ink p-[18px] transition-opacity hover:opacity-95">
+        <Link href="/sohbet" className="mt-6 flex items-center gap-3.5 rounded-[18px] bg-surface-dark p-[18px] transition-opacity hover:opacity-95">
           <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white/[0.08]">
             <span className="font-mono text-[14px] font-bold text-ai-on-dark">✦</span>
           </span>

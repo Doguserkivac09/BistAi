@@ -28,11 +28,22 @@
   Sidebar/tab route'ları: /bugun /firsatlar /portfolyo /makro /ai-portfoyler /sohbet /profil.
 
 ### Tasarım token'ları (`tailwind.config.js`'te TANIMLI — bunları kullan)
-`ink #16181d` · `up #16a35b` · `up-on-dark #3fce8a` · `down #e5484d` · `ai #6b6ff5` ·
-`ai-on-dark #8b8fff` · `t2 #7b818c` · `t3 #9aa0ad` · `t4 #b4b8bf` · `page #fcfcfd` ·
-`panel #fff` · `fill #f4f5f6` · `hairline #eef0f2` · `ai-panel #faf9ff` ·
-`ai-panel-border #ece9fb` · `up-badge #eaf7ef`. Font: `font-manrope` (gövde), `font-mono`
-(JetBrains Mono — **TÜM fiyat/yüzde/sayı**). Fontlar `app/layout.tsx`'te yüklü.
+`ink` · `up #16a35b` · `up-on-dark #3fce8a` · `down #e5484d` · `ai #6b6ff5` ·
+`ai-on-dark #8b8fff` · `t2` · `t3` · `t4` · `page` · `panel` · `fill` · `hairline` ·
+`ai-panel` · `ai-panel-border` · `up-badge` · `onink` · `surface-dark #16181d`.
+Font: `font-manrope` (gövde), `font-mono` (JetBrains Mono — **TÜM fiyat/yüzde/sayı**).
+
+### 🌗 Açık/Karanlık tema (2026-07-05) ✅
+`ink · onink · page · panel · fill · hairline · t2/t3/t4 · up-badge · ai-panel(-border)`
+artık **CSS değişkeni** (`app/globals.css` `:root` = açık, `.dark` = koyu; tailwind
+`var(--...)` tüketir). Aksan renkleri (up/down/ai/warn) sabit. **`bg-ink` iki anlamda:**
+(a) ters-dönen yüzey (buton/nav/avatar/segment) → `bg-ink text-onink` (siyah↔beyaz döner);
+(b) kalıcı koyu "feature" kartı (Portföy değer / Sektör momentum / Yardım destek) →
+`bg-surface-dark` (her iki temada koyu, `text-white` kalır). Liquid-glass (`.ie-*`) ve
+Bugün ambient'in `.dark` override'ları globals.css'te.
+- `components/ThemeProvider.tsx`: context + localStorage(`ie-theme`) + FOUC script
+  (layout `<head>`, `<html suppressHydrationWarning>`). Toggle: **Profil → Tema** (`ThemeRow`,
+  Açık/Karanlık segment). Yeni ekran eklerken token sınıflarını kullan → tema otomatik gelir.
 
 ### Tamamlanan ekranlar (6 — CANLI, main'de)
 | Ekran | Route | Component | Veri kaynağı | Korunan / sadeleştirilen |

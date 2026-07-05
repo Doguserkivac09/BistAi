@@ -19,8 +19,10 @@ module.exports = {
         bearish: '#ef4444',
         'text-primary': '#f1f5f9',
         'text-secondary': '#94a3b8',
-        // ── Yeni tasarım (modern-minimalist, açık tema) — design_handoff_bistai ──
-        ink: '#16181d',
+        // ── Yeni tasarım (modern-minimalist) — tema-farkında (CSS değişkeni) ──
+        // Değerler app/globals.css'te :root (açık) + .dark (koyu) altında.
+        ink: 'var(--ink)',           // birincil metin + ters-dönen yüzeyler
+        onink: 'var(--on-ink)',      // ters yüzey üstündeki metin
         up: '#16a35b',
         'up-on-dark': '#3fce8a',
         down: '#e5484d',
@@ -29,16 +31,19 @@ module.exports = {
         warn: '#c98a00',
         'v-consider': '#4aa84a',
         'v-avoid': '#8a909b',
-        't2': '#7b818c',   // metin ikincil
-        't3': '#9aa0ad',   // metin üçüncül
-        't4': '#b4b8bf',   // metin sönük
-        page: '#fcfcfd',   // sayfa zemini
-        panel: '#ffffff',  // kart yüzeyi
-        fill: '#f4f5f6',   // dolgu yüzey
-        hairline: '#eef0f2',
-        'ai-panel': '#faf9ff',
-        'ai-panel-border': '#ece9fb',
-        'up-badge': '#eaf7ef',
+        't2': 'var(--t2)',   // metin ikincil
+        't3': 'var(--t3)',   // metin üçüncül
+        't4': 'var(--t4)',   // metin sönük
+        page: 'var(--page)',   // sayfa zemini
+        panel: 'var(--panel)',  // kart yüzeyi
+        fill: 'var(--fill)',   // dolgu yüzey
+        hairline: 'var(--hairline)',
+        'ai-panel': 'var(--ai-panel)',
+        'ai-panel-border': 'var(--ai-panel-border)',
+        'up-badge': 'var(--up-badge)',
+        // Kalıcı koyu yüzey — karanlık temada da koyu kalır (Portföy değer kartı,
+        // Sektör momentum, Yardım destek kartı gibi "koyu feature" kartları).
+        'surface-dark': '#16181d',
       },
       borderRadius: {
         card: '12px',

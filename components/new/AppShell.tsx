@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   key={it.href}
                   href={it.href}
                   className={`flex items-center gap-[11px] rounded-[12px] px-3 py-[11px] text-[14px] transition-colors ${
-                    active ? 'bg-ink font-bold text-white' : 'font-semibold text-t2 hover:bg-fill'
+                    active ? 'bg-ink font-bold text-onink' : 'font-semibold text-t2 hover:bg-fill'
                   }`}
                 >
                   {it.ai ? (
@@ -82,7 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex-1" />
           <Link href="/profil" className="flex items-center gap-[11px] rounded-[13px] p-2.5 hover:bg-fill">
-            <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink text-[13px] font-bold text-white">
+            <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink text-[13px] font-bold text-onink">
               AY
             </span>
             <span className="min-w-0">

@@ -167,7 +167,7 @@ export function PortfoyumScreen() {
     return (
       <div className="px-6 py-16 text-center">
         <p className="text-[15px] font-semibold text-ink">Portföyünü görmek için giriş yap.</p>
-        <a href="/giris?redirect=/portfolyo" className="mt-3 inline-block rounded-[12px] bg-ink px-5 py-2.5 text-[14px] font-bold text-white">Giriş yap</a>
+        <a href="/giris?redirect=/portfolyo" className="mt-3 inline-block rounded-[12px] bg-ink px-5 py-2.5 text-[14px] font-bold text-onink">Giriş yap</a>
       </div>
     );
   }
@@ -182,7 +182,7 @@ export function PortfoyumScreen() {
               ↓ CSV
             </button>
           )}
-          <button onClick={() => { setErr(null); setModal('add'); }} className="rounded-[12px] bg-ink px-4 py-2.5 text-[13px] font-bold text-white hover:opacity-90">
+          <button onClick={() => { setErr(null); setModal('add'); }} className="rounded-[12px] bg-ink px-4 py-2.5 text-[13px] font-bold text-onink hover:opacity-90">
             + Ekle
           </button>
         </div>
@@ -191,8 +191,8 @@ export function PortfoyumScreen() {
       <div className="mt-[22px] flex flex-col gap-6 lg:flex-row">
         {/* Sol: değer kartı + varlıklar */}
         <div className="flex min-w-0 flex-col gap-[18px] lg:flex-[1.7]">
-          {/* Değer kartı (koyu) */}
-          <div className="rounded-[22px] bg-ink p-5 lg:p-[22px]">
+          {/* Değer kartı (koyu — her iki temada koyu kalır) */}
+          <div className="rounded-[22px] bg-surface-dark p-5 lg:p-[22px]">
             <div className="text-[12px] font-semibold text-t3">Toplam değer</div>
             <div className="mt-1 font-mono text-[30px] font-bold tracking-[-0.03em] text-white lg:text-[36px]">
               {fmtTL(totalDeger, 0)} <span className="text-[18px] text-t3">₺</span>
@@ -323,7 +323,7 @@ export function PortfoyumScreen() {
               {err && <p className="text-[12px] font-medium text-down">{err}</p>}
               <div className="mt-1 flex gap-2">
                 <button type="button" disabled={busy} onClick={() => setModal(null)} className="flex-1 rounded-[12px] bg-fill px-4 py-2.5 text-[14px] font-bold text-ink disabled:opacity-50">Vazgeç</button>
-                <button type="submit" disabled={busy} className="flex-1 rounded-[12px] bg-ink px-4 py-2.5 text-[14px] font-bold text-white disabled:opacity-50">{busy ? '...' : 'Kaydet'}</button>
+                <button type="submit" disabled={busy} className="flex-1 rounded-[12px] bg-ink px-4 py-2.5 text-[14px] font-bold text-onink disabled:opacity-50">{busy ? '...' : 'Kaydet'}</button>
               </div>
             </form>
           </div>
