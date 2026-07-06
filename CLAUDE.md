@@ -50,7 +50,7 @@ Bugün ambient'in `.dark` override'ları globals.css'te.
 |-------|-------|-----------|--------------|--------------------------|
 | Bugün | `/bugun` | `BugunScreen` | /api/smart-signal + /api/watchlist + /api/macro(+history) | verdict listesi (watchlist→top8 fallback), Makro/Rejim/Risk metrikleri, BIST100 kartı, değişim% |
 | Portföyüm | `/portfolyo` | `PortfoyumScreen` | /api/portfolyo + /api/ohlcv | **ekle/düzenle/sil** + CSV + hedef-fiyat; e-posta bildirim → Profil'e taşındı |
-| Fırsatlar | `/firsatlar` | `FirsatlarScreen` | /api/firsatlar | filtre çipleri (Tümü/Momentum/Akıllı Para/Katalist) + skor barı + verdict + etiket; en yüksek 50 |
+| Fırsatlar | `/firsatlar` | `FirsatlarScreen` | /api/firsatlar (+ öne çıkan için /api/ohlcv) | **v2 liquid-glass yatırım radarı** (2026-07-06): pastel ambient + cam; özet şerit (bugün yeni/ort. skor/en güçlü sektör) + filtre çipleri + "Günün Fırsatı" öne çıkan kart (skor halkası SVG + GERÇEK OHLCV sparkline + gerekçe) + sıralı radar (mobil kart/masaüstü tablo, skor barı) + kategori dağılımı. Açık/karanlık `.ie-glass-feature` |
 | Piyasa | `/makro` | `PiyasaScreen` | /api/macro + /api/sectors | makro kartları + sektör diverging barları + kompakt göstergeler; skor/risk → Bugün'de |
 | AI Asistan | `/sohbet` | `AiAsistanScreen` | /api/chat (SSE) | **streaming sohbet** + öneri çipleri; oturum geçmişi sidebar'ı sadeleştirildi |
 | Profil | `/profil` | `ProfilScreen` | /api/profile + portfolyo/watchlist | tier + istatistik + **çalışan bildirim toggle** (newsletter_enabled, PATCH) + çıkış |
