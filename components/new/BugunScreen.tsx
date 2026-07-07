@@ -358,10 +358,10 @@ export function BugunScreen() {
       </div>
 
       <div className="relative px-6 py-5 lg:px-7 lg:py-[22px]">
-        {/* Selamlama */}
+        {/* Selamlama — zaman-bazlı (SSR/istemci saati farkı) → suppressHydrationWarning */}
         <div>
-          <h1 className="text-[25px] font-extrabold tracking-[-0.03em] text-ink lg:text-[27px]">{greeting()}</h1>
-          <p className="mt-0.5 text-[13px] font-medium capitalize text-t3">
+          <h1 suppressHydrationWarning className="text-[25px] font-extrabold tracking-[-0.03em] text-ink lg:text-[27px]">{greeting()}</h1>
+          <p suppressHydrationWarning className="mt-0.5 text-[13px] font-medium capitalize text-t3">
             {dateStr} · Önce karar, sonra bağlam
           </p>
         </div>

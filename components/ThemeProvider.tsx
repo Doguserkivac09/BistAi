@@ -22,10 +22,16 @@ const STORAGE_KEY = 'ie-theme';
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('light');
 
-  // İlk yüklemede DOM'daki sınıftan (FOUC script'in yazdığı) senkronize ol
+  // İlk yüklemede localStorage'ı KAYNAK al ve sınıfı YENİDEN UYGULA.
+  // (React root hydration'ı bazı sayfalarda <html> className'ini sıfırlayıp
+  //  FOUC script'in eklediği `.dark`'ı silebiliyor — buradan geri yükleriz.)
   useEffect(() => {
-    const isDark = document.documentElement.classList.contains('dark');
-    setThemeState(isDark ? 'dark' : 'light');
+    let stored: Theme = 'light';
+    try {
+      stored = localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+    } catch { /* yoksay */ }
+    document.documentElement.classList.toggle('dark', stored === 'dark');
+    setThemeState(stored);
   }, []);
 
   const apply = useCallback((t: Theme) => {
