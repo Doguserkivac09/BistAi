@@ -49,7 +49,7 @@ Bugün ambient'in `.dark` override'ları globals.css'te.
 | Ekran | Route | Component | Veri kaynağı | Korunan / sadeleştirilen |
 |-------|-------|-----------|--------------|--------------------------|
 | Bugün | `/bugun` | `BugunScreen` | /api/smart-signal + /api/watchlist + /api/macro(+history) | verdict listesi (watchlist→top8 fallback), Makro/Rejim/Risk metrikleri, BIST100 kartı, değişim% |
-| Portföyüm | `/portfolyo` | `PortfoyumScreen` | /api/portfolyo + /api/ohlcv | **ekle/düzenle/sil** + CSV + hedef-fiyat; e-posta bildirim → Profil'e taşındı |
+| Portföyüm | `/portfolyo` | `PortfoyumScreen` | /api/portfolyo + /api/ohlcv | **v2 liquid-glass** (2026-07-06): değer kartı (GERÇEK portföy değeri eğrisi = OHLCV kapanış toplamı + günlük değişim + K/Z/Getiri/Maliyet) + sektör donut'u (SVG) + AI notu; **ekle/düzenle/sil** + CSV + hedef-fiyat KORUNDU. "Nakit" uydurulmadı → Maliyet. Açık/karanlık `.ie-glass*` |
 | Fırsatlar | `/firsatlar` | `FirsatlarScreen` | /api/firsatlar (+ öne çıkan için /api/ohlcv) | **v2 liquid-glass yatırım radarı** (2026-07-06): pastel ambient + cam; özet şerit (bugün yeni/ort. skor/en güçlü sektör) + filtre çipleri + "Günün Fırsatı" öne çıkan kart (skor halkası SVG + GERÇEK OHLCV sparkline + gerekçe) + sıralı radar (mobil kart/masaüstü tablo, skor barı) + kategori dağılımı. Açık/karanlık `.ie-glass-feature` |
 | Piyasa | `/makro` | `PiyasaScreen` | /api/macro + /api/sectors | makro kartları + sektör diverging barları + kompakt göstergeler; skor/risk → Bugün'de |
 | AI Asistan | `/sohbet` | `AiAsistanScreen` | /api/chat (SSE) | **streaming sohbet** + öneri çipleri; oturum geçmişi sidebar'ı sadeleştirildi |
