@@ -113,6 +113,9 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
       <div className="min-w-0 flex-1 lg:flex-[1.6]">
         <div className="flex items-center gap-2">
           <span className="text-[14px] font-bold text-ink">{it.sembol}</span>
+          <span className="shrink-0 rounded-[7px] px-[7px] py-[2px] text-[10px] font-extrabold" style={{ background: `${color}22`, color }}>
+            {rating}
+          </span>
           <span className="font-mono text-[12px] font-semibold lg:hidden" style={{ color: pctColor(it.changePercent) }}>
             {fmtPct(it.changePercent)}
           </span>
@@ -245,6 +248,8 @@ export function FirsatlarScreen() {
 
   function FeaturedCard({ desktop }: { desktop?: boolean }) {
     if (!featured) return null;
+    const featRating = featured.decision?.rating ?? 'Tut';
+    const featColor = VC[featRating] ?? '#8a909b';
     const ringSize = desktop ? 60 : 58;
     const spark = buildSpark(featCloses ?? [], desktop ? 284 : 300, 44);
     return (
@@ -260,8 +265,11 @@ export function FirsatlarScreen() {
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[20px] font-extrabold tracking-[-0.02em] text-ink">{featured.sembol}</span>
+              <span className="rounded-[7px] px-2 py-[3px] text-[11px] font-extrabold" style={{ background: `${featColor}22`, color: featColor }}>
+                {featRating}
+              </span>
               <span className="font-mono text-[13px] font-semibold" style={{ color: pctColor(featured.changePercent) }}>
                 {fmtPct(featured.changePercent)}
               </span>
