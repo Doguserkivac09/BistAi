@@ -49,6 +49,14 @@
       "schedule": "50 14 * * 1-5"
     },
     {
+      "path": "/api/cron/viop-scan",
+      "schedule": "5 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/viop-scan",
+      "schedule": "55 14 * * 1-5"
+    },
+    {
       "path": "/api/cron/alerts",
       "schedule": "30 7 * * 1-5"
     },

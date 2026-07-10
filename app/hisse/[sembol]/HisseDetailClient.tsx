@@ -53,6 +53,11 @@ const StockChart = lazy(() =>
   import('@/components/StockChart').then((mod) => ({ default: mod.StockChart }))
 );
 
+// Lazy-load TradingView Advanced Chart widget (harici tv.js — yalnız sekme açılınca yüklenir)
+const TradingViewChart = lazy(() =>
+  import('@/components/new/TradingViewChart').then((mod) => ({ default: mod.TradingViewChart }))
+);
+
 // ── Hero meta hesaplama yardımcıları ─────────────────────────────────
 function calcRSI14(closes: number[]): number | null {
   if (closes.length < 15) return null;
@@ -210,6 +215,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [kapSumLoading, setKapSumLoading] = useState(false);
   const [kapUyariMesaj, setKapUyariMesaj] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
+  // Grafik kaynağı: kendi (StockChart, sinyal overlay'li) veya TradingView widget
+  const [chartSource, setChartSource] = useState<'kendi' | 'tradingview'>('kendi');
   const [delayBannerDismissed, setDelayBannerDismissed] = useState(false);
   // Sprint 2 — Özel notlar
   const [traderNote, setTraderNote] = useState<string>('');
@@ -1014,12 +1021,44 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
                 {/* Fiyat grafik + RSI birleşik kart */}
                 <Card className="overflow-hidden">
-                  <CardHeader className="py-2 px-3">
+                  <CardHeader className="py-2 px-3 flex-row items-center justify-between gap-2">
                     <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
                       Fiyat Grafiği &amp; Teknik Göstergeler
                     </CardTitle>
+                    {/* Grafik kaynağı toggle: kendi (sinyal overlay) / TradingView */}
+                    <div className="flex items-center gap-0.5 rounded-md border border-border/60 p-0.5">
+                      {([
+                        { key: 'kendi', label: 'Sinyalli' },
+                        { key: 'tradingview', label: 'TradingView' },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setChartSource(opt.key)}
+                          className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                            chartSource === opt.key
+                              ? 'bg-surface text-text-primary'
+                              : 'text-text-muted hover:text-text-secondary'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </CardHeader>
                   <CardContent className="p-0">
+                    {chartSource === 'tradingview' ? (
+                      <div className="w-full p-2">
+                        <Suspense fallback={
+                          <div className="flex h-[500px] w-full items-center justify-center bg-surface/50">
+                            <span className="text-sm text-text-secondary">TradingView grafiği yükleniyor...</span>
+                          </div>
+                        }>
+                          <TradingViewChart symbol={sembol} height={500} themeOverride="dark" />
+                        </Suspense>
+                      </div>
+                    ) : (
+                    <>
                     <div className="h-[360px] w-full">
                       <Suspense fallback={
                         <div className="flex h-[360px] w-full items-center justify-center bg-surface/50">
@@ -1064,6 +1103,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                         <StockChart candles={candles} showRsi height={140} />
                       </Suspense>
                     </div>
+                    </>
+                    )}
                   </CardContent>
                 </Card>
 

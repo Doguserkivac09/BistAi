@@ -23,6 +23,7 @@ const SIDEBAR: NavItem[] = [
   { href: '/firsatlar', label: 'Fırsatlar' },
   { href: '/portfolyo', label: 'Portföyüm' },
   { href: '/makro', label: 'Piyasa' },
+  { href: '/viop', label: 'VIOP' },
   { href: '/ai-portfoyler', label: 'AI Portföyleri' },
   { href: '/sohbet', label: 'AI Asistan', ai: true },
 ];

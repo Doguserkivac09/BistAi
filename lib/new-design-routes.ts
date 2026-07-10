@@ -19,6 +19,7 @@ export const NEW_DESIGN_ROUTES = [
   '/karsilama',
   '/tarama',
   '/ai-portfoyler',
+  '/viop',
 ];
 
 // Yalnız TAM eşleşme yeni tasarımda (alt sayfalar eski temada kalır — ör. /yardim/sinyaller)

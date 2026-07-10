@@ -41,6 +41,7 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith('/hisse/') ||
       pathname.startsWith('/profil') ||
       pathname.startsWith('/portfolyo') ||
+      pathname.startsWith('/viop') ||
       pathname.startsWith('/watchlist') ||
       pathname.startsWith('/backtesting') ||
       pathname.startsWith('/topluluk') ||
@@ -56,6 +57,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/bugun', '/karsilama', '/dashboard', '/tarama', '/hisse/:path*', '/profil', '/portfolyo', '/watchlist', '/backtesting', '/topluluk/:path*', '/karsilastir', '/giris', '/kayit'],
+  matcher: ['/', '/bugun', '/karsilama', '/dashboard', '/tarama', '/hisse/:path*', '/profil', '/portfolyo', '/viop', '/watchlist', '/backtesting', '/topluluk/:path*', '/karsilastir', '/giris', '/kayit'],
 };
 
