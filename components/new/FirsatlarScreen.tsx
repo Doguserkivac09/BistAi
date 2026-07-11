@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
+import { SparklineChartButton } from '@/components/new/ChartModal';
 
 type Filtre = 'tumu' | 'momentum' | 'akilli' | 'katalist';
 
@@ -280,16 +281,18 @@ export function FirsatlarScreen() {
         </div>
 
         {spark.line ? (
-          <svg width="100%" height="44" viewBox={`0 0 ${desktop ? 284 : 300} 44`} preserveAspectRatio="none" className="mt-2">
-            <defs>
-              <linearGradient id={`feat-${featured.sembol}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="rgba(22,163,91,0.24)" />
-                <stop offset="1" stopColor="rgba(22,163,91,0)" />
-              </linearGradient>
-            </defs>
-            <path d={spark.area} fill={`url(#feat-${featured.sembol})`} />
-            <path d={spark.line} fill="none" stroke="#16a35b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <SparklineChartButton symbol={featured.sembol} title={featured.sembol} className="mt-2 block w-full">
+            <svg width="100%" height="44" viewBox={`0 0 ${desktop ? 284 : 300} 44`} preserveAspectRatio="none">
+              <defs>
+                <linearGradient id={`feat-${featured.sembol}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="rgba(22,163,91,0.24)" />
+                  <stop offset="1" stopColor="rgba(22,163,91,0)" />
+                </linearGradient>
+              </defs>
+              <path d={spark.area} fill={`url(#feat-${featured.sembol})`} />
+              <path d={spark.line} fill="none" stroke="#16a35b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </SparklineChartButton>
         ) : (
           <div className="mt-2 h-[44px]" />
         )}

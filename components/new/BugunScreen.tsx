@@ -20,6 +20,7 @@ import Link from 'next/link';
 import type { SmartSignalResult } from '@/lib/smart-signal/types';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import { SymbolSearch } from '@/components/new/SymbolSearch';
+import { SparklineChartButton } from '@/components/new/ChartModal';
 
 interface SignalResp { ok: boolean; pending?: boolean; results: SmartSignalResult[] }
 interface WatchItem { sembol: string }
@@ -344,7 +345,9 @@ export function BugunScreen() {
       <div className="mt-0.5 font-mono text-[20px] font-bold tracking-[-0.02em] text-ink lg:text-[22px]">
         {bist ? bist.price.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) : '—'}
       </div>
-      <Sparkline values={bistSeries} color={bist && bist.changePercent < 0 ? '#e5484d' : '#16a35b'} />
+      <SparklineChartButton symbol="XU100" title="BIST 100" className="block w-full">
+        <Sparkline values={bistSeries} color={bist && bist.changePercent < 0 ? '#e5484d' : '#16a35b'} />
+      </SparklineChartButton>
     </div>
   );
 

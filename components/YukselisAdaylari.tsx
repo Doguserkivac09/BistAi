@@ -6,6 +6,7 @@ import { Rocket, RefreshCw, AlertTriangle, Filter, ShieldCheck, Info, Trophy } f
 import type { YukselisResult } from '@/app/api/yukselis-adaylari/route';
 import type { BabyPicksPerformance } from '@/lib/baby-picks';
 import { MiniChart } from '@/components/MiniChart';
+import { SparklineChartButton } from '@/components/new/ChartModal';
 
 type VerdictFilter = 'tumu' | 'güçlü kurulum' | 'umut vadeden' | 'izlemede';
 
@@ -200,9 +201,11 @@ function AdayKart({ r }: { r: YukselisResult }) {
         const prev20 = r.candles[r.candles.length - 20]?.close;
         const isPositive = last && prev20 ? last > prev20 : undefined;
         return (
-          <div className="overflow-hidden rounded-lg border border-border/30">
-            <MiniChart data={r.candles} height={44} positive={isPositive} />
-          </div>
+          <SparklineChartButton symbol={r.sembol} themeOverride="dark" title={r.sembol} className="block w-full">
+            <div className="overflow-hidden rounded-lg border border-border/30">
+              <MiniChart data={r.candles} height={44} positive={isPositive} />
+            </div>
+          </SparklineChartButton>
         );
       })()}
 

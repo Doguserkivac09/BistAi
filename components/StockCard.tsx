@@ -12,6 +12,7 @@ const MiniChart = dynamic(
   { ssr: false, loading: () => <div className="h-[80px] w-full animate-pulse rounded bg-white/5" /> },
 );
 import { SignalExplanation } from '@/components/SignalExplanation';
+import { SparklineChartButton } from '@/components/new/ChartModal';
 import type { StockSignal, OHLCVCandle, ConfluenceResult } from '@/types';
 import { computeConfluence } from '@/lib/signals';
 import type { SectorMomentum } from '@/lib/sectors';
@@ -433,11 +434,13 @@ export function StockCard({
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col space-y-3 pb-2">
-        <MiniChart
-          data={candleData}
-          height={56}
-          positive={isUp ? true : isDown ? false : undefined}
-        />
+        <SparklineChartButton symbol={signal.sembol} themeOverride="dark" title={signal.sembol} className="block w-full">
+          <MiniChart
+            data={candleData}
+            height={56}
+            positive={isUp ? true : isDown ? false : undefined}
+          />
+        </SparklineChartButton>
         {/* Ek sinyaller */}
         {allSignals && allSignals.length > 1 && (
           <div className="flex flex-wrap gap-1">

@@ -215,8 +215,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [kapSumLoading, setKapSumLoading] = useState(false);
   const [kapUyariMesaj, setKapUyariMesaj] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
-  // Grafik kaynağı: kendi (StockChart, sinyal overlay'li) veya TradingView widget
-  const [chartSource, setChartSource] = useState<'kendi' | 'tradingview'>('kendi');
+  // Grafik kaynağı: TradingView (varsayılan) veya kendi (StockChart, sinyal overlay'li)
+  const [chartSource, setChartSource] = useState<'kendi' | 'tradingview'>('tradingview');
   const [delayBannerDismissed, setDelayBannerDismissed] = useState(false);
   // Sprint 2 — Özel notlar
   const [traderNote, setTraderNote] = useState<string>('');

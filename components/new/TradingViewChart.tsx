@@ -90,9 +90,12 @@ export function TradingViewChart({ symbol, interval = 'D', height = 460, themeOv
         inner.style.width = '100%';
         container.appendChild(inner);
 
+        // autosize yerine açık boyut: modal/flex içinde autosize mount anında
+        // konteyneri 0 ölçüp iframe'i 0x0 bırakabiliyor. width:'100%' + sabit height sağlam.
         // eslint-disable-next-line no-new
         new TV.widget({
-          autosize: true,
+          width: '100%',
+          height,
           symbol: tvSymbol,
           interval,
           timezone: 'Europe/Istanbul',

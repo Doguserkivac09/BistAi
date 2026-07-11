@@ -6,6 +6,7 @@ import { RefreshCw, Diamond, Star, Zap, BarChart2, Filter, TrendingUp, TrendingD
 import type { LongTermResult, ValuationResult } from '@/app/api/uzun-vade-firsatlar/route';
 import type { HaftaninSecimiData } from '@/app/api/haftanin-secimi/route';
 import { MiniChart } from '@/components/MiniChart';
+import { SparklineChartButton } from '@/components/new/ChartModal';
 import { SecimiKart } from '@/components/SecimiKart';
 
 type Category = 'tumu' | 'cift_onay' | 'deger_firsati' | 'guclu_temel';
@@ -236,9 +237,11 @@ function UzunVadeKart({ r }: { r: LongTermResult }) {
         const prev20 = r.candles[r.candles.length - 20]?.close;
         const isPositive = last && prev20 ? last > prev20 : undefined;
         return (
-          <div className="overflow-hidden rounded-lg border border-border/30">
-            <MiniChart data={r.candles} height={44} positive={isPositive} />
-          </div>
+          <SparklineChartButton symbol={r.sembol} themeOverride="dark" title={r.sembol} className="block w-full">
+            <div className="overflow-hidden rounded-lg border border-border/30">
+              <MiniChart data={r.candles} height={44} positive={isPositive} />
+            </div>
+          </SparklineChartButton>
         );
       })()}
 
