@@ -53,9 +53,10 @@ const StockChart = lazy(() =>
   import('@/components/StockChart').then((mod) => ({ default: mod.StockChart }))
 );
 
-// Lazy-load TradingView Advanced Chart widget (harici tv.js — yalnız sekme açılınca yüklenir)
-const TradingViewChart = lazy(() =>
-  import('@/components/new/TradingViewChart').then((mod) => ({ default: mod.TradingViewChart }))
+// Lazy-load TradingView Advanced Charting Library grafiği (kendi UDF verimizle; kütüphane
+// yoksa SignalChart'a düşer). Yalnız grafik sekmesi açılınca yüklenir.
+const AdvancedChart = lazy(() =>
+  import('@/components/new/AdvancedChart').then((mod) => ({ default: mod.AdvancedChart }))
 );
 
 // ── Hero meta hesaplama yardımcıları ─────────────────────────────────
@@ -1054,7 +1055,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                             <span className="text-sm text-text-secondary">TradingView grafiği yükleniyor...</span>
                           </div>
                         }>
-                          <TradingViewChart symbol={sembol} height={500} themeOverride="dark" />
+                          <AdvancedChart symbol={sembol} height={500} themeOverride="dark" />
                         </Suspense>
                       </div>
                     ) : (

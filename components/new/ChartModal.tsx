@@ -11,9 +11,8 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { TradingViewChart } from '@/components/new/TradingViewChart';
+import { AdvancedChart } from '@/components/new/AdvancedChart';
 import { SignalChart } from '@/components/new/SignalChart';
-import { isTradingViewReliable } from '@/lib/tradingview-symbols';
 
 type ChartSource = 'tradingview' | 'bistai';
 
@@ -27,11 +26,9 @@ interface TradingViewModalProps {
 }
 
 export function TradingViewModal({ symbol, onClose, themeOverride, title }: TradingViewModalProps) {
-  // Akıllı varsayılan: TradingView güvenilir sembollerde (endeks/US/likit BIST) TradingView,
-  // gerisinde (küçük/az-işlemli BIST) kendi grafiğimiz. Kullanıcı toggle ile değiştirebilir.
-  const [source, setSource] = useState<ChartSource>(
-    isTradingViewReliable(symbol) ? 'tradingview' : 'bistai',
-  );
+  // AdvancedChart (TradingView pro UI + kendi verimiz) tüm sembollerde çalışır (kütüphane
+  // gelince). Varsayılan TradingView; "Basit" toggle'ı kendi SignalChart'ımızı gösterir.
+  const [source, setSource] = useState<ChartSource>('tradingview');
 
   // ESC ile kapat + body scroll kilidi
   useEffect(() => {
@@ -60,11 +57,11 @@ export function TradingViewModal({ symbol, onClose, themeOverride, title }: Trad
         <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-3">
           <span className="min-w-0 truncate font-manrope text-sm font-bold text-ink">{title ?? symbol}</span>
           <div className="flex items-center gap-2">
-            {/* Kaynak toggle: TradingView / BistAI */}
+            {/* Kaynak toggle: TradingView (pro) / Basit */}
             <div className="flex items-center gap-0.5 rounded-lg border border-hairline p-0.5">
               {([
                 { key: 'tradingview', label: 'TradingView' },
-                { key: 'bistai', label: 'BistAI' },
+                { key: 'bistai', label: 'Basit' },
               ] as const).map((opt) => (
                 <button
                   key={opt.key}
@@ -90,7 +87,7 @@ export function TradingViewModal({ symbol, onClose, themeOverride, title }: Trad
         </div>
         <div className="min-h-0 flex-1 p-3">
           {source === 'tradingview' ? (
-            <TradingViewChart symbol={symbol} height={520} themeOverride={themeOverride} />
+            <AdvancedChart symbol={symbol} height={520} themeOverride={themeOverride} />
           ) : (
             <SignalChart symbol={symbol} height={520} />
           )}
