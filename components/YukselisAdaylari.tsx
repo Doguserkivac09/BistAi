@@ -201,7 +201,7 @@ function AdayKart({ r }: { r: YukselisResult }) {
         const prev20 = r.candles[r.candles.length - 20]?.close;
         const isPositive = last && prev20 ? last > prev20 : undefined;
         return (
-          <SparklineChartButton symbol={r.sembol} themeOverride="dark" title={r.sembol} className="block w-full">
+          <SparklineChartButton symbol={r.sembol} title={r.sembol} className="block w-full">
             <div className="overflow-hidden rounded-lg border border-border/30">
               <MiniChart data={r.candles} height={44} positive={isPositive} />
             </div>

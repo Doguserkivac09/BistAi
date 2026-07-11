@@ -28,6 +28,50 @@ const BIST_INDEX_CODES = new Set([
 ]);
 
 /**
+ * TradingView'in ÜCRETSİZ embed widget'ında güvenilir biçimde VERİ gösterdiği likit BIST
+ * hisseleri (≈ BIST30/50 çekirdeği). Bu listedekiler + endeks + US → TradingView varsayılan;
+ * gerisi (küçük/az-işlemli) → kendi grafiğimiz (SignalChart, Yahoo verisiyle tam kapsam).
+ *
+ * ⚠️ Widget bulamadığı sembolde sessizce Apple'a düşüyor (yanıltıcı) ve bunu cross-origin
+ * tespit edemiyoruz → bu yüzden yalnız GÜVENİLİR bilinen likit isimler burada. Eksik büyük
+ * hisse olursa kullanıcı modaldaki toggle ile TradingView'e geçebilir (zarar yok).
+ */
+const BIST_TV_LIQUID = new Set([
+  // Bankalar
+  'AKBNK', 'GARAN', 'ISCTR', 'YKBNK', 'VAKBN', 'HALKB', 'TSKB',
+  // Holding
+  'KCHOL', 'SAHOL', 'ENKAI', 'ALARK', 'GSDHO', 'DOHOL',
+  // Havacılık & savunma
+  'THYAO', 'PGSUS', 'ASELS', 'TAVHL', 'OTKAR',
+  // Enerji & kimya
+  'TUPRS', 'PETKM', 'SASA', 'AKSEN', 'ENJSA', 'ODAS', 'GUBRF', 'HEKTS', 'AKSA', 'KONTR', 'ASTOR', 'EUPWR',
+  // Metal & sanayi
+  'EREGL', 'KRDMD', 'SISE', 'OYAKC', 'CIMSA', 'KOZAL', 'KOZAA', 'CEMTS',
+  // Otomotiv
+  'FROTO', 'TOASO', 'DOAS', 'TTRAK',
+  // Perakende & tüketici
+  'BIMAS', 'MGROS', 'SOKM', 'ULKER', 'CCOLA', 'MAVI', 'BIZIM',
+  // Beyaz eşya & dayanıklı
+  'ARCLK', 'VESTL', 'TKFEN',
+  // Telekom & teknoloji
+  'TCELL', 'TTKOM', 'KAREL', 'LOGO',
+  // GYO & inşaat
+  'EKGYO', 'ISGYO',
+]);
+
+/**
+ * Bu sembol için TradingView ücretsiz widget'ı güvenilir mi (veri gösterir mi)?
+ * true → TradingView varsayılan; false → kendi grafiğimiz (SignalChart) varsayılan.
+ */
+export function isTradingViewReliable(symbol: string): boolean {
+  const raw = symbol.trim().toUpperCase();
+  if (BIST_INDEX_CODES.has(raw)) return true;          // endeksler
+  if (isUSSymbol(raw)) return true;                     // US hisseleri
+  if (BIST_TV_LIQUID.has(raw)) return true;             // likit büyük BIST
+  return false;                                         // gerisi → kendi grafik
+}
+
+/**
  * VIOP vadeli kontrat kodu → underlying spot sembolü.
  * TradingView'de VIOP kontratlarının çoğunun temiz karşılığı yok; underlying'e düşeriz.
  * Örn. "F_XU0300825" (XU030 Ağustos vadeli) → "XU030" spot endeksi.

@@ -12,6 +12,10 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TradingViewChart } from '@/components/new/TradingViewChart';
+import { SignalChart } from '@/components/new/SignalChart';
+import { isTradingViewReliable } from '@/lib/tradingview-symbols';
+
+type ChartSource = 'tradingview' | 'bistai';
 
 interface TradingViewModalProps {
   symbol: string;
@@ -23,6 +27,12 @@ interface TradingViewModalProps {
 }
 
 export function TradingViewModal({ symbol, onClose, themeOverride, title }: TradingViewModalProps) {
+  // Akıllı varsayılan: TradingView güvenilir sembollerde (endeks/US/likit BIST) TradingView,
+  // gerisinde (küçük/az-işlemli BIST) kendi grafiğimiz. Kullanıcı toggle ile değiştirebilir.
+  const [source, setSource] = useState<ChartSource>(
+    isTradingViewReliable(symbol) ? 'tradingview' : 'bistai',
+  );
+
   // ESC ile kapat + body scroll kilidi
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -47,19 +57,43 @@ export function TradingViewModal({ symbol, onClose, themeOverride, title }: Trad
         className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-panel shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
-          <span className="font-manrope text-sm font-bold text-ink">{title ?? symbol} · TradingView</span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Kapat"
-            className="rounded-lg px-2 py-1 text-lg leading-none text-t3 hover:bg-fill"
-          >
-            ✕
-          </button>
+        <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-3">
+          <span className="min-w-0 truncate font-manrope text-sm font-bold text-ink">{title ?? symbol}</span>
+          <div className="flex items-center gap-2">
+            {/* Kaynak toggle: TradingView / BistAI */}
+            <div className="flex items-center gap-0.5 rounded-lg border border-hairline p-0.5">
+              {([
+                { key: 'tradingview', label: 'TradingView' },
+                { key: 'bistai', label: 'BistAI' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setSource(opt.key)}
+                  className={`rounded-md px-2 py-1 text-[11px] font-semibold transition-colors ${
+                    source === opt.key ? 'bg-ink text-onink' : 'text-t3 hover:text-ink'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Kapat"
+              className="rounded-lg px-2 py-1 text-lg leading-none text-t3 hover:bg-fill"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className="min-h-0 flex-1 p-3">
-          <TradingViewChart symbol={symbol} height={520} themeOverride={themeOverride} />
+          {source === 'tradingview' ? (
+            <TradingViewChart symbol={symbol} height={520} themeOverride={themeOverride} />
+          ) : (
+            <SignalChart symbol={symbol} height={520} />
+          )}
         </div>
       </div>
     </div>,

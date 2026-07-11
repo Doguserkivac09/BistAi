@@ -434,7 +434,7 @@ export function StockCard({
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col space-y-3 pb-2">
-        <SparklineChartButton symbol={signal.sembol} themeOverride="dark" title={signal.sembol} className="block w-full">
+        <SparklineChartButton symbol={signal.sembol} title={signal.sembol} className="block w-full">
           <MiniChart
             data={candleData}
             height={56}
