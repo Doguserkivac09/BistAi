@@ -48,15 +48,9 @@ import type { CompositeSignalResult } from '@/lib/composite-signal';
 import { InfoPopover } from '@/components/InfoPopover';
 import type { KapDuyuru } from '@/lib/kap';
 
-// Lazy-load chart component (lightweight-charts ~40KB gzipped)
-const StockChart = lazy(() =>
-  import('@/components/StockChart').then((mod) => ({ default: mod.StockChart }))
-);
-
-// Lazy-load TradingView Advanced Charting Library grafiği (kendi UDF verimizle; kütüphane
-// yoksa SignalChart'a düşer). Yalnız grafik sekmesi açılınca yüklenir.
-const AdvancedChart = lazy(() =>
-  import('@/components/new/AdvancedChart').then((mod) => ({ default: mod.AdvancedChart }))
+// Lazy-load interaktif grafik (çizim araçları + indikatörler + tam ekran; lightweight-charts)
+const InteractiveChart = lazy(() =>
+  import('@/components/new/InteractiveChart').then((mod) => ({ default: mod.InteractiveChart }))
 );
 
 // ── Hero meta hesaplama yardımcıları ─────────────────────────────────
@@ -216,8 +210,6 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const [kapSumLoading, setKapSumLoading] = useState(false);
   const [kapUyariMesaj, setKapUyariMesaj] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
-  // Grafik kaynağı: TradingView (varsayılan) veya kendi (StockChart, sinyal overlay'li)
-  const [chartSource, setChartSource] = useState<'kendi' | 'tradingview'>('tradingview');
   const [delayBannerDismissed, setDelayBannerDismissed] = useState(false);
   // Sprint 2 — Özel notlar
   const [traderNote, setTraderNote] = useState<string>('');
@@ -1020,63 +1012,24 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
               {/* ── SOL KOLON: Grafik + Sinyaller ──────────────────────────── */}
               <div className="lg:col-span-3 space-y-4">
 
-                {/* Fiyat grafik + RSI birleşik kart */}
+                {/* Fiyat grafik (interaktif: çizim araçları + indikatörler + tam ekran) */}
                 <Card className="overflow-hidden">
-                  <CardHeader className="py-2 px-3 flex-row items-center justify-between gap-2">
+                  <CardHeader className="py-2 px-3">
                     <CardTitle className="text-xs font-semibold uppercase tracking-widest text-text-muted">
                       Fiyat Grafiği &amp; Teknik Göstergeler
                     </CardTitle>
-                    {/* Grafik kaynağı toggle: kendi (sinyal overlay) / TradingView */}
-                    <div className="flex items-center gap-0.5 rounded-md border border-border/60 p-0.5">
-                      {([
-                        { key: 'kendi', label: 'Sinyalli' },
-                        { key: 'tradingview', label: 'TradingView' },
-                      ] as const).map((opt) => (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          onClick={() => setChartSource(opt.key)}
-                          className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                            chartSource === opt.key
-                              ? 'bg-surface text-text-primary'
-                              : 'text-text-muted hover:text-text-secondary'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
                   </CardHeader>
-                  <CardContent className="p-0">
-                    {chartSource === 'tradingview' ? (
-                      <div className="w-full p-2">
-                        <Suspense fallback={
-                          <div className="flex h-[500px] w-full items-center justify-center bg-surface/50">
-                            <span className="text-sm text-text-secondary">TradingView grafiği yükleniyor...</span>
-                          </div>
-                        }>
-                          <AdvancedChart symbol={sembol} height={500} themeOverride="dark" />
-                        </Suspense>
+                  <CardContent className="p-2">
+                    <Suspense fallback={
+                      <div className="flex h-[460px] w-full items-center justify-center bg-surface/50">
+                        <span className="text-sm text-text-secondary">Grafik yükleniyor...</span>
                       </div>
-                    ) : (
-                    <>
-                    <div className="h-[360px] w-full">
-                      <Suspense fallback={
-                        <div className="flex h-[360px] w-full items-center justify-center bg-surface/50">
-                          <span className="text-sm text-text-secondary">Grafik yükleniyor...</span>
-                        </div>
-                      }>
-                        <StockChart
-                          candles={candles}
-                          height={360}
-                          signals={signals}
-                          patterns={signals}
-                        />
-                      </Suspense>
-                    </div>
+                    }>
+                      <InteractiveChart candles={candles} symbol={sembol} height={420} themeOverride="dark" />
+                    </Suspense>
                     {/* Sinyal chips */}
                     {signals.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 border-y border-border/40 px-3 py-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2">
                         <span className="text-[11px] text-text-muted mr-1">Aktif:</span>
                         {signals.map((s) => (
                           <span
@@ -1094,17 +1047,6 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                           </span>
                         ))}
                       </div>
-                    )}
-                    <div className="h-[140px] w-full">
-                      <Suspense fallback={
-                        <div className="flex h-[140px] w-full items-center justify-center bg-surface/50">
-                          <span className="text-sm text-text-secondary">RSI yükleniyor...</span>
-                        </div>
-                      }>
-                        <StockChart candles={candles} showRsi height={140} />
-                      </Suspense>
-                    </div>
-                    </>
                     )}
                   </CardContent>
                 </Card>

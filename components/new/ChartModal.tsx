@@ -1,20 +1,16 @@
 'use client';
 
 /**
- * TradingView tam-grafik modal'ı + tıklanabilir sparkline sarmalayıcısı.
+ * Tam-grafik modal'ı + tıklanabilir sparkline sarmalayıcısı.
  *
- * Liste satırlarındaki küçük sparkline'lar (MiniChart / SVG) TradingView'e uygun değil
- * (satır başına bir iframe = perf çöker). Bunun yerine sparkline tıklanabilir olur;
- * tıklanınca TradingView tam grafiği MODAL'da açılır — iframe YALNIZ açılınca yüklenir,
- * liste performansı korunur. (Kullanıcı kararı 2026-07-11.)
+ * Liste satırlarındaki küçük sparkline'lar tıklanabilir olur; tıklanınca tam interaktif
+ * grafik (InteractiveChart — çizim araçları, indikatörler, mum/çizgi/alan) MODAL'da açılır.
+ * Grafik yalnız açılınca kurulur → liste performansı korunur.
  */
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AdvancedChart } from '@/components/new/AdvancedChart';
-import { SignalChart } from '@/components/new/SignalChart';
-
-type ChartSource = 'tradingview' | 'bistai';
+import { InteractiveChart } from '@/components/new/InteractiveChart';
 
 interface TradingViewModalProps {
   symbol: string;
@@ -26,10 +22,6 @@ interface TradingViewModalProps {
 }
 
 export function TradingViewModal({ symbol, onClose, themeOverride, title }: TradingViewModalProps) {
-  // AdvancedChart (TradingView pro UI + kendi verimiz) tüm sembollerde çalışır (kütüphane
-  // gelince). Varsayılan TradingView; "Basit" toggle'ı kendi SignalChart'ımızı gösterir.
-  const [source, setSource] = useState<ChartSource>('tradingview');
-
   // ESC ile kapat + body scroll kilidi
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -56,41 +48,17 @@ export function TradingViewModal({ symbol, onClose, themeOverride, title }: Trad
       >
         <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-3">
           <span className="min-w-0 truncate font-manrope text-sm font-bold text-ink">{title ?? symbol}</span>
-          <div className="flex items-center gap-2">
-            {/* Kaynak toggle: TradingView (pro) / Basit */}
-            <div className="flex items-center gap-0.5 rounded-lg border border-hairline p-0.5">
-              {([
-                { key: 'tradingview', label: 'TradingView' },
-                { key: 'bistai', label: 'Basit' },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setSource(opt.key)}
-                  className={`rounded-md px-2 py-1 text-[11px] font-semibold transition-colors ${
-                    source === opt.key ? 'bg-ink text-onink' : 'text-t3 hover:text-ink'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Kapat"
-              className="rounded-lg px-2 py-1 text-lg leading-none text-t3 hover:bg-fill"
-            >
-              ✕
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Kapat"
+            className="rounded-lg px-2 py-1 text-lg leading-none text-t3 hover:bg-fill"
+          >
+            ✕
+          </button>
         </div>
-        <div className="min-h-0 flex-1 p-3">
-          {source === 'tradingview' ? (
-            <AdvancedChart symbol={symbol} height={520} themeOverride={themeOverride} />
-          ) : (
-            <SignalChart symbol={symbol} height={520} />
-          )}
+        <div className="min-h-0 flex-1 overflow-auto p-3">
+          <InteractiveChart symbol={symbol} height={480} themeOverride={themeOverride} />
         </div>
       </div>
     </div>,
@@ -117,7 +85,7 @@ export function SparklineChartButton({ symbol, children, className, themeOverrid
       <button
         type="button"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
-        title="Tam grafik (TradingView)"
+        title="Tam grafik"
         className={`cursor-pointer border-0 bg-transparent p-0 text-left ${className ?? ''}`}
       >
         {children}
