@@ -514,7 +514,7 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
             <canvas
               ref={overlayRef}
               className="absolute inset-0 h-full w-full"
-              style={{ pointerEvents: tool === 'cursor' ? 'none' : 'auto', cursor: tool === 'cursor' ? 'default' : 'crosshair' }}
+              style={{ zIndex: 5, pointerEvents: tool === 'cursor' ? 'none' : 'auto', cursor: tool === 'cursor' ? 'default' : 'crosshair' }}
               onMouseDown={onOverlayDown} onMouseMove={onOverlayMove} onMouseUp={onOverlayUp}
             />
             {/* Legend */}
