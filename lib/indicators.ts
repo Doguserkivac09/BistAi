@@ -73,6 +73,25 @@ export function calculateBollingerBands(closes: number[], period = 20, mult = 2)
   return { upper, middle, lower };
 }
 
+/**
+ * VWAP (Volume Weighted Average Price) — kümülatif hacim ağırlıklı ortalama fiyat.
+ * Tipik fiyat = (high+low+close)/3. Yüklü aralığın başından kümülatif (anchored VWAP).
+ */
+export function calculateVWAP(
+  candles: { high: number; low: number; close: number; volume: number }[],
+): number[] {
+  const out: number[] = [];
+  let cumPV = 0, cumV = 0;
+  for (const c of candles) {
+    const typical = (c.high + c.low + c.close) / 3;
+    const v = c.volume ?? 0;
+    cumPV += typical * v;
+    cumV += v;
+    out.push(cumV > 0 ? cumPV / cumV : typical);
+  }
+  return out;
+}
+
 export interface MACDResult {
   macd: number[];     // fastEMA - slowEMA
   signal: number[];   // macd'nin EMA'sı

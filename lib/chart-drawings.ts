@@ -6,7 +6,7 @@
  * geri gelir. Migration YOK; anahtar `ie-chart-drawings:{SYMBOL}`.
  */
 
-export type DrawTool = 'cursor' | 'trend' | 'hline' | 'fib' | 'rect' | 'text';
+export type DrawTool = 'cursor' | 'trend' | 'hline' | 'fib' | 'rect' | 'text' | 'frvp';
 
 /** Veri-uzayı çapa: mum zamanı + fiyat. */
 export interface Anchor {
@@ -24,8 +24,9 @@ export interface HLineDrawing extends Base { tool: 'hline'; price: number; }
 export interface FibDrawing extends Base { tool: 'fib'; a: Anchor; b: Anchor; }
 export interface RectDrawing extends Base { tool: 'rect'; a: Anchor; b: Anchor; }
 export interface TextDrawing extends Base { tool: 'text'; at: Anchor; text: string; }
+export interface FrvpDrawing extends Base { tool: 'frvp'; a: Anchor; b: Anchor; } // Sabit Aralık Hacim Profili
 
-export type Drawing = TrendDrawing | HLineDrawing | FibDrawing | RectDrawing | TextDrawing;
+export type Drawing = TrendDrawing | HLineDrawing | FibDrawing | RectDrawing | TextDrawing | FrvpDrawing;
 
 /** Fibonacci retracement seviyeleri (0=başlangıç, 1=bitiş). */
 export const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
