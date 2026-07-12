@@ -95,13 +95,14 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
   const [ind, setInd] = useState({ ema: true, bb: false, ema50200: false, sr: false, rsi: false, macd: false });
   const [tool, setTool] = useState<DrawTool>('cursor');
   const [magnet, setMagnet] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [isFs, setIsFs] = useState(false);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [legend, setLegend] = useState<{ price?: string; change?: string; up?: boolean }>({});
   const [textInput, setTextInput] = useState<{ x: number; y: number; anchor: Anchor } | null>(null);
 
   // ── Refs ──
+  const rootRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const rsiRef = useRef<HTMLDivElement>(null);
@@ -223,13 +224,13 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
     const prevRange = chartRef.current?.timeScale().getVisibleLogicalRange();
 
     const chart = createChart(mainRef.current, {
-      layout: { background: { type: ColorType.Solid, color: C.bg }, textColor: C.text, fontFamily: 'var(--font-manrope), system-ui' },
+      layout: { background: { type: ColorType.Solid, color: C.bg }, textColor: C.text, fontFamily: 'var(--font-manrope), system-ui', attributionLogo: false },
       grid: { vertLines: { color: C.grid }, horzLines: { color: C.grid } },
       rightPriceScale: { borderColor: C.border, scaleMargins: { top: 0.1, bottom: 0.24 } },
       timeScale: { borderColor: C.border, timeVisible: true, secondsVisible: false },
       crosshair: { mode: tool === 'cursor' ? CrosshairMode.Normal : CrosshairMode.Magnet, vertLine: { labelVisible: true }, horzLine: { labelVisible: true } },
       width: mainRef.current.clientWidth,
-      height,
+      height: mainRef.current.clientHeight,
     });
 
     let priceSeries: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'> | ISeriesApi<'Area'>;
@@ -292,26 +293,42 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
     if (prevRange) chart.timeScale().setVisibleLogicalRange(prevRange); else chart.timeScale().fitContent();
     chartRef.current = chart;
 
-    // Overlay yeniden çizim tetikleyicileri
+    // Konteyner boyutu değişince (responsive + tam ekran) grafiği yeniden boyutlandır + overlay çiz
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => redraw());
-    const ro = new ResizeObserver(() => { chart.applyOptions({ width: mainRef.current!.clientWidth }); redraw(); });
+    const ro = new ResizeObserver(() => {
+      const el = mainRef.current; if (!el || !chartRef.current) return;
+      chartRef.current.resize(el.clientWidth, el.clientHeight);
+      redraw();
+    });
     ro.observe(mainRef.current);
     // ilk çizim
     requestAnimationFrame(redraw);
 
     return () => { ro.disconnect(); chart.remove(); chartRef.current = null; priceSeriesRef.current = null; };
+    // isFs: tam ekran geçişinde grafik konteyner boyutu değişir → yeniden kur (view korunur)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [norm, chartType, theme, height, ind.ema, ind.bb, ind.ema50200, ind.sr]);
+  }, [norm, chartType, theme, height, ind.ema, ind.bb, ind.ema50200, ind.sr, isFs]);
 
   // Seçim değişince yeniden çiz
   useEffect(() => { redraw(); }, [drawings, selectedId, redraw]);
+
+  // Konteyner boyutu / tam ekran değişince grafiği yeniden boyutlandır (RO'ya ek deterministik yol)
+  useEffect(() => {
+    const fit = () => {
+      const el = mainRef.current, chart = chartRef.current;
+      if (el && chart) { chart.resize(el.clientWidth, el.clientHeight); redraw(); }
+    };
+    const id = window.setTimeout(fit, 120);
+    window.addEventListener('resize', fit);
+    return () => { window.clearTimeout(id); window.removeEventListener('resize', fit); };
+  }, [isFs, redraw]);
 
   // ── RSI paneli ──
   useEffect(() => {
     if (!ind.rsi || !rsiRef.current || !norm.length) return;
     const rsi = calculateRSI(norm.map((c) => c.close), 14);
     const chart = createChart(rsiRef.current, {
-      layout: { background: { type: ColorType.Solid, color: C.bg }, textColor: C.text, fontFamily: 'var(--font-manrope), system-ui' },
+      layout: { background: { type: ColorType.Solid, color: C.bg }, textColor: C.text, fontFamily: 'var(--font-manrope), system-ui', attributionLogo: false },
       grid: { vertLines: { color: C.grid }, horzLines: { color: C.grid } },
       rightPriceScale: { borderColor: C.border }, timeScale: { borderColor: C.border, visible: false },
       width: rsiRef.current.clientWidth, height: 110,
@@ -333,7 +350,7 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
     if (!ind.macd || !macdRef.current || !norm.length) return;
     const { macd, signal, histogram } = calculateMACD(norm.map((c) => c.close));
     const chart = createChart(macdRef.current, {
-      layout: { background: { type: ColorType.Solid, color: C.bg }, textColor: C.text, fontFamily: 'var(--font-manrope), system-ui' },
+      layout: { background: { type: ColorType.Solid, color: C.bg }, textColor: C.text, fontFamily: 'var(--font-manrope), system-ui', attributionLogo: false },
       grid: { vertLines: { color: C.grid }, horzLines: { color: C.grid } },
       rightPriceScale: { borderColor: C.border }, timeScale: { borderColor: C.border, visible: false },
       width: macdRef.current.clientWidth, height: 110,
@@ -370,7 +387,7 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
     const rect = overlayRef.current!.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     const a = xyToAnchor(x, y, magnet); if (!a) return;
-    if (tool === 'hline') { persist([...drawingsRef.current, { id: newDrawingId(), tool: 'hline', color: TOK.ai, price: a.price }]); setTool('cursor'); return; }
+    if (tool === 'hline') { persist([...drawingsRef.current, { id: newDrawingId(), tool: 'hline', color: TOK.ai, price: a.price }]); return; }
     if (tool === 'text') { setTextInput({ x, y, anchor: a }); return; }
     draftRef.current = { tool, a, b: a }; redraw();
   };
@@ -384,9 +401,12 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
     const d = draftRef.current; if (!d) return;
     draftRef.current = null;
     if (d.tool === 'trend' || d.tool === 'fib' || d.tool === 'rect') {
-      persist([...drawingsRef.current, { id: newDrawingId(), tool: d.tool, color: TOK.ai, a: d.a, b: d.b } as Drawing]);
+      // sıfır-uzunluk (tıkla-bırak, sürüklemeden) → yok say
+      if (String(d.a.time) !== String(d.b.time) || d.a.price !== d.b.price) {
+        persist([...drawingsRef.current, { id: newDrawingId(), tool: d.tool, color: TOK.ai, a: d.a, b: d.b } as Drawing]);
+      }
     }
-    setTool('cursor'); redraw();
+    redraw();
   };
   const hitTestSelect = (e: React.MouseEvent) => {
     const rect = overlayRef.current!.getBoundingClientRect();
@@ -401,12 +421,23 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
     setSelectedId(found);
   };
 
-  const deleteSelected = () => { if (!selectedId) return; persist(drawingsRef.current.filter((d) => d.id !== selectedId)); setSelectedId(null); };
+  // Seçili varsa onu, yoksa son çizimi sil (cursor modunda overlay tıklaması pan'i engellemez)
+  const deleteSelected = () => {
+    const list = drawingsRef.current;
+    const targetId = selectedId ?? list[list.length - 1]?.id;
+    if (!targetId) return;
+    persist(list.filter((d) => d.id !== targetId));
+    setSelectedId(null);
+  };
   const clearAll = () => { persist([]); setSelectedId(null); };
 
-  // Delete tuşu
+  // Delete tuşu — seçili/son çizimi sil (input'ta yazarken değil)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId && !textInput) deleteSelected(); };
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+      if (e.key === 'Delete' && !textInput && drawingsRef.current.length) deleteSelected();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -414,15 +445,31 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
 
   const commitText = (text: string) => {
     if (textInput && text.trim()) persist([...drawingsRef.current, { id: newDrawingId(), tool: 'text', color: theme === 'dark' ? '#fff' : '#111', at: textInput.anchor, text: text.trim() }]);
-    setTextInput(null); setTool('cursor');
+    setTextInput(null);
   };
 
   const toggle = (k: keyof typeof ind) => setInd((s) => ({ ...s, [k]: !s[k] }));
 
+  // Tam ekran — isFs her zaman CSS fixed overlay'i sürer (güvenilir); Fullscreen API bonus.
+  const toggleFullscreen = () => {
+    const el = rootRef.current; if (!el) return;
+    if (!isFs) { setIsFs(true); el.requestFullscreen?.().catch(() => { /* CSS fallback yeterli */ }); }
+    else { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); setIsFs(false); }
+    setTimeout(redraw, 80);
+  };
+  useEffect(() => {
+    // ESC ile native fullscreen'den çıkınca isFs'i kapat
+    const onFsChange = () => { if (!document.fullscreenElement) { setIsFs(false); } setTimeout(redraw, 60); };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.fullscreenElement) setIsFs(false); };
+    document.addEventListener('fullscreenchange', onFsChange);
+    window.addEventListener('keydown', onEsc);
+    return () => { document.removeEventListener('fullscreenchange', onFsChange); window.removeEventListener('keydown', onEsc); };
+  }, [redraw]);
+
   const btn = (active: boolean) => `rounded-md px-2 py-1 text-[11px] font-semibold transition-colors ${active ? 'bg-ink text-onink' : 'text-t3 hover:text-ink hover:bg-fill'}`;
 
   return (
-    <div className={fullscreen ? 'fixed inset-0 z-[120] flex flex-col bg-panel p-3' : 'w-full'}>
+    <div ref={rootRef} className="flex w-full flex-col" style={isFs ? { position: 'fixed', inset: 0, zIndex: 130, height: '100vh', width: '100vw', background: theme === 'dark' ? '#0d0e12' : '#ffffff', padding: 12 } : undefined}>
       {/* Üst araç çubuğu */}
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         {/* Grafik tipi */}
@@ -437,8 +484,8 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
             <button key={k} type="button" onClick={() => toggle(k)} className={btn(ind[k])}>{l}</button>
           ))}
         </div>
-        <button type="button" onClick={() => setFullscreen((v) => !v)} className={`ml-auto ${btn(fullscreen)}`} title="Tam ekran">
-          {fullscreen ? '✕ Kapat' : '⛶ Tam ekran'}
+        <button type="button" onClick={toggleFullscreen} className={`ml-auto ${btn(isFs)}`} title="Tam ekran">
+          {isFs ? '✕ Kapat' : '⛶ Tam ekran'}
         </button>
       </div>
 
@@ -454,26 +501,22 @@ export function InteractiveChart({ candles: candlesProp, symbol, timeframe = '1d
           <div className="my-0.5 h-px bg-hairline" />
           <button type="button" title="Magnet (OHLC'ye yapış)" onClick={() => setMagnet((v) => !v)}
             className={`h-7 w-7 rounded-md text-[13px] transition-colors ${magnet ? 'bg-ai text-white' : 'text-t2 hover:bg-fill'}`}>🧲</button>
-          <button type="button" title="Seçili çizimi sil" onClick={deleteSelected} disabled={!selectedId}
+          <button type="button" title="Seçili/son çizimi sil" onClick={deleteSelected} disabled={!drawings.length}
             className="h-7 w-7 rounded-md text-[13px] text-t2 hover:bg-fill disabled:opacity-30">🗑</button>
           <button type="button" title="Tüm çizimleri temizle" onClick={clearAll} disabled={!drawings.length}
             className="h-7 w-7 rounded-md text-[11px] text-t2 hover:bg-fill disabled:opacity-30">⌫</button>
         </div>
 
         {/* Grafik alanı */}
-        <div className="min-w-0 flex-1">
-          <div className="relative w-full" style={{ height }}>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className={`relative w-full ${isFs ? 'min-h-0 flex-1' : ''}`} style={isFs ? undefined : { height }}>
             <div ref={mainRef} className="h-full w-full" />
             <canvas
               ref={overlayRef}
               className="absolute inset-0 h-full w-full"
-              style={{ pointerEvents: tool === 'cursor' && !selectedId ? 'none' : 'auto', cursor: tool === 'cursor' ? 'default' : 'crosshair' }}
+              style={{ pointerEvents: tool === 'cursor' ? 'none' : 'auto', cursor: tool === 'cursor' ? 'default' : 'crosshair' }}
               onMouseDown={onOverlayDown} onMouseMove={onOverlayMove} onMouseUp={onOverlayUp}
             />
-            {/* İmleç modunda seçim için overlay tıklanabilir kalsın */}
-            {tool === 'cursor' && (
-              <div className="absolute inset-0" style={{ pointerEvents: 'none' }} />
-            )}
             {/* Legend */}
             <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-2 rounded bg-panel/80 px-2 py-1 text-xs backdrop-blur">
               {legend.price && <span className="font-mono font-semibold text-ink">{legend.price}</span>}
