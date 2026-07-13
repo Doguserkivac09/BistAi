@@ -91,7 +91,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
         <sc-for list="{{ rest }}" as="o" hint-placeholder-count="5">
           <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px">
             <span class="mono" style="font:600 12px 'JetBrains Mono';color:#6b7280;width:16px">{{ o.rank }}</span>
-            <div class="mono" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#eef1f6">{{ o.tag }}</div>
+            <div class="mono" style="width:38px;height:38px;border-radius:11px;background:linear-gradient(140deg,rgba(139,143,255,0.24),rgba(107,111,245,0.1));border:1px solid rgba(139,143,255,0.22);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#e3e5ff">{{ o.tag }}</div>
             <div style="flex:1;min-width:0"><div style="font:700 14px Manrope;color:#f4f6fa">{{ o.sym }}</div><div style="font:500 11px Manrope;color:#9aa3b2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.catLabel }}</div></div>
             <svg width="52" height="24" viewBox="0 0 52 24" fill="none" style="flex-shrink:0"><path d="{{ o.spark }}" stroke="{{ o.chgColorDark }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <div style="text-align:right;width:56px;flex-shrink:0">
@@ -100,6 +100,10 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
             </div>
           </div>
         </sc-for>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:11px">
+        <div onClick="{{ ctlM.onMore }}" style="flex:1;height:44px;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.12);border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 13px Manrope;color:#f4f6fa;opacity:{{ ctlM.moreOpacity }};pointer-events:{{ ctlM.morePE }};cursor:{{ ctlM.moreCursor }}" style-hover="background:rgba(255,255,255,0.1)"><span>{{ ctlM.moreLabel }}</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#9aa3b2">{{ ctlM.remainingStr }}</span></div>
+        <div onClick="{{ ctlM.onLess }}" style="width:96px;flex-shrink:0;height:44px;border:1px solid rgba(255,255,255,0.12);border-radius:14px;display:flex;align-items:center;justify-content:center;font:700 13px Manrope;color:#9aa3b2;opacity:{{ ctlM.lessOpacity }};pointer-events:{{ ctlM.lessPE }};cursor:pointer" style-hover="color:#f4f6fa;background:rgba(255,255,255,0.05)">Daha az</div>
       </div>
       <div style="height:4px"></div>
     </div>
@@ -170,13 +174,17 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
           <sc-for list="{{ opps }}" as="o" hint-placeholder-count="6">
             <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);border-radius:12px" style-hover="background:rgba(255,255,255,0.04)">
               <span class="mono" style="width:28px;font:600 12px 'JetBrains Mono';color:#6b7280">{{ o.rank }}</span>
-              <div style="flex:1.6;display:flex;align-items:center;gap:12px;min-width:0"><div class="mono" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#eef1f6">{{ o.tag }}</div><div style="min-width:0"><div style="font:700 14px Manrope;color:#f4f6fa">{{ o.sym }}</div><div style="font:500 11px Manrope;color:#9aa3b2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div></div></div>
+              <div style="flex:1.6;display:flex;align-items:center;gap:12px;min-width:0"><div class="mono" style="width:38px;height:38px;border-radius:11px;background:linear-gradient(140deg,rgba(139,143,255,0.24),rgba(107,111,245,0.1));border:1px solid rgba(139,143,255,0.22);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#e3e5ff">{{ o.tag }}</div><div style="min-width:0"><div style="font:700 14px Manrope;color:#f4f6fa">{{ o.sym }}</div><div style="font:500 11px Manrope;color:#9aa3b2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div></div></div>
               <div style="flex:1.1"><svg width="70" height="26" viewBox="0 0 70 26" fill="none"><path d="{{ o.sparkD }}" stroke="{{ o.chgColorDark }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
               <span class="mono" style="flex:1;text-align:right;font:600 13px 'JetBrains Mono';color:#f4f6fa">{{ o.priceStr }}</span>
               <span class="mono" style="flex:1;text-align:right;font:600 13px 'JetBrains Mono';color:{{ o.chgColorDark }}">{{ o.chgStr }}</span>
               <div style="flex:1.6;display:flex;align-items:center;gap:11px;padding-left:20px"><div style="flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,0.1);overflow:hidden"><div style="width:{{ o.score }}%;height:100%;background:linear-gradient(90deg,#6b6ff5,#a6a9ff);border-radius:4px"></div></div><span class="mono" style="font:700 13px 'JetBrains Mono';color:#f4f6fa;width:26px">{{ o.score }}</span></div>
             </div>
           </sc-for>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <div onClick="{{ ctlD.onMore }}" style="flex:1;height:44px;background:rgba(255,255,255,0.05);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.12);border-radius:13px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 13px Manrope;color:#f4f6fa;opacity:{{ ctlD.moreOpacity }};pointer-events:{{ ctlD.morePE }};cursor:{{ ctlD.moreCursor }}" style-hover="background:rgba(255,255,255,0.1)"><span>{{ ctlD.moreLabel }}</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#9aa3b2">{{ ctlD.remainingStr }}</span></div>
+          <div onClick="{{ ctlD.onLess }}" style="width:120px;flex-shrink:0;height:44px;border:1px solid rgba(255,255,255,0.12);border-radius:13px;display:flex;align-items:center;justify-content:center;font:700 13px Manrope;color:#9aa3b2;opacity:{{ ctlD.lessOpacity }};pointer-events:{{ ctlD.lessPE }};cursor:pointer" style-hover="color:#f4f6fa;background:rgba(255,255,255,0.05)">Daha az</div>
         </div>
       </div>
 
@@ -278,7 +286,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
         <sc-for list="{{ rest }}" as="o" hint-placeholder-count="5">
           <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px">
             <span class="mono" style="font:600 12px 'JetBrains Mono';color:#9aa0ad;width:16px">{{ o.rank }}</span>
-            <div class="mono" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#16181d">{{ o.tag }}</div>
+            <div class="mono" style="width:38px;height:38px;border-radius:11px;background:linear-gradient(140deg,rgba(107,111,245,0.18),rgba(107,111,245,0.06));border:1px solid rgba(107,111,245,0.22);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#4448a8">{{ o.tag }}</div>
             <div style="flex:1;min-width:0"><div style="font:700 14px Manrope;color:#16181d">{{ o.sym }}</div><div style="font:500 11px Manrope;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.catLabel }}</div></div>
             <svg width="52" height="24" viewBox="0 0 52 24" fill="none" style="flex-shrink:0"><path d="{{ o.spark }}" stroke="{{ o.color }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <div style="text-align:right;width:56px;flex-shrink:0">
@@ -287,6 +295,10 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
             </div>
           </div>
         </sc-for>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:11px">
+        <div onClick="{{ ctlM.onMore }}" style="flex:1;height:44px;background:rgba(255,255,255,0.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.8);border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 13px Manrope;color:#16181d;opacity:{{ ctlM.moreOpacity }};pointer-events:{{ ctlM.morePE }};cursor:{{ ctlM.moreCursor }}" style-hover="background:rgba(255,255,255,0.75)"><span>{{ ctlM.moreLabel }}</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#6b7280">{{ ctlM.remainingStr }}</span></div>
+        <div onClick="{{ ctlM.onLess }}" style="width:96px;flex-shrink:0;height:44px;border:1px solid #e0e4ec;border-radius:14px;display:flex;align-items:center;justify-content:center;font:700 13px Manrope;color:#6b7280;opacity:{{ ctlM.lessOpacity }};pointer-events:{{ ctlM.lessPE }};cursor:pointer" style-hover="color:#16181d;background:rgba(255,255,255,0.6)">Daha az</div>
       </div>
       <div style="height:4px"></div>
     </div>
@@ -354,13 +366,17 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
           <sc-for list="{{ opps }}" as="o" hint-placeholder-count="6">
             <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(80,90,120,0.08);border-radius:12px" style-hover="background:rgba(255,255,255,0.5)">
               <span class="mono" style="width:28px;font:600 12px 'JetBrains Mono';color:#9aa0ad">{{ o.rank }}</span>
-              <div style="flex:1.6;display:flex;align-items:center;gap:12px;min-width:0"><div class="mono" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#16181d">{{ o.tag }}</div><div style="min-width:0"><div style="font:700 14px Manrope;color:#16181d">{{ o.sym }}</div><div style="font:500 11px Manrope;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div></div></div>
+              <div style="flex:1.6;display:flex;align-items:center;gap:12px;min-width:0"><div class="mono" style="width:38px;height:38px;border-radius:11px;background:linear-gradient(140deg,rgba(107,111,245,0.18),rgba(107,111,245,0.06));border:1px solid rgba(107,111,245,0.22);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#4448a8">{{ o.tag }}</div><div style="min-width:0"><div style="font:700 14px Manrope;color:#16181d">{{ o.sym }}</div><div style="font:500 11px Manrope;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.name }}</div></div></div>
               <div style="flex:1.1"><svg width="70" height="26" viewBox="0 0 70 26" fill="none"><path d="{{ o.sparkD }}" stroke="{{ o.color }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
               <span class="mono" style="flex:1;text-align:right;font:600 13px 'JetBrains Mono';color:#16181d">{{ o.priceStr }}</span>
               <span class="mono" style="flex:1;text-align:right;font:600 13px 'JetBrains Mono';color:{{ o.color }}">{{ o.chgStr }}</span>
               <div style="flex:1.6;display:flex;align-items:center;gap:11px;padding-left:20px"><div style="flex:1;height:7px;border-radius:4px;background:rgba(80,90,120,0.12);overflow:hidden"><div style="width:{{ o.score }}%;height:100%;background:linear-gradient(90deg,#6b6ff5,#8b8fff);border-radius:4px"></div></div><span class="mono" style="font:700 13px 'JetBrains Mono';color:#16181d;width:26px">{{ o.score }}</span></div>
             </div>
           </sc-for>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <div onClick="{{ ctlD.onMore }}" style="flex:1;height:44px;background:rgba(255,255,255,0.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.8);border-radius:13px;display:flex;align-items:center;justify-content:center;gap:8px;font:700 13px Manrope;color:#16181d;opacity:{{ ctlD.moreOpacity }};pointer-events:{{ ctlD.morePE }};cursor:{{ ctlD.moreCursor }}" style-hover="background:rgba(255,255,255,0.75)"><span>{{ ctlD.moreLabel }}</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#6b7280">{{ ctlD.remainingStr }}</span></div>
+          <div onClick="{{ ctlD.onLess }}" style="width:120px;flex-shrink:0;height:44px;border:1px solid #e0e4ec;border-radius:13px;display:flex;align-items:center;justify-content:center;font:700 13px Manrope;color:#6b7280;opacity:{{ ctlD.lessOpacity }};pointer-events:{{ ctlD.lessPE }};cursor:pointer" style-hover="color:#16181d;background:rgba(255,255,255,0.6)">Daha az</div>
         </div>
       </div>
 
@@ -418,6 +434,21 @@ class Component extends DCLogic {
   }
   fmt(n) { return n.toFixed(2).replace('.', ','); }
 
+  // aşamalı gösterim: 0 = ilk parti, 1 = ara parti, 2 = tümü
+  state = { levelM: 0, levelD: 0 };
+  STEP1 = 5; STEP2 = 10;
+
+  bumpM = () => this.setState(s => ({ levelM: Math.min(2, s.levelM + 1) }));
+  lessM = () => this.setState({ levelM: 0 });
+  bumpD = () => this.setState(s => ({ levelD: Math.min(2, s.levelD + 1) }));
+  lessD = () => this.setState({ levelD: 0 });
+
+  visCount(level, total) {
+    if (level <= 0) return Math.min(this.STEP1, total);
+    if (level === 1) return Math.min(this.STEP2, total);
+    return total;
+  }
+
   renderVals() {
     const up = '#16a35b', down = '#e5484d';
     const cats = { momentum: 'Momentum', smart: 'Akıllı para', catalyst: 'Katalist', dividend: 'Temettü' };
@@ -429,7 +460,14 @@ class Component extends DCLogic {
       { sym: 'THYAO', name: 'Türk Hava Yolları', price: 312.75, chg: 2.40, score: 84, cat: 'momentum', tags: ['Hacim', 'Trend'], reason: 'Yükselen trend hacimle destekli.', seed: 29 },
       { sym: 'FROTO', name: 'Ford Otosan', price: 1096.50, chg: 2.20, score: 82, cat: 'catalyst', tags: ['Katalist', 'Temettü'], reason: 'İhracat verisi güçlü; temettü beklentisi destekliyor.', seed: 37 },
       { sym: 'AKBNK', name: 'Akbank', price: 64.82, chg: 1.70, score: 79, cat: 'dividend', tags: ['Bankacılık', 'Temettü'], reason: 'Bankacılık pozitif ayrışıyor; temettü verimi cazip.', seed: 43 },
-      { sym: 'TUPRS', name: 'Tüpraş', price: 178.60, chg: 0.90, score: 68, cat: 'dividend', tags: ['Enerji', 'Temettü'], reason: 'Rafineri marjları stabil; defansif profil.', seed: 51 }
+      { sym: 'TCELL', name: 'Turkcell', price: 112.30, chg: 1.40, score: 74, cat: 'momentum', tags: ['Telekom', 'Trend'], reason: 'Yeni tarife geliri beklentisi; teknik olumlu.', seed: 47 },
+      { sym: 'KCHOL', name: 'Koç Holding', price: 218.40, chg: 1.20, score: 72, cat: 'smart', tags: ['Holding', 'Akıllı para'], reason: 'İştirak değerlemeleri destekliyor; kurumsal ilgi sürüyor.', seed: 55 },
+      { sym: 'TUPRS', name: 'Tüpraş', price: 178.60, chg: 0.90, score: 68, cat: 'dividend', tags: ['Enerji', 'Temettü'], reason: 'Rafineri marjları stabil; defansif profil.', seed: 51 },
+      { sym: 'EREGL', name: 'Ereğli Demir Çelik', price: 48.36, chg: 0.60, score: 64, cat: 'dividend', tags: ['Sanayi', 'Temettü'], reason: 'Çelik fiyatları toparlanıyor; verim cazip.', seed: 59 },
+      { sym: 'TOASO', name: 'Tofaş Oto', price: 246.80, chg: 0.40, score: 61, cat: 'catalyst', tags: ['Otomotiv', 'Katalist'], reason: 'İhracat sözleşmesi gündemde; izlenmeli.', seed: 63 },
+      { sym: 'MGROS', name: 'Migros', price: 486.25, chg: -0.30, score: 57, cat: 'smart', tags: ['Perakende'], reason: 'Kurumsal pay yatay; katalist bekleniyor.', seed: 67 },
+      { sym: 'ASELS', name: 'Aselsan', price: 78.45, chg: -0.80, score: 52, cat: 'momentum', tags: ['Savunma'], reason: 'Yatay seyir, hacim teyidi bekleniyor.', seed: 71 },
+      { sym: 'SASA', name: 'Sasa Polyester', price: 38.90, chg: -2.10, score: 44, cat: 'momentum', tags: ['Kimya'], reason: 'Trend zayıf; akıllı para çıkışı sürüyor.', seed: 73 }
     ];
 
     const C1 = 2 * Math.PI * 23, C2 = 2 * Math.PI * 24;
@@ -450,8 +488,27 @@ class Component extends DCLogic {
       };
     };
     const all = oRaw.map(enrich);
-    const opps = all;
-    const rest = all.slice(1);
+
+    // masaüstü tablo tüm listeyi kullanır (öne çıkan dahil), mobil öne çıkanı atlar
+    const restAll = all.slice(1);
+    const vD = this.visCount(this.state.levelD, all.length);
+    const vM = this.visCount(this.state.levelM, restAll.length);
+    const opps = all.slice(0, vD);
+    const rest = restAll.slice(0, vM);
+
+    const mkCtl = (level, vis, total, bump, less) => {
+      const more = vis < total, lessOn = level > 0;
+      return {
+        moreLabel: more ? (level === 0 ? 'Daha fazla göster' : 'Tümünü göster') : 'Tümü gösteriliyor',
+        remainingStr: more ? ('+' + (total - vis)) : '',
+        moreOpacity: more ? '1' : '0.4',
+        morePE: more ? 'auto' : 'none',
+        moreCursor: more ? 'pointer' : 'default',
+        lessOpacity: lessOn ? '1' : '0',
+        lessPE: lessOn ? 'auto' : 'none',
+        onMore: bump, onLess: less
+      };
+    };
 
     // öne çıkan (featured) = en yüksek skor
     const f = oRaw[0];
@@ -464,7 +521,11 @@ class Component extends DCLogic {
       spark2: this.linePath(fw, 284, 44, 4), sparkArea2: this.areaPath(fw, 284, 44, 4)
     };
 
-    return { opps, rest, feat };
+    return {
+      opps, rest, feat,
+      ctlM: mkCtl(this.state.levelM, vM, restAll.length, this.bumpM, this.lessM),
+      ctlD: mkCtl(this.state.levelD, vD, all.length, this.bumpD, this.lessD)
+    };
   }
 }
 </script>

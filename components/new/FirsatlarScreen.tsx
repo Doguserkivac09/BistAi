@@ -108,7 +108,7 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
       className="ie-glass flex items-center gap-3 rounded-[16px] px-3.5 py-3 transition-colors hover:border-white lg:gap-0 lg:rounded-[12px] lg:px-4 lg:py-3"
     >
       <span className="w-4 shrink-0 font-mono text-[12px] font-semibold text-t3 lg:w-7">{rank}</span>
-      <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] border border-white/70 bg-white/70 font-mono text-[11px] font-semibold text-ink lg:mr-3">
+      <span className="ie-tag flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] font-mono text-[11px] font-semibold lg:mr-3">
         {it.sembol.slice(0, 2)}
       </span>
       <div className="min-w-0 flex-1 lg:flex-[1.6]">
@@ -156,13 +156,18 @@ export function FirsatlarScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  const MAX = 50;
   const matched = useMemo(
     () => items.filter((it) => matchesFilter(it, filtre)).sort((a, b) => b.adjustedScore - a.adjustedScore),
     [items, filtre],
   );
   const featured = matched[0] ?? null;
-  const rest = matched.slice(1, MAX);
+  const rest = matched.slice(1);
+
+  // Aşamalı gösterim: 0 = ilk 5, 1 = 10, 2 = tümü. Filtre değişince sıfırlanır.
+  const STEP1 = 5, STEP2 = 10;
+  const [level, setLevel] = useState(0);
+  useEffect(() => { setLevel(0); }, [filtre]);
+  const visCount = (total: number) => (level <= 0 ? Math.min(STEP1, total) : level === 1 ? Math.min(STEP2, total) : total);
 
   // Öne çıkan sembol için gerçek OHLCV sparkline (tek çağrı, sembol değişince)
   useEffect(() => {
@@ -246,6 +251,33 @@ export function FirsatlarScreen() {
       })}
     </div>
   );
+
+  function MoreControls({ total }: { total: number }) {
+    if (total <= STEP1) return null;
+    const vis = visCount(total);
+    const more = vis < total;
+    const lessOn = level > 0;
+    return (
+      <div className="mt-2 flex gap-2.5">
+        <button
+          onClick={() => setLevel((l) => Math.min(2, l + 1))}
+          disabled={!more}
+          className="ie-glass-flat flex h-11 flex-1 items-center justify-center gap-2 rounded-[14px] text-[13px] font-bold text-ink transition-opacity hover:opacity-90 disabled:opacity-40"
+        >
+          <span>{more ? (level === 0 ? 'Daha fazla göster' : 'Tümünü göster') : 'Tümü gösteriliyor'}</span>
+          {more && <span className="font-mono text-[11px] font-semibold text-t3">+{total - vis}</span>}
+        </button>
+        {lessOn && (
+          <button
+            onClick={() => setLevel(0)}
+            className="h-11 w-[96px] shrink-0 rounded-[14px] border border-hairline text-[13px] font-bold text-t3 transition-colors hover:bg-fill hover:text-ink lg:w-[120px]"
+          >
+            Daha az
+          </button>
+        )}
+      </div>
+    );
+  }
 
   function FeaturedCard({ desktop }: { desktop?: boolean }) {
     if (!featured) return null;
@@ -385,20 +417,16 @@ export function FirsatlarScreen() {
                 <>
                   {/* Masaüstü: #1 dahil tam liste; Mobil: öne çıkan zaten üstte → kalanı */}
                   <div className="hidden lg:flex lg:flex-col lg:gap-1">
-                    {matched.slice(0, MAX).map((it, i) => <RadarRow key={it.sembol} it={it} rank={i + 1} />)}
+                    {matched.slice(0, visCount(matched.length)).map((it, i) => <RadarRow key={it.sembol} it={it} rank={i + 1} />)}
+                    <MoreControls total={matched.length} />
                   </div>
                   <div className="flex flex-col gap-2.5 lg:hidden">
-                    {rest.map((it, i) => <RadarRow key={it.sembol} it={it} rank={i + 2} />)}
+                    {rest.slice(0, visCount(rest.length)).map((it, i) => <RadarRow key={it.sembol} it={it} rank={i + 2} />)}
+                    <MoreControls total={rest.length} />
                   </div>
                 </>
               )}
             </div>
-
-            {!loading && matched.length > MAX && (
-              <p className="mt-1 text-center text-[12px] font-medium text-t3">
-                En yüksek skorlu {MAX} gösteriliyor · toplam {matched.length} fırsat
-              </p>
-            )}
           </div>
 
           {/* Sağ ray (masaüstü): öne çıkan + kategori dağılımı */}

@@ -350,6 +350,18 @@ footer {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 34px -18px rgba(80, 90, 120, 0.3);
 }
 
+/* Sembol etiket kutusu — AI mürdüm iç tint (Fırsatlar radar satırları) */
+.ie-tag {
+  background: linear-gradient(140deg, rgba(107, 111, 245, 0.18), rgba(107, 111, 245, 0.06));
+  border: 1px solid rgba(107, 111, 245, 0.22);
+  color: #4448a8;
+}
+.dark .ie-tag {
+  background: linear-gradient(140deg, rgba(139, 143, 255, 0.24), rgba(107, 111, 245, 0.1));
+  border-color: rgba(139, 143, 255, 0.22);
+  color: #e3e5ff;
+}
+
 /* Öne çıkan kart — yeşil→mürdüm iç tintli cam (Fırsatlar "Günün Fırsatı") */
 .ie-glass-feature {
   background: linear-gradient(140deg, rgba(22, 163, 91, 0.12), rgba(107, 111, 245, 0.1)),
