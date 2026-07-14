@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase-server';
 import { AppShell } from '@/components/new/AppShell';
 import { HisseDetayScreen } from '@/components/new/HisseDetayScreen';
-import { HisseDetailClient } from './HisseDetailClient';
 
 interface PageProps {
   params: { sembol: string };
@@ -22,10 +21,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// Yeni tasarım (açık/karanlık, liquid glass) — sade & profesyonel hero (fiyat,
-// büyük grafik, S/R, hacim, AI sinyal, istatistikler, Al/Sat). Altında eski
-// HisseDetailClient (hideHero) zengin sekmeleri (Teknik/AI Analiz/Temel/Haberler)
-// DEĞİŞMEDEN sunar — fonksiyon envanteri korunur, yalnız üst özet yeniden tasarlandı.
+// Yeni tasarım v2 (açık/karanlık, liquid glass, SEKMELİ) — HisseDetayScreen tek
+// başına 4 sekmeyi yönetir: Genel (yeni hero — mum grafik, S/R, AI sinyal) +
+// Teknik/Temel/Haberler (eski HisseDetailClient'in ilgili sekmesi, controlledTab
+// ile, DEĞİŞMEDEN) — fonksiyon envanteri korunur, yalnız kabuk sekmeli hale geldi.
 export default async function HisseDetailPage({ params }: PageProps) {
   const rawSembol = params.sembol;
   const sembol = (typeof rawSembol === 'string' ? rawSembol : '').toUpperCase();
@@ -64,17 +63,11 @@ export default async function HisseDetailPage({ params }: PageProps) {
   return (
     <AppShell>
       <div className="py-0 lg:px-7 lg:py-[22px]">
-        <HisseDetayScreen sembol={sembol} isInWatchlist={isInWatchlist} />
-
-        {/* Detaylı analiz — Teknik/AI/Temel/Haberler sekmeleri (mevcut, değişmedi) */}
-        <div className="mt-5 border-t border-hairline bg-surface-dark px-4 py-6 lg:rounded-[24px] lg:border lg:px-6">
-          <HisseDetailClient
-            sembol={sembol}
-            isInWatchlist={isInWatchlist}
-            savedSignalTypes={Array.from(savedSignalTypes)}
-            hideHero
-          />
-        </div>
+        <HisseDetayScreen
+          sembol={sembol}
+          isInWatchlist={isInWatchlist}
+          savedSignalTypes={Array.from(savedSignalTypes)}
+        />
       </div>
     </AppShell>
   );

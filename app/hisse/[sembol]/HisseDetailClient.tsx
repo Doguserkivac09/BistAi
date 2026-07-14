@@ -96,6 +96,15 @@ interface HisseDetailClientProps {
    * bu blokların tekrarını önlemek için true geçilir. Varsayılan false — eski
    * davranış (bağımsız kullanım) hiç değişmez. */
   hideHero?: boolean;
+  /** Dıştan sekme kontrolü (HisseDetayScreen'in v2 Genel/Teknik/Temel/Haberler
+   * sekme çubuğu için). Verilirse iç `activeTab` state'inin yerine geçer;
+   * verilmezse eski bağımsız davranış (iç sekme çubuğu + kendi state'i) aynen çalışır. */
+  controlledTab?: 'teknik' | 'analiz' | 'temel' | 'haberler';
+  /** İç sekme çubuğunu gizler (dış sekme çubuğu onun yerini aldığında). */
+  hideTabBar?: boolean;
+  /** İçerideki "Temel Veriler sekmesine git" gibi kısayol linkleri — controlledTab
+   * kullanılırken iç setActiveTab yerine bunu çağırır (dış sekmeyi değiştirir). */
+  onRequestTab?: (tab: 'teknik' | 'analiz' | 'temel' | 'haberler') => void;
 }
 
 // ── HisseAnalizResponse → CompositeSignalResult adaptörü ──────────────
@@ -182,7 +191,7 @@ function MetaCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hideHero = false }: HisseDetailClientProps) {
+export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hideHero = false, controlledTab, hideTabBar = false, onRequestTab }: HisseDetailClientProps) {
   // US borsası mı? Fiyat birimi ve fetch parametresini belirler
   const isUS = isUSSymbol(sembol);
   const market = isUS ? 'US' : 'BIST';
@@ -214,6 +223,9 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
   const [kapSumLoading, setKapSumLoading] = useState(false);
   const [kapUyariMesaj, setKapUyariMesaj] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'teknik' | 'analiz' | 'temel' | 'haberler'>('teknik');
+  // Dış sekme kontrolü (v2 Genel/Teknik/Temel/Haberler çubuğu) — verilmezse eski davranış
+  const effectiveTab = controlledTab ?? activeTab;
+  const requestTab = onRequestTab ?? setActiveTab;
   const [delayBannerDismissed, setDelayBannerDismissed] = useState(false);
   // Sprint 2 — Özel notlar
   const [traderNote, setTraderNote] = useState<string>('');
@@ -250,9 +262,11 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
     } catch { /* ignore */ }
   }, [NOTE_KEY]);
 
-  // ActiveTab URL persist (U11 fix)
+  // ActiveTab URL persist (U11 fix) — controlledTab kullanılırken dış bileşen
+  // sekmeyi yönetir; URL'i burada değiştirmiyoruz (çakışmayı önler).
   const didReadTabRef = useRef(false);
   useEffect(() => {
+    if (controlledTab !== undefined) return;
     if (didReadTabRef.current) return;
     didReadTabRef.current = true;
     if (typeof window === 'undefined') return;
@@ -260,9 +274,10 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
     if (tab === 'analiz' || tab === 'temel' || tab === 'haberler') {
       setActiveTab(tab);
     }
-  }, []);
+  }, [controlledTab]);
 
   useEffect(() => {
+    if (controlledTab !== undefined) return;
     if (!didReadTabRef.current || typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
     if (activeTab === 'teknik') sp.delete('tab');
@@ -270,7 +285,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
     const qs = sp.toString();
     const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     window.history.replaceState(null, '', url);
-  }, [activeTab]);
+  }, [activeTab, controlledTab]);
 
   // Geri butonu — referrer-aware (U10 fix)
   const backLink = useMemo(() => {
@@ -773,8 +788,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
             </div>
             )}
 
-            {/* ── Vade Bazlı Karar Kartı + Çelişki Uyarısı (B planı) ──── */}
-            {conflictAnalysis.type !== null && conflictAnalysis.techScore !== null && conflictAnalysis.fundScore !== null && (
+            {/* ── Vade Bazlı Karar Kartı + Çelişki Uyarısı (B planı) — hideHero'da atlanır: bu blok da "özet" alanına ait ── */}
+            {!hideHero && conflictAnalysis.type !== null && conflictAnalysis.techScore !== null && conflictAnalysis.fundScore !== null && (
               <div className="mb-6 space-y-3">
                 {/* Çelişki banner — sadece kritik durumlarda */}
                 {conflictAnalysis.type === 'tech-strong-fund-weak' && (
@@ -953,7 +968,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
               </div>
             )}
 
-            {/* ── Tab Bar ── */}
+            {/* ── Tab Bar (dış sekme çubuğu varken gizlenir) ── */}
+            {!hideTabBar && (
             <div className="mt-5 flex overflow-x-auto border-b border-border scrollbar-none">
               {([
                 { key: 'teknik',   label: 'Teknik', labelFull: 'Teknik Analiz', icon: '📊', badge: 0 },
@@ -982,9 +998,10 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
                 </button>
               ))}
             </div>
+            )}
 
             {/* ── Teknik Tab ── */}
-            {activeTab === 'teknik' && <>
+            {effectiveTab === 'teknik' && <>
 
             {/* ── Zaman dilimi seçici ──────────────────────────────────────── */}
             <div className="mt-4 mb-4 flex items-center">
@@ -1165,11 +1182,11 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
                     <InvestableScoreCard
                       sembol={sembol}
                       compact
-                      onCompactClick={() => setActiveTab('temel')}
+                      onCompactClick={() => requestTab('temel')}
                     />
                     <p className="mt-2 text-[10px] text-text-muted/70 text-center">
                       Detaylı analiz için <button
-                        onClick={() => setActiveTab('temel')}
+                        onClick={() => requestTab('temel')}
                         className="text-primary hover:underline"
                       >Temel Veriler</button> sekmesine git
                     </p>
@@ -1430,7 +1447,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
                     )}
                   </div>
                   <button
-                    onClick={() => setActiveTab('haberler')}
+                    onClick={() => requestTab('haberler')}
                     className="text-[11px] text-primary hover:underline"
                   >
                     Tümünü gör →
@@ -1481,7 +1498,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
             </> /* end activeTab === 'teknik' */}
 
             {/* ── AI Analiz Tab ── */}
-            {activeTab === 'analiz' && (
+            {effectiveTab === 'analiz' && (
               <div className="mt-6 space-y-4">
                 {/* AI Yorumu — full width prominent */}
                 <Card>
@@ -1565,7 +1582,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
             )}
 
             {/* ── Temel Tab ── */}
-            {activeTab === 'temel' && (
+            {effectiveTab === 'temel' && (
               <div className="mt-6 space-y-6">
                 {/* Investable Edge Yatırım Skoru — deterministik + AI yorum */}
                 <div>
@@ -1593,7 +1610,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
             )}
 
             {/* ── Haberler Tab ── */}
-            {activeTab === 'haberler' && (
+            {effectiveTab === 'haberler' && (
               <div className="mt-6 space-y-6">
 
             {/* ── Haber Fiyatlandı mı? (materyalite + event-study etki) ── */}

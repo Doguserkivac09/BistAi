@@ -1,18 +1,16 @@
 'use client';
 
 /**
- * "Hisse Detay" hero'su v2 (design_handoff_hisse_detay, liquid glass, sade & profesyonel).
- * Fiyat + büyük alan grafiği (gerçek S/R çizgileri + hacim şeridi + alım/satım
- * baskısı) + AI sinyal kartı + temel istatistikler + Al/Sat aksiyon çubuğu.
+ * "Hisse Detay" v2 (design_handoff_hisse_detay_v2, liquid glass, sekmeli).
+ * 4 sekme: Genel · Teknik · Temel · Haberler. Genel = fiyat + GERÇEK mum grafiği
+ * (OHLC + EMA20 + S/R çizgileri) + hacim şeridi + alım/satım baskısı + AI sinyal
+ * kartı + en güvenilir sinyal (backtest) rozeti + istatistikler + AI Analiz alt
+ * paneli. Teknik/Temel/Haberler = mevcut HisseDetailClient'in ilgili sekmesi
+ * (controlledTab), DEĞİŞMEDEN — fonksiyon envanteri korunur, yalnız kabuk yeni.
  *
- * Bu bileşen kendi verisini çeker (candles + /api/hisse-analiz); altında
- * HisseDetailClient (hideHero) zengin sekmeleri (Teknik/AI/Temel/Haberler)
- * DEĞİŞMEDEN sunmaya devam eder — fonksiyon kaybı yok, sadece üst özet
- * yeniden tasarlandı. Açık/karanlık tema (ie-glass* token sınıfları).
- *
- * Veri: /api/ohlcv (aralık grafiği + günlük istatistikler) + /api/hisse-analiz
- * (AI karar, güven, hedef, R/R'den türetilmiş risk, 90g yüksek/düşük).
- * S/R: lib/support-resistance calculateSRLevels (gerçek pivot analizi).
+ * Veri: /api/ohlcv (aralık grafiği + günlük istatistikler + sinyal tespiti için
+ * ~120 günlük seri) + /api/hisse-analiz (AI karar/güven/hedef) + /api/signal-stats
+ * (backtest kazanma oranı). S/R: lib/support-resistance. Sinyaller: lib/signals.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,16 +19,26 @@ import Link from 'next/link';
 import { isUSSymbol } from '@/lib/us-symbols';
 import { getSector } from '@/lib/sectors';
 import { calculateSRLevels } from '@/lib/support-resistance';
-import type { OHLCVCandle } from '@/types';
+import { detectAllSignals } from '@/lib/signals';
+import type { OHLCVCandle, StockSignal } from '@/types';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 import { addToWatchlist, removeFromWatchlist } from '@/app/hisse/[sembol]/actions';
 import { BrokerLinkButton } from '@/components/BrokerLinkButton';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
+import { HisseDetailClient } from '@/app/hisse/[sembol]/HisseDetailClient';
 import { toast } from 'sonner';
 
 type RangeKey = '1G' | '1H' | '1A' | '1Y' | 'Tümü';
 const RANGES: RangeKey[] = ['1G', '1H', '1A', '1Y', 'Tümü'];
 const RANGE_DAYS: Record<Exclude<RangeKey, '1G'>, number> = { '1H': 7, '1A': 30, '1Y': 365, Tümü: 365 };
+
+type OuterTab = 'genel' | 'teknik' | 'temel' | 'haberler';
+const TABS: { key: OuterTab; label: string }[] = [
+  { key: 'genel', label: 'Genel' },
+  { key: 'teknik', label: 'Teknik' },
+  { key: 'temel', label: 'Temel' },
+  { key: 'haberler', label: 'Haberler' },
+];
 
 const fmt = (v: number | null | undefined, d = 2) =>
   v == null ? '—' : v.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -43,29 +51,48 @@ const fmtVol = (v: number | null | undefined) => {
 };
 const pctColor = (v: number | null | undefined) => (v == null ? '#9aa0ad' : v >= 0 ? '#16a35b' : '#e5484d');
 
-function buildSpark(vals: number[], w: number, h: number, pad = 6) {
-  if (vals.length < 2) return { line: '', area: '', min: 0, max: 1 };
-  const min = Math.min(...vals), max = Math.max(...vals), rng = max - min || 1;
-  const pts = vals.map((v, i) => {
-    const x = pad + (i * (w - 2 * pad)) / (vals.length - 1);
-    const y = pad + (h - 2 * pad) * (1 - (v - min) / rng);
-    return `${x.toFixed(1)} ${y.toFixed(1)}`;
-  });
-  const line = 'M' + pts.join(' L');
-  return { line, area: `${line} L ${(w - pad).toFixed(1)} ${(h - pad).toFixed(1)} L ${pad.toFixed(1)} ${(h - pad).toFixed(1)} Z`, min, max };
-}
-
-async function fetchRangeCandles(sembol: string, key: RangeKey, isUS: boolean): Promise<OHLCVCandle[]> {
+async function fetchRangeCandles(sembol: string, key: RangeKey | 'signal', isUS: boolean): Promise<OHLCVCandle[]> {
   const marketQ = isUS ? '&market=US' : '';
   if (key === '1G') {
     const r = await fetch(`/api/ohlcv?symbol=${sembol}&tf=15m${marketQ}`);
     const d = await r.json();
     return d?.candles ?? [];
   }
-  const days = RANGE_DAYS[key];
+  const days = key === 'signal' ? 120 : RANGE_DAYS[key];
   const r = await fetch(`/api/ohlcv?symbol=${sembol}&days=${days}${marketQ}`);
   const d = await r.json();
   return d?.candles ?? [];
+}
+
+/** Standart EMA — k=2/(n+1), ilk değer SMA ile başlatılır. */
+function computeEMA(vals: number[], period: number): (number | null)[] {
+  if (vals.length < period) return vals.map(() => null);
+  const k = 2 / (period + 1);
+  const out: (number | null)[] = new Array(vals.length).fill(null);
+  let ema = vals.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  out[period - 1] = ema;
+  for (let i = period; i < vals.length; i++) { ema = vals[i]! * k + ema * (1 - k); out[i] = ema; }
+  return out;
+}
+
+/** Mum gövdesi + fitil geometrisi + fiyat→y dönüştürücü (EMA/S-R overlay aynı domain'i paylaşır). */
+function buildCandleGeometry(candles: OHLCVCandle[], w: number, h: number, pad: number) {
+  if (candles.length === 0) return null;
+  const highs = candles.map((c) => c.high), lows = candles.map((c) => c.low);
+  const min = Math.min(...lows), max = Math.max(...highs), rng = max - min || 1;
+  const n = candles.length;
+  const step = (w - 2 * pad) / n;
+  const y = (price: number) => pad + (h - 2 * pad) * (1 - (price - min) / rng);
+  const bars = candles.map((c, i) => {
+    const cx = pad + i * step + step / 2;
+    const bw = Math.max(1, step * 0.62);
+    const up = c.close >= c.open;
+    const bodyTop = y(Math.max(c.open, c.close));
+    const bodyBot = y(Math.min(c.open, c.close));
+    return { x: cx - bw / 2, w: bw, y: bodyTop, h: Math.max(1, bodyBot - bodyTop), wickX: cx, wickY1: y(c.high), wickY2: y(c.low), up };
+  });
+  const xAt = (i: number) => pad + i * step + step / 2;
+  return { bars, min, max, y, xAt, step };
 }
 
 function StarIcon({ filled }: { filled: boolean }) {
@@ -140,14 +167,23 @@ function QuickAddModal({ sembol, defaultFiyat, onClose, onSaved }: QuickAddModal
   );
 }
 
-export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; isInWatchlist: boolean }) {
+interface HisseDetayScreenProps {
+  sembol: string;
+  isInWatchlist: boolean;
+  savedSignalTypes: string[];
+}
+
+export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: HisseDetayScreenProps) {
   const router = useRouter();
   const isUS = isUSSymbol(sembol);
   const market: 'BIST' | 'US' = isUS ? 'US' : 'BIST';
 
+  const [tab, setTab] = useState<OuterTab>('genel');
   const [range, setRange] = useState<RangeKey>('1G');
   const [candles, setCandles] = useState<OHLCVCandle[]>([]);
   const [dailyCandles, setDailyCandles] = useState<OHLCVCandle[]>([]);
+  const [signalCandles, setSignalCandles] = useState<OHLCVCandle[]>([]);
+  const [winRateMap, setWinRateMap] = useState<Map<string, { rate: number; sampleSize: number }>>(new Map());
   const [analiz, setAnaliz] = useState<HisseAnalizResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [watching, setWatching] = useState(isInWatchlist);
@@ -165,11 +201,29 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
     return () => { cancelled = true; };
   }, [sembol, range, isUS]);
 
-  // Günlük istatistikler — aralık sekmesinden bağımsız, sabit (5 günlük mum)
+  // Günlük istatistikler — aralık sekmesinden bağımsız, sabit (1 haftalık mum)
   useEffect(() => {
     let cancelled = false;
     fetchRangeCandles(sembol, '1H', isUS)
       .then((c) => { if (!cancelled) setDailyCandles(c); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sembol, isUS]);
+
+  // "En güvenilir sinyal" için geniş pencere (120g) + backtest kazanma oranları
+  useEffect(() => {
+    let cancelled = false;
+    fetchRangeCandles(sembol, 'signal', isUS)
+      .then((c) => { if (!cancelled) setSignalCandles(c); })
+      .catch(() => {});
+    fetch('/api/signal-stats')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((stats: Array<{ signal_type: string; total_signals: number; horizon_7d: { win_rate: number | null } | null }>) => {
+        if (cancelled || !Array.isArray(stats)) return;
+        const map = new Map<string, { rate: number; sampleSize: number }>();
+        for (const s of stats) map.set(s.signal_type, { rate: s.horizon_7d?.win_rate ?? 0, sampleSize: s.total_signals });
+        setWinRateMap(map);
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [sembol, isUS]);
@@ -203,18 +257,26 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
   );
   const changeTL = currentPrice != null && changePercent != null ? currentPrice - currentPrice / (1 + changePercent / 100) : null;
 
-  // Grafik verisi (kapanışlar) + S/R + hacim + baskı — hepsi seçili aralıktan
-  const closes = candles.map((c) => c.close);
-  const spark = buildSpark(closes, 640, 260);
+  // Mum grafiği geometrisi + EMA20 + S/R — hepsi aynı fiyat domain'ini paylaşır
+  const geoMobile = useMemo(() => buildCandleGeometry(candles, 336, 184, 4), [candles]);
+  const geoDesktop = useMemo(() => buildCandleGeometry(candles, 640, 380, 6), [candles]);
+  const ema20 = useMemo(() => computeEMA(candles.map((c) => c.close), 20), [candles]);
+
+  function emaPath(geo: NonNullable<typeof geoMobile>): string {
+    const pts: string[] = [];
+    ema20.forEach((v, i) => { if (v != null) pts.push(`${pts.length ? 'L' : 'M'}${geo.xAt(i).toFixed(1)} ${geo.y(v).toFixed(1)}`); });
+    return pts.join(' ');
+  }
+
   const sr = useMemo(() => (candles.length >= 20 ? calculateSRLevels(candles) : null), [candles]);
-  const srLines = useMemo(() => {
-    if (!sr || spark.max === spark.min) return null;
+  function srLinesFor(geo: NonNullable<typeof geoMobile>) {
+    if (!sr) return null;
     const clamp = (p: number) => Math.max(4, Math.min(92, p));
-    const rng = spark.max - spark.min;
-    const res = sr.nearestResistance ? clamp(((spark.max - sr.nearestResistance.price) / rng) * 100) : null;
-    const sup = sr.nearestSupport ? clamp(((spark.max - sr.nearestSupport.price) / rng) * 100) : null;
+    const toPct = (price: number) => clamp(((geo.y(price)) / (geo === geoMobile ? 184 : 380)) * 100);
+    const res = sr.nearestResistance ? toPct(sr.nearestResistance.price) : null;
+    const sup = sr.nearestSupport ? toPct(sr.nearestSupport.price) : null;
     return { res, resPrice: sr.nearestResistance?.price ?? null, sup, supPrice: sr.nearestSupport?.price ?? null };
-  }, [sr, spark.max, spark.min]);
+  }
 
   const volBars = useMemo(() => {
     if (candles.length === 0) return [];
@@ -223,8 +285,7 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
     const step = 100 / n;
     return candles.map((c, i) => {
       const h = (c.volume / vmax) * 100;
-      const up = c.close >= c.open;
-      return { x: i * step + step * 0.15, w: step * 0.7, y: 100 - h, h, up };
+      return { x: i * step + step * 0.15, w: step * 0.7, y: 100 - h, h, up: c.close >= c.open };
     });
   }, [candles]);
 
@@ -244,6 +305,25 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
     return { label: 'Yüksek', color: '#e5484d' };
   }, [analiz]);
 
+  // En güvenilir sinyal — backtest kazanma oranı en yüksek, örneklem ≥10
+  const detectedSignals = useMemo<StockSignal[]>(
+    () => (signalCandles.length >= 50 ? detectAllSignals(sembol, signalCandles) : []),
+    [sembol, signalCandles]
+  );
+  const bestSignalStat = useMemo(() => {
+    if (detectedSignals.length === 0 || winRateMap.size === 0) return null;
+    type S = { sig: StockSignal; rate: number; n: number };
+    const stats: S[] = detectedSignals
+      .map((sig) => {
+        const wr = winRateMap.get(sig.type);
+        if (!wr || wr.sampleSize < 10) return null;
+        return { sig, rate: wr.rate, n: wr.sampleSize };
+      })
+      .filter((x): x is S => x !== null);
+    if (stats.length === 0) return null;
+    return stats.sort((a, b) => b.rate - a.rate)[0]!;
+  }, [detectedSignals, winRateMap]);
+
   const stats = [
     { k: 'Açılış', v: lastDaily ? `${fmt(lastDaily.open)} ₺` : '—' },
     { k: 'Önceki kapanış', v: prevDaily ? `${fmt(prevDaily.close)} ₺` : '—' },
@@ -260,38 +340,37 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
   const aiColor = analiz?.color ?? '#9aa0ad';
   const target1 = analiz?.priceTargets?.target1?.price ?? null;
 
-  const chartArea = (
-    <div className="relative flex-1 lg:min-h-0">
-      <svg width="100%" height="100%" viewBox="0 0 640 260" preserveAspectRatio="none" className="h-[184px] w-full lg:h-full">
-        <defs>
-          <linearGradient id="hd-curve" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={changePercent != null && changePercent < 0 ? 'rgba(229,72,77,0.22)' : 'rgba(22,163,91,0.24)'} />
-            <stop offset="1" stopColor="rgba(22,163,91,0)" />
-          </linearGradient>
-        </defs>
-        {spark.line && (
-          <>
-            <path d={spark.area} fill="url(#hd-curve)" />
-            <path d={spark.line} fill="none" stroke={changePercent != null && changePercent < 0 ? '#e5484d' : '#16a35b'} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-          </>
+  function Chart({ geo, height, viewW, viewH }: { geo: NonNullable<typeof geoMobile> | null; height: string; viewW: number; viewH: number }) {
+    if (!geo) return null;
+    const lines = srLinesFor(geo);
+    return (
+      <div className="relative flex-1 lg:min-h-0">
+        <svg width="100%" height="100%" viewBox={`0 0 ${viewW} ${viewH}`} preserveAspectRatio="none" className={`w-full ${height}`}>
+          {geo.bars.map((b, i) => (
+            <g key={i}>
+              <line x1={b.wickX} x2={b.wickX} y1={b.wickY1} y2={b.wickY2} stroke={b.up ? '#16a35b' : '#e5484d'} strokeWidth={1} />
+              <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={1} fill={b.up ? '#16a35b' : '#e5484d'} />
+            </g>
+          ))}
+          <path d={emaPath(geo)} fill="none" stroke="#c98a00" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+        </svg>
+        {lines?.res != null && (
+          <div className="absolute left-0 right-0 flex justify-end border-t border-dashed border-warn/50" style={{ top: `${lines.res}%` }}>
+            <span className="-translate-y-1/2 rounded-[4px] bg-panel/70 px-1.5 py-px font-mono text-[9px] font-semibold text-warn">
+              Direnç {fmt(lines.resPrice, 2)}
+            </span>
+          </div>
         )}
-      </svg>
-      {srLines?.res != null && (
-        <div className="absolute left-0 right-0 flex justify-end border-t border-dashed border-warn/50" style={{ top: `${srLines.res}%` }}>
-          <span className="-translate-y-1/2 rounded-[4px] bg-panel/70 px-1.5 py-px font-mono text-[9px] font-semibold text-warn">
-            Direnç {fmt(srLines.resPrice, 2)}
-          </span>
-        </div>
-      )}
-      {srLines?.sup != null && (
-        <div className="absolute left-0 right-0 flex justify-end border-t border-dashed border-ai/50" style={{ top: `${srLines.sup}%` }}>
-          <span className="-translate-y-1/2 rounded-[4px] bg-panel/70 px-1.5 py-px font-mono text-[9px] font-semibold text-ai">
-            Destek {fmt(srLines.supPrice, 2)}
-          </span>
-        </div>
-      )}
-    </div>
-  );
+        {lines?.sup != null && (
+          <div className="absolute left-0 right-0 flex justify-end border-t border-dashed border-ai/50" style={{ top: `${lines.sup}%` }}>
+            <span className="-translate-y-1/2 rounded-[4px] bg-panel/70 px-1.5 py-px font-mono text-[9px] font-semibold text-ai">
+              Destek {fmt(lines.supPrice, 2)}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const volumeStrip = (
     <div className="mt-1 flex h-[52px] flex-col lg:h-[60px]">
@@ -365,9 +444,27 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
     </div>
   );
 
+  const bestSignalCard = bestSignalStat && (
+    <div className="ie-glass rounded-[18px] px-[17px] py-[15px]">
+      <div className="flex items-center gap-2">
+        <span className="text-[14px]">🏆</span>
+        <span className="text-[13px] font-bold text-ink">En güvenilir sinyal</span>
+      </div>
+      <div className="mt-3 flex items-center gap-4">
+        <div className="font-mono text-[26px] font-bold" style={{ color: bestSignalStat.rate >= 0.6 ? '#16a35b' : bestSignalStat.rate >= 0.45 ? '#c98a00' : '#e5484d' }}>
+          %{Math.round(bestSignalStat.rate * 100)}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-[13px] font-bold text-ink">{bestSignalStat.sig.type}</div>
+          <div className="text-[11px] font-medium text-t3">{bestSignalStat.n} geçmiş sinyale göre · 7 günde</div>
+        </div>
+      </div>
+    </div>
+  );
+
   const statsCard = (
     <div className="ie-glass-flat flex flex-wrap rounded-[16px] px-4 py-1 lg:flex-col lg:gap-0 lg:rounded-[18px] lg:px-[18px] lg:py-1.5">
-      {stats.map((s, i) => (
+      {stats.map((s) => (
         <div key={s.k} className="flex w-1/2 items-center justify-between py-2.5 lg:hidden">
           <span className="text-[12px] font-medium text-t3">{s.k}</span>
           <span className="font-mono text-[13px] font-semibold text-ink">{s.v}</span>
@@ -382,8 +479,59 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
     </div>
   );
 
+  // İç kısayol linkleri (ör. "Temel Veriler sekmesine git") dış sekmeyi değiştirir
+  const onRequestInnerTab = useCallback((t: 'teknik' | 'analiz' | 'temel' | 'haberler') => {
+    setTab(t === 'analiz' ? 'genel' : t);
+  }, []);
+
+  const genelPane = (
+    <div className="flex flex-col gap-3.5 lg:flex-row lg:gap-6">
+      {/* Sol: fiyat + grafik + hacim + sekmeler + baskı */}
+      <div className="flex min-w-0 flex-col lg:flex-[1.9]">
+        <div className="flex items-end gap-4">
+          <div className="font-mono text-[34px] font-bold tracking-[-0.03em] text-ink lg:text-[40px]">
+            {currentPrice != null ? fmt(currentPrice) : '—'} <span className="text-[18px] text-t3 lg:text-[22px]">₺</span>
+          </div>
+          <div className="flex items-center gap-2 pb-1 lg:gap-2.5 lg:pb-2">
+            {changeTL != null && (
+              <span className="font-mono text-[14px] font-semibold" style={{ color: pctColor(changePercent) }}>
+                {changeTL >= 0 ? '+' : ''}{fmt(changeTL)} ₺
+              </span>
+            )}
+            <span className="font-mono text-[13px] font-semibold lg:text-[14px]" style={{ color: pctColor(changePercent) }}>
+              {changePercent != null ? `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%` : '—'}
+            </span>
+            <span className="text-[12px] font-medium text-t3 lg:text-[13px]">bugün</span>
+          </div>
+        </div>
+
+        {loading && candles.length === 0 ? (
+          <div className="ie-glass mt-3.5 h-[184px] animate-pulse rounded-[16px] lg:flex-1" />
+        ) : (
+          <div className="mt-3.5 flex flex-col lg:flex-1 lg:min-h-0">
+            <div className="lg:hidden"><Chart geo={geoMobile} height="h-[184px]" viewW={336} viewH={184} /></div>
+            <div className="hidden lg:flex lg:flex-1 lg:min-h-0"><Chart geo={geoDesktop} height="h-full" viewW={640} viewH={380} /></div>
+            {volumeStrip}
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4.5">
+          {timeframeTabs}
+          {pressureBar}
+        </div>
+      </div>
+
+      {/* Sağ ray (masaüstü) / altta (mobil): AI + en güvenilir sinyal + istatistikler */}
+      <div className="mt-3.5 flex flex-col gap-3.5 lg:mt-0 lg:w-[320px] lg:shrink-0">
+        {aiCard}
+        {bestSignalCard}
+        {statsCard}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="ie-ambient relative overflow-hidden rounded-b-[0px] lg:rounded-[24px]">
+    <div className="ie-ambient relative overflow-hidden lg:rounded-[24px]">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="absolute -left-[40px] -top-[50px] h-[250px] w-[300px] blur-[24px]" style={{ background: 'radial-gradient(circle,rgba(22,163,91,0.18),rgba(22,163,91,0) 68%)' }} />
         <div className="absolute -right-[70px] top-5 h-[240px] w-[280px] blur-[26px]" style={{ background: 'radial-gradient(circle,rgba(107,111,245,0.15),rgba(107,111,245,0) 66%)' }} />
@@ -391,7 +539,7 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
 
       <div className="relative flex flex-col">
         {/* Header */}
-        <div className="flex items-center gap-3.5 px-5 pb-3 pt-4 lg:px-7 lg:py-0 lg:h-[68px] lg:border-b lg:border-hairline">
+        <div className="flex items-center gap-3.5 px-5 pb-3 pt-4 lg:h-[68px] lg:border-b lg:border-hairline lg:px-7 lg:py-0">
           <button onClick={() => router.back()} aria-label="Geri" className="text-ink">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
@@ -420,46 +568,49 @@ export function HisseDetayScreen({ sembol, isInWatchlist }: { sembol: string; is
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-3.5 px-5 pb-4 lg:flex-row lg:gap-6 lg:px-7 lg:py-6">
-          {/* Sol: fiyat + grafik + hacim + sekmeler + baskı */}
-          <div className="flex min-w-0 flex-col lg:flex-[1.9]">
-            <div className="flex items-end gap-4">
-              <div className="font-mono text-[34px] font-bold tracking-[-0.03em] text-ink lg:text-[40px]">
-                {currentPrice != null ? fmt(currentPrice) : '—'} <span className="text-[18px] text-t3 lg:text-[22px]">₺</span>
-              </div>
-              <div className="flex items-center gap-2 pb-1 lg:gap-2.5 lg:pb-2">
-                {changeTL != null && (
-                  <span className="font-mono text-[14px] font-semibold" style={{ color: pctColor(changePercent) }}>
-                    {changeTL >= 0 ? '+' : ''}{fmt(changeTL)} ₺
-                  </span>
-                )}
-                <span className="font-mono text-[13px] font-semibold lg:text-[14px]" style={{ color: pctColor(changePercent) }}>
-                  {changePercent != null ? `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%` : '—'}
-                </span>
-                <span className="text-[12px] font-medium text-t3 lg:text-[13px]">bugün</span>
-              </div>
+        {/* Sekme çubuğu — Genel · Teknik · Temel · Haberler */}
+        <div className="flex gap-1 overflow-x-auto border-b border-hairline px-5 lg:px-7">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`shrink-0 border-b-2 px-3.5 py-3 text-[13px] font-bold transition-colors lg:px-4 lg:text-[14px] ${
+                tab === t.key ? 'border-up text-ink' : 'border-transparent text-t3 hover:text-ink'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="px-5 py-4 lg:px-7 lg:py-6">
+          {tab === 'genel' && (
+            <div className="flex flex-col gap-4">
+              {genelPane}
+              {/* AI Analiz derinliği (Kompozit Karar + Teknik Adil Değer) — legacy 'analiz' sekmesi, değişmedi */}
+              <HisseDetailClient
+                sembol={sembol}
+                isInWatchlist={isInWatchlist}
+                savedSignalTypes={savedSignalTypes}
+                hideHero
+                hideTabBar
+                controlledTab="analiz"
+                onRequestTab={onRequestInnerTab}
+              />
             </div>
-
-            {loading && candles.length === 0 ? (
-              <div className="ie-glass mt-3.5 h-[184px] animate-pulse rounded-[16px] lg:flex-1" />
-            ) : (
-              <div className="mt-3.5 flex flex-col lg:flex-1 lg:min-h-0">
-                {chartArea}
-                {volumeStrip}
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4.5">
-              {timeframeTabs}
-              {pressureBar}
-            </div>
-          </div>
-
-          {/* Sağ ray (masaüstü) / altta (mobil): AI + istatistikler */}
-          <div className="mt-3.5 flex flex-col gap-3.5 lg:mt-0 lg:w-[320px] lg:shrink-0">
-            {aiCard}
-            {statsCard}
-          </div>
+          )}
+          {tab !== 'genel' && (
+            <HisseDetailClient
+              key={tab}
+              sembol={sembol}
+              isInWatchlist={isInWatchlist}
+              savedSignalTypes={savedSignalTypes}
+              hideHero
+              hideTabBar
+              controlledTab={tab}
+              onRequestTab={onRequestInnerTab}
+            />
+          )}
         </div>
 
         {/* Al/Sat aksiyon çubuğu — mobil */}

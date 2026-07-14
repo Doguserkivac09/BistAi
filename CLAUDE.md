@@ -81,17 +81,20 @@ Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Ko
   — SSS + arama; formasyon/sinyal rehber içeriği KORUNDU, `/yardim/*` alt sayfaları eski temada).
   `lib/new-design-routes.ts` artık 3 liste: prefix + `NEW_DESIGN_EXACT` (/yardim) +
   `NEW_DESIGN_CHILD_ONLY` (/sektorler).
-- ✅ TAMAMLANDI (2026-07-09): **Hisse Detay** (`/hisse/[sembol]`) — `HisseDetayScreen` (yeni, liquid
-  glass "sade & profesyonel" hero: fiyat + büyük alan grafiği + GERÇEK S/R çizgileri
-  (`calculateSRLevels`) + hacim şeridi + alım/satım baskısı (up/down hacim oranı) + AI sinyal kartı
-  (`/api/hisse-analiz`: karar/güven/hedef/R-R'den risk) + istatistikler + Al (hızlı pozisyon modalı,
-  `/api/portfolyo`) / Sat (→`/portfolyo`) + yıldız/broker/alarm aksiyonları) + kendi zaman aralığı
-  sekmeleri (1G/1H/1A/1Y/Tümü, `/api/ohlcv`). **Fonksiyon kaybı YOK:** `HisseDetailClient`'e cerrahi
-  `hideHero` prop'u eklendi (varsayılan false, davranış değişmedi); eski zengin gövde (Teknik/AI
-  Analiz/Temel/Haberler sekmeleri, MTF tablosu, sinyal geçmişi, peer karşılaştırma, özel notlar — 1740
-  satır) DEĞİŞTİRİLMEDEN yeni hero'nun altında `bg-surface-dark` panelde sunulmaya devam ediyor.
-  Bilinen ödün: yeni hero + eski panel candles/analiz'i BAĞIMSIZ çeker (2x network call) — optimize
-  edilebilir ama yanlış değil.
+- ✅ TAMAMLANDI (2026-07-09): **Hisse Detay** (`/hisse/[sembol]`) — v1 "sade & profesyonel" tek-sayfa
+  hero olarak başladı; aynı gün **v2 SEKMELİ** mimariye geçirildi (`design_handoff_hisse_detay_v2`).
+  `HisseDetayScreen` artık 4 sekmeyi yönetir: **Genel** (yeni — fiyat + GERÇEK mum grafiği
+  (open/high/low/close) + EMA20 overlay + GERÇEK S/R çizgileri (`calculateSRLevels`) + hacim şeridi +
+  alım/satım baskısı (up/down hacim oranı) + AI sinyal kartı (`/api/hisse-analiz`) + **En güvenilir
+  sinyal** backtest rozeti (`detectAllSignals` + `/api/signal-stats`, gerçek kazanma oranı) +
+  istatistikler + Al/Sat) · **Teknik/Temel/Haberler** = `HisseDetailClient`'in ilgili sekmesi,
+  DEĞİŞMEDEN. **Fonksiyon kaybı YOK:** `HisseDetailClient`'e cerrahi prop'lar eklendi — `hideHero`
+  (eski breadcrumb/banner/hero/çelişki-kartı bloklarını gizler), `controlledTab` (dış sekme iç
+  `activeTab` state'inin yerine geçer), `hideTabBar` (iç sekme çubuğunu gizler), `onRequestTab`
+  (iç kısayol linkleri — "Temel Veriler sekmesine git" vb. — dış sekmeyi değiştirir). Uncontrolled
+  kullanım (prop'lar verilmezse) davranışı hiç değişmedi. `analiz` iç sekmesi (Kompozit Karar +
+  Teknik Adil Değer) artık dış "Genel" sekmesinin altına gömülü. Her dış sekme geçişinde tek bir
+  `HisseDetailClient` instance mount/unmount olur (4'ü birden asla paralel çekmez).
 - Ekran-ekran geçişte yeni→eski sayfa link karışımı NORMAL (eski navbar eski sayfalarda görünür;
   tüm ekranlar geçince eski kabuk tamamen kaldırılacak).
 - **Bilinen:** preview `screenshot` aracı bu oturumda uzun yeni-tasarım sayfalarında zaman aşımına
