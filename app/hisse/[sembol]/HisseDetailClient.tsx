@@ -105,6 +105,9 @@ interface HisseDetailClientProps {
   /** İçerideki "Temel Veriler sekmesine git" gibi kısayol linkleri — controlledTab
    * kullanılırken iç setActiveTab yerine bunu çağırır (dış sekmeyi değiştirir). */
   onRequestTab?: (tab: 'teknik' | 'analiz' | 'temel' | 'haberler') => void;
+  /** Gelişmiş (pro) görünüm. false (Basit, varsayılan) → detay bölümleri gizlenir;
+   * true → tüm advanced bölümler görünür. HisseDetayScreen'in Basit/Gelişmiş toggle'ı besler. */
+  advanced?: boolean;
 }
 
 // ── HisseAnalizResponse → CompositeSignalResult adaptörü ──────────────
@@ -191,7 +194,7 @@ function MetaCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hideHero = false, controlledTab, hideTabBar = false, onRequestTab }: HisseDetailClientProps) {
+export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hideHero = false, controlledTab, hideTabBar = false, onRequestTab, advanced = false }: HisseDetailClientProps) {
   // US borsası mı? Fiyat birimi ve fetch parametresini belirler
   const isUS = isUSSymbol(sembol);
   const market = isUS ? 'US' : 'BIST';
@@ -1167,6 +1170,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
                   </Card>
                 )}
 
+                {/* ── Gelişmiş (pro) blok: Basit modda gizli ── */}
+                {advanced && (<>
                 {/* Investable Edge Yatırım Skoru (kompakt) — Temel tab'a yönlendir */}
                 <Card>
                   <CardHeader className="py-2 px-3 pb-0">
@@ -1330,6 +1335,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
                     </Card>
                   );
                 })()}
+                </>)}
+                {/* ── /Gelişmiş blok ── */}
 
                 {/* W7 — Özel Notlar (private, localStorage) */}
                 <Card>
@@ -1409,6 +1416,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
               </div>
             </div>
 
+            {/* ── TAM GENİŞLİK Gelişmiş bloklar: MTF + Sinyal Geçmişi (Basit'te gizli) ── */}
+            {advanced && (<>
             {/* ── TAM GENİŞLİK: MTF Sinyal Tablosu ───────────────────────── */}
             <div className="mt-6">
               <SectionHeader>Çoklu Zaman Dilimi Analizi</SectionHeader>
@@ -1431,6 +1440,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
                 <SinyalGecmisi sembol={sembol} />
               </div>
             </div>
+            </>)}
+            {/* ── /TAM GENİŞLİK Gelişmiş bloklar ── */}
 
             {/* ── Teknik Tab — Mini Haber Widget ── */}
             {!haberLoading && haberler.length > 0 && (
@@ -1595,6 +1606,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
                   <InvestableScoreCard sembol={sembol} />
                 </div>
                 <TemelAnalizKarti sembol={sembol} currentPrice={candles[candles.length - 1]?.close} />
+                {/* ── Gelişmiş (pro) temel analiz — Basit modda gizli ── */}
+                {advanced && (<>
                 <FinansalSaglik sembol={sembol} market={market} />
                 <PeerDegerleme sembol={sembol} market={market} />
                 <GelecekGorunumu sembol={sembol} market={market} />
@@ -1606,6 +1619,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hid
                   </p>
                   <TakasKarti sembol={sembol} />
                 </div>
+                </>)}
               </div>
             )}
 

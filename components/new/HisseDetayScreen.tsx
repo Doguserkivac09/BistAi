@@ -179,6 +179,10 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
   const market: 'BIST' | 'US' = isUS ? 'US' : 'BIST';
 
   const [tab, setTab] = useState<OuterTab>('genel');
+  // Basit (casual) ↔ Gelişmiş (pro) görünüm — tercih localStorage'da; varsayılan Basit.
+  const [advanced, setAdvanced] = useState(false);
+  useEffect(() => { try { setAdvanced(localStorage.getItem('ie-hisse-advanced') === '1'); } catch { /* yoksay */ } }, []);
+  const setMode = useCallback((v: boolean) => { setAdvanced(v); try { localStorage.setItem('ie-hisse-advanced', v ? '1' : '0'); } catch { /* yoksay */ } }, []);
   const [range, setRange] = useState<RangeKey>('1G');
   const [candles, setCandles] = useState<OHLCVCandle[]>([]);
   const [dailyCandles, setDailyCandles] = useState<OHLCVCandle[]>([]);
@@ -568,35 +572,64 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
           </div>
         </div>
 
-        {/* Sekme çubuğu — Genel · Teknik · Temel · Haberler */}
-        <div className="flex gap-1 overflow-x-auto border-b border-hairline px-5 lg:px-7">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`shrink-0 border-b-2 px-3.5 py-3 text-[13px] font-bold transition-colors lg:px-4 lg:text-[14px] ${
-                tab === t.key ? 'border-up text-ink' : 'border-transparent text-t3 hover:text-ink'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        {/* Sekme çubuğu — Genel · Teknik · Temel · Haberler + Basit/Gelişmiş toggle */}
+        <div className="flex items-center justify-between gap-2 border-b border-hairline px-5 lg:px-7">
+          <div className="flex gap-1 overflow-x-auto">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`shrink-0 border-b-2 px-3.5 py-3 text-[13px] font-bold transition-colors lg:px-4 lg:text-[14px] ${
+                  tab === t.key ? 'border-up text-ink' : 'border-transparent text-t3 hover:text-ink'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {/* Basit ↔ Gelişmiş görünüm — casual kullanıcı sade, pro trader detaylı */}
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-fill p-0.5" role="group" aria-label="Görünüm modu">
+            {([[false, 'Basit'], [true, 'Gelişmiş']] as const).map(([v, l]) => (
+              <button
+                key={l}
+                onClick={() => setMode(v)}
+                aria-pressed={advanced === v}
+                title={v ? 'Tüm analiz detayları' : 'Sade görünüm'}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                  advanced === v ? 'bg-panel text-ink shadow-[0_1px_3px_rgba(0,0,0,0.12)]' : 'text-t3 hover:text-ink'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="px-5 py-4 lg:px-7 lg:py-6">
           {tab === 'genel' && (
             <div className="flex flex-col gap-4">
               {genelPane}
-              {/* AI Analiz derinliği (Kompozit Karar + Teknik Adil Değer) — legacy 'analiz' sekmesi, değişmedi */}
-              <HisseDetailClient
-                sembol={sembol}
-                isInWatchlist={isInWatchlist}
-                savedSignalTypes={savedSignalTypes}
-                hideHero
-                hideTabBar
-                controlledTab="analiz"
-                onRequestTab={onRequestInnerTab}
-              />
+              {/* AI Analiz derinliği (Kompozit Karar + Teknik Adil Değer) — yalnız Gelişmiş modda */}
+              {advanced && (
+                <HisseDetailClient
+                  sembol={sembol}
+                  isInWatchlist={isInWatchlist}
+                  savedSignalTypes={savedSignalTypes}
+                  hideHero
+                  hideTabBar
+                  controlledTab="analiz"
+                  onRequestTab={onRequestInnerTab}
+                  advanced
+                />
+              )}
+              {!advanced && (
+                <button
+                  onClick={() => setMode(true)}
+                  className="mx-auto rounded-full border border-hairline bg-fill px-4 py-2 text-[12px] font-semibold text-t2 transition-colors hover:text-ink"
+                >
+                  ✦ Gelişmiş analiz — kompozit karar, adil değer, temel &amp; teknik detaylar
+                </button>
+              )}
             </div>
           )}
           {tab !== 'genel' && (
@@ -609,6 +642,7 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
               hideTabBar
               controlledTab={tab}
               onRequestTab={onRequestInnerTab}
+              advanced={advanced}
             />
           )}
         </div>
