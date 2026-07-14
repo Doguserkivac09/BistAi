@@ -95,6 +95,14 @@ Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Ko
   kullanım (prop'lar verilmezse) davranışı hiç değişmedi. `analiz` iç sekmesi (Kompozit Karar +
   Teknik Adil Değer) artık dış "Genel" sekmesinin altına gömülü. Her dış sekme geçişinde tek bir
   `HisseDetailClient` instance mount/unmount olur (4'ü birden asla paralel çekmez).
+  **✅ Basit/Gelişmiş birleşik anahtar (2026-07-15):** eski iki kontrol (sekme çubuğu
+  yanındaki küçük segment + "✦ Gelişmiş analiz" CTA butonu) kaldırıldı, yerine tüm sekme
+  içeriğinin en altında (Al/Sat çubuğunun üstünde) TEK büyük anahtar geldi (`.ie-toggle-track`
+  / `.ie-toggle-seg-active` / `.ie-toggle-adv-active`, `globals.css`) — her iki modda da
+  görünür, `role="group"` + `aria-pressed`. **Açık tema kontrast fix:** legacy `HisseDetailClient`
+  içeriği (Card tabanlı, `tailwind.config.js`'te hardcoded-hex `surface`/`text-primary` — CSS
+  değişkeni DEĞİL, `var()` override işe yaramaz) artık `bg-surface-dark` sarmalayıcı panel
+  içinde render ediliyor (Portföyüm değer kartı ile aynı "kasıtlı koyu feature panel" deseni).
 - Ekran-ekran geçişte yeni→eski sayfa link karışımı NORMAL (eski navbar eski sayfalarda görünür;
   tüm ekranlar geçince eski kabuk tamamen kaldırılacak).
 - **Bilinen:** preview `screenshot` aracı bu oturumda uzun yeni-tasarım sayfalarında zaman aşımına

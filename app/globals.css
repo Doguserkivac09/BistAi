@@ -398,3 +398,21 @@ footer {
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 20px 48px -26px rgba(0, 0, 0, 0.7);
 }
+
+/* ── Hisse Detay — Basit/Gelişmiş birleşik anahtar (design_handoff_hisse_detay_v2) ── */
+.ie-toggle-track { background: rgba(80, 90, 120, 0.09); }
+.dark .ie-toggle-track { background: rgba(255, 255, 255, 0.06); }
+
+.ie-toggle-seg-active { background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.dark .ie-toggle-seg-active { background: rgba(255, 255, 255, 0.12); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+
+.ie-toggle-adv-active {
+  background: rgba(107, 111, 245, 0.1);
+  border: 1px solid rgba(107, 111, 245, 0.25);
+  color: #4d4fb0;
+}
+.dark .ie-toggle-adv-active {
+  background: rgba(139, 143, 255, 0.14);
+  border: 1px solid rgba(139, 143, 255, 0.28);
+  color: #c7c9ff;
+}

@@ -572,79 +572,87 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
           </div>
         </div>
 
-        {/* Sekme çubuğu — Genel · Teknik · Temel · Haberler + Basit/Gelişmiş toggle */}
-        <div className="flex items-center justify-between gap-2 border-b border-hairline px-5 lg:px-7">
-          <div className="flex gap-1 overflow-x-auto">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`shrink-0 border-b-2 px-3.5 py-3 text-[13px] font-bold transition-colors lg:px-4 lg:text-[14px] ${
-                  tab === t.key ? 'border-up text-ink' : 'border-transparent text-t3 hover:text-ink'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          {/* Basit ↔ Gelişmiş görünüm — casual kullanıcı sade, pro trader detaylı */}
-          <div className="flex shrink-0 items-center gap-1 rounded-full bg-fill p-0.5" role="group" aria-label="Görünüm modu">
-            {([[false, 'Basit'], [true, 'Gelişmiş']] as const).map(([v, l]) => (
-              <button
-                key={l}
-                onClick={() => setMode(v)}
-                aria-pressed={advanced === v}
-                title={v ? 'Tüm analiz detayları' : 'Sade görünüm'}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
-                  advanced === v ? 'bg-panel text-ink shadow-[0_1px_3px_rgba(0,0,0,0.12)]' : 'text-t3 hover:text-ink'
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
+        {/* Sekme çubuğu — Genel · Teknik · Temel · Haberler */}
+        <div className="flex gap-1 overflow-x-auto border-b border-hairline px-5 lg:px-7">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`shrink-0 border-b-2 px-3.5 py-3 text-[13px] font-bold transition-colors lg:px-4 lg:text-[14px] ${
+                tab === t.key ? 'border-up text-ink' : 'border-transparent text-t3 hover:text-ink'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         <div className="px-5 py-4 lg:px-7 lg:py-6">
           {tab === 'genel' && (
             <div className="flex flex-col gap-4">
               {genelPane}
-              {/* AI Analiz derinliği (Kompozit Karar + Teknik Adil Değer) — yalnız Gelişmiş modda */}
+              {/* AI Analiz derinliği (Kompozit Karar + Teknik Adil Değer) — yalnız Gelişmiş modda.
+                  bg-surface-dark: legacy Card bileşenleri her zaman koyu renklerle boyanır
+                  (paylaşılan bileşenler, açık/karanlık tema-farkında DEĞİL) — açık zeminde
+                  yüzen kontrastsız kartlar yerine kasıtlı koyu "pro panel" içinde sunulur. */}
               {advanced && (
-                <HisseDetailClient
-                  sembol={sembol}
-                  isInWatchlist={isInWatchlist}
-                  savedSignalTypes={savedSignalTypes}
-                  hideHero
-                  hideTabBar
-                  controlledTab="analiz"
-                  onRequestTab={onRequestInnerTab}
-                  advanced
-                />
-              )}
-              {!advanced && (
-                <button
-                  onClick={() => setMode(true)}
-                  className="mx-auto rounded-full border border-hairline bg-fill px-4 py-2 text-[12px] font-semibold text-t2 transition-colors hover:text-ink"
-                >
-                  ✦ Gelişmiş analiz — kompozit karar, adil değer, temel &amp; teknik detaylar
-                </button>
+                <div className="rounded-[20px] bg-surface-dark p-4 lg:p-6">
+                  <HisseDetailClient
+                    sembol={sembol}
+                    isInWatchlist={isInWatchlist}
+                    savedSignalTypes={savedSignalTypes}
+                    hideHero
+                    hideTabBar
+                    controlledTab="analiz"
+                    onRequestTab={onRequestInnerTab}
+                    advanced
+                  />
+                </div>
               )}
             </div>
           )}
           {tab !== 'genel' && (
-            <HisseDetailClient
-              key={tab}
-              sembol={sembol}
-              isInWatchlist={isInWatchlist}
-              savedSignalTypes={savedSignalTypes}
-              hideHero
-              hideTabBar
-              controlledTab={tab}
-              onRequestTab={onRequestInnerTab}
-              advanced={advanced}
-            />
+            <div className="rounded-[20px] bg-surface-dark p-4 lg:p-6">
+              <HisseDetailClient
+                key={tab}
+                sembol={sembol}
+                isInWatchlist={isInWatchlist}
+                savedSignalTypes={savedSignalTypes}
+                hideHero
+                hideTabBar
+                controlledTab={tab}
+                onRequestTab={onRequestInnerTab}
+                advanced={advanced}
+              />
+            </div>
           )}
+        </div>
+
+        {/* Basit ↔ Gelişmiş — birleşik anahtar (design_handoff_hisse_detay_v2 spec).
+            Tüm sekme içeriğinin en altında, her iki modda da GÖRÜNÜR, Al/Sat çubuğunun üstünde. */}
+        <div className="px-5 pb-4 lg:px-7 lg:pb-6">
+          <div role="group" aria-label="Görünüm modu" className="ie-toggle-track mx-auto flex w-full max-w-[460px] gap-1 rounded-full p-[5px]">
+            <button
+              onClick={() => setMode(false)}
+              aria-pressed={!advanced}
+              className={`flex h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[15px] font-bold transition-colors ${
+                !advanced ? 'ie-toggle-seg-active text-ink' : 'text-t3 hover:text-ink'
+              }`}
+            >
+              <span>Basit</span>
+              <span className="text-[10px] font-medium opacity-70">Sade, hızlı bakış</span>
+            </button>
+            <button
+              onClick={() => setMode(true)}
+              aria-pressed={advanced}
+              className={`flex h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[15px] font-bold transition-colors ${
+                advanced ? 'ie-toggle-adv-active' : 'text-t3 hover:text-ink'
+              }`}
+            >
+              <span className="font-mono">✦ Gelişmiş</span>
+              <span className="text-[10px] font-medium opacity-70">kompozit karar · adil değer · detaylar</span>
+            </button>
+          </div>
         </div>
 
         {/* Al/Sat aksiyon çubuğu — mobil */}
