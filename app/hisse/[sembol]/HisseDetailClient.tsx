@@ -92,6 +92,10 @@ interface HisseDetailClientProps {
   sembol: string;
   isInWatchlist: boolean;
   savedSignalTypes: string[];
+  /** Yeni tasarım (HisseDetayScreen) kendi breadcrumb+hero+banner'ını gösterdiğinde
+   * bu blokların tekrarını önlemek için true geçilir. Varsayılan false — eski
+   * davranış (bağımsız kullanım) hiç değişmez. */
+  hideHero?: boolean;
 }
 
 // ── HisseAnalizResponse → CompositeSignalResult adaptörü ──────────────
@@ -178,7 +182,7 @@ function MetaCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: HisseDetailClientProps) {
+export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes, hideHero = false }: HisseDetailClientProps) {
   // US borsası mı? Fiyat birimi ve fetch parametresini belirler
   const isUS = isUSSymbol(sembol);
   const market = isUS ? 'US' : 'BIST';
@@ -560,38 +564,42 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
   const low90d        = analiz?.low90d;
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 py-6">
-        {/* Breadcrumb — referrer-aware geri butonu (U10 fix) */}
-        <div className="mb-3 flex items-center gap-2 text-sm text-text-secondary">
-          <Link
-            href={backLink.href}
-            className="flex items-center gap-1 hover:text-primary transition-colors"
-            aria-label={`${backLink.label} sayfasına dön`}
-          >
-            <span aria-hidden>←</span>
-            <span>{backLink.label}</span>
-          </Link>
-          <span className="opacity-40">/</span>
-          <span className="text-text-primary">{sembol}</span>
-        </div>
+    <div className={hideHero ? '' : 'min-h-screen bg-background'}>
+      <main className={hideHero ? '' : 'container mx-auto px-4 py-6'}>
+        {!hideHero && (
+          <>
+            {/* Breadcrumb — referrer-aware geri butonu (U10 fix) */}
+            <div className="mb-3 flex items-center gap-2 text-sm text-text-secondary">
+              <Link
+                href={backLink.href}
+                className="flex items-center gap-1 hover:text-primary transition-colors"
+                aria-label={`${backLink.label} sayfasına dön`}
+              >
+                <span aria-hidden>←</span>
+                <span>{backLink.label}</span>
+              </Link>
+              <span className="opacity-40">/</span>
+              <span className="text-text-primary">{sembol}</span>
+            </div>
 
-        {/* Veri gecikme uyarısı — dismissible (U2 fix) */}
-        {!delayBannerDismissed && (
-          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
-            <span className="shrink-0">⚠️</span>
-            <span className="flex-1">
-              <strong>Fiyat ve sinyaller ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
-              Teknik analiz için uygundur; anlık al/sat kararları için broker platformunuzu kullanın.
-            </span>
-            <button
-              onClick={dismissDelayBanner}
-              aria-label="Uyarıyı kapat"
-              className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-            >
-              ✕
-            </button>
-          </div>
+            {/* Veri gecikme uyarısı — dismissible (U2 fix) */}
+            {!delayBannerDismissed && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-300">
+                <span className="shrink-0">⚠️</span>
+                <span className="flex-1">
+                  <strong>Fiyat ve sinyaller ~15 dakika gecikmeli</strong> — Yahoo Finance kaynaklı.
+                  Teknik analiz için uygundur; anlık al/sat kararları için broker platformunuzu kullanın.
+                </span>
+                <button
+                  onClick={dismissDelayBanner}
+                  aria-label="Uyarıyı kapat"
+                  className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </>
         )}
 
         {loading && (
@@ -615,7 +623,8 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
 
         {!loading && candles.length > 0 && (
           <>
-            {/* ── HERO BÖLÜMÜ ──────────────────────────────────────────────── */}
+            {/* ── HERO BÖLÜMÜ (yeni tasarımda hideHero=true ile atlanır) ──── */}
+            {!hideHero && (
             <div className="mb-6 rounded-xl border border-border bg-surface overflow-hidden">
               {/* Üst şerit — renk aksan */}
               <div className={`h-1 w-full ${changePercent !== undefined && changePercent !== null ? (changePercent >= 0 ? 'bg-emerald-500' : 'bg-red-500') : 'bg-primary'}`} />
@@ -762,6 +771,7 @@ export function HisseDetailClient({ sembol, isInWatchlist, savedSignalTypes }: H
                 })()}
               </div>
             </div>
+            )}
 
             {/* ── Vade Bazlı Karar Kartı + Çelişki Uyarısı (B planı) ──── */}
             {conflictAnalysis.type !== null && conflictAnalysis.techScore !== null && conflictAnalysis.fundScore !== null && (

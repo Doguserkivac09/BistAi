@@ -81,9 +81,17 @@ Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Ko
   — SSS + arama; formasyon/sinyal rehber içeriği KORUNDU, `/yardim/*` alt sayfaları eski temada).
   `lib/new-design-routes.ts` artık 3 liste: prefix + `NEW_DESIGN_EXACT` (/yardim) +
   `NEW_DESIGN_CHILD_ONLY` (/sektorler).
-- **Henüz ESKİ koyu tema** (redesign bekliyor — handoff: `design_handoff_kalan_ekranlar/Investable Edge Ekranlar.dc.html`):
-  **Hisse detay** (`/hisse/[sembol]`) — eski sayfa çok zengin (Temel/Haberler/KAP sekmeleri, 5 yöntemli
-  değerleme); fonksiyon envanteri çıkarılıp korunarak taşınmalı. (Giriş/Kayıt+Onboarding ✅ bitti.)
+- ✅ TAMAMLANDI (2026-07-09): **Hisse Detay** (`/hisse/[sembol]`) — `HisseDetayScreen` (yeni, liquid
+  glass "sade & profesyonel" hero: fiyat + büyük alan grafiği + GERÇEK S/R çizgileri
+  (`calculateSRLevels`) + hacim şeridi + alım/satım baskısı (up/down hacim oranı) + AI sinyal kartı
+  (`/api/hisse-analiz`: karar/güven/hedef/R-R'den risk) + istatistikler + Al (hızlı pozisyon modalı,
+  `/api/portfolyo`) / Sat (→`/portfolyo`) + yıldız/broker/alarm aksiyonları) + kendi zaman aralığı
+  sekmeleri (1G/1H/1A/1Y/Tümü, `/api/ohlcv`). **Fonksiyon kaybı YOK:** `HisseDetailClient`'e cerrahi
+  `hideHero` prop'u eklendi (varsayılan false, davranış değişmedi); eski zengin gövde (Teknik/AI
+  Analiz/Temel/Haberler sekmeleri, MTF tablosu, sinyal geçmişi, peer karşılaştırma, özel notlar — 1740
+  satır) DEĞİŞTİRİLMEDEN yeni hero'nun altında `bg-surface-dark` panelde sunulmaya devam ediyor.
+  Bilinen ödün: yeni hero + eski panel candles/analiz'i BAĞIMSIZ çeker (2x network call) — optimize
+  edilebilir ama yanlış değil.
 - Ekran-ekran geçişte yeni→eski sayfa link karışımı NORMAL (eski navbar eski sayfalarda görünür;
   tüm ekranlar geçince eski kabuk tamamen kaldırılacak).
 - **Bilinen:** preview `screenshot` aracı bu oturumda uzun yeni-tasarım sayfalarında zaman aşımına
