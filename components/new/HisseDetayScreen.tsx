@@ -592,28 +592,10 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
           {tab === 'genel' && (
             <div className="flex flex-col gap-4">
               {genelPane}
-              {/* AI Analiz derinliği (Kompozit Karar + Teknik Adil Değer) — yalnız Gelişmiş modda.
-                  bg-surface-dark: legacy Card bileşenleri her zaman koyu renklerle boyanır
-                  (paylaşılan bileşenler, açık/karanlık tema-farkında DEĞİL) — açık zeminde
-                  yüzen kontrastsız kartlar yerine kasıtlı koyu "pro panel" içinde sunulur. */}
-              {advanced && (
-                <>
-                  {/* Gelişmiş AI Analiz — premium sentez raporu (Gelişmiş görünümün başı) */}
-                  <GelismisAiAnaliz sembol={sembol} market={market} />
-                  <div className="rounded-[20px] bg-surface-dark p-4 lg:p-6">
-                    <HisseDetailClient
-                      sembol={sembol}
-                      isInWatchlist={isInWatchlist}
-                      savedSignalTypes={savedSignalTypes}
-                      hideHero
-                      hideTabBar
-                      controlledTab="analiz"
-                      onRequestTab={onRequestInnerTab}
-                      advanced
-                    />
-                  </div>
-                </>
-              )}
+              {/* Gelişmiş AI Analiz — premium sentez raporu (yalnız Gelişmiş modda).
+                  Eski "Kompozit Karar / Teknik Adil Değer / Teknik Profil" legacy bloğunun
+                  yerini aldı — bu tek rapor aynı analizi kapsıyor, ayrıca gösterilmiyor. */}
+              {advanced && <GelismisAiAnaliz sembol={sembol} market={market} />}
             </div>
           )}
           {tab !== 'genel' && (
