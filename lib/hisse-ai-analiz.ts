@@ -10,6 +10,21 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { getBISTMarketStatus, getUSMarketStatus } from './time-align';
+
+/**
+ * Rapor tazeleme aralığı (ai_cache TTL) — piyasa durumuna göre.
+ * Amaç: en düşük API maliyeti + maksimum tazelik.
+ *  - Seans açık   → 3sa: fiyat/teknik canlı değişiyor (8sa seansta ~2-3 üretim).
+ *  - Açılış öncesi → 1sa: açılışta taze raporla başlansın (bayat gece raporu kalmasın).
+ *  - Kapalı/hafta sonu/tatil → 12sa: veri değişmiyor, boşuna üretme.
+ */
+export function advancedReportTtlMs(market: 'BIST' | 'US' = 'BIST', now?: Date): number {
+  const status = market === 'US' ? getUSMarketStatus(now) : getBISTMarketStatus(now);
+  if (status === 'open') return 3 * 60 * 60 * 1000;
+  if (status === 'pre_market') return 1 * 60 * 60 * 1000;
+  return 12 * 60 * 60 * 1000;
+}
 
 export interface AdvancedReportInput {
   sembol: string;

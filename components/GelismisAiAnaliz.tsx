@@ -8,6 +8,12 @@
  * AKD/kurum/fon/virman modülleri broker-seviyesi ücretli veri gerektirdiği için "yakında"
  * yer tutucu (uydurma veri YOK). Premium değilse upsell gösterir.
  *
+ * PERFORMANS/MALİYET: Bileşen Basit moda geçince unmount olur; Gelişmiş'e her dönüşte
+ * yeniden fetch (auth+profil+cache = 3 Supabase round-trip + spinner) yapmamak için rapor
+ * modül-seviyesi OTURUM CACHE'inde tutulur. Cache, sunucunun döndürdüğü `expiresAt`e kadar
+ * geçerli (piyasa açıkken 3sa / açılış öncesi 1sa / kapalı 12sa) → toggle anında, sıfır istek.
+ * Eşzamanlı istekler in-flight map ile tekilleştirilir.
+ *
  * Yeni tasarım token'ları (bg-panel/ink/ai-panel…), açık/karanlık tema.
  */
 
@@ -22,6 +28,52 @@ interface AdvancedReport {
   sonuc: string;
   rehber: string[];
   generatedAt: string;
+}
+
+// ── Oturum cache (modül seviyesi — unmount/remount'ta hayatta kalır) ──────────
+interface CacheEntry { report: AdvancedReport | null; forbidden: boolean; expiresAt: number; }
+const reportCache = new Map<string, CacheEntry>();
+const inflight = new Map<string, Promise<CacheEntry>>();
+
+const cacheKeyOf = (sembol: string, market: string) => `${market}:${sembol}`;
+const freshEntry = (key: string): CacheEntry | null => {
+  const hit = reportCache.get(key);
+  return hit && Date.now() < hit.expiresAt ? hit : null;
+};
+
+/** Raporu getir — taze cache varsa istek atmaz; eşzamanlı çağrıları tekilleştirir. */
+function loadReport(sembol: string, market: string): Promise<CacheEntry> {
+  const key = cacheKeyOf(sembol, market);
+  const hit = freshEntry(key);
+  if (hit) return Promise.resolve(hit);
+  const pending = inflight.get(key);
+  if (pending) return pending;
+
+  const p = (async (): Promise<CacheEntry> => {
+    const r = await fetch(`/api/hisse-ai-analiz?symbol=${encodeURIComponent(sembol)}${market === 'US' ? '&market=US' : ''}`);
+    if (r.status === 403) {
+      // Premium değil — tekrar tekrar 403 almamak için oturumda 1sa hatırla
+      const e: CacheEntry = { report: null, forbidden: true, expiresAt: Date.now() + 60 * 60 * 1000 };
+      reportCache.set(key, e);
+      return e;
+    }
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error((j as { error?: string })?.error ?? 'Rapor alınamadı');
+    }
+    const d = (await r.json()) as { report: AdvancedReport; expiresAt?: string };
+    const e: CacheEntry = {
+      report: d.report,
+      forbidden: false,
+      // Sunucu TTL'ini birebir izle; yoksa güvenli varsayılan 3sa
+      expiresAt: d.expiresAt ? new Date(d.expiresAt).getTime() : Date.now() + 3 * 60 * 60 * 1000,
+    };
+    reportCache.set(key, e);
+    return e;
+  })().finally(() => inflight.delete(key));
+
+  inflight.set(key, p);
+  return p;
 }
 
 // Broker-seviyesi ücretli veri gerektiren modüller — şimdilik "yakında"
@@ -40,21 +92,24 @@ interface Props {
 }
 
 export function GelismisAiAnaliz({ sembol, market = 'BIST' }: Props) {
-  const [report, setReport] = useState<AdvancedReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [forbidden, setForbidden] = useState(false);
+  // Lazy init: taze oturum cache'i varsa İLK render'da rapor hazır → spinner hiç görünmez
+  const initial = freshEntry(cacheKeyOf(sembol, market));
+  const [report, setReport] = useState<AdvancedReport | null>(initial?.report ?? null);
+  const [forbidden, setForbidden] = useState(initial?.forbidden ?? false);
+  const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const hit = freshEntry(cacheKeyOf(sembol, market));
+    if (hit) {
+      // Toggle (Basit ↔ Gelişmiş) — istek YOK, bekleme YOK
+      setReport(hit.report); setForbidden(hit.forbidden); setError(null); setLoading(false);
+      return;
+    }
     let cancelled = false;
-    setLoading(true); setForbidden(false); setError(null); setReport(null);
-    fetch(`/api/hisse-ai-analiz?symbol=${encodeURIComponent(sembol)}${market === 'US' ? '&market=US' : ''}`)
-      .then(async (r) => {
-        if (r.status === 403) { if (!cancelled) setForbidden(true); return null; }
-        if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error ?? 'Rapor alınamadı'); }
-        return r.json() as Promise<{ report: AdvancedReport }>;
-      })
-      .then((d) => { if (d?.report && !cancelled) setReport(d.report); })
+    setLoading(true); setError(null); setForbidden(false); setReport(null);
+    loadReport(sembol, market)
+      .then((e) => { if (cancelled) return; setReport(e.report); setForbidden(e.forbidden); })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Hata'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

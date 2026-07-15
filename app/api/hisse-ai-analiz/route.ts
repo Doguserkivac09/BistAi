@@ -13,7 +13,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase-server';
 import { hasTierAccess, type Tier } from '@/lib/tier-guard';
 import { checkAndRecordAiBudget } from '@/lib/ai-budget';
-import { synthesizeAdvancedReport, type AdvancedReportInput, type AdvancedReport } from '@/lib/hisse-ai-analiz';
+import { synthesizeAdvancedReport, advancedReportTtlMs, type AdvancedReportInput, type AdvancedReport } from '@/lib/hisse-ai-analiz';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
 
 export const dynamic = 'force-dynamic';
@@ -60,13 +60,17 @@ export async function GET(request: NextRequest) {
   }
 
   const db = admin();
-  const cacheKey = `hisse-ai-analiz:${symbol}:${new Date().toISOString().slice(0, 10)}`;
+  // TTL-bazlı tek satır (gün-bazlı DEĞİL — gün-bazlı anahtar raporu gece yarısına kadar
+  // dondurup gün içi tazelenmesini engelliyordu). expires_at piyasa durumuna göre.
+  const cacheKey = `hisse-ai-analiz:${market}:${symbol}`;
 
-  // 3) Cache
+  // 3) Cache — taze satır varsa Claude'a hiç gitme
   if (db) {
-    const { data } = await db.from('ai_cache').select('explanation').eq('cache_key', cacheKey).gt('expires_at', new Date().toISOString()).single();
+    const { data } = await db.from('ai_cache').select('explanation, expires_at').eq('cache_key', cacheKey).gt('expires_at', new Date().toISOString()).single();
     if (data?.explanation) {
-      try { return NextResponse.json({ report: JSON.parse(data.explanation) as AdvancedReport, cached: true }); } catch { /* devam */ }
+      try {
+        return NextResponse.json({ report: JSON.parse(data.explanation) as AdvancedReport, cached: true, expiresAt: data.expires_at });
+      } catch { /* bozuk satır → yeniden üret */ }
     }
   }
 
@@ -119,16 +123,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'AI hatası' }, { status: 502 });
   }
 
-  // 7) Cache yaz (24h)
+  // 7) Cache yaz — TTL piyasa durumuna göre (seans 3sa / açılış öncesi 1sa / kapalı 12sa)
+  const expiresAt = new Date(Date.now() + advancedReportTtlMs(market)).toISOString();
   if (db) {
     await db.from('ai_cache').upsert({
       cache_key: cacheKey,
       explanation: JSON.stringify(report),
       version: 1,
       hit_count: 0,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      expires_at: expiresAt,
     }, { onConflict: 'cache_key' });
   }
 
-  return NextResponse.json({ report, cached: false });
+  return NextResponse.json({ report, cached: false, expiresAt });
 }
