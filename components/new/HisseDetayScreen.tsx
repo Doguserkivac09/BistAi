@@ -26,6 +26,7 @@ import { addToWatchlist, removeFromWatchlist } from '@/app/hisse/[sembol]/action
 import { BrokerLinkButton } from '@/components/BrokerLinkButton';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { HisseDetailClient } from '@/app/hisse/[sembol]/HisseDetailClient';
+import { GelismisAiAnaliz } from '@/components/GelismisAiAnaliz';
 import { toast } from 'sonner';
 
 type RangeKey = '1G' | '1H' | '1A' | '1Y' | 'Tümü';
@@ -596,18 +597,22 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
                   (paylaşılan bileşenler, açık/karanlık tema-farkında DEĞİL) — açık zeminde
                   yüzen kontrastsız kartlar yerine kasıtlı koyu "pro panel" içinde sunulur. */}
               {advanced && (
-                <div className="rounded-[20px] bg-surface-dark p-4 lg:p-6">
-                  <HisseDetailClient
-                    sembol={sembol}
-                    isInWatchlist={isInWatchlist}
-                    savedSignalTypes={savedSignalTypes}
-                    hideHero
-                    hideTabBar
-                    controlledTab="analiz"
-                    onRequestTab={onRequestInnerTab}
-                    advanced
-                  />
-                </div>
+                <>
+                  {/* Gelişmiş AI Analiz — premium sentez raporu (Gelişmiş görünümün başı) */}
+                  <GelismisAiAnaliz sembol={sembol} market={market} />
+                  <div className="rounded-[20px] bg-surface-dark p-4 lg:p-6">
+                    <HisseDetailClient
+                      sembol={sembol}
+                      isInWatchlist={isInWatchlist}
+                      savedSignalTypes={savedSignalTypes}
+                      hideHero
+                      hideTabBar
+                      controlledTab="analiz"
+                      onRequestTab={onRequestInnerTab}
+                      advanced
+                    />
+                  </div>
+                </>
               )}
             </div>
           )}
