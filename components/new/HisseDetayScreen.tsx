@@ -511,12 +511,14 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
         </div>
 
         {loading && candles.length === 0 ? (
-          <div className="ie-glass mt-3.5 h-[184px] animate-pulse rounded-[16px] lg:h-[300px]" />
+          <div className="ie-glass mt-3.5 h-[184px] animate-pulse rounded-[16px] lg:h-[320px]" />
         ) : (
           <div className="mt-3.5 flex flex-col">
             <div className="lg:hidden"><Chart geo={geoMobile} height="h-[184px]" viewW={336} viewH={184} /></div>
-            {/* Masaüstü: sabit yükseklik — flex-1 ile ekranı doldurmasın (kullanıcı: grafik çok büyük) */}
-            <div className="hidden lg:block lg:h-[300px]"><Chart geo={geoDesktop} height="h-full" viewW={640} viewH={300} /></div>
+            {/* Masaüstü: SABİT 320px yükseklik (mobil deseni gibi). viewH=380 geoDesktop
+                geometrisiyle eşleşir; preserveAspectRatio=none olduğundan SVG 320px'e sığar.
+                (Kullanıcı: grafik ekranı dolduruyordu — flex-1/h-full yerine sabit sınıf.) */}
+            <div className="hidden lg:block"><Chart geo={geoDesktop} height="h-[320px]" viewW={640} viewH={380} /></div>
             {volumeStrip}
           </div>
         )}
