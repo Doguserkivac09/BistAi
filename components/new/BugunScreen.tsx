@@ -10,7 +10,7 @@
  * Masaüstü: bilgi şeridi (sektör + haftanın seçimleri + AI portföyleri) +
  * sol karar sütunu + sağ bağlam rayı (BIST / Portföy / verdict ölçeği).
  *
- * Veri (hepsi mevcut API): /api/smart-signal · /api/watchlist · /api/macro(+history)
+ * Veri (hepsi mevcut API): /api/smart-signal · /api/macro(+history)
  * · /api/firsatlar (top 3) · /api/sectors (▲/▼) · /api/portfolyo + /api/ohlcv (K/Z)
  * · /api/weekly-picks + /api/ai-portfolio + /api/apex-portfolio (masaüstü şerit).
  */
@@ -23,7 +23,6 @@ import { SymbolSearch } from '@/components/new/SymbolSearch';
 import { SparklineChartButton } from '@/components/new/ChartModal';
 
 interface SignalResp { ok: boolean; pending?: boolean; results: SmartSignalResult[] }
-interface WatchItem { sembol: string }
 interface MacroResp {
   score?: { score: number; wind: string; label: string };
   risk?: { label: string; color: string };
@@ -158,7 +157,6 @@ export function BugunScreen() {
   const [data, setData] = useState<SmartSignalResult[]>([]);
   const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [watchSyms, setWatchSyms] = useState<string[]>([]);
   const [macro, setMacro] = useState<MacroResp | null>(null);
   const [bistSeries, setBistSeries] = useState<number[]>([]);
   const [opps, setOpps] = useState<FirsatItem[]>([]);
@@ -174,12 +172,6 @@ export function BugunScreen() {
       .then((j) => { setData(j.results ?? []); setPending(j.pending ?? false); })
       .catch(() => {})
       .finally(() => setLoading(false));
-
-    // Watchlist — auth-gated; 401/boş → fallback top-N
-    fetch('/api/watchlist')
-      .then((r) => (r.ok ? (r.json() as Promise<WatchItem[]>) : []))
-      .then((items) => setWatchSyms(Array.isArray(items) ? items.map((i) => i.sembol) : []))
-      .catch(() => {});
 
     // Makro: rüzgar / rejim / risk + BIST 100
     fetch('/api/macro')
@@ -258,13 +250,10 @@ export function BugunScreen() {
       .catch(() => {});
   }, []);
 
-  // Verdict listesi: takip listesi (varsa) → smart-signal ile eşleşenler; yoksa en güçlü 8
-  const bySym = new Map(data.map((r) => [r.symbol, r]));
-  const watchMatched = watchSyms.map((s) => bySym.get(s)).filter((r): r is SmartSignalResult => !!r);
-  const usingWatchlist = watchMatched.length > 0;
-  const list = usingWatchlist
-    ? watchMatched.sort((a, b) => b.total_score - a.total_score)
-    : [...data].sort((a, b) => b.total_score - a.total_score).slice(0, 8);
+  // Verdict listesi: her zaman EN GÜÇLÜ KURULUMLAR (top-8) — smart-signal skoruna göre.
+  // (Watchlist devralması kaldırıldı: kullanıcı "En güçlü kurulumlar" görünümünü istedi,
+  // ayrıca watchlist ayrı/geç geldiği için görünüm flaşına yol açıyordu.)
+  const list = [...data].sort((a, b) => b.total_score - a.total_score).slice(0, 8);
 
   const strong = data.filter((r) => r.status === 'STRONG').length;
   const positive = data.filter((r) => r.status === 'POSITIVE').length;
@@ -454,9 +443,7 @@ export function BugunScreen() {
 
             <div className="flex items-center justify-between">
               <span className="text-[16px] font-extrabold tracking-[-0.02em] text-ink">Bugün ne yapmalıyım?</span>
-              <span className="text-[12px] font-semibold text-t3">
-                {usingWatchlist ? `Takip listem · ${list.length} hisse` : 'En güçlü kurulumlar'}
-              </span>
+              <span className="text-[12px] font-semibold text-t3">En güçlü kurulumlar</span>
             </div>
 
             <div className="flex flex-col gap-2.5 lg:gap-[9px]">
