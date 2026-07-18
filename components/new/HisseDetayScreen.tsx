@@ -511,11 +511,12 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
         </div>
 
         {loading && candles.length === 0 ? (
-          <div className="ie-glass mt-3.5 h-[184px] animate-pulse rounded-[16px] lg:flex-1" />
+          <div className="ie-glass mt-3.5 h-[184px] animate-pulse rounded-[16px] lg:h-[300px]" />
         ) : (
-          <div className="mt-3.5 flex flex-col lg:flex-1 lg:min-h-0">
+          <div className="mt-3.5 flex flex-col">
             <div className="lg:hidden"><Chart geo={geoMobile} height="h-[184px]" viewW={336} viewH={184} /></div>
-            <div className="hidden lg:flex lg:flex-1 lg:min-h-0"><Chart geo={geoDesktop} height="h-full" viewW={640} viewH={380} /></div>
+            {/* Masaüstü: sabit yükseklik — flex-1 ile ekranı doldurmasın (kullanıcı: grafik çok büyük) */}
+            <div className="hidden lg:block lg:h-[300px]"><Chart geo={geoDesktop} height="h-full" viewW={640} viewH={300} /></div>
             {volumeStrip}
           </div>
         )}

@@ -17,7 +17,7 @@
  * Yeni tasarım token'ları (bg-panel/ink/ai-panel…), açık/karanlık tema.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 
 interface AdvancedReport {
@@ -96,16 +96,14 @@ export function GelismisAiAnaliz({ sembol, market = 'BIST' }: Props) {
   const initial = freshEntry(cacheKeyOf(sembol, market));
   const [report, setReport] = useState<AdvancedReport | null>(initial?.report ?? null);
   const [forbidden, setForbidden] = useState(initial?.forbidden ?? false);
-  const [loading, setLoading] = useState(!initial);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Tıklayınca çalışsın: cache yoksa otomatik fetch ETME (kullanıcı: ilk açılışta otomatik
+  // çalışmasın, tıklandığında çalışsın). Cache varsa (bu oturumda üretildi) direkt gösterilir.
+  const [started, setStarted] = useState(!!initial);
 
-  useEffect(() => {
-    const hit = freshEntry(cacheKeyOf(sembol, market));
-    if (hit) {
-      // Toggle (Basit ↔ Gelişmiş) — istek YOK, bekleme YOK
-      setReport(hit.report); setForbidden(hit.forbidden); setError(null); setLoading(false);
-      return;
-    }
+  const runAnalysis = useCallback(() => {
+    setStarted(true);
     let cancelled = false;
     setLoading(true); setError(null); setForbidden(false); setReport(null);
     loadReport(sembol, market)
@@ -113,6 +111,13 @@ export function GelismisAiAnaliz({ sembol, market = 'BIST' }: Props) {
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Hata'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
+  }, [sembol, market]);
+
+  // Sembol/market değişince: taze cache varsa göster (tıklama gerekmez), yoksa "Çalıştır"a düş.
+  useEffect(() => {
+    const hit = freshEntry(cacheKeyOf(sembol, market));
+    if (hit) { setReport(hit.report); setForbidden(hit.forbidden); setError(null); setLoading(false); setStarted(true); }
+    else { setReport(null); setError(null); setLoading(false); setStarted(false); }
   }, [sembol, market]);
 
   const Header = (
@@ -141,11 +146,27 @@ export function GelismisAiAnaliz({ sembol, market = 'BIST' }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-hairline bg-panel p-5 lg:p-6">
+    <section className="rounded-2xl border border-hairline bg-panel p-4">
       {Header}
 
+      {/* Henüz çalıştırılmadı → tıklayınca çalışır (otomatik değil) */}
+      {!started && !loading && (
+        <div className="flex flex-col items-start gap-2.5 py-1">
+          <p className="text-[13px] leading-relaxed text-t2">
+            {sembol} için tüm teknik + temel + makro analizi tek kapsamlı rapora sentezler:
+            genel görünüm, güncel teknik durum, değerleme &amp; risk, sonuç ve yatırımcı rehberi.
+          </p>
+          <button
+            onClick={runAnalysis}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-ink px-4 py-2.5 text-[13px] font-bold text-onink hover:opacity-90"
+          >
+            ✦ Analizi çalıştır
+          </button>
+        </div>
+      )}
+
       {loading && (
-        <div className="flex items-center gap-3 py-8 text-[13px] text-t3">
+        <div className="flex items-center gap-3 py-6 text-[13px] text-t2">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-ai border-t-transparent" />
           Yapay zeka {sembol} için kapsamlı raporu hazırlıyor…
         </div>
@@ -156,9 +177,9 @@ export function GelismisAiAnaliz({ sembol, market = 'BIST' }: Props) {
       )}
 
       {report && !loading && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {report.headline && (
-            <p className="rounded-xl bg-ai-panel px-4 py-3 text-[14px] font-semibold leading-snug text-ink">
+            <p className="rounded-xl bg-ai-panel px-4 py-2.5 text-[14px] font-semibold leading-snug text-ink">
               {report.headline}
             </p>
           )}
@@ -168,11 +189,11 @@ export function GelismisAiAnaliz({ sembol, market = 'BIST' }: Props) {
           <ReportBlock title="Sonuç" body={report.sonuc} />
           {report.rehber.length > 0 && (
             <div>
-              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-t4">Yatırımcı Rehberi</div>
+              <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-t3">Yatırımcı Rehberi</div>
               <ul className="space-y-1.5">
                 {report.rehber.map((r, i) => (
-                  <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-t2">
-                    <span className="mt-0.5 shrink-0 text-ai">→</span>
+                  <li key={i} className="flex gap-2 text-[13.5px] leading-relaxed text-ink">
+                    <span className="mt-0.5 shrink-0 font-bold text-ai">→</span>
                     <span>{r}</span>
                   </li>
                 ))}
@@ -185,28 +206,23 @@ export function GelismisAiAnaliz({ sembol, market = 'BIST' }: Props) {
         </div>
       )}
 
-      {/* Yakında — broker-seviyesi kurumsal veri modülleri */}
-      <div className="mt-6 border-t border-hairline pt-5">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="text-[13px] font-bold text-ink">Kurumsal Veri Modülleri</span>
-          <span className="rounded-full bg-fill px-2 py-0.5 text-[10px] font-bold text-t3">YAKINDA</span>
+      {/* Yakında — broker-seviyesi kurumsal veri modülleri (kompakt) */}
+      <div className="mt-4 border-t border-hairline pt-3.5">
+        <div className="mb-2.5 flex items-center gap-2">
+          <span className="text-[12px] font-bold text-ink">Kurumsal Veri Modülleri</span>
+          <span className="rounded-full bg-fill px-2 py-0.5 text-[9px] font-bold text-t3">YAKINDA</span>
         </div>
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
           {YAKINDA_MODULLER.map((m) => (
-            <div key={m.title} className="relative overflow-hidden rounded-xl border border-hairline bg-fill/60 p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[16px] opacity-60">{m.icon}</span>
-                <span className="text-[12px] font-bold text-t2">{m.title}</span>
+            <div key={m.title} className="relative overflow-hidden rounded-lg border border-hairline bg-fill/60 px-2.5 py-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[13px] opacity-60">{m.icon}</span>
+                <span className="truncate text-[11px] font-bold text-t2">{m.title}</span>
               </div>
-              <p className="mt-1 text-[10.5px] leading-snug text-t4">{m.desc}</p>
-              <span className="absolute right-2 top-2 rounded-full bg-panel px-1.5 py-0.5 text-[8px] font-bold text-t4">🔒 yakında</span>
+              <p className="mt-0.5 text-[10px] leading-snug text-t4">{m.desc}</p>
             </div>
           ))}
         </div>
-        <p className="mt-2.5 text-[11px] leading-relaxed text-t4">
-          AKD (aracı kurum dağılımı), fon ve virman analizleri broker-seviyesi kurumsal veri
-          entegrasyonu tamamlanınca bu rapora eklenecek.
-        </p>
       </div>
     </section>
   );
@@ -216,8 +232,9 @@ function ReportBlock({ title, body }: { title: string; body: string }) {
   if (!body) return null;
   return (
     <div>
-      <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-t4">{title}</div>
-      <p className="text-[13px] leading-relaxed text-t2">{body}</p>
+      {/* Başlık: okunur gri; gövde: TAM kontrast ink (kullanıcı: metinler çok silik) */}
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-t3">{title}</div>
+      <p className="text-[13.5px] leading-relaxed text-ink">{body}</p>
     </div>
   );
 }
