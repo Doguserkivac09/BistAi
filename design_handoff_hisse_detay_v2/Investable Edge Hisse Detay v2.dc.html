@@ -126,7 +126,21 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 
       <!-- ===== TEKNİK ===== -->
       <sc-if value="{{ dd.teknik }}" hint-placeholder-val="{{ false }}">
-        <div style="flex:1.4;display:flex;flex-direction:column;gap:13px;overflow:hidden;min-width:0">
+        <div style="flex:1.6;display:flex;flex-direction:column;gap:13px;overflow:hidden;min-width:0">
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:16px;padding:15px 18px;display:flex;align-items:center;gap:20px">
+            <div style="text-align:center;flex-shrink:0"><div class="mono" style="font:700 34px 'JetBrains Mono';color:#ff6b6b;line-height:1">27</div><div style="font:700 11px Manrope;color:#ff6b6b;margin-top:3px">ZAYIF</div><div style="font-size:10px;color:#f5c451;letter-spacing:1px;margin-top:3px">★★<span style="color:#3a4152">★★★</span></div></div>
+            <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.08)"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font:700 10px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.08em">Teknik görünüm</div>
+              <div style="font:600 13px Manrope;color:#e6e9ee;line-height:1.5;margin-top:5px">Trend zayıf, momentum negatif — kısa vadede baskı sürüyor. Direnç 2,80'i geçmeden alım için erken.</div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:11px">
+                <span style="padding:5px 11px;border-radius:8px;background:rgba(201,138,0,0.14);color:#f5c451;font:700 11px Manrope">RSI 28 · aşırı satım</span>
+                <span style="padding:5px 11px;border-radius:8px;background:rgba(229,72,77,0.14);color:#ff6b6b;font:700 11px Manrope">MACD · negatif</span>
+                <span style="padding:5px 11px;border-radius:8px;background:rgba(229,72,77,0.14);color:#ff6b6b;font:700 11px Manrope">Trend · zayıf</span>
+                <span style="padding:5px 11px;border-radius:8px;background:rgba(255,255,255,0.06);color:#9aa3b2;font:700 11px Manrope">Hacim · ort. altı</span>
+              </div>
+            </div>
+          </div>
           <div style="display:flex;flex-wrap:wrap;gap:7px">
             <sc-for list="{{ indicators }}" as="i" hint-placeholder-count="8"><span style="padding:6px 12px;border-radius:9px;background:{{ i.bg }};border:1px solid {{ i.bd }};color:{{ i.fg }};font:700 11px Manrope">{{ i.k }}</span></sc-for>
           </div>
@@ -141,63 +155,57 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
               <path d="{{ bbL }}" fill="none" stroke="rgba(139,143,255,0.6)" stroke-width="1"></path>
             </svg>
           </div>
-          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:6px 15px">
-            <div style="font:700 11px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.05em;padding:9px 0 4px">Tespit edilen sinyaller</div>
-            <sc-for list="{{ signalsT }}" as="g" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,0.06)"><span style="width:8px;height:8px;border-radius:50%;background:{{ g.color }}"></span><span style="font:700 13px Manrope;color:#f4f6fa;width:110px">{{ g.name }}</span><span style="flex:1;font:500 12px Manrope;color:#9aa3b2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.desc }}</span><span style="font:600 11px 'JetBrains Mono';color:#9aa3b2" class="mono">{{ g.vade }}</span></div></sc-for>
-          </div>
         </div>
-        <div style="width:340px;display:flex;flex-direction:column;gap:13px;overflow:hidden">
+        <div style="width:300px;display:flex;flex-direction:column;gap:13px;overflow:hidden">
           <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:16px;padding:15px 17px">
-            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#f4f6fa">Teknik profil</span><span style="font:700 13px Manrope;color:#ff6b6b">27 · Zayıf</span></div>
-            <div style="display:flex;flex-direction:column;gap:10px;margin-top:13px">
-              <sc-for list="{{ techProfile }}" as="p" hint-placeholder-count="5"><div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><span style="font:600 12px Manrope;color:#c3c9d4">{{ p.k }}</span><span style="font:500 11px Manrope;color:#9aa3b2">{{ p.note }}</span></div><div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.1);overflow:hidden"><div style="width:{{ p.pct }}%;height:100%;background:{{ p.color }};border-radius:3px"></div></div></div></sc-for>
-            </div>
-          </div>
-          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:14px 17px">
-            <div style="font:800 14px Manrope;color:#f4f6fa;margin-bottom:10px">Destek & Direnç</div>
-            <sc-for list="{{ srLevels }}" as="l" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:7px 0"><span style="font:600 11px 'JetBrains Mono';color:{{ l.color }};width:14px" class="mono">{{ l.dots }}</span><span class="mono" style="flex:1;font:600 13px 'JetBrains Mono';color:#f4f6fa">{{ l.price }} ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:{{ l.color }}">{{ l.pct }}</span></div></sc-for>
+            <div style="font:800 14px Manrope;color:#f4f6fa;margin-bottom:12px">Anahtar seviyeler</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0"><span style="font:600 11px Manrope;color:#9aa3b2">Direnç</span><span class="mono" style="font:700 15px 'JetBrains Mono';color:#ff6b6b">2,80 ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#ff6b6b">+15,2%</span></div>
+            <div style="position:relative;height:6px;border-radius:4px;background:linear-gradient(90deg,rgba(63,206,138,0.4),rgba(245,196,81,0.4),rgba(229,72,77,0.4));margin:8px 0"><div style="position:absolute;left:26%;top:50%;width:12px;height:12px;border-radius:50%;background:#f4f6fa;border:2px solid #0a0e17;transform:translate(-50%,-50%)"></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0"><span style="font:600 11px Manrope;color:#9aa3b2">Destek</span><span class="mono" style="font:700 15px 'JetBrains Mono';color:#3fce8a">2,30 ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#3fce8a">−5,3%</span></div>
+            <div style="font:500 11px Manrope;color:#6b7280;line-height:1.5;margin-top:6px">Fiyat destek bölgesine yakın · %4,5 destek üstünde</div>
           </div>
           <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:14px 17px;flex:1">
-            <div style="font:800 14px Manrope;color:#f4f6fa;margin-bottom:4px">Çoklu zaman dilimi</div>
-            <sc-for list="{{ mtf }}" as="m" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.06)"><span style="font:700 12px Manrope;color:#f4f6fa;width:56px">{{ m.tf }}</span><span style="padding:3px 10px;border-radius:7px;background:{{ m.bg }};color:{{ m.fg }};font:800 11px Manrope">{{ m.dec }}</span><span style="flex:1;font:500 11px Manrope;color:#9aa3b2;text-align:right">{{ m.w }}</span></div></sc-for>
+            <div style="font:800 14px Manrope;color:#f4f6fa;margin-bottom:4px">Zaman dilimleri</div>
+            <sc-for list="{{ mtf }}" as="m" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,0.06)"><span style="font:700 12px Manrope;color:#f4f6fa;width:56px">{{ m.tf }}</span><span style="padding:3px 10px;border-radius:7px;background:{{ m.bg }};color:{{ m.fg }};font:800 11px Manrope">{{ m.dec }}</span><span style="flex:1;font:500 11px Manrope;color:#9aa3b2;text-align:right">{{ m.w }}</span></div></sc-for>
           </div>
         </div>
       </sc-if>
 
       <!-- ===== TEMEL ===== -->
       <sc-if value="{{ dd.temel }}" hint-placeholder-val="{{ false }}">
-        <div style="flex:1.4;display:flex;flex-direction:column;gap:13px;overflow:hidden;min-width:0">
-          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:20px">
-            <svg width="76" height="76" viewBox="0 0 76 76">
-              <circle cx="38" cy="38" r="30" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="7"></circle>
-              <circle cx="38" cy="38" r="30" fill="none" stroke="#f5c451" stroke-width="7" stroke-linecap="round" stroke-dasharray="{{ valDash }}" transform="rotate(-90 38 38)"></circle>
-              <text x="38" y="35" text-anchor="middle" style="font:700 17px 'JetBrains Mono';fill:#f4f6fa">45</text>
-              <text x="38" y="48" text-anchor="middle" style="font:600 7px Manrope;fill:#9aa3b2">/100</text>
+        <div style="flex:1.6;display:flex;flex-direction:column;gap:13px;overflow:hidden;min-width:0">
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:22px">
+            <svg width="82" height="82" viewBox="0 0 82 82" style="flex-shrink:0">
+              <circle cx="41" cy="41" r="32" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="7"></circle>
+              <circle cx="41" cy="41" r="32" fill="none" stroke="#f5c451" stroke-width="7" stroke-linecap="round" stroke-dasharray="90 201" transform="rotate(-90 41 41)"></circle>
+              <text x="41" y="38" text-anchor="middle" style="font:700 21px 'JetBrains Mono';fill:#f4f6fa">45</text>
+              <text x="41" y="52" text-anchor="middle" style="font:700 9px Manrope;fill:#f5c451">TUT</text>
             </svg>
-            <div style="flex:1">
-              <div style="font:800 16px Manrope;color:#f4f6fa">Şirket Değer Skoru · Tut</div>
-              <div style="font:500 12px Manrope;color:#9aa3b2;margin-top:2px">Uzun vade · yüksek güven</div>
-              <div style="display:flex;gap:18px;margin-top:12px"><sc-for list="{{ valBreak }}" as="v" hint-placeholder-count="4"><div><div style="font:500 10px Manrope;color:#9aa3b2">{{ v.k }}</div><div class="mono" style="font:700 15px 'JetBrains Mono';color:{{ v.color }};margin-top:1px">{{ v.v }}</div></div></sc-for></div>
+            <div style="flex:1;min-width:0">
+              <div style="font:800 15px Manrope;color:#f4f6fa">Şirket değer skoru</div>
+              <div style="font:600 12px Manrope;color:#9aa3b2;line-height:1.5;margin-top:3px">Kârlılık ve risk sağlam, değerleme pahalı — uzun vadede tut, ekleme için geri çekilme bekle.</div>
+              <div style="display:flex;gap:20px;margin-top:12px">
+                <sc-for list="{{ valBreak }}" as="v" hint-placeholder-count="4"><div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font:600 11px Manrope;color:#c3c9d4">{{ v.k }}</span><span class="mono" style="font:700 11px 'JetBrains Mono';color:{{ v.color }}">{{ v.v }}</span></div><div style="height:5px;border-radius:3px;background:rgba(255,255,255,0.1);overflow:hidden"><div style="width:{{ v.pct }}%;height:100%;background:{{ v.color }};border-radius:3px"></div></div></div></sc-for>
+              </div>
             </div>
           </div>
-          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:16px 18px">
-            <div style="font:800 14px Manrope;color:#f4f6fa;margin-bottom:12px">Fiyat hedefleri</div>
-            <div style="height:8px;border-radius:5px;background:rgba(255,255,255,0.1);position:relative;margin:22px 0 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:14%;background:linear-gradient(90deg,#3fce8a,#a6a9ff);border-radius:5px"></div><div style="position:absolute;left:14%;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #3fce8a;transform:translate(-50%,-50%)"></div></div>
-            <div style="display:flex;gap:11px;margin-top:14px"><sc-for list="{{ targets }}" as="t" hint-placeholder-count="3"><div style="flex:1;border:1px solid {{ t.bd }};border-radius:13px;padding:12px 14px;background:{{ t.bg }}"><div style="font:500 11px Manrope;color:#9aa3b2">{{ t.k }}</div><div class="mono" style="font:700 18px 'JetBrains Mono';color:{{ t.fg }};margin-top:2px">{{ t.v }}</div><div class="mono" style="font:600 11px 'JetBrains Mono';color:{{ t.chgColor }};margin-top:1px">{{ t.chg }}</div></div></sc-for></div>
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:15px 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#f4f6fa">Adil değer</span><span style="padding:5px 12px;border-radius:9px;background:rgba(63,206,138,0.14);color:#3fce8a;font:800 12px Manrope">+13,6% potansiyel</span></div>
+            <div style="height:8px;border-radius:5px;background:rgba(255,255,255,0.1);position:relative;margin:22px 0 8px"><div style="position:absolute;left:14%;right:32%;top:0;bottom:0;background:linear-gradient(90deg,rgba(63,206,138,0.5),rgba(166,169,255,0.5));border-radius:5px"></div><div style="position:absolute;left:14%;top:-16px;font:600 9px 'JetBrains Mono';color:#f4f6fa;transform:translateX(-50%)" class="mono">2,43</div><div style="position:absolute;left:14%;top:50%;width:12px;height:12px;border-radius:50%;background:#0a0e17;border:3px solid #f4f6fa;transform:translate(-50%,-50%)"></div><div style="position:absolute;left:68%;top:50%;width:12px;height:12px;border-radius:50%;background:#0a0e17;border:3px solid #3fce8a;transform:translate(-50%,-50%)"></div><div style="position:absolute;left:68%;top:-16px;font:600 9px 'JetBrains Mono';color:#3fce8a;transform:translateX(-50%)" class="mono">2,76</div></div>
+            <div style="display:flex;justify-content:space-between;font:500 10px Manrope;color:#6b7280;margin-top:6px"><span>Mevcut 2,43 ₺</span><span>DCF 2,68 · Çarpan 2,81 · PD/DD 2,79</span></div>
           </div>
-          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:6px 18px;flex:1">
-            <sc-for list="{{ fundamentals }}" as="f" hint-placeholder-count="6"><div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><span style="font:500 12px Manrope;color:#9aa3b2">{{ f.k }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#f4f6fa">{{ f.v }}</span></div></sc-for>
+          <div style="display:flex;gap:11px;flex:1">
+            <sc-for list="{{ keyMetrics }}" as="m" hint-placeholder-count="4"><div style="flex:1;background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:14px 15px;display:flex;flex-direction:column;justify-content:center"><div style="font:500 10px Manrope;color:#9aa3b2">{{ m.k }}</div><div class="mono" style="font:700 19px 'JetBrains Mono';color:#f4f6fa;margin-top:4px">{{ m.v }}</div><div style="font:600 10px Manrope;color:{{ m.tagColor }};margin-top:3px">{{ m.tag }}</div></div></sc-for>
           </div>
         </div>
-        <div style="width:340px;display:flex;flex-direction:column;gap:13px;overflow:hidden">
-          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:16px;padding:15px 17px;flex:1">
-            <div style="font:800 14px Manrope;color:#f4f6fa;margin-bottom:10px">Havacılık sektör emsalleri</div>
-            <sc-for list="{{ peers }}" as="p" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid rgba(255,255,255,0.06);background:{{ p.hl }};border-radius:8px;padding-left:8px;padding-right:8px"><span style="flex:1;font:700 13px Manrope;color:{{ p.nameColor }}">{{ p.sym }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:{{ p.color }}">{{ p.chg }}</span></div></sc-for>
-            <div style="font:500 11px Manrope;color:#9aa3b2;margin-top:10px;line-height:1.5">Sektör ortalamasının %2,6 altında · Sıra 3/4</div>
+        <div style="width:300px;display:flex;flex-direction:column;gap:13px;overflow:hidden">
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:16px;padding:15px 17px">
+            <div style="font:800 14px Manrope;color:#f4f6fa;margin-bottom:6px">Sektör emsalleri</div>
+            <div style="font:500 11px Manrope;color:#9aa3b2;margin-bottom:6px">Havacılık · sıra 3/4</div>
+            <sc-for list="{{ peers }}" as="p" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-top:1px solid rgba(255,255,255,0.06);background:{{ p.hl }};border-radius:8px"><span style="flex:1;font:700 13px Manrope;color:{{ p.nameColor }}">{{ p.sym }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:{{ p.color }}">{{ p.chg }}</span></div></sc-for>
           </div>
-          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:15px 17px">
-            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 13px Manrope;color:#f4f6fa">Özel notlarım</span><span style="font:500 10px Manrope;color:#9aa3b2">Sadece sen görürsün</span></div>
-            <div style="margin-top:10px;border:1px dashed rgba(255,255,255,0.16);border-radius:12px;padding:14px;text-align:center;font:600 12px Manrope;color:#9aa3b2" style-hover="border-color:rgba(255,255,255,0.3);color:#f4f6fa">+ Bu hisse için not ekle</div>
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:6px 18px;flex:1">
+            <sc-for list="{{ fundamentals }}" as="f" hint-placeholder-count="6"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><span style="font:500 12px Manrope;color:#9aa3b2">{{ f.k }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#f4f6fa">{{ f.v }}</span></div></sc-for>
           </div>
         </div>
       </sc-if>
@@ -275,23 +283,40 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
         </div>
       </sc-if>
       <sc-if value="{{ md.teknik }}" hint-placeholder-val="{{ false }}">
-        <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:15px 17px">
-          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#f4f6fa">Teknik profil</span><span style="font:700 13px Manrope;color:#ff6b6b">27 · Zayıf</span></div>
-          <div style="display:flex;flex-direction:column;gap:9px;margin-top:12px"><sc-for list="{{ techProfile }}" as="p" hint-placeholder-count="5"><div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font:600 12px Manrope;color:#c3c9d4">{{ p.k }}</span><span style="font:500 10px Manrope;color:#9aa3b2">{{ p.note }}</span></div><div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.1);overflow:hidden"><div style="width:{{ p.pct }}%;height:100%;background:{{ p.color }};border-radius:3px"></div></div></div></sc-for></div>
+        <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:15px 17px;display:flex;align-items:center;gap:16px">
+          <div style="text-align:center;flex-shrink:0"><div class="mono" style="font:700 30px 'JetBrains Mono';color:#ff6b6b;line-height:1">27</div><div style="font:700 10px Manrope;color:#ff6b6b;margin-top:2px">ZAYIF</div></div>
+          <div style="width:1px;align-self:stretch;background:rgba(255,255,255,0.08)"></div>
+          <div style="flex:1;min-width:0"><div style="font:700 9px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.08em">Teknik görünüm</div><div style="font:600 12px Manrope;color:#e6e9ee;line-height:1.45;margin-top:3px">Trend zayıf, momentum negatif — kısa vadede baskı sürüyor.</div></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <span style="padding:5px 10px;border-radius:8px;background:rgba(201,138,0,0.14);color:#f5c451;font:700 11px Manrope">RSI 28 · aşırı satım</span>
+          <span style="padding:5px 10px;border-radius:8px;background:rgba(229,72,77,0.14);color:#ff6b6b;font:700 11px Manrope">MACD · negatif</span>
+          <span style="padding:5px 10px;border-radius:8px;background:rgba(229,72,77,0.14);color:#ff6b6b;font:700 11px Manrope">Trend · zayıf</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:14px 17px">
+          <div style="font:800 14px Manrope;color:#f4f6fa;margin-bottom:8px">Anahtar seviyeler</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0"><span style="font:600 11px Manrope;color:#9aa3b2">Direnç</span><span class="mono" style="font:700 15px 'JetBrains Mono';color:#ff6b6b">2,80 ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#ff6b6b">+15,2%</span></div>
+          <div style="position:relative;height:6px;border-radius:4px;background:linear-gradient(90deg,rgba(63,206,138,0.4),rgba(245,196,81,0.4),rgba(229,72,77,0.4));margin:6px 0"><div style="position:absolute;left:26%;top:50%;width:12px;height:12px;border-radius:50%;background:#f4f6fa;border:2px solid #0a0e17;transform:translate(-50%,-50%)"></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0"><span style="font:600 11px Manrope;color:#9aa3b2">Destek</span><span class="mono" style="font:700 15px 'JetBrains Mono';color:#3fce8a">2,30 ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#3fce8a">−5,3%</span></div>
         </div>
         <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:6px 17px">
-          <div style="font:700 11px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.05em;padding:11px 0 4px">Destek & Direnç</div>
-          <sc-for list="{{ srLevels }}" as="l" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.06)"><span class="mono" style="font:600 11px 'JetBrains Mono';color:{{ l.color }};width:14px">{{ l.dots }}</span><span class="mono" style="flex:1;font:600 13px 'JetBrains Mono';color:#f4f6fa">{{ l.price }} ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:{{ l.color }}">{{ l.pct }}</span></div></sc-for>
+          <div style="font:700 11px Manrope;color:#9aa3b2;text-transform:uppercase;letter-spacing:0.05em;padding:11px 0 4px">Zaman dilimleri</div>
+          <sc-for list="{{ mtf }}" as="m" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,0.06)"><span style="font:700 12px Manrope;color:#f4f6fa;width:52px">{{ m.tf }}</span><span style="padding:3px 10px;border-radius:7px;background:{{ m.bg }};color:{{ m.fg }};font:800 11px Manrope">{{ m.dec }}</span><span style="flex:1;font:500 11px Manrope;color:#9aa3b2;text-align:right">{{ m.w }}</span></div></sc-for>
         </div>
       </sc-if>
       <sc-if value="{{ md.temel }}" hint-placeholder-val="{{ false }}">
-        <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:15px 17px;display:flex;align-items:center;gap:16px">
-          <svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="25" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"></circle><circle cx="32" cy="32" r="25" fill="none" stroke="#f5c451" stroke-width="6" stroke-linecap="round" stroke-dasharray="{{ valDashM }}" transform="rotate(-90 32 32)"></circle><text x="32" y="36" text-anchor="middle" style="font:700 16px 'JetBrains Mono';fill:#f4f6fa">45</text></svg>
-          <div style="flex:1"><div style="font:800 14px Manrope;color:#f4f6fa">Değer Skoru · Tut</div><div style="display:flex;gap:14px;margin-top:8px"><sc-for list="{{ valBreak }}" as="v" hint-placeholder-count="4"><div><div style="font:500 9px Manrope;color:#9aa3b2">{{ v.k }}</div><div class="mono" style="font:700 13px 'JetBrains Mono';color:{{ v.color }}">{{ v.v }}</div></div></sc-for></div></div>
+        <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:15px 17px">
+          <div style="display:flex;align-items:center;gap:16px">
+            <svg width="64" height="64" viewBox="0 0 64 64" style="flex-shrink:0"><circle cx="32" cy="32" r="25" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"></circle><circle cx="32" cy="32" r="25" fill="none" stroke="#f5c451" stroke-width="6" stroke-linecap="round" stroke-dasharray="71 157" transform="rotate(-90 32 32)"></circle><text x="32" y="34" text-anchor="middle" style="font:700 16px 'JetBrains Mono';fill:#f4f6fa">45</text><text x="32" y="45" text-anchor="middle" style="font:700 7px Manrope;fill:#f5c451">TUT</text></svg>
+            <div style="flex:1;min-width:0"><div style="font:800 14px Manrope;color:#f4f6fa">Şirket değer skoru</div><div style="font:600 11px Manrope;color:#9aa3b2;line-height:1.45;margin-top:3px">Kârlılık ve risk sağlam, değerleme pahalı — tut.</div></div>
+          </div>
+          <div style="display:flex;gap:14px;margin-top:13px"><sc-for list="{{ valBreak }}" as="v" hint-placeholder-count="4"><div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font:600 10px Manrope;color:#c3c9d4">{{ v.k }}</span><span class="mono" style="font:700 10px 'JetBrains Mono';color:{{ v.color }}">{{ v.v }}</span></div><div style="height:5px;border-radius:3px;background:rgba(255,255,255,0.1);overflow:hidden"><div style="width:{{ v.pct }}%;height:100%;background:{{ v.color }};border-radius:3px"></div></div></div></sc-for></div>
         </div>
-        <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:6px 17px;flex:1">
-          <sc-for list="{{ fundamentals }}" as="f" hint-placeholder-count="6"><div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)"><span style="font:500 12px Manrope;color:#9aa3b2">{{ f.k }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#f4f6fa">{{ f.v }}</span></div></sc-for>
+        <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:14px 17px">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#f4f6fa">Adil değer</span><span style="padding:4px 11px;border-radius:8px;background:rgba(63,206,138,0.14);color:#3fce8a;font:800 11px Manrope">+13,6%</span></div>
+          <div style="height:7px;border-radius:5px;background:rgba(255,255,255,0.1);position:relative;margin:20px 0 8px"><div style="position:absolute;left:14%;right:32%;top:0;bottom:0;background:linear-gradient(90deg,rgba(63,206,138,0.5),rgba(166,169,255,0.5));border-radius:5px"></div><div style="position:absolute;left:14%;top:-15px;font:600 9px 'JetBrains Mono';color:#f4f6fa;transform:translateX(-50%)" class="mono">2,43</div><div style="position:absolute;left:14%;top:50%;width:11px;height:11px;border-radius:50%;background:#0a0e17;border:3px solid #f4f6fa;transform:translate(-50%,-50%)"></div><div style="position:absolute;left:68%;top:50%;width:11px;height:11px;border-radius:50%;background:#0a0e17;border:3px solid #3fce8a;transform:translate(-50%,-50%)"></div><div style="position:absolute;left:68%;top:-15px;font:600 9px 'JetBrains Mono';color:#3fce8a;transform:translateX(-50%)" class="mono">2,76</div></div>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:9px"><sc-for list="{{ keyMetrics }}" as="m" hint-placeholder-count="4"><div style="width:calc(50% - 5px);background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:12px 14px"><div style="font:500 10px Manrope;color:#9aa3b2">{{ m.k }}</div><div class="mono" style="font:700 18px 'JetBrains Mono';color:#f4f6fa;margin-top:3px">{{ m.v }}</div><div style="font:600 10px Manrope;color:{{ m.tagColor }};margin-top:2px">{{ m.tag }}</div></div></sc-for></div>
       </sc-if>
       <sc-if value="{{ md.haber }}" hint-placeholder-val="{{ false }}">
         <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
@@ -395,56 +420,66 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
       </sc-if>
       <!-- TEKNİK (light) -->
       <sc-if value="{{ dl.teknik }}" hint-placeholder-val="{{ false }}">
-        <div style="flex:1.4;display:flex;flex-direction:column;gap:13px;overflow:hidden;min-width:0">
+        <div style="flex:1.6;display:flex;flex-direction:column;gap:13px;overflow:hidden;min-width:0">
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:16px;padding:15px 18px;display:flex;align-items:center;gap:20px">
+            <div style="text-align:center;flex-shrink:0"><div class="mono" style="font:700 34px 'JetBrains Mono';color:#e5484d;line-height:1">27</div><div style="font:700 11px Manrope;color:#e5484d;margin-top:3px">ZAYIF</div><div style="font-size:10px;color:#c98a00;letter-spacing:1px;margin-top:3px">★★<span style="color:#d7dbe2">★★★</span></div></div>
+            <div style="width:1px;align-self:stretch;background:rgba(80,90,120,0.12)"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font:700 10px Manrope;color:#9aa0ad;text-transform:uppercase;letter-spacing:0.08em">Teknik görünüm</div>
+              <div style="font:600 13px Manrope;color:#2b303b;line-height:1.5;margin-top:5px">Trend zayıf, momentum negatif — kısa vadede baskı sürüyor. Direnç 2,80'i geçmeden alım için erken.</div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:11px">
+                <span style="padding:5px 11px;border-radius:8px;background:rgba(201,138,0,0.14);color:#c98a00;font:700 11px Manrope">RSI 28 · aşırı satım</span>
+                <span style="padding:5px 11px;border-radius:8px;background:rgba(229,72,77,0.12);color:#e5484d;font:700 11px Manrope">MACD · negatif</span>
+                <span style="padding:5px 11px;border-radius:8px;background:rgba(229,72,77,0.12);color:#e5484d;font:700 11px Manrope">Trend · zayıf</span>
+                <span style="padding:5px 11px;border-radius:8px;background:rgba(80,90,120,0.08);color:#6b7280;font:700 11px Manrope">Hacim · ort. altı</span>
+              </div>
+            </div>
+          </div>
           <div style="display:flex;flex-wrap:wrap;gap:7px"><sc-for list="{{ indicatorsL }}" as="i" hint-placeholder-count="8"><span style="padding:6px 12px;border-radius:9px;background:{{ i.bg }};border:1px solid {{ i.bd }};color:{{ i.fg }};font:700 11px Manrope">{{ i.k }}</span></sc-for></div>
           <div style="flex:1;position:relative;min-height:0;background:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.7);border-radius:16px;padding:8px">
             <svg width="100%" height="100%" viewBox="0 0 560 300" preserveAspectRatio="none"><sc-for list="{{ candlesTL }}" as="k" hint-placeholder-count="52"><line x1="{{ k.cx }}" y1="{{ k.hi }}" x2="{{ k.cx }}" y2="{{ k.lo }}" stroke="{{ k.color }}" stroke-width="1"></line><rect x="{{ k.x }}" y="{{ k.oy }}" width="{{ k.w }}" height="{{ k.oh }}" fill="{{ k.color }}" rx="0.6"></rect></sc-for><path d="{{ emaT }}" fill="none" stroke="#c98a00" stroke-width="1.6" opacity="0.85"></path><path d="{{ bbU }}" fill="none" stroke="rgba(107,111,245,0.5)" stroke-width="1"></path><path d="{{ bbL }}" fill="none" stroke="rgba(107,111,245,0.5)" stroke-width="1"></path></svg>
           </div>
-          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:14px;padding:6px 15px">
-            <div style="font:700 11px Manrope;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;padding:9px 0 4px">Tespit edilen sinyaller</div>
-            <sc-for list="{{ signalsT }}" as="g" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="width:8px;height:8px;border-radius:50%;background:{{ g.color }}"></span><span style="font:700 13px Manrope;color:#16181d;width:110px">{{ g.name }}</span><span style="flex:1;font:500 12px Manrope;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.desc }}</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#6b7280">{{ g.vade }}</span></div></sc-for>
-          </div>
         </div>
-        <div style="width:340px;display:flex;flex-direction:column;gap:13px;overflow:hidden">
+        <div style="width:300px;display:flex;flex-direction:column;gap:13px;overflow:hidden">
           <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:16px;padding:15px 17px">
-            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#16181d">Teknik profil</span><span style="font:700 13px Manrope;color:#e5484d">27 · Zayıf</span></div>
-            <div style="display:flex;flex-direction:column;gap:10px;margin-top:13px"><sc-for list="{{ techProfileL }}" as="p" hint-placeholder-count="5"><div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><span style="font:600 12px Manrope;color:#4b5160">{{ p.k }}</span><span style="font:500 11px Manrope;color:#6b7280">{{ p.note }}</span></div><div style="height:6px;border-radius:3px;background:rgba(80,90,120,0.12);overflow:hidden"><div style="width:{{ p.pct }}%;height:100%;background:{{ p.color }};border-radius:3px"></div></div></div></sc-for></div>
-          </div>
-          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:14px 17px">
-            <div style="font:800 14px Manrope;color:#16181d;margin-bottom:10px">Destek & Direnç</div>
-            <sc-for list="{{ srLevelsL }}" as="l" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:7px 0"><span class="mono" style="font:600 11px 'JetBrains Mono';color:{{ l.color }};width:14px">{{ l.dots }}</span><span class="mono" style="flex:1;font:600 13px 'JetBrains Mono';color:#16181d">{{ l.price }} ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:{{ l.color }}">{{ l.pct }}</span></div></sc-for>
+            <div style="font:800 14px Manrope;color:#16181d;margin-bottom:12px">Anahtar seviyeler</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0"><span style="font:600 11px Manrope;color:#6b7280">Direnç</span><span class="mono" style="font:700 15px 'JetBrains Mono';color:#e5484d">2,80 ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#e5484d">+15,2%</span></div>
+            <div style="position:relative;height:6px;border-radius:4px;background:linear-gradient(90deg,rgba(22,163,91,0.4),rgba(201,138,0,0.4),rgba(229,72,77,0.4));margin:8px 0"><div style="position:absolute;left:26%;top:50%;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #16181d;box-shadow:0 2px 4px rgba(0,0,0,.15);transform:translate(-50%,-50%)"></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0"><span style="font:600 11px Manrope;color:#6b7280">Destek</span><span class="mono" style="font:700 15px 'JetBrains Mono';color:#16a35b">2,30 ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">−5,3%</span></div>
+            <div style="font:500 11px Manrope;color:#9aa0ad;line-height:1.5;margin-top:6px">Fiyat destek bölgesine yakın · %4,5 destek üstünde</div>
           </div>
           <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:14px 17px;flex:1">
-            <div style="font:800 14px Manrope;color:#16181d;margin-bottom:4px">Çoklu zaman dilimi</div>
-            <sc-for list="{{ mtfL }}" as="m" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="font:700 12px Manrope;color:#16181d;width:56px">{{ m.tf }}</span><span style="padding:3px 10px;border-radius:7px;background:{{ m.bg }};color:{{ m.fg }};font:800 11px Manrope">{{ m.dec }}</span><span style="flex:1;font:500 11px Manrope;color:#6b7280;text-align:right">{{ m.w }}</span></div></sc-for>
+            <div style="font:800 14px Manrope;color:#16181d;margin-bottom:4px">Zaman dilimleri</div>
+            <sc-for list="{{ mtfL }}" as="m" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="font:700 12px Manrope;color:#16181d;width:56px">{{ m.tf }}</span><span style="padding:3px 10px;border-radius:7px;background:{{ m.bg }};color:{{ m.fg }};font:800 11px Manrope">{{ m.dec }}</span><span style="flex:1;font:500 11px Manrope;color:#6b7280;text-align:right">{{ m.w }}</span></div></sc-for>
           </div>
         </div>
       </sc-if>
       <!-- TEMEL (light) -->
       <sc-if value="{{ dl.temel }}" hint-placeholder-val="{{ false }}">
-        <div style="flex:1.4;display:flex;flex-direction:column;gap:13px;overflow:hidden;min-width:0">
-          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:20px">
-            <svg width="76" height="76" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="rgba(80,90,120,0.14)" stroke-width="7"></circle><circle cx="38" cy="38" r="30" fill="none" stroke="#c98a00" stroke-width="7" stroke-linecap="round" stroke-dasharray="{{ valDash }}" transform="rotate(-90 38 38)"></circle><text x="38" y="35" text-anchor="middle" style="font:700 17px 'JetBrains Mono';fill:#16181d">45</text><text x="38" y="48" text-anchor="middle" style="font:600 7px Manrope;fill:#9aa0ad">/100</text></svg>
-            <div style="flex:1"><div style="font:800 16px Manrope;color:#16181d">Şirket Değer Skoru · Tut</div><div style="font:500 12px Manrope;color:#6b7280;margin-top:2px">Uzun vade · yüksek güven</div><div style="display:flex;gap:18px;margin-top:12px"><sc-for list="{{ valBreakL }}" as="v" hint-placeholder-count="4"><div><div style="font:500 10px Manrope;color:#6b7280">{{ v.k }}</div><div class="mono" style="font:700 15px 'JetBrains Mono';color:{{ v.color }};margin-top:1px">{{ v.v }}</div></div></sc-for></div></div>
+        <div style="flex:1.6;display:flex;flex-direction:column;gap:13px;overflow:hidden;min-width:0">
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:22px">
+            <svg width="82" height="82" viewBox="0 0 82 82" style="flex-shrink:0"><circle cx="41" cy="41" r="32" fill="none" stroke="rgba(80,90,120,0.14)" stroke-width="7"></circle><circle cx="41" cy="41" r="32" fill="none" stroke="#c98a00" stroke-width="7" stroke-linecap="round" stroke-dasharray="90 201" transform="rotate(-90 41 41)"></circle><text x="41" y="38" text-anchor="middle" style="font:700 21px 'JetBrains Mono';fill:#16181d">45</text><text x="41" y="52" text-anchor="middle" style="font:700 9px Manrope;fill:#c98a00">TUT</text></svg>
+            <div style="flex:1;min-width:0">
+              <div style="font:800 15px Manrope;color:#16181d">Şirket değer skoru</div>
+              <div style="font:600 12px Manrope;color:#6b7280;line-height:1.5;margin-top:3px">Kârlılık ve risk sağlam, değerleme pahalı — uzun vadede tut, ekleme için geri çekilme bekle.</div>
+              <div style="display:flex;gap:20px;margin-top:12px"><sc-for list="{{ valBreakL }}" as="v" hint-placeholder-count="4"><div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font:600 11px Manrope;color:#4b5160">{{ v.k }}</span><span class="mono" style="font:700 11px 'JetBrains Mono';color:{{ v.color }}">{{ v.v }}</span></div><div style="height:5px;border-radius:3px;background:rgba(80,90,120,0.12);overflow:hidden"><div style="width:{{ v.pct }}%;height:100%;background:{{ v.color }};border-radius:3px"></div></div></div></sc-for></div>
+            </div>
           </div>
-          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:16px 18px">
-            <div style="font:800 14px Manrope;color:#16181d;margin-bottom:12px">Fiyat hedefleri</div>
-            <div style="height:8px;border-radius:5px;background:rgba(80,90,120,0.12);position:relative;margin:22px 0 8px"><div style="position:absolute;left:0;top:0;bottom:0;width:14%;background:linear-gradient(90deg,#16a35b,#6b6ff5);border-radius:5px"></div><div style="position:absolute;left:14%;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #16a35b;box-shadow:0 2px 5px rgba(0,0,0,.12);transform:translate(-50%,-50%)"></div></div>
-            <div style="display:flex;gap:11px;margin-top:14px"><sc-for list="{{ targetsL }}" as="t" hint-placeholder-count="3"><div style="flex:1;border:1px solid {{ t.bd }};border-radius:13px;padding:12px 14px;background:{{ t.bg }}"><div style="font:500 11px Manrope;color:#6b7280">{{ t.k }}</div><div class="mono" style="font:700 18px 'JetBrains Mono';color:{{ t.fg }};margin-top:2px">{{ t.v }}</div><div class="mono" style="font:600 11px 'JetBrains Mono';color:{{ t.chgColor }};margin-top:1px">{{ t.chg }}</div></div></sc-for></div>
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:15px 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#16181d">Adil değer</span><span style="padding:5px 12px;border-radius:9px;background:rgba(22,163,91,0.13);color:#16a35b;font:800 12px Manrope">+13,6% potansiyel</span></div>
+            <div style="height:8px;border-radius:5px;background:rgba(80,90,120,0.12);position:relative;margin:22px 0 8px"><div style="position:absolute;left:14%;right:32%;top:0;bottom:0;background:linear-gradient(90deg,rgba(22,163,91,0.5),rgba(107,111,245,0.5));border-radius:5px"></div><div style="position:absolute;left:14%;top:-16px;font:600 9px 'JetBrains Mono';color:#16181d;transform:translateX(-50%)" class="mono">2,43</div><div style="position:absolute;left:14%;top:50%;width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid #16181d;box-shadow:0 2px 4px rgba(0,0,0,.15);transform:translate(-50%,-50%)"></div><div style="position:absolute;left:68%;top:50%;width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid #16a35b;box-shadow:0 2px 4px rgba(0,0,0,.15);transform:translate(-50%,-50%)"></div><div style="position:absolute;left:68%;top:-16px;font:600 9px 'JetBrains Mono';color:#16a35b;transform:translateX(-50%)" class="mono">2,76</div></div>
+            <div style="display:flex;justify-content:space-between;font:500 10px Manrope;color:#9aa0ad;margin-top:6px"><span>Mevcut 2,43 ₺</span><span>DCF 2,68 · Çarpan 2,81 · PD/DD 2,79</span></div>
+          </div>
+          <div style="display:flex;gap:11px;flex:1"><sc-for list="{{ keyMetricsL }}" as="m" hint-placeholder-count="4"><div style="flex:1;background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:14px;padding:14px 15px;display:flex;flex-direction:column;justify-content:center"><div style="font:500 10px Manrope;color:#6b7280">{{ m.k }}</div><div class="mono" style="font:700 19px 'JetBrains Mono';color:#16181d;margin-top:4px">{{ m.v }}</div><div style="font:600 10px Manrope;color:{{ m.tagColor }};margin-top:3px">{{ m.tag }}</div></div></sc-for></div>
+        </div>
+        <div style="width:300px;display:flex;flex-direction:column;gap:13px;overflow:hidden">
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:16px;padding:15px 17px">
+            <div style="font:800 14px Manrope;color:#16181d;margin-bottom:6px">Sektör emsalleri</div>
+            <div style="font:500 11px Manrope;color:#6b7280;margin-bottom:6px">Havacılık · sıra 3/4</div>
+            <sc-for list="{{ peersL }}" as="p" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-top:1px solid rgba(80,90,120,0.1);background:{{ p.hl }};border-radius:8px"><span style="flex:1;font:700 13px Manrope;color:{{ p.nameColor }}">{{ p.sym }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:{{ p.color }}">{{ p.chg }}</span></div></sc-for>
           </div>
           <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:6px 18px;flex:1">
-            <sc-for list="{{ fundamentals }}" as="f" hint-placeholder-count="6"><div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(80,90,120,0.1)"><span style="font:500 12px Manrope;color:#6b7280">{{ f.k }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#16181d">{{ f.v }}</span></div></sc-for>
-          </div>
-        </div>
-        <div style="width:340px;display:flex;flex-direction:column;gap:13px;overflow:hidden">
-          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:16px;padding:15px 17px;flex:1">
-            <div style="font:800 14px Manrope;color:#16181d;margin-bottom:10px">Havacılık sektör emsalleri</div>
-            <sc-for list="{{ peersL }}" as="p" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid rgba(80,90,120,0.1);background:{{ p.hl }};border-radius:8px"><span style="flex:1;font:700 13px Manrope;color:{{ p.nameColor }}">{{ p.sym }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:{{ p.color }}">{{ p.chg }}</span></div></sc-for>
-            <div style="font:500 11px Manrope;color:#6b7280;margin-top:10px;line-height:1.5">Sektör ortalamasının %2,6 altında · Sıra 3/4</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:15px 17px">
-            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 13px Manrope;color:#16181d">Özel notlarım</span><span style="font:500 10px Manrope;color:#6b7280">Sadece sen görürsün</span></div>
-            <div style="margin-top:10px;border:1px dashed rgba(80,90,120,0.24);border-radius:12px;padding:14px;text-align:center;font:600 12px Manrope;color:#6b7280" style-hover="border-color:rgba(80,90,120,0.4);color:#16181d">+ Bu hisse için not ekle</div>
+            <sc-for list="{{ fundamentals }}" as="f" hint-placeholder-count="6"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(80,90,120,0.1)"><span style="font:500 12px Manrope;color:#6b7280">{{ f.k }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#16181d">{{ f.v }}</span></div></sc-for>
           </div>
         </div>
       </sc-if>
@@ -506,23 +541,40 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
         </div>
       </sc-if>
       <sc-if value="{{ ml.teknik }}" hint-placeholder-val="{{ false }}">
-        <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:15px 17px">
-          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#16181d">Teknik profil</span><span style="font:700 13px Manrope;color:#e5484d">27 · Zayıf</span></div>
-          <div style="display:flex;flex-direction:column;gap:9px;margin-top:12px"><sc-for list="{{ techProfileL }}" as="p" hint-placeholder-count="5"><div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font:600 12px Manrope;color:#4b5160">{{ p.k }}</span><span style="font:500 10px Manrope;color:#6b7280">{{ p.note }}</span></div><div style="height:6px;border-radius:3px;background:rgba(80,90,120,0.12);overflow:hidden"><div style="width:{{ p.pct }}%;height:100%;background:{{ p.color }};border-radius:3px"></div></div></div></sc-for></div>
+        <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:15px 17px;display:flex;align-items:center;gap:16px">
+          <div style="text-align:center;flex-shrink:0"><div class="mono" style="font:700 30px 'JetBrains Mono';color:#e5484d;line-height:1">27</div><div style="font:700 10px Manrope;color:#e5484d;margin-top:2px">ZAYIF</div></div>
+          <div style="width:1px;align-self:stretch;background:rgba(80,90,120,0.12)"></div>
+          <div style="flex:1;min-width:0"><div style="font:700 9px Manrope;color:#9aa0ad;text-transform:uppercase;letter-spacing:0.08em">Teknik görünüm</div><div style="font:600 12px Manrope;color:#2b303b;line-height:1.45;margin-top:3px">Trend zayıf, momentum negatif — kısa vadede baskı sürüyor.</div></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <span style="padding:5px 10px;border-radius:8px;background:rgba(201,138,0,0.14);color:#c98a00;font:700 11px Manrope">RSI 28 · aşırı satım</span>
+          <span style="padding:5px 10px;border-radius:8px;background:rgba(229,72,77,0.12);color:#e5484d;font:700 11px Manrope">MACD · negatif</span>
+          <span style="padding:5px 10px;border-radius:8px;background:rgba(229,72,77,0.12);color:#e5484d;font:700 11px Manrope">Trend · zayıf</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:14px 17px">
+          <div style="font:800 14px Manrope;color:#16181d;margin-bottom:8px">Anahtar seviyeler</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0"><span style="font:600 11px Manrope;color:#6b7280">Direnç</span><span class="mono" style="font:700 15px 'JetBrains Mono';color:#e5484d">2,80 ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#e5484d">+15,2%</span></div>
+          <div style="position:relative;height:6px;border-radius:4px;background:linear-gradient(90deg,rgba(22,163,91,0.4),rgba(201,138,0,0.4),rgba(229,72,77,0.4));margin:6px 0"><div style="position:absolute;left:26%;top:50%;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #16181d;box-shadow:0 2px 4px rgba(0,0,0,.15);transform:translate(-50%,-50%)"></div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0"><span style="font:600 11px Manrope;color:#6b7280">Destek</span><span class="mono" style="font:700 15px 'JetBrains Mono';color:#16a35b">2,30 ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">−5,3%</span></div>
         </div>
         <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:6px 17px">
-          <div style="font:700 11px Manrope;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;padding:11px 0 4px">Destek & Direnç</div>
-          <sc-for list="{{ srLevelsL }}" as="l" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(80,90,120,0.1)"><span class="mono" style="font:600 11px 'JetBrains Mono';color:{{ l.color }};width:14px">{{ l.dots }}</span><span class="mono" style="flex:1;font:600 13px 'JetBrains Mono';color:#16181d">{{ l.price }} ₺</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:{{ l.color }}">{{ l.pct }}</span></div></sc-for>
+          <div style="font:700 11px Manrope;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;padding:11px 0 4px">Zaman dilimleri</div>
+          <sc-for list="{{ mtfL }}" as="m" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="font:700 12px Manrope;color:#16181d;width:52px">{{ m.tf }}</span><span style="padding:3px 10px;border-radius:7px;background:{{ m.bg }};color:{{ m.fg }};font:800 11px Manrope">{{ m.dec }}</span><span style="flex:1;font:500 11px Manrope;color:#6b7280;text-align:right">{{ m.w }}</span></div></sc-for>
         </div>
       </sc-if>
       <sc-if value="{{ ml.temel }}" hint-placeholder-val="{{ false }}">
-        <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:15px 17px;display:flex;align-items:center;gap:16px">
-          <svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="25" fill="none" stroke="rgba(80,90,120,0.14)" stroke-width="6"></circle><circle cx="32" cy="32" r="25" fill="none" stroke="#c98a00" stroke-width="6" stroke-linecap="round" stroke-dasharray="{{ valDashM }}" transform="rotate(-90 32 32)"></circle><text x="32" y="36" text-anchor="middle" style="font:700 16px 'JetBrains Mono';fill:#16181d">45</text></svg>
-          <div style="flex:1"><div style="font:800 14px Manrope;color:#16181d">Değer Skoru · Tut</div><div style="display:flex;gap:14px;margin-top:8px"><sc-for list="{{ valBreakL }}" as="v" hint-placeholder-count="4"><div><div style="font:500 9px Manrope;color:#6b7280">{{ v.k }}</div><div class="mono" style="font:700 13px 'JetBrains Mono';color:{{ v.color }}">{{ v.v }}</div></div></sc-for></div></div>
+        <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:15px 17px">
+          <div style="display:flex;align-items:center;gap:16px">
+            <svg width="64" height="64" viewBox="0 0 64 64" style="flex-shrink:0"><circle cx="32" cy="32" r="25" fill="none" stroke="rgba(80,90,120,0.14)" stroke-width="6"></circle><circle cx="32" cy="32" r="25" fill="none" stroke="#c98a00" stroke-width="6" stroke-linecap="round" stroke-dasharray="71 157" transform="rotate(-90 32 32)"></circle><text x="32" y="34" text-anchor="middle" style="font:700 16px 'JetBrains Mono';fill:#16181d">45</text><text x="32" y="45" text-anchor="middle" style="font:700 7px Manrope;fill:#c98a00">TUT</text></svg>
+            <div style="flex:1;min-width:0"><div style="font:800 14px Manrope;color:#16181d">Şirket değer skoru</div><div style="font:600 11px Manrope;color:#6b7280;line-height:1.45;margin-top:3px">Kârlılık ve risk sağlam, değerleme pahalı — tut.</div></div>
+          </div>
+          <div style="display:flex;gap:14px;margin-top:13px"><sc-for list="{{ valBreakL }}" as="v" hint-placeholder-count="4"><div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font:600 10px Manrope;color:#4b5160">{{ v.k }}</span><span class="mono" style="font:700 10px 'JetBrains Mono';color:{{ v.color }}">{{ v.v }}</span></div><div style="height:5px;border-radius:3px;background:rgba(80,90,120,0.12);overflow:hidden"><div style="width:{{ v.pct }}%;height:100%;background:{{ v.color }};border-radius:3px"></div></div></div></sc-for></div>
         </div>
-        <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:6px 17px;flex:1">
-          <sc-for list="{{ fundamentals }}" as="f" hint-placeholder-count="6"><div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(80,90,120,0.1)"><span style="font:500 12px Manrope;color:#6b7280">{{ f.k }}</span><span class="mono" style="font:600 13px 'JetBrains Mono';color:#16181d">{{ f.v }}</span></div></sc-for>
+        <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:16px;padding:14px 17px">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#16181d">Adil değer</span><span style="padding:4px 11px;border-radius:8px;background:rgba(22,163,91,0.13);color:#16a35b;font:800 11px Manrope">+13,6%</span></div>
+          <div style="height:7px;border-radius:5px;background:rgba(80,90,120,0.12);position:relative;margin:20px 0 8px"><div style="position:absolute;left:14%;right:32%;top:0;bottom:0;background:linear-gradient(90deg,rgba(22,163,91,0.5),rgba(107,111,245,0.5));border-radius:5px"></div><div style="position:absolute;left:14%;top:-15px;font:600 9px 'JetBrains Mono';color:#16181d;transform:translateX(-50%)" class="mono">2,43</div><div style="position:absolute;left:14%;top:50%;width:11px;height:11px;border-radius:50%;background:#fff;border:3px solid #16181d;box-shadow:0 2px 4px rgba(0,0,0,.15);transform:translate(-50%,-50%)"></div><div style="position:absolute;left:68%;top:50%;width:11px;height:11px;border-radius:50%;background:#fff;border:3px solid #16a35b;box-shadow:0 2px 4px rgba(0,0,0,.15);transform:translate(-50%,-50%)"></div><div style="position:absolute;left:68%;top:-15px;font:600 9px 'JetBrains Mono';color:#16a35b;transform:translateX(-50%)" class="mono">2,76</div></div>
         </div>
+        <div style="display:flex;flex-wrap:wrap;gap:9px"><sc-for list="{{ keyMetricsL }}" as="m" hint-placeholder-count="4"><div style="width:calc(50% - 5px);background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);border-radius:14px;padding:12px 14px"><div style="font:500 10px Manrope;color:#6b7280">{{ m.k }}</div><div class="mono" style="font:700 18px 'JetBrains Mono';color:#16181d;margin-top:3px">{{ m.v }}</div><div style="font:600 10px Manrope;color:{{ m.tagColor }};margin-top:2px">{{ m.tag }}</div></div></sc-for></div>
       </sc-if>
       <sc-if value="{{ ml.haber }}" hint-placeholder-val="{{ false }}">
         <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
@@ -594,28 +646,35 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
       <div style="font:500 12px Manrope;color:#4b5160;line-height:1.55;margin-top:13px">Akıllı para güçlü, teknik zayıf — kısa vadede temkinli, orta vadede olumlu. Küçük pozisyonla başla.</div>
     </div>
 
-    <!-- Adil Değer (revize) -->
+    <!-- Teknik Adil Değer (revize — açık tema) -->
     <div style="flex:1;background:rgba(255,255,255,0.62);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.85);box-shadow:inset 0 1px 0 rgba(255,255,255,0.95),0 14px 34px -16px rgba(80,90,120,.3);border-radius:18px;padding:18px 20px">
-      <div style="font:800 15px Manrope;color:#16181d">Adil değer</div>
-      <div style="font:500 11px Manrope;color:#6b7280;margin-top:2px">3 modelin ortalaması</div>
-      <div style="display:flex;align-items:baseline;gap:8px;margin-top:14px"><span class="mono" style="font:700 26px 'JetBrains Mono';color:#16a35b">2,76 ₺</span><span style="font:600 12px Manrope;color:#16a35b">+%13,6 potansiyel</span></div>
-      <div style="position:relative;height:8px;border-radius:5px;background:rgba(80,90,120,0.12);margin:20px 0 6px">
-        <div style="position:absolute;left:12%;right:24%;top:0;bottom:0;background:linear-gradient(90deg,rgba(22,163,91,0.35),rgba(22,163,91,0.6));border-radius:5px"></div>
-        <div style="position:absolute;left:32%;top:50%;width:2px;height:16px;background:#16181d;transform:translate(-50%,-50%)"></div>
-        <div style="position:absolute;left:32%;top:-18px;font:600 9px 'JetBrains Mono';color:#16181d;transform:translateX(-50%)" class="mono">2,43</div>
-        <div style="position:absolute;left:64%;top:50%;width:10px;height:10px;border-radius:50%;background:#fff;border:3px solid #16a35b;transform:translate(-50%,-50%)"></div>
+      <div style="font:800 15px Manrope;color:#16181d">Teknik adil değer</div>
+      <div style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 12px;border-radius:10px;background:rgba(201,138,0,0.12);border:1px solid rgba(201,138,0,0.25)"><span style="font:800 13px Manrope;color:#c98a00">Pahalı</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#c98a00">+%13,39</span></div>
+      <div style="position:relative;height:10px;border-radius:6px;margin:26px 0 8px;background:linear-gradient(90deg,#2f86e0 0%,#3fa3d6 20%,#16a35b 42%,#f5c451 66%,#e5484d 100%)">
+        <div style="position:absolute;left:63%;top:-5px;bottom:-5px;width:3px;border-radius:2px;background:#16181d;box-shadow:0 0 0 3px rgba(255,255,255,0.9)"></div>
       </div>
-      <div style="display:flex;justify-content:space-between;font:500 10px Manrope;color:#9aa0ad;margin-top:8px"><span>DCF 2,68</span><span>Çarpan 2,81</span><span>PD/DD 2,79</span></div>
+      <div style="display:flex;justify-content:space-between;font:600 9px Manrope;color:#9aa0ad;letter-spacing:0.02em"><span>Aşırı ucuz</span><span>Ucuz</span><span>Adil</span><span>Pahalı</span><span>Aşırı pahalı</span></div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <div style="flex:1;border:1px solid rgba(107,111,245,0.3);background:rgba(107,111,245,0.08);border-radius:12px;padding:10px"><div style="font:500 9px Manrope;color:#6b7280">Mevcut</div><div class="mono" style="font:700 14px 'JetBrains Mono';color:#4d4fb0;margin-top:2px">121,90</div></div>
+        <div style="flex:1;border:1px solid rgba(80,90,120,0.14);border-radius:12px;padding:10px"><div style="font:500 9px Manrope;color:#6b7280">Adil değer</div><div class="mono" style="font:700 14px 'JetBrains Mono';color:#16181d;margin-top:2px">107,51</div></div>
+        <div style="flex:1;border:1px solid rgba(80,90,120,0.14);border-radius:12px;padding:10px"><div style="font:500 9px Manrope;color:#6b7280">EMA50</div><div class="mono" style="font:700 14px 'JetBrains Mono';color:#16181d;margin-top:2px">113,70</div></div>
+        <div style="flex:1;border:1px solid rgba(80,90,120,0.14);border-radius:12px;padding:10px"><div style="font:500 9px Manrope;color:#6b7280">EMA200</div><div class="mono" style="font:700 14px 'JetBrains Mono';color:#16181d;margin-top:2px">91,20</div></div>
+      </div>
     </div>
 
-    <!-- Temel & Teknik özet (revize) -->
-    <div style="flex:1;background:rgba(255,255,255,0.62);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.85);box-shadow:inset 0 1px 0 rgba(255,255,255,0.95),0 14px 34px -16px rgba(80,90,120,.3);border-radius:18px;padding:14px 20px">
-      <div style="font:800 15px Manrope;color:#16181d;padding:4px 0 8px">Temel & teknik özet</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="font:600 12px Manrope;color:#4b5160">RSI (14)</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#c98a00">28,1 · aşırı satım</span></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="font:600 12px Manrope;color:#4b5160">MACD</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#e5484d">Negatif kesişim</span></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="font:600 12px Manrope;color:#4b5160">F/K</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16181d">18,6 · sektör 22,4</span></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="font:600 12px Manrope;color:#4b5160">FAVÖK marjı</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">%14,2 · artış</span></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid rgba(80,90,120,0.1)"><span style="font:600 12px Manrope;color:#4b5160">Gelir büyümesi</span><span class="mono" style="font:600 12px 'JetBrains Mono';color:#16a35b">%28 y/y</span></div>
+    <!-- Teknik Profil (revize — açık tema) -->
+    <div style="flex:1;background:rgba(255,255,255,0.62);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.85);box-shadow:inset 0 1px 0 rgba(255,255,255,0.95),0 14px 34px -16px rgba(80,90,120,.3);border-radius:18px;padding:18px 20px">
+      <div style="display:flex;align-items:center;gap:7px"><span style="font:800 15px Manrope;color:#16181d">Teknik profil</span><span style="font:500 10px Manrope;color:#9aa0ad">karar değil</span></div>
+      <div style="display:flex;align-items:center;gap:16px;margin-top:14px">
+        <div style="display:flex;flex-direction:column;align-items:center"><div class="mono" style="font:700 30px 'JetBrains Mono';color:#16181d;line-height:1">80</div><div style="font:700 12px Manrope;color:#16a35b;margin-top:3px">Güçlü</div><div style="font-size:11px;color:#f5c451;letter-spacing:1px;margin-top:2px">★★★★<span style="color:#d7dbe2">★</span></div></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+          <div><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font:600 11px Manrope;color:#4b5160">Trend</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#16a35b">100</span></div><div style="height:6px;border-radius:3px;background:rgba(80,90,120,0.12)"><div style="width:100%;height:100%;background:#16a35b;border-radius:3px"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font:600 11px Manrope;color:#4b5160">Momentum</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#16a35b">72</span></div><div style="height:6px;border-radius:3px;background:rgba(80,90,120,0.12)"><div style="width:72%;height:100%;background:#16a35b;border-radius:3px"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font:600 11px Manrope;color:#4b5160">Hacim</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#c98a00">58</span></div><div style="height:6px;border-radius:3px;background:rgba(80,90,120,0.12)"><div style="width:58%;height:100%;background:#c98a00;border-radius:3px"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font:600 11px Manrope;color:#4b5160">Volatilite</span><span class="mono" style="font:600 11px 'JetBrains Mono';color:#c98a00">64</span></div><div style="height:6px;border-radius:3px;background:rgba(80,90,120,0.12)"><div style="width:64%;height:100%;background:#c98a00;border-radius:3px"></div></div></div>
+        </div>
+      </div>
+      <div style="font:500 11px Manrope;color:#6b7280;line-height:1.5;margin-top:13px">Tüm EMA'lar yükseliş sıralamasında — trend güçlü, momentum destekliyor.</div>
     </div>
   </div>
 </div>
@@ -773,9 +832,25 @@ class Component extends DCLogic {
     const mtf = mtfBase.map(m => ({ ...m, bg: m.pos ? 'rgba(63,206,138,0.18)' : 'rgba(255,107,107,0.16)', fg: m.pos ? '#3fce8a' : '#ff6b6b' }));
     const mtfL = mtfBase.map(m => ({ ...m, bg: m.pos ? 'rgba(22,163,91,0.14)' : 'rgba(229,72,77,0.12)', fg: m.pos ? '#16a35b' : '#e5484d' }));
 
-    const valBreakBase = [{ k: 'Değer', v: '73' }, { k: 'Büyüme', v: '81' }, { k: 'Kâr', v: '61' }, { k: 'Risk', v: '44' }];
-    const valBreak = valBreakBase.map(v => ({ ...v, color: '#f4f6fa' }));
-    const valBreakL = valBreakBase.map(v => ({ ...v, color: '#16181d' }));
+    const valBreakBase = [
+      { k: 'Değerleme', v: '30', pct: 30, tone: 'bad' },
+      { k: 'Büyüme', v: '25', pct: 25, tone: 'bad' },
+      { k: 'Kârlılık', v: '62', pct: 62, tone: 'good' },
+      { k: 'Risk', v: '61', pct: 61, tone: 'good' }
+    ];
+    const vbColor = (tone, light) => tone === 'good' ? (light ? '#16a35b' : '#3fce8a') : tone === 'bad' ? (light ? '#e5484d' : '#ff6b6b') : (light ? '#c98a00' : '#f5c451');
+    const valBreak = valBreakBase.map(v => ({ ...v, color: vbColor(v.tone, false) }));
+    const valBreakL = valBreakBase.map(v => ({ ...v, color: vbColor(v.tone, true) }));
+
+    const keyMetricsBase = [
+      { k: 'Piyasa değeri', v: '9,8 Mr', tag: 'orta ölçek', tone: 'mut' },
+      { k: 'F/K oranı', v: '18,6', tag: 'sektör 22,4', tone: 'good' },
+      { k: 'PD/DD', v: '3,1', tag: 'primli', tone: 'bad' },
+      { k: 'Temettü', v: '%1,2', tag: 'düşük verim', tone: 'mut' }
+    ];
+    const kmColor = (tone, light) => tone === 'good' ? (light ? '#16a35b' : '#3fce8a') : tone === 'bad' ? (light ? '#c98a00' : '#f5c451') : (light ? '#6b7280' : '#9aa3b2');
+    const keyMetrics = keyMetricsBase.map(m => ({ ...m, tagColor: kmColor(m.tone, false) }));
+    const keyMetricsL = keyMetricsBase.map(m => ({ ...m, tagColor: kmColor(m.tone, true) }));
 
     const targets = [
       { k: 'Mevcut', v: '2,43', chg: '', bg: 'rgba(255,255,255,0.05)', bd: 'rgba(255,255,255,0.1)', fg: '#f4f6fa', chgColor: '#9aa3b2' },
@@ -850,6 +925,7 @@ class Component extends DCLogic {
       volBarsML: this.volBars(29, 34, 336, 100, 'rgba(22,163,91,0.45)', 'rgba(229,72,77,0.4)'),
       // data
       statsD, fundShort, fundamentals, techProfile, techProfileL,
+      keyMetrics, keyMetricsL,
       srLevels, srLevelsL, mtf, mtfL, valBreak, valBreakL, targets, targetsL,
       peers, peersL, signalsT, news, newsL, sentiment, sentimentL,
       valDash: (45 / 100 * C).toFixed(1) + ' ' + C.toFixed(1),

@@ -103,6 +103,21 @@ Oturum varsa → `/bugun` (giriş/kayıt/kök yönlenir); yoksa → `/giris`. Ko
   içeriği (Card tabanlı, `tailwind.config.js`'te hardcoded-hex `surface`/`text-primary` — CSS
   değişkeni DEĞİL, `var()` override işe yaramaz) artık `bg-surface-dark` sarmalayıcı panel
   içinde render ediliyor (Portföyüm değer kartı ile aynı "kasıtlı koyu feature panel" deseni).
+  **✅ Teknik/Temel "tek bakış" verdict-first redesign (2026-07-19):** bu iki sekme artık
+  `HisseDetailClient` embed'i DEĞİL — `HisseDetayScreen.tsx` içinde NATIVE, açık/koyu tema
+  token'larıyla yazılmış `teknikPane`/`temelPane`. Gerçek veri, ek fetch'ler:
+  `computeStockScore(signalCandles, detectedSignals)` (0-100 teknik verdict + Trend/Momentum/
+  Hacim/Sinyal/Volatilite boyutları, saf client fonksiyon) + `calculateMACD` (MACD işareti) +
+  `calculateBollingerBands`/EMA20 (grafik overlay) + `calculateSRLevels(signalCandles)`
+  (Anahtar seviyeler) + `/api/mtf-analiz` (Zaman dilimleri, BIST-only) + `/api/investment-score`
+  (Şirket değer skoru ring + Değerleme/Büyüme/Kârlılık/Risk) + `/api/peer-valuation` (Sektöre göre
+  değerleme, BIST-only, sektör medyanı cron'undan) + `/api/fundamentals/[sembol]` (Piyasa değeri/
+  F-K/PD-DD/Temettü/Kâr marjı/ROE/52H, Yahoo — API key gerekmez) + `SECTOR_REPRESENTATIVES` +
+  `/api/ohlcv` fan-out (Sektör emsalleri, legacy'deki aynı desen). Spec'in "DCF/Çarpan/PD-DD 3
+  model ortalaması adil değer" talebi gerçek veriyle karşılanamadığı için (o model prod'da yok,
+  uydurma veri YASAK) dürüstçe **"Sektöre göre değerleme"** (peer relativeScore + PE/PB medyan
+  karşılaştırması) ile değiştirildi. Haberler sekmesi DEĞİŞMEDEN `HisseDetailClient` embed
+  (`bg-surface-dark` sarmalayıcı) olarak kalıyor.
 - Ekran-ekran geçişte yeni→eski sayfa link karışımı NORMAL (eski navbar eski sayfalarda görünür;
   tüm ekranlar geçince eski kabuk tamamen kaldırılacak).
 - **Bilinen:** preview `screenshot` aracı bu oturumda uzun yeni-tasarım sayfalarında zaman aşımına

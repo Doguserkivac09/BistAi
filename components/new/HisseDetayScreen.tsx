@@ -17,17 +17,44 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { isUSSymbol } from '@/lib/us-symbols';
-import { getSector } from '@/lib/sectors';
+import { getSector, getSectorId, SECTOR_REPRESENTATIVES } from '@/lib/sectors';
 import { calculateSRLevels } from '@/lib/support-resistance';
 import { detectAllSignals } from '@/lib/signals';
+import { computeStockScore, type StockScoreResult } from '@/lib/stock-score';
+import { calculateMACD, calculateBollingerBands } from '@/lib/indicators';
 import type { OHLCVCandle, StockSignal } from '@/types';
 import type { HisseAnalizResponse } from '@/app/api/hisse-analiz/route';
+import type { MtfResponse } from '@/app/api/mtf-analiz/route';
+import type { YahooFundamentals } from '@/lib/yahoo-fundamentals';
 import { addToWatchlist, removeFromWatchlist } from '@/app/hisse/[sembol]/actions';
 import { BrokerLinkButton } from '@/components/BrokerLinkButton';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { HisseDetailClient } from '@/app/hisse/[sembol]/HisseDetailClient';
 import { GelismisAiAnaliz } from '@/components/GelismisAiAnaliz';
 import { toast } from 'sonner';
+
+interface InvestScoreLite {
+  score: number;
+  subScores: { valuation: number; growth: number; profitability: number; risk: number };
+  ratingLabel: string;
+  summary: string;
+}
+interface PeerValLite {
+  relativeScore: number;
+  label: string;
+  pe: { value: number | null; median: number | null; pctVsMedian: number | null };
+  pb: { value: number | null; median: number | null; pctVsMedian: number | null };
+}
+interface SectorPeer { sembol: string; perf20d: number | null }
+
+const scoreBucketColor = (v: number) => (v >= 60 ? '#16a35b' : v >= 40 ? '#c98a00' : '#e5484d');
+function fmtBigNumber(v: number | null | undefined): string {
+  if (v == null) return '—';
+  if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
+  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(0)}M`;
+  return v.toLocaleString('tr-TR');
+}
 
 type RangeKey = '1G' | '1H' | '1A' | '1Y' | 'Tümü';
 const RANGES: RangeKey[] = ['1G', '1H', '1A', '1Y', 'Tümü'];
@@ -195,6 +222,13 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
   const [watchBusy, setWatchBusy] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
+  // Teknik/Temel sekmeleri — "tek bakış" verdict-first veri kaynakları
+  const [mtf, setMtf] = useState<MtfResponse | null>(null);
+  const [invScore, setInvScore] = useState<InvestScoreLite | null>(null);
+  const [fund, setFund] = useState<YahooFundamentals | null>(null);
+  const [peerVal, setPeerVal] = useState<PeerValLite | null>(null);
+  const [sectorPeers, setSectorPeers] = useState<SectorPeer[]>([]);
+
   // Seçili aralığın grafiği
   useEffect(() => {
     let cancelled = false;
@@ -240,6 +274,77 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
       .then((r) => (r.ok ? r.json() : null))
       .then((d: HisseAnalizResponse | null) => { if (!cancelled) setAnaliz(d); })
       .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sembol, isUS]);
+
+  // Zaman dilimleri (MTF) — yalnızca BIST (endpoint US'i desteklemiyor)
+  useEffect(() => {
+    if (isUS) return;
+    let cancelled = false;
+    fetch(`/api/mtf-analiz?symbol=${encodeURIComponent(sembol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: MtfResponse | null) => { if (!cancelled) setMtf(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sembol, isUS]);
+
+  // Yatırım Skoru (Değerleme/Büyüme/Kârlılık/Risk) — Temel sekmesi verdict'i
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/investment-score?sembol=${encodeURIComponent(sembol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: InvestScoreLite | null) => { if (!cancelled) setInvScore(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sembol]);
+
+  // Temel veriler (Yahoo, API key gerektirmez) — piyasa değeri/F-K/PD-DD/temettü
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/fundamentals/${encodeURIComponent(sembol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: YahooFundamentals | null) => { if (!cancelled) setFund(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sembol]);
+
+  // Sektöre göre değerleme — yalnızca BIST (sektör medyanı haftalık cron'dan)
+  useEffect(() => {
+    if (isUS) return;
+    let cancelled = false;
+    fetch(`/api/peer-valuation?symbol=${encodeURIComponent(sembol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { available?: boolean; peer?: PeerValLite } | null) => {
+        if (!cancelled && d?.available && d.peer) setPeerVal(d.peer);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sembol, isUS]);
+
+  // Sektör emsalleri — temsilci hisseler + 20g performans (gerçek OHLCV, Yahoo fan-out YOK)
+  useEffect(() => {
+    if (isUS) return;
+    const sectorId = getSectorId(sembol);
+    const reps = SECTOR_REPRESENTATIVES[sectorId];
+    if (!reps || reps.length === 0) { setSectorPeers([]); return; }
+    const symbolsToFetch = [sembol, ...reps.filter((s) => s !== sembol)].slice(0, 5);
+    let cancelled = false;
+    void (async () => {
+      const results = await Promise.allSettled(
+        symbolsToFetch.map(async (s): Promise<SectorPeer> => {
+          const r = await fetch(`/api/ohlcv?symbol=${s}&days=30`);
+          if (!r.ok) throw new Error('fetch fail');
+          const { candles: cs = [] } = (await r.json()) as { candles: OHLCVCandle[] };
+          const td = cs.filter((c) => (c.volume ?? 0) > 0);
+          if (td.length < 21) return { sembol: s, perf20d: null };
+          const last = td[td.length - 1]!.close;
+          const base = td[td.length - 21]!.close;
+          return { sembol: s, perf20d: base === 0 ? null : parseFloat((((last - base) / base) * 100).toFixed(2)) };
+        }),
+      );
+      if (cancelled) return;
+      setSectorPeers(results.map((r) => (r.status === 'fulfilled' ? r.value : null)).filter((p): p is SectorPeer => p !== null));
+    })();
     return () => { cancelled = true; };
   }, [sembol, isUS]);
 
@@ -328,6 +433,41 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
     if (stats.length === 0) return null;
     return stats.sort((a, b) => b.rate - a.rate)[0]!;
   }, [detectedSignals, winRateMap]);
+
+  // ── Teknik sekmesi — "tek bakış" verdict verileri (signalCandles = 120g gerçek OHLC) ──
+  const teknikScore = useMemo<StockScoreResult | null>(
+    () => (signalCandles.length >= 50 ? computeStockScore(signalCandles, detectedSignals) : null),
+    [signalCandles, detectedSignals]
+  );
+  const macdSign = useMemo(() => {
+    if (signalCandles.length < 35) return null;
+    const { histogram } = calculateMACD(signalCandles.map((c) => c.close));
+    const last = histogram[histogram.length - 1];
+    return last == null ? null : last >= 0;
+  }, [signalCandles]);
+  const geoSignalDesktop = useMemo(() => buildCandleGeometry(signalCandles, 640, 380, 6), [signalCandles]);
+  const emaSignal20 = useMemo(() => computeEMA(signalCandles.map((c) => c.close), 20), [signalCandles]);
+  const bbSignal = useMemo(
+    () => (signalCandles.length >= 25 ? calculateBollingerBands(signalCandles.map((c) => c.close), 20, 2) : null),
+    [signalCandles]
+  );
+  function bbPath(vals: number[], geo: NonNullable<typeof geoSignalDesktop>): string {
+    const pts: string[] = [];
+    vals.forEach((v, i) => { pts.push(`${pts.length ? 'L' : 'M'}${geo.xAt(i).toFixed(1)} ${geo.y(v).toFixed(1)}`); });
+    return pts.join(' ');
+  }
+  const srT = useMemo(() => (signalCandles.length >= 20 ? calculateSRLevels(signalCandles) : null), [signalCandles]);
+  const teknikLevels = useMemo(() => {
+    if (!srT || currentPrice == null) return null;
+    const res = srT.nearestResistance?.price ?? null;
+    const sup = srT.nearestSupport?.price ?? null;
+    const resPct = res != null ? ((res - currentPrice) / currentPrice) * 100 : null;
+    const supPct = sup != null ? ((currentPrice - sup) / currentPrice) * 100 : null;
+    const markerPct = res != null && sup != null && res !== sup
+      ? Math.max(2, Math.min(98, ((currentPrice - sup) / (res - sup)) * 100))
+      : 50;
+    return { res, sup, resPct, supPct, markerPct };
+  }, [srT, currentPrice]);
 
   const stats = [
     { k: 'Açılış', v: lastDaily ? `${fmt(lastDaily.open)} ₺` : '—' },
@@ -538,6 +678,256 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
     </div>
   );
 
+  // ── Teknik sekmesi — "tek bakış" verdict-first tasarım (design_handoff_hisse_detay_v2) ──
+  const teknikPane = (
+    <div className="flex flex-col gap-3.5 lg:flex-row lg:gap-6">
+      <div className="flex min-w-0 flex-col gap-3.5 lg:flex-[1.6]">
+        {teknikScore ? (
+          <div className="ie-glass flex items-center gap-5 rounded-[16px] px-[18px] py-[15px]">
+            <div className="shrink-0 text-center">
+              <div className="font-mono text-[34px] font-bold leading-none" style={{ color: scoreBucketColor(teknikScore.totalScore) }}>
+                {teknikScore.totalScore}
+              </div>
+              <div className="mt-1 text-[11px] font-bold" style={{ color: scoreBucketColor(teknikScore.totalScore) }}>
+                {teknikScore.label.toUpperCase()}
+              </div>
+              <div className="mt-1 text-[10px] tracking-[2px] text-warn">
+                {'★'.repeat(teknikScore.stars)}<span className="text-hairline">{'★'.repeat(5 - teknikScore.stars)}</span>
+              </div>
+            </div>
+            <div className="h-full w-px self-stretch bg-hairline" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-t3">Teknik görünüm</div>
+              <p className="mt-1 text-[13px] font-semibold leading-[1.5] text-ink">
+                {teknikScore.dimensions.find((d) => d.key === 'trend')?.description}
+                {' — '}
+                {teknikScore.dimensions.find((d) => d.key === 'hacim')?.description}
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {(['momentum', 'trend'] as const).map((k) => {
+                  const d = teknikScore.dimensions.find((dd) => dd.key === k)!;
+                  return (
+                    <span key={k} className="rounded-[8px] px-2.5 py-1 text-[11px] font-bold" style={{ background: `${scoreBucketColor(d.score)}1f`, color: scoreBucketColor(d.score) }}>
+                      {d.description}
+                    </span>
+                  );
+                })}
+                {macdSign != null && (
+                  <span className="rounded-[8px] px-2.5 py-1 text-[11px] font-bold" style={{ background: macdSign ? 'rgba(22,163,91,0.12)' : 'rgba(229,72,77,0.12)', color: macdSign ? '#16a35b' : '#e5484d' }}>
+                    MACD · {macdSign ? 'pozitif' : 'negatif'}
+                  </span>
+                )}
+                {(() => { const d = teknikScore.dimensions.find((dd) => dd.key === 'hacim')!; return (
+                  <span className="rounded-[8px] bg-fill px-2.5 py-1 text-[11px] font-bold text-t3">{d.description}</span>
+                ); })()}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="ie-glass h-[110px] animate-pulse rounded-[16px]" />
+        )}
+
+        <div className="flex flex-wrap gap-1.5">
+          {['EMA20', 'Bollinger', 'RSI', 'MACD', 'Hacim', 'S/R'].map((k) => (
+            <span key={k} className="rounded-[9px] border border-hairline bg-fill px-3 py-1.5 text-[11px] font-bold text-t2">{k}</span>
+          ))}
+        </div>
+
+        {signalCandles.length === 0 ? (
+          <div className="ie-glass h-[300px] animate-pulse rounded-[16px]" />
+        ) : (
+          <div className="ie-glass-flat rounded-[16px] p-2">
+            <svg width="100%" height="100%" viewBox="0 0 640 380" preserveAspectRatio="none" className="h-[300px] w-full">
+              {geoSignalDesktop?.bars.map((b, i) => (
+                <g key={i}>
+                  <line x1={b.wickX} x2={b.wickX} y1={b.wickY1} y2={b.wickY2} stroke={b.up ? '#16a35b' : '#e5484d'} strokeWidth={1} />
+                  <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={1} fill={b.up ? '#16a35b' : '#e5484d'} />
+                </g>
+              ))}
+              {geoSignalDesktop && (
+                <path d={emaSignal20.reduce<string>((acc, v, i) => v == null ? acc : `${acc}${acc ? 'L' : 'M'}${geoSignalDesktop.xAt(i).toFixed(1)} ${geoSignalDesktop.y(v).toFixed(1)} `, '')} fill="none" stroke="#c98a00" strokeWidth="1.6" opacity="0.85" />
+              )}
+              {geoSignalDesktop && bbSignal && (
+                <>
+                  <path d={bbPath(bbSignal.upper, geoSignalDesktop)} fill="none" stroke="#6b6ff5" strokeWidth="1" opacity="0.5" />
+                  <path d={bbPath(bbSignal.lower, geoSignalDesktop)} fill="none" stroke="#6b6ff5" strokeWidth="1" opacity="0.5" />
+                </>
+              )}
+            </svg>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-1 flex flex-col gap-3.5 lg:mt-0 lg:w-[300px] lg:shrink-0">
+        <div className="ie-glass rounded-[16px] px-[17px] py-[15px]">
+          <div className="mb-3 text-[14px] font-extrabold text-ink">Anahtar seviyeler</div>
+          {teknikLevels ? (
+            <>
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-[11px] font-semibold text-t3">Direnç</span>
+                <span className="font-mono text-[14px] font-bold text-down">{teknikLevels.res != null ? fmt(teknikLevels.res) : '—'} ₺</span>
+                {teknikLevels.resPct != null && <span className="font-mono text-[12px] font-semibold text-down">+{teknikLevels.resPct.toFixed(1)}%</span>}
+              </div>
+              <div className="relative my-2 h-1.5 rounded-full" style={{ background: 'linear-gradient(90deg,rgba(22,163,91,0.4),rgba(201,138,0,0.4),rgba(229,72,77,0.4))' }}>
+                <div className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-panel bg-ink" style={{ left: `${teknikLevels.markerPct}%`, transform: 'translate(-50%,-50%)' }} />
+              </div>
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-[11px] font-semibold text-t3">Destek</span>
+                <span className="font-mono text-[14px] font-bold text-up">{teknikLevels.sup != null ? fmt(teknikLevels.sup) : '—'} ₺</span>
+                {teknikLevels.supPct != null && <span className="font-mono text-[12px] font-semibold text-up">−{teknikLevels.supPct.toFixed(1)}%</span>}
+              </div>
+            </>
+          ) : (
+            <p className="text-[12px] text-t3">Yeterli veri birikince gösterilecek.</p>
+          )}
+        </div>
+
+        <div className="ie-glass flex-1 rounded-[16px] px-[17px] py-[15px]">
+          <div className="mb-2 text-[14px] font-extrabold text-ink">Zaman dilimleri</div>
+          {isUS ? (
+            <p className="text-[12px] text-t3">Bu özellik şu an yalnızca BIST hisseleri için kullanılabilir.</p>
+          ) : mtf ? (
+            <div className="flex flex-col">
+              {mtf.rows.map((r, i) => (
+                <div key={r.tf} className={`flex items-center gap-2.5 py-2 ${i > 0 ? 'border-t border-hairline' : ''}`}>
+                  <span className="w-12 text-[12px] font-bold text-ink">{r.shortLabel}</span>
+                  <span
+                    className="rounded-[7px] px-2 py-0.5 text-[11px] font-extrabold"
+                    style={{
+                      background: r.decision === 'AL' ? 'rgba(22,163,91,0.14)' : r.decision === 'SAT' ? 'rgba(229,72,77,0.14)' : 'rgba(201,138,0,0.14)',
+                      color: r.decision === 'AL' ? '#16a35b' : r.decision === 'SAT' ? '#e5484d' : '#c98a00',
+                    }}
+                  >
+                    {r.decision}
+                  </span>
+                  <span className="flex-1 text-right text-[11px] font-medium text-t3">{r.strength}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="animate-pulse space-y-2">{[1, 2, 3, 4].map((i) => <div key={i} className="h-9 rounded-[8px] bg-fill" />)}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Temel sekmesi — "tek bakış" verdict-first tasarım (design_handoff_hisse_detay_v2) ──
+  const temelPane = (
+    <div className="flex flex-col gap-3.5 lg:flex-row lg:gap-6">
+      <div className="flex min-w-0 flex-col gap-3.5 lg:flex-[1.6]">
+        {invScore ? (
+          <div className="ie-glass flex items-center gap-5 rounded-[16px] px-[18px] py-[16px]">
+            <svg width="82" height="82" viewBox="0 0 82 82" className="shrink-0">
+              <circle cx="41" cy="41" r="32" fill="none" stroke="rgba(80,90,120,0.14)" strokeWidth="7" />
+              <circle
+                cx="41" cy="41" r="32" fill="none" stroke={scoreBucketColor(invScore.score)} strokeWidth="7" strokeLinecap="round"
+                strokeDasharray={`${(invScore.score / 100) * 201} 201`} transform="rotate(-90 41 41)"
+              />
+              <text x="41" y="38" textAnchor="middle" style={{ font: '700 21px monospace', fill: 'var(--ink)' }}>{invScore.score}</text>
+              <text x="41" y="52" textAnchor="middle" style={{ font: '700 9px sans-serif', fill: scoreBucketColor(invScore.score) }}>{invScore.ratingLabel.toUpperCase()}</text>
+            </svg>
+            <div className="min-w-0 flex-1">
+              <div className="text-[15px] font-extrabold text-ink">Şirket değer skoru</div>
+              {invScore.summary && <p className="mt-0.5 text-[12px] font-medium leading-[1.5] text-t2">{invScore.summary}</p>}
+              <div className="mt-3 flex gap-5">
+                {([['Değerleme', invScore.subScores.valuation], ['Büyüme', invScore.subScores.growth], ['Kârlılık', invScore.subScores.profitability], ['Risk', invScore.subScores.risk]] as const).map(([label, v]) => (
+                  <div key={label} className="flex-1">
+                    <div className="mb-1 flex justify-between"><span className="text-[11px] font-semibold text-t3">{label}</span><span className="font-mono text-[11px] font-bold" style={{ color: scoreBucketColor(v) }}>{v}</span></div>
+                    <div className="h-[5px] overflow-hidden rounded-full bg-fill"><div className="h-full rounded-full" style={{ width: `${v}%`, background: scoreBucketColor(v) }} /></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="ie-glass h-[130px] animate-pulse rounded-[16px]" />
+        )}
+
+        {!isUS && (
+          <div className="ie-glass rounded-[16px] px-[18px] py-[15px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[14px] font-extrabold text-ink">Sektöre göre değerleme</span>
+              {peerVal && (
+                <span
+                  className="rounded-[9px] px-3 py-1 text-[12px] font-extrabold"
+                  style={{ background: peerVal.label === 'sektöre göre ucuz' ? 'rgba(22,163,91,0.12)' : peerVal.label === 'sektöre göre pahalı' ? 'rgba(229,72,77,0.12)' : 'rgba(201,138,0,0.12)', color: peerVal.label === 'sektöre göre ucuz' ? '#16a35b' : peerVal.label === 'sektöre göre pahalı' ? '#e5484d' : '#c98a00' }}
+                >
+                  {peerVal.label}
+                </span>
+              )}
+            </div>
+            {peerVal ? (
+              <>
+                <div className="relative my-4 h-2 rounded-full bg-fill">
+                  <div className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-panel bg-ink" style={{ left: `${peerVal.relativeScore}%`, transform: 'translate(-50%,-50%)' }} />
+                </div>
+                <div className="flex justify-between text-[10px] font-medium text-t3">
+                  <span>F/K {fmt(peerVal.pe.value, 1)} · medyan {fmt(peerVal.pe.median, 1)}</span>
+                  <span>PD/DD {fmt(peerVal.pb.value, 1)} · medyan {fmt(peerVal.pb.median, 1)}</span>
+                </div>
+              </>
+            ) : (
+              <p className="mt-2 text-[12px] text-t3">Sektör medyanı henüz hesaplanmadı.</p>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2.5">
+          {([
+            ['Piyasa değeri', fund?.marketCap != null ? `₺${fmtBigNumber(fund.marketCap)}` : '—'],
+            ['F/K', fund?.peRatio != null ? fmt(fund.peRatio, 1) : '—'],
+            ['PD/DD', fund?.priceToBook != null ? fmt(fund.priceToBook, 1) : '—'],
+            ['Temettü', fund?.dividendYield != null ? `%${(fund.dividendYield * 100).toFixed(1)}` : '—'],
+          ] as const).map(([label, v]) => (
+            <div key={label} className="ie-glass-flat flex flex-1 flex-col justify-center rounded-[14px] px-3.5 py-3">
+              <span className="text-[10px] font-medium text-t3">{label}</span>
+              <span className="mt-1 font-mono text-[17px] font-bold text-ink">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-1 flex flex-col gap-3.5 lg:mt-0 lg:w-[300px] lg:shrink-0">
+        {!isUS && (
+          <div className="ie-glass rounded-[16px] px-[17px] py-[15px]">
+            <div className="mb-1.5 text-[14px] font-extrabold text-ink">Sektör emsalleri</div>
+            <div className="mb-1.5 text-[11px] font-medium text-t3">{sectorName ?? '—'}</div>
+            {sectorPeers.length > 0 ? (
+              sectorPeers
+                .slice()
+                .sort((a, b) => (b.perf20d ?? -999) - (a.perf20d ?? -999))
+                .map((p) => (
+                  <div key={p.sembol} className={`flex items-center justify-between gap-2 rounded-[8px] px-2 py-2 ${p.sembol === sembol ? 'bg-fill' : ''}`}>
+                    <span className="text-[13px] font-bold text-ink">{p.sembol}{p.sembol === sembol ? ' · siz' : ''}</span>
+                    <span className="font-mono text-[13px] font-semibold" style={{ color: pctColor(p.perf20d) }}>
+                      {p.perf20d == null ? '—' : `${p.perf20d >= 0 ? '+' : ''}${p.perf20d.toFixed(1)}%`}
+                    </span>
+                  </div>
+                ))
+            ) : (
+              <div className="animate-pulse space-y-1.5">{[1, 2, 3].map((i) => <div key={i} className="h-8 rounded-[8px] bg-fill" />)}</div>
+            )}
+          </div>
+        )}
+
+        <div className="ie-glass flex-1 rounded-[16px] px-[18px] py-1">
+          {([
+            ['Kâr marjı', fund?.profitMargin != null ? `%${(fund.profitMargin * 100).toFixed(1)}` : '—'],
+            ['ROE', fund?.returnOnEquity != null ? `%${(fund.returnOnEquity * 100).toFixed(1)}` : '—'],
+            ['52H Yüksek', fund?.week52High != null ? `${fmt(fund.week52High)} ₺` : '—'],
+            ['52H Düşük', fund?.week52Low != null ? `${fmt(fund.week52Low)} ₺` : '—'],
+          ] as const).map(([label, v]) => (
+            <div key={label} className="flex items-center justify-between border-b border-hairline py-3 last:border-0">
+              <span className="text-[12px] font-medium text-t3">{label}</span>
+              <span className="font-mono text-[13px] font-semibold text-ink">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="ie-ambient relative overflow-hidden lg:rounded-[24px]">
       <div aria-hidden className="pointer-events-none absolute inset-0">
@@ -601,7 +991,9 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
               {advanced && <GelismisAiAnaliz sembol={sembol} market={market} />}
             </div>
           )}
-          {tab !== 'genel' && (
+          {tab === 'teknik' && teknikPane}
+          {tab === 'temel' && temelPane}
+          {tab === 'haberler' && (
             <div className="rounded-[20px] bg-surface-dark p-4 lg:p-6">
               <HisseDetailClient
                 key={tab}

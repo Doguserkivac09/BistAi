@@ -76,6 +76,12 @@ Eski sayfa tüm bunu tek sayfada veriyordu ve "karmaşık/sonsuz kaydırma" hiss
 - `Investable Edge Hisse Detay v2.dc.html` — tasarım kaynağı (4 çerçeve × 4 sekme, örnek verili `renderVals()`, çalışan sekme state'i)
 - `support.js` — görüntüleme runtime'ı (production'a dahil edilmez)
 
+## Teknik & Temel sekmeleri — sadeleştirilmiş "tek bakış" tasarımı
+Eski app'te bu iki sekme çok sayıda ayrı kartla (TradingView çizim araçlı grafik, uzun destek/direnç listesi, teknik profil 5-bar, çoklu tablo, alt skorlar, metrik ızgarası) tek uzun sayfaya yığılıyordu — kalabalık ve dağınıktı. Yeni yapı **verdict-first**: her sekme tek cümlelik cevabı en üstte verir.
+- **Teknik:** üstte verdict şeridi (skor 27 · ZAYIF · yıldız + tek cümle + 4 okuma çipi: RSI/MACD/Trend/Hacim), altında gösterge çipleri + büyük mum grafik. Yan rayda yalnızca 2 kart: **Anahtar seviyeler** (en yakın direnç + destek, aralık çubuğu, tek satır yorum) ve **Zaman dilimleri**. Kaldırılan: 5-bar teknik profil ve uzun "tespit edilen sinyaller" listesi (özleri verdict çiplerine taşındı).
+- **Temel:** üstte verdict (değer skoru halkası 45 · TUT + tek cümle + 4 alt skor bar'ı Değerleme/Büyüme/Kârlılık/Risk inline), altında **Adil değer** şeridi (mevcut→adil değer, +potansiyel, 3 model) ve **4 anahtar metrik** kartı (Piyasa değeri, F/K, PD/DD, Temettü — her biri tek etiketle). Yan ray: sektör emsalleri + kısa temel tablo. Kaldırılan: dağınık fiyat-hedef 3-kart + uzun fundamentals tekrarı + özel notlar kartı.
+Dört varyantta da (masaüstü/mobil × koyu/açık) aynı hiyerarşi; renkler tema token'larıyla (up #16a35b, amber #c98a00, negatif #e5484d, AI mor #6b6ff5) açık camda doğru kontrastta.
+
 ## Basit / Gelişmiş görünüm anahtarı (sayfa altı) — spec
 Casual kullanıcı için sade, pro trader için tüm analiz detaylı iki görünüm modu. Mevcut React'teki iki kontrolü (sekme çubuğu sağındaki küçük segment + sayfa altındaki "✦ Gelişmiş analiz" CTA butonu) **tek büyük alt anahtara birleştir**; ikisini de kaldır.
 
