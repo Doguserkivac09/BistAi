@@ -22,10 +22,11 @@ Hover durumları (masaüstü): kart/satır → `border-color:#d9dce1` + `box-sha
 2. **Hızlı sembol arama** — canlıdaki işlev aynen korundu (prefix eşleşme, maks 8 sonuç, N/8 sayacı).
 3. **Portföyüm günlük K/Z şeridi (tek satır)** — kullanıcının ilk sorusu "bugün neredeyim?"; tek şerit cevabı verir, detay Portföy sayfasına devreder.
 4. **Koyu AI özet kartı** (ekrandaki tek koyu kart) — makro rüzgar / rejim / risk; karar listesinin bağlamını kurar.
-5. **"Bugün ne yapmalıyım?" verdict listesi** — sayfanın kalbi; haber katalisti rozeti (🗞 destekliyor / ⚠ çelişiyor) satır İÇİNDE, ayrı blok tüketmez.
-6. **Günün fırsatları yatay rayı (3 kart)** — keşif ihtiyacını tek sırada karşılar; "Tümü →" Fırsatlar sayfasına devreder.
-7. **Sektör momentumu tek satırı** — günün en güçlü + en zayıf sektörü; iki değer tek şeritte.
-8. **BIST 100 mini** — kapanış bağlamı; mevcut iskeletten korundu.
+5. **"Bugün ne yapmalıyım?" — Bugünün sinyal akışı** (yenilendi) — sayfanın kalbi artık statik takip listesi değil, tüm BIST'te bugün gerçekleşen **işlevsel aksiyon akışı**: akıllı para girişi / teknik kırılım / verdict yükselişi / hacim anomalisi. Üstte **filtre çipleri** (Tümü / Akıllı para / Teknik / Verdict ↑ / Hacim) canlı filtreler; her satırda sinyal-tipi rozeti + tetikleyici + verdict + chg%. Mobilde ilk 3 satır gösterilir (çerçeveye sığar), masaüstünde tam liste.
+6. **Takip listem kartı** (yeni) — sinyal akışının hemen altında; 5'ten fazla hisse varsa ilk N gösterilir + **"Daha fazla göster (+k)"** butonu, 5'ten az ise tümü gösterilir ve buton olmaz. Mobilde varsayılan 3 satır.
+7. **Günün fırsatları yatay rayı (3 kart)** — keşif ihtiyacını tek sırada karşılar; "Tümü →" Fırsatlar sayfasına devreder.
+8. **Sektör momentumu tek satırı** — günün en güçlü + en zayıf sektörü.
+9. **BIST 100 mini** — kapanış bağlamı.
 
 Mobilde ekran başına 1 koyu kart kuralı korunur; Haftanın Seçimleri ve AI Portföyleri mobile alınmadı (masaüstü şeridinde; mobilde ilgili sayfalara tab bar'dan erişiliyor — tekrar yaratmamak için).
 
@@ -33,15 +34,16 @@ Mobilde ekran başına 1 koyu kart kuralı korunur; Haftanın Seçimleri ve AI P
 12 kolon düşüncesi; tek uzun sütun yok:
 - **Topbar** — çalışan sembol arama (korundu) + BIST açık çipi + BIST 100 değeri.
 - **Bilgi şeridi** (selamlamanın altında, tek satır) — Sektör ▲/▼ · Haftanın Seçimleri +% & "BIST'i geçti" rozeti · ✦ AI Portföyleri (Aegis/APEX). Üç düşük-öncelikli kaynak tek kompakt şeritte; hiçbiri kart tüketmez.
-- **Sol geniş alan (karar)** — koyu AI özet + verdict tablosu (katalist rozeti sembol yanında) + günün fırsatları rayı (3 kart).
-- **Sağ ray (bağlam, 330px)** — BIST 100 sparkline kartı · Portföyüm kartı (değer + günlük K/Z) · Verdict ölçeği + yasal not.
+- **Sol geniş alan (karar)** — koyu AI özet + **Bugünün sinyal akışı** (filtre çipleri + aksiyon satırları, tam liste) + günün fırsatları rayı (3 kart).
+- **Sağ ray (bağlam, 330px)** — BIST 100 sparkline kartı · Portföyüm kartı · **Takip listem** (5 satır + gerekirse "Daha fazla göster", iç kaydırma) · **Verdict ölçeği** (kompakt 2 sütun, açıklamalar tooltip) + yasal not.
 
 Sıralama gerekçesi: sol sütun "karar" akışıdır (özet → verdict → fırsat), sağ ray sabit "bağlam"dır; göz soldan karar alır, sağdan doğrular.
 
 ## Veri kaynağı → blok eşlemesi
 | Kaynak | Blok | Endpoint notu |
 |---|---|---|
-| Verdict listesi | "Bugün ne yapmalıyım?" | `/api/signals/watchlist` — sembol, fiyat, chg%, verdict, reason |
+| **Sinyal akışı** | "Bugün ne yapmalıyım?" (yeni) | `/api/signals/feed?date=today` — sembol, tip (smart/brk/vd/vol), tetikleyici metin, verdict, chg%, saat. Filtre çipleri `?type=` ile |
+| **Takip listesi** | Sağ ray + mobil kart | `/api/watchlist` — sembol, fiyat, chg%, verdict (nokta rengi). 5+ ise sayfalama/expand |
 | Makro durum | Koyu AI kartı alt metrikleri | `/api/macro/summary` — skor, rejim, risk |
 | BIST 100 | Topbar + sağ ray kartı + mobil mini | `/api/index/bist100` (değer, chg, intraday seri) |
 | Fırsatlar | Günün fırsatları rayı | `/api/opportunities/top?limit=3` — skor + etiket |
@@ -68,13 +70,30 @@ Aynı dosyada üçüncü satır olarak koyu tema Bugün v2 (mobil + masaüstü) 
 - **Ambient zemin (cam okunsun diye):** mobil telefon gövdesi `linear-gradient(165deg,#e7f0ff→#fcfcfd→#eafaf1)`; masaüstü içerik alanı köşelerde `radial-gradient` mavi/yeşil tint. Camın kırılması bu tinte bağlı — production'da zemin tinti korunmalı, aksi halde kartlar düz beyaza döner.
 - Not: `backdrop-filter` gerçek tarayıcıda net çalışır; bazı statik önizleme/export motorları blur'u yaklaşık gösterebilir.
 
+## Sinyal akışı sinyal tipleri (renk kodu)
+| Tip | Etiket | Açık | Koyu |
+|---|---|---|---|
+| smart | Akıllı para | `#6b6ff5` | `#a6a9ff` |
+| brk | Teknik kırılım | `#0e9f6e` | `#3fce8a` |
+| vd | Verdict ↑ | `#0e8fb7` | `#4fd0e6` |
+| vol | Hacim anomalisi | `#c98a00` | `#f5c451` |
+
+Her tip yarı saydam kendi rengiyle rozet olarak gösterilir (bg = renk @ ~%12-22 alfa). Filtre çipi aktifken koyu ink dolgu (açık) / beyaz %16 (koyu).
+
+## Progressive disclosure (Takip listem)
+Mantık `renderVals()` içinde: `watchHasMore = watchRaw.length > 5`. 5'ten fazlaysa masaüstü 5 / mobil 3 satır + buton; expand tümünü açar. 5 veya daha az ise tümü gösterilir, buton render edilmez (`<sc-if value="watchHasMore">`).
+
 ## Etkileşim & davranış
 - Arama: her tuş vuruşunda prefix eşleşme (TR locale uppercase), maks 8 sonuç, eşleşen harfler yeşil + alt çizgi; satır tıklama → Hisse detay.
-- Verdict satırı tıklama → Hisse detay; katalist rozeti hover → tooltip (catNote).
+- Sinyal filtre çipi tıklama → akış anında filtrelenir (client-side / `?type=` ile server); "Daha fazla göster" → takip listesi expand/collapse.
+- Verdict/sinyal satırı tıklama → Hisse detay.
 - Fırsat kartı tıklama → Fırsat detayı; "Tümü →" → Fırsatlar sayfası.
 - Portföy şeridi/kartı → Portföyüm; bilgi şeridi "Detay →" → ilgili sayfalar.
 - Mobil bloklar dikey kaydırma; fırsat rayı yatay kaydırma (3'ten fazla kart gelirse).
 - Sayı formatı TR locale (binlik `.`, ondalık `,`).
+
+## Not (çerçeve yükseklikleri)
+Sinyal akışı + takip kartı eklenince içerik uzadı; sabit önizleme çerçeveleri büyütüldü (mobil 1340px, masaüstü 1120px) — bunlar yalnızca canvas önizleme yükseklikleridir. Production'da mobil dikey kaydırılır, masaüstü kolonlar doğal yüksekliğini alır.
 
 ## Files
 - `Investable Edge Bugun v2.dc.html` — tasarım kaynağı (mobil + masaüstü, örnek verili `renderVals()`)

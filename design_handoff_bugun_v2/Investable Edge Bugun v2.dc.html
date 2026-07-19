@@ -29,7 +29,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 <!-- ============ MOBILE — BUGÜN V2 ============ -->
 <div style="position:absolute;left:80px;top:104px;width:380px" data-screen-label="Mobil Bugün v2">
 <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Önce karar, sonra bağlam</div>
-<div style="background:linear-gradient(165deg,#e7f0ff 0%,#fbfcff 24%,#fcfcfd 58%,#eafaf1 100%);border-radius:40px;box-shadow:0 20px 60px -12px rgba(15,20,30,.16);border:1px solid #eef0f2;overflow:hidden;height:1030px;display:flex;flex-direction:column">
+<div style="background:linear-gradient(165deg,#e7f0ff 0%,#fbfcff 24%,#fcfcfd 58%,#eafaf1 100%);border-radius:40px;box-shadow:0 20px 60px -12px rgba(15,20,30,.16);border:1px solid #eef0f2;overflow:hidden;height:1340px;display:flex;flex-direction:column">
   <div style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font:700 13px Manrope;color:#16181d;background:#fff"><span>9:41</span><span style="width:17px;height:10px;border:1.5px solid #16181d;border-radius:3px;display:inline-block"></span></div>
 
   <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
@@ -92,30 +92,50 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
       <!-- Section: Bugün ne yapmalıyım -->
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
-        <span style="font:600 12px Manrope;color:#9aa0ad">Takip listem</span>
+        <span style="font:600 12px Manrope;color:#9aa0ad">Sinyal akışı · <b style="color:#16181d">{{ sigCount }}</b></span>
+      </div>
+      <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px">
+        <sc-for list="{{ sigChipsL }}" as="c" hint-placeholder-count="5">
+          <button onClick="{{ c.onClick }}" style="border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 11px Manrope;padding:5px 11px;border-radius:9px;cursor:pointer;white-space:nowrap;flex-shrink:0">{{ c.label }}</button>
+        </sc-for>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
-        <sc-for list="{{ verdicts }}" as="v" hint-placeholder-count="4">
+        <sc-for list="{{ signalsMob }}" as="v" hint-placeholder-count="3">
           <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:13px 15px;display:flex;align-items:center;gap:13px" style-hover="border-color:#d9dce1;box-shadow:0 4px 14px -6px rgba(15,20,30,0.12)">
-            <div style="width:4px;align-self:stretch;border-radius:3px;background:{{ v.color }}"></div>
             <div class="mono" style="width:42px;height:42px;border-radius:12px;background:#f4f5f6;display:flex;align-items:center;justify-content:center;font:600 12px 'JetBrains Mono';color:#16181d">{{ v.tag }}</div>
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:7px">
                 <span style="font:700 15px Manrope;color:#16181d">{{ v.sym }}</span>
-                <span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa0ad">{{ v.priceStr }} ₺</span>
-                <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}">
-                  <span style="font-size:11px;padding:2px 6px;border-radius:6px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span>
-                </sc-if>
+                <span style="font:700 9px Manrope;padding:2px 6px;border-radius:6px;background:{{ v.typeBg }};color:{{ v.typeColor }}">{{ v.typeLabel }}</span>
               </div>
               <div style="font:500 12px Manrope;color:#7b818c;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
             </div>
             <div style="text-align:right">
-              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
+              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.vBg }};color:{{ v.vColor }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
               <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ v.chgColor }};margin-top:5px">{{ v.chgStr }}</div>
             </div>
           </div>
         </sc-for>
+      </div>
+
+      <!-- takip listem -->
+      <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 15px Manrope;color:#16181d;letter-spacing:-0.01em">Takip listem</span><span style="font:600 11px Manrope;color:#9aa0ad">{{ watchCount }} hisse</span></div>
+        <div style="display:flex;flex-direction:column;margin-top:6px">
+          <sc-for list="{{ watchVisibleMob }}" as="w" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #f2f3f5">
+              <span style="width:8px;height:8px;border-radius:3px;background:{{ w.dot }};flex-shrink:0"></span>
+              <span style="font:700 13px Manrope;color:#16181d">{{ w.sym }}</span>
+              <div style="flex:1"></div>
+              <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16181d">{{ w.priceStr }}</span>
+              <span class="mono" style="width:56px;text-align:right;font:600 12px 'JetBrains Mono';color:{{ w.chgColor }}">{{ w.chgStr }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ watchHasMore }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ toggleWatch }}" style="margin-top:10px;border:1px solid #eef0f2;background:#fff;color:#16181d;font:700 12px Manrope;padding:9px;border-radius:11px;cursor:pointer;width:100%">{{ watchBtnLabel }}</button>
+        </sc-if>
       </div>
 
       <!-- günün fırsatları — yatay ray -->
@@ -167,7 +187,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 <!-- ============ DESKTOP — BUGÜN V2 ============ -->
 <div style="position:absolute;left:540px;top:104px;width:1180px" data-screen-label="Masaüstü Bugün v2">
 <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">12 kolon düşüncesi: sol karar, sağ bağlam, üstte bilgi şeridi</div>
-<div style="background:#fff;border-radius:24px;box-shadow:0 20px 60px -12px rgba(15,20,30,.16);border:1px solid #eef0f2;overflow:hidden;height:800px;display:flex">
+<div style="background:#fff;border-radius:24px;box-shadow:0 20px 60px -12px rgba(15,20,30,.16);border:1px solid #eef0f2;overflow:hidden;height:1120px;display:flex">
   <!-- sidebar -->
   <div style="width:230px;background:#fcfcfd;border-right:1px solid #f0f1f3;display:flex;flex-direction:column;padding:24px 16px">
     <div style="display:flex;align-items:center;gap:10px;padding:0 8px">
@@ -273,21 +293,23 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 
           <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
             <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
-            <span style="font:600 12px Manrope;color:#9aa0ad">Takip listem · 4 hisse</span>
+            <span style="font:600 12px Manrope;color:#9aa0ad">Bugünün sinyal akışı · <b style="color:#16181d">{{ sigCount }}</b> aksiyon</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:11px">
+            <sc-for list="{{ sigChipsL }}" as="c" hint-placeholder-count="5">
+              <button onClick="{{ c.onClick }}" style="border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 12px Manrope;padding:6px 12px;border-radius:10px;cursor:pointer;white-space:nowrap">{{ c.label }}</button>
+            </sc-for>
           </div>
           <div style="display:flex;flex-direction:column;gap:9px">
-            <sc-for list="{{ verdicts }}" as="v" hint-placeholder-count="4">
+            <sc-for list="{{ signals }}" as="v" hint-placeholder-count="6">
               <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:14px" style-hover="border-color:#d9dce1;box-shadow:0 4px 14px -6px rgba(15,20,30,0.12)">
-                <div style="width:4px;height:38px;border-radius:3px;background:{{ v.color }}"></div>
                 <div class="mono" style="width:38px;height:38px;border-radius:11px;background:#f4f5f6;display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#16181d">{{ v.tag }}</div>
                 <div style="flex:1;min-width:0">
-                  <div style="display:flex;align-items:center;gap:7px"><span style="font:700 14px Manrope;color:#16181d">{{ v.sym }}</span><span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa0ad">{{ v.priceStr }} ₺</span>
-                    <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;padding:1px 5px;border-radius:5px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span></sc-if>
-                  </div>
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font:700 14px Manrope;color:#16181d">{{ v.sym }}</span><span style="font:700 10px Manrope;padding:2px 7px;border-radius:6px;background:{{ v.typeBg }};color:{{ v.typeColor }}">{{ v.typeLabel }}</span><span class="mono" style="font:500 11px 'JetBrains Mono';color:#b4b8bf">{{ v.time }}</span></div>
                   <div style="font:500 12px Manrope;color:#7b818c;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
                 </div>
                 <div class="mono" style="width:58px;text-align:right;font:600 13px 'JetBrains Mono';color:{{ v.chgColor }}">{{ v.chgStr }}</div>
-                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope">{{ v.verdict }}</span></div>
+                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.vBg }};color:{{ v.vColor }};font:800 12px Manrope">{{ v.verdict }}</span></div>
               </div>
             </sc-for>
           </div>
@@ -330,16 +352,33 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
               <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#16a35b">+1,24%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#9aa0ad;margin-top:1px">+5.940 ₺ bugün</div></div>
             </div>
           </div>
-          <!-- verdict ölçeği -->
-          <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column">
-            <div style="font:800 14px Manrope;color:#16181d;letter-spacing:-0.01em">Verdict ölçeği</div>
-            <div style="display:flex;flex-direction:column;gap:11px;margin-top:13px">
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#16a35b"></span><div><div style="font:700 12px Manrope;color:#16181d">Güçlü İzle</div><div style="font:500 11px Manrope;color:#9aa0ad">Teknik + akıllı para güçlü hizalı</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#4aa84a"></span><div><div style="font:700 12px Manrope;color:#16181d">Değerlendir</div><div style="font:500 11px Manrope;color:#9aa0ad">Pozitif sinyal, eşiği geçti</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#c98a00"></span><div><div style="font:700 12px Manrope;color:#16181d">İzle</div><div style="font:500 11px Manrope;color:#9aa0ad">Belirsiz, teyit bekle</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><div><div style="font:700 12px Manrope;color:#16181d">Uzak Dur</div><div style="font:500 11px Manrope;color:#9aa0ad">Sinyal zayıf veya negatif</div></div></div>
+          <!-- takip listem -->
+          <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#16181d;letter-spacing:-0.01em">Takip listem</span><span style="font:600 11px Manrope;color:#9aa0ad">{{ watchCount }} hisse</span></div>
+            <div style="display:flex;flex-direction:column;margin-top:8px;flex:1;overflow-y:auto;min-height:0">
+              <sc-for list="{{ watchVisible }}" as="w" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #f2f3f5" style-hover="opacity:0.72">
+                  <span style="width:8px;height:8px;border-radius:3px;background:{{ w.dot }};flex-shrink:0"></span>
+                  <span style="font:700 13px Manrope;color:#16181d">{{ w.sym }}</span>
+                  <div style="flex:1"></div>
+                  <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16181d">{{ w.priceStr }}</span>
+                  <span class="mono" style="width:58px;text-align:right;font:600 12px 'JetBrains Mono';color:{{ w.chgColor }}">{{ w.chgStr }}</span>
+                </div>
+              </sc-for>
             </div>
-            <div style="flex:1"></div>
+            <sc-if value="{{ watchHasMore }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ toggleWatch }}" style="margin-top:11px;border:1px solid #eef0f2;background:#fff;color:#16181d;font:700 12px Manrope;padding:9px;border-radius:11px;cursor:pointer;width:100%" style-hover="border-color:#d9dce1">{{ watchBtnLabel }}</button>
+            </sc-if>
+          </div>
+          <!-- verdict ölçeği -->
+          <div style="background:rgba(255,255,255,0.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.75);box-shadow:inset 0 1px 0 rgba(255,255,255,0.65),0 8px 24px -14px rgba(15,20,30,0.16);border-radius:18px;padding:16px 18px">
+            <div style="font:800 14px Manrope;color:#16181d;letter-spacing:-0.01em">Verdict ölçeği</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:12px">
+              <div style="display:flex;align-items:center;gap:9px" title="Teknik + akıllı para güçlü hizalı"><span style="width:10px;height:10px;border-radius:3px;background:#16a35b"></span><span style="font:700 12px Manrope;color:#16181d">Güçlü İzle</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Pozitif sinyal, eşiği geçti"><span style="width:10px;height:10px;border-radius:3px;background:#4aa84a"></span><span style="font:700 12px Manrope;color:#16181d">Değerlendir</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Belirsiz, teyit bekle"><span style="width:10px;height:10px;border-radius:3px;background:#c98a00"></span><span style="font:700 12px Manrope;color:#16181d">İzle</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Sinyal zayıf veya negatif"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><span style="font:700 12px Manrope;color:#16181d">Uzak Dur</span></div>
+            </div>
             <div style="font:500 11px Manrope;color:#b4b8bf;line-height:1.5;margin-top:12px">Kararlar kural-tabanlı; AI yalnızca özetler. Yatırım tavsiyesi değildir.</div>
           </div>
         </div>
@@ -353,7 +392,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 <!-- ============ MOBILE — DARK LIQUID GLASS ============ -->
 <div style="position:absolute;left:80px;top:1268px;width:380px" data-screen-label="Mobil Bugün v2 · koyu">
 <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Koyu tema · cam paneller derin zemin üstünde</div>
-<div style="border-radius:40px;box-shadow:0 30px 70px -18px rgba(6,10,20,.6);border:1px solid #141a26;overflow:hidden;height:1030px;display:flex;flex-direction:column;position:relative;background:#0a0e17">
+<div style="border-radius:40px;box-shadow:0 30px 70px -18px rgba(6,10,20,.6);border:1px solid #141a26;overflow:hidden;height:1340px;display:flex;flex-direction:column;position:relative;background:#0a0e17">
   <div style="position:absolute;left:-40px;top:-60px;width:300px;height:260px;background:radial-gradient(circle at 60% 40%,rgba(107,111,245,0.42),rgba(107,111,245,0) 68%);filter:blur(20px)"></div>
   <div style="position:absolute;right:-70px;top:-40px;width:300px;height:240px;background:radial-gradient(circle at 40% 40%,rgba(22,163,91,0.4),rgba(22,163,91,0) 66%);filter:blur(22px)"></div>
   <div style="position:absolute;left:20%;top:32%;width:280px;height:280px;background:radial-gradient(circle,rgba(63,206,138,0.10),rgba(63,206,138,0) 70%);filter:blur(30px)"></div>
@@ -398,30 +437,50 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font:800 16px Manrope;color:#f4f6fa;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
-        <span style="font:600 12px Manrope;color:#9aa3b2">Takip listem</span>
+        <span style="font:600 12px Manrope;color:#9aa3b2">Sinyal akışı · <b style="color:#f4f6fa">{{ sigCount }}</b></span>
+      </div>
+      <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px">
+        <sc-for list="{{ sigChipsD }}" as="c" hint-placeholder-count="5">
+          <button onClick="{{ c.onClick }}" style="border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 11px Manrope;padding:5px 11px;border-radius:9px;cursor:pointer;white-space:nowrap;flex-shrink:0">{{ c.label }}</button>
+        </sc-for>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
-        <sc-for list="{{ verdictsDark }}" as="v" hint-placeholder-count="4">
+        <sc-for list="{{ signalsMobDark }}" as="v" hint-placeholder-count="3">
           <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 18px 44px -26px rgba(0,0,0,0.7);border-radius:18px;padding:13px 15px;display:flex;align-items:center;gap:13px">
-            <div style="width:4px;align-self:stretch;border-radius:3px;background:{{ v.color }}"></div>
             <div class="mono" style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font:600 12px 'JetBrains Mono';color:#eef1f6">{{ v.tag }}</div>
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:7px">
                 <span style="font:700 15px Manrope;color:#f4f6fa">{{ v.sym }}</span>
-                <span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa3b2">{{ v.priceStr }} ₺</span>
-                <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}">
-                  <span style="font-size:11px;padding:2px 6px;border-radius:6px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span>
-                </sc-if>
+                <span style="font:700 9px Manrope;padding:2px 6px;border-radius:6px;background:{{ v.typeBg }};color:{{ v.typeColor }}">{{ v.typeLabel }}</span>
               </div>
               <div style="font:500 12px Manrope;color:#9aa3b2;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
             </div>
             <div style="text-align:right">
-              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
+              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.vBg }};color:{{ v.vColor }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
               <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ v.chgColor }};margin-top:5px">{{ v.chgStr }}</div>
             </div>
           </div>
         </sc-for>
+      </div>
+
+      <!-- takip listem -->
+      <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:18px;padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 15px Manrope;color:#f4f6fa;letter-spacing:-0.01em">Takip listem</span><span style="font:600 11px Manrope;color:#9aa3b2">{{ watchCount }} hisse</span></div>
+        <div style="display:flex;flex-direction:column;margin-top:6px">
+          <sc-for list="{{ watchVisibleMobDark }}" as="w" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,0.07)">
+              <span style="width:8px;height:8px;border-radius:3px;background:{{ w.dot }};flex-shrink:0"></span>
+              <span style="font:700 13px Manrope;color:#f4f6fa">{{ w.sym }}</span>
+              <div style="flex:1"></div>
+              <span class="mono" style="font:600 12px 'JetBrains Mono';color:#f4f6fa">{{ w.priceStr }}</span>
+              <span class="mono" style="width:56px;text-align:right;font:600 12px 'JetBrains Mono';color:{{ w.chgColor }}">{{ w.chgStr }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ watchHasMore }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ toggleWatch }}" style="margin-top:10px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#f4f6fa;font:700 12px Manrope;padding:9px;border-radius:11px;cursor:pointer;width:100%">{{ watchBtnLabel }}</button>
+        </sc-if>
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between">
@@ -471,7 +530,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 <!-- ============ DESKTOP — DARK LIQUID GLASS ============ -->
 <div style="position:absolute;left:540px;top:1268px;width:1180px" data-screen-label="Masaüstü Bugün v2 · koyu">
 <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Koyu tema · aynı 12 kolon kurgusu</div>
-<div style="border-radius:24px;box-shadow:0 30px 70px -18px rgba(6,10,20,.6);border:1px solid #141a26;overflow:hidden;height:800px;display:flex;position:relative;background:#0a0e17">
+<div style="border-radius:24px;box-shadow:0 30px 70px -18px rgba(6,10,20,.6);border:1px solid #141a26;overflow:hidden;height:1120px;display:flex;position:relative;background:#0a0e17">
   <div style="position:absolute;left:180px;top:-80px;width:520px;height:360px;background:radial-gradient(circle,rgba(107,111,245,0.28),rgba(107,111,245,0) 68%);filter:blur(34px)"></div>
   <div style="position:absolute;right:-60px;top:-60px;width:460px;height:340px;background:radial-gradient(circle,rgba(22,163,91,0.26),rgba(22,163,91,0) 66%);filter:blur(36px)"></div>
 
@@ -554,21 +613,23 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 
           <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
             <span style="font:800 16px Manrope;color:#f4f6fa;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
-            <span style="font:600 12px Manrope;color:#9aa3b2">Takip listem · 4 hisse</span>
+            <span style="font:600 12px Manrope;color:#9aa3b2">Bugünün sinyal akışı · <b style="color:#f4f6fa">{{ sigCount }}</b> aksiyon</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:11px">
+            <sc-for list="{{ sigChipsD }}" as="c" hint-placeholder-count="5">
+              <button onClick="{{ c.onClick }}" style="border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 12px Manrope;padding:6px 12px;border-radius:10px;cursor:pointer;white-space:nowrap">{{ c.label }}</button>
+            </sc-for>
           </div>
           <div style="display:flex;flex-direction:column;gap:9px">
-            <sc-for list="{{ verdictsDark }}" as="v" hint-placeholder-count="4">
+            <sc-for list="{{ signalsDark }}" as="v" hint-placeholder-count="6">
               <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1),0 18px 44px -28px rgba(0,0,0,0.7);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:14px">
-                <div style="width:4px;height:38px;border-radius:3px;background:{{ v.color }}"></div>
                 <div class="mono" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#eef1f6">{{ v.tag }}</div>
                 <div style="flex:1;min-width:0">
-                  <div style="display:flex;align-items:center;gap:7px"><span style="font:700 14px Manrope;color:#f4f6fa">{{ v.sym }}</span><span class="mono" style="font:500 12px 'JetBrains Mono';color:#9aa3b2">{{ v.priceStr }} ₺</span>
-                    <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;padding:1px 5px;border-radius:5px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span></sc-if>
-                  </div>
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font:700 14px Manrope;color:#f4f6fa">{{ v.sym }}</span><span style="font:700 10px Manrope;padding:2px 7px;border-radius:6px;background:{{ v.typeBg }};color:{{ v.typeColor }}">{{ v.typeLabel }}</span><span class="mono" style="font:500 11px 'JetBrains Mono';color:#6b7280">{{ v.time }}</span></div>
                   <div style="font:500 12px Manrope;color:#9aa3b2;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
                 </div>
                 <div class="mono" style="width:58px;text-align:right;font:600 13px 'JetBrains Mono';color:{{ v.chgColor }}">{{ v.chgStr }}</div>
-                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope">{{ v.verdict }}</span></div>
+                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.vBg }};color:{{ v.vColor }};font:800 12px Manrope">{{ v.verdict }}</span></div>
               </div>
             </sc-for>
           </div>
@@ -607,15 +668,32 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
               <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#3fce8a">+1,24%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#9aa3b2;margin-top:1px">+5.940 ₺ bugün</div></div>
             </div>
           </div>
-          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column">
-            <div style="font:800 14px Manrope;color:#f4f6fa;letter-spacing:-0.01em">Verdict ölçeği</div>
-            <div style="display:flex;flex-direction:column;gap:11px;margin-top:13px">
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#3fce8a"></span><div><div style="font:700 12px Manrope;color:#f4f6fa">Güçlü İzle</div><div style="font:500 11px Manrope;color:#9aa3b2">Teknik + akıllı para güçlü hizalı</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#5cc85c"></span><div><div style="font:700 12px Manrope;color:#f4f6fa">Değerlendir</div><div style="font:500 11px Manrope;color:#9aa3b2">Pozitif sinyal, eşiği geçti</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#f5c451"></span><div><div style="font:700 12px Manrope;color:#f4f6fa">İzle</div><div style="font:500 11px Manrope;color:#9aa3b2">Belirsiz, teyit bekle</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><div><div style="font:700 12px Manrope;color:#f4f6fa">Uzak Dur</div><div style="font:500 11px Manrope;color:#9aa3b2">Sinyal zayıf veya negatif</div></div></div>
+          <!-- takip listem -->
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#f4f6fa;letter-spacing:-0.01em">Takip listem</span><span style="font:600 11px Manrope;color:#9aa3b2">{{ watchCount }} hisse</span></div>
+            <div style="display:flex;flex-direction:column;margin-top:8px;flex:1;overflow-y:auto;min-height:0">
+              <sc-for list="{{ watchVisibleDark }}" as="w" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(255,255,255,0.07)" style-hover="opacity:0.72">
+                  <span style="width:8px;height:8px;border-radius:3px;background:{{ w.dot }};flex-shrink:0"></span>
+                  <span style="font:700 13px Manrope;color:#f4f6fa">{{ w.sym }}</span>
+                  <div style="flex:1"></div>
+                  <span class="mono" style="font:600 12px 'JetBrains Mono';color:#f4f6fa">{{ w.priceStr }}</span>
+                  <span class="mono" style="width:58px;text-align:right;font:600 12px 'JetBrains Mono';color:{{ w.chgColor }}">{{ w.chgStr }}</span>
+                </div>
+              </sc-for>
             </div>
-            <div style="flex:1"></div>
+            <sc-if value="{{ watchHasMore }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ toggleWatch }}" style="margin-top:11px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#f4f6fa;font:700 12px Manrope;padding:9px;border-radius:11px;cursor:pointer;width:100%" style-hover="background:rgba(255,255,255,0.1)">{{ watchBtnLabel }}</button>
+            </sc-if>
+          </div>
+          <div style="background:rgba(255,255,255,0.05);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.09);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1);border-radius:18px;padding:16px 18px">
+            <div style="font:800 14px Manrope;color:#f4f6fa;letter-spacing:-0.01em">Verdict ölçeği</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:12px">
+              <div style="display:flex;align-items:center;gap:9px" title="Teknik + akıllı para güçlü hizalı"><span style="width:10px;height:10px;border-radius:3px;background:#3fce8a"></span><span style="font:700 12px Manrope;color:#f4f6fa">Güçlü İzle</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Pozitif sinyal, eşiği geçti"><span style="width:10px;height:10px;border-radius:3px;background:#5cc85c"></span><span style="font:700 12px Manrope;color:#f4f6fa">Değerlendir</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Belirsiz, teyit bekle"><span style="width:10px;height:10px;border-radius:3px;background:#f5c451"></span><span style="font:700 12px Manrope;color:#f4f6fa">İzle</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Sinyal zayıf veya negatif"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><span style="font:700 12px Manrope;color:#f4f6fa">Uzak Dur</span></div>
+            </div>
             <div style="font:500 11px Manrope;color:#6b7280;line-height:1.5;margin-top:12px">Kararlar kural-tabanlı; AI yalnızca özetler. Yatırım tavsiyesi değildir.</div>
           </div>
         </div>
@@ -628,7 +706,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 <!-- ============ MOBILE — LIGHT LIQUID GLASS ============ -->
 <div style="position:absolute;left:80px;top:2432px;width:380px" data-screen-label="Mobil Bugün v2 · açık cam">
 <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Açık tema · pastel zemin üstünde frosted cam</div>
-<div style="border-radius:40px;box-shadow:0 30px 70px -18px rgba(80,90,120,.28);border:1px solid #e7ecf5;overflow:hidden;height:1030px;display:flex;flex-direction:column;position:relative;background:linear-gradient(162deg,#e9f0ff 0%,#f4f0ff 30%,#eafaf2 68%,#fef4ec 100%)">
+<div style="border-radius:40px;box-shadow:0 30px 70px -18px rgba(80,90,120,.28);border:1px solid #e7ecf5;overflow:hidden;height:1340px;display:flex;flex-direction:column;position:relative;background:linear-gradient(162deg,#e9f0ff 0%,#f4f0ff 30%,#eafaf2 68%,#fef4ec 100%)">
   <div style="position:absolute;left:-50px;top:-50px;width:280px;height:250px;background:radial-gradient(circle,rgba(107,111,245,0.22),rgba(107,111,245,0) 68%);filter:blur(24px)"></div>
   <div style="position:absolute;right:-60px;top:-30px;width:280px;height:230px;background:radial-gradient(circle,rgba(22,163,91,0.2),rgba(22,163,91,0) 66%);filter:blur(26px)"></div>
   <div style="position:absolute;left:30%;top:40%;width:280px;height:280px;background:radial-gradient(circle,rgba(255,183,120,0.14),rgba(255,183,120,0) 70%);filter:blur(32px)"></div>
@@ -670,30 +748,50 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
-        <span style="font:600 12px Manrope;color:#6b7280">Takip listem</span>
+        <span style="font:600 12px Manrope;color:#6b7280">Sinyal akışı · <b style="color:#16181d">{{ sigCount }}</b></span>
+      </div>
+      <div style="display:flex;gap:7px;overflow-x:auto;padding-bottom:2px">
+        <sc-for list="{{ sigChipsL }}" as="c" hint-placeholder-count="5">
+          <button onClick="{{ c.onClick }}" style="border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 11px Manrope;padding:5px 11px;border-radius:9px;cursor:pointer;white-space:nowrap;flex-shrink:0">{{ c.label }}</button>
+        </sc-for>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:10px;overflow:hidden">
-        <sc-for list="{{ verdicts }}" as="v" hint-placeholder-count="4">
+        <sc-for list="{{ signalsMob }}" as="v" hint-placeholder-count="3">
           <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 12px 30px -18px rgba(80,90,120,0.28);border-radius:18px;padding:13px 15px;display:flex;align-items:center;gap:13px">
-            <div style="width:4px;align-self:stretch;border-radius:3px;background:{{ v.color }}"></div>
             <div class="mono" style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,0.65);border:1px solid rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;font:600 12px 'JetBrains Mono';color:#16181d">{{ v.tag }}</div>
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:7px">
                 <span style="font:700 15px Manrope;color:#16181d">{{ v.sym }}</span>
-                <span class="mono" style="font:500 12px 'JetBrains Mono';color:#6b7280">{{ v.priceStr }} ₺</span>
-                <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}">
-                  <span style="font-size:11px;padding:2px 6px;border-radius:6px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span>
-                </sc-if>
+                <span style="font:700 9px Manrope;padding:2px 6px;border-radius:6px;background:{{ v.typeBg }};color:{{ v.typeColor }}">{{ v.typeLabel }}</span>
               </div>
               <div style="font:500 12px Manrope;color:#6b7280;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
             </div>
             <div style="text-align:right">
-              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
+              <div style="display:inline-block;padding:5px 11px;border-radius:9px;background:{{ v.vBg }};color:{{ v.vColor }};font:800 12px Manrope;letter-spacing:0.01em">{{ v.verdict }}</div>
               <div class="mono" style="font:600 12px 'JetBrains Mono';color:{{ v.chgColor }};margin-top:5px">{{ v.chgStr }}</div>
             </div>
           </div>
         </sc-for>
+      </div>
+
+      <!-- takip listem -->
+      <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:18px;padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 15px Manrope;color:#16181d;letter-spacing:-0.01em">Takip listem</span><span style="font:600 11px Manrope;color:#6b7280">{{ watchCount }} hisse</span></div>
+        <div style="display:flex;flex-direction:column;margin-top:6px">
+          <sc-for list="{{ watchVisibleMob }}" as="w" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(80,90,120,0.12)">
+              <span style="width:8px;height:8px;border-radius:3px;background:{{ w.dot }};flex-shrink:0"></span>
+              <span style="font:700 13px Manrope;color:#16181d">{{ w.sym }}</span>
+              <div style="flex:1"></div>
+              <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16181d">{{ w.priceStr }}</span>
+              <span class="mono" style="width:56px;text-align:right;font:600 12px 'JetBrains Mono';color:{{ w.chgColor }}">{{ w.chgStr }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ watchHasMore }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ toggleWatch }}" style="margin-top:10px;border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.5);color:#16181d;font:700 12px Manrope;padding:9px;border-radius:11px;cursor:pointer;width:100%">{{ watchBtnLabel }}</button>
+        </sc-if>
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between">
@@ -741,7 +839,7 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 <!-- ============ DESKTOP — LIGHT LIQUID GLASS ============ -->
 <div style="position:absolute;left:540px;top:2432px;width:1180px" data-screen-label="Masaüstü Bugün v2 · açık cam">
 <div data-drags-parent="1" style="position:absolute;top:-24px;font:600 12px Manrope;color:#9aa0ad">Açık tema · aynı 12 kolon kurgusu</div>
-<div style="border-radius:24px;box-shadow:0 30px 70px -18px rgba(80,90,120,.28);border:1px solid #e7ecf5;overflow:hidden;height:800px;display:flex;position:relative;background:linear-gradient(160deg,#e9f0ff 0%,#f4f0ff 34%,#eafaf2 72%,#fef4ec 100%)">
+<div style="border-radius:24px;box-shadow:0 30px 70px -18px rgba(80,90,120,.28);border:1px solid #e7ecf5;overflow:hidden;height:1120px;display:flex;position:relative;background:linear-gradient(160deg,#e9f0ff 0%,#f4f0ff 34%,#eafaf2 72%,#fef4ec 100%)">
   <div style="position:absolute;left:200px;top:-70px;width:520px;height:340px;background:radial-gradient(circle,rgba(107,111,245,0.16),rgba(107,111,245,0) 68%);filter:blur(36px)"></div>
   <div style="position:absolute;right:-50px;top:-50px;width:440px;height:320px;background:radial-gradient(circle,rgba(22,163,91,0.14),rgba(22,163,91,0) 66%);filter:blur(38px)"></div>
 
@@ -820,21 +918,23 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
 
           <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 11px">
             <span style="font:800 16px Manrope;color:#16181d;letter-spacing:-0.02em">Bugün ne yapmalıyım?</span>
-            <span style="font:600 12px Manrope;color:#6b7280">Takip listem · 4 hisse</span>
+            <span style="font:600 12px Manrope;color:#6b7280">Bugünün sinyal akışı · <b style="color:#16181d">{{ sigCount }}</b> aksiyon</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:11px">
+            <sc-for list="{{ sigChipsL }}" as="c" hint-placeholder-count="5">
+              <button onClick="{{ c.onClick }}" style="border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font:700 12px Manrope;padding:6px 12px;border-radius:10px;cursor:pointer;white-space:nowrap">{{ c.label }}</button>
+            </sc-for>
           </div>
           <div style="display:flex;flex-direction:column;gap:9px">
-            <sc-for list="{{ verdicts }}" as="v" hint-placeholder-count="4">
+            <sc-for list="{{ signals }}" as="v" hint-placeholder-count="6">
               <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9),0 12px 30px -20px rgba(80,90,120,0.28);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:14px">
-                <div style="width:4px;height:38px;border-radius:3px;background:{{ v.color }}"></div>
                 <div class="mono" style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,0.65);border:1px solid rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;font:600 11px 'JetBrains Mono';color:#16181d">{{ v.tag }}</div>
                 <div style="flex:1;min-width:0">
-                  <div style="display:flex;align-items:center;gap:7px"><span style="font:700 14px Manrope;color:#16181d">{{ v.sym }}</span><span class="mono" style="font:500 12px 'JetBrains Mono';color:#6b7280">{{ v.priceStr }} ₺</span>
-                    <sc-if value="{{ v.hasCat }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;padding:1px 5px;border-radius:5px;background:{{ v.catBg }}" title="{{ v.catNote }}">{{ v.catIcon }}</span></sc-if>
-                  </div>
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font:700 14px Manrope;color:#16181d">{{ v.sym }}</span><span style="font:700 10px Manrope;padding:2px 7px;border-radius:6px;background:{{ v.typeBg }};color:{{ v.typeColor }}">{{ v.typeLabel }}</span><span class="mono" style="font:500 11px 'JetBrains Mono';color:#9aa0ad">{{ v.time }}</span></div>
                   <div style="font:500 12px Manrope;color:#6b7280;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.reason }}</div>
                 </div>
                 <div class="mono" style="width:58px;text-align:right;font:600 13px 'JetBrains Mono';color:{{ v.chgColor }}">{{ v.chgStr }}</div>
-                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.bg }};color:{{ v.color }};font:800 12px Manrope">{{ v.verdict }}</span></div>
+                <div style="width:100px;text-align:right"><span style="display:inline-block;padding:5px 12px;border-radius:9px;background:{{ v.vBg }};color:{{ v.vColor }};font:800 12px Manrope">{{ v.verdict }}</span></div>
               </div>
             </sc-for>
           </div>
@@ -873,15 +973,32 @@ body{margin:0;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:an
               <div style="text-align:right"><div class="mono" style="font:600 14px 'JetBrains Mono';color:#16a35b">+1,24%</div><div class="mono" style="font:500 11px 'JetBrains Mono';color:#6b7280;margin-top:1px">+5.940 ₺ bugün</div></div>
             </div>
           </div>
-          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column">
-            <div style="font:800 14px Manrope;color:#16181d;letter-spacing:-0.01em">Verdict ölçeği</div>
-            <div style="display:flex;flex-direction:column;gap:11px;margin-top:13px">
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#16a35b"></span><div><div style="font:700 12px Manrope;color:#16181d">Güçlü İzle</div><div style="font:500 11px Manrope;color:#6b7280">Teknik + akıllı para güçlü hizalı</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#4aa84a"></span><div><div style="font:700 12px Manrope;color:#16181d">Değerlendir</div><div style="font:500 11px Manrope;color:#6b7280">Pozitif sinyal, eşiği geçti</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#c98a00"></span><div><div style="font:700 12px Manrope;color:#16181d">İzle</div><div style="font:500 11px Manrope;color:#6b7280">Belirsiz, teyit bekle</div></div></div>
-              <div style="display:flex;align-items:center;gap:11px"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><div><div style="font:700 12px Manrope;color:#16181d">Uzak Dur</div><div style="font:500 11px Manrope;color:#6b7280">Sinyal zayıf veya negatif</div></div></div>
+          <!-- takip listem -->
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:18px;padding:16px 18px;flex:1;display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 14px Manrope;color:#16181d;letter-spacing:-0.01em">Takip listem</span><span style="font:600 11px Manrope;color:#6b7280">{{ watchCount }} hisse</span></div>
+            <div style="display:flex;flex-direction:column;margin-top:8px;flex:1;overflow-y:auto;min-height:0">
+              <sc-for list="{{ watchVisible }}" as="w" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid rgba(80,90,120,0.12)" style-hover="opacity:0.72">
+                  <span style="width:8px;height:8px;border-radius:3px;background:{{ w.dot }};flex-shrink:0"></span>
+                  <span style="font:700 13px Manrope;color:#16181d">{{ w.sym }}</span>
+                  <div style="flex:1"></div>
+                  <span class="mono" style="font:600 12px 'JetBrains Mono';color:#16181d">{{ w.priceStr }}</span>
+                  <span class="mono" style="width:58px;text-align:right;font:600 12px 'JetBrains Mono';color:{{ w.chgColor }}">{{ w.chgStr }}</span>
+                </div>
+              </sc-for>
             </div>
-            <div style="flex:1"></div>
+            <sc-if value="{{ watchHasMore }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ toggleWatch }}" style="margin-top:11px;border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.5);color:#16181d;font:700 12px Manrope;padding:9px;border-radius:11px;cursor:pointer;width:100%" style-hover="background:rgba(255,255,255,0.75)">{{ watchBtnLabel }}</button>
+            </sc-if>
+          </div>
+          <div style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.8);box-shadow:inset 0 1px 0 rgba(255,255,255,0.9);border-radius:18px;padding:16px 18px">
+            <div style="font:800 14px Manrope;color:#16181d;letter-spacing:-0.01em">Verdict ölçeği</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:12px">
+              <div style="display:flex;align-items:center;gap:9px" title="Teknik + akıllı para güçlü hizalı"><span style="width:10px;height:10px;border-radius:3px;background:#16a35b"></span><span style="font:700 12px Manrope;color:#16181d">Güçlü İzle</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Pozitif sinyal, eşiği geçti"><span style="width:10px;height:10px;border-radius:3px;background:#4aa84a"></span><span style="font:700 12px Manrope;color:#16181d">Değerlendir</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Belirsiz, teyit bekle"><span style="width:10px;height:10px;border-radius:3px;background:#c98a00"></span><span style="font:700 12px Manrope;color:#16181d">İzle</span></div>
+              <div style="display:flex;align-items:center;gap:9px" title="Sinyal zayıf veya negatif"><span style="width:10px;height:10px;border-radius:3px;background:#8a909b"></span><span style="font:700 12px Manrope;color:#16181d">Uzak Dur</span></div>
+            </div>
             <div style="font:500 11px Manrope;color:#9aa0ad;line-height:1.5;margin-top:12px">Kararlar kural-tabanlı; AI yalnızca özetler. Yatırım tavsiyesi değildir.</div>
           </div>
         </div>
@@ -912,7 +1029,7 @@ class Component extends DCLogic {
   }
   fmt(n) { return n.toFixed(2).replace('.', ','); }
 
-  state = { qm: '', qd: '' };
+  state = { qm: '', qd: '', watchExpanded: false, sigFilter: 'all' };
 
   allStocks() {
     return [
@@ -1036,12 +1153,92 @@ class Component extends DCLogic {
       };
     });
 
+    // ---- Takip listem (watchlist) ----
+    const watchRaw = [
+      { sym: 'THYAO', price: 312.75, chg: 2.40, verdict: 'Güçlü İzle' },
+      { sym: 'GARAN', price: 128.90, chg: 1.10, verdict: 'Değerlendir' },
+      { sym: 'AKBNK', price: 64.82, chg: 1.70, verdict: 'Değerlendir' },
+      { sym: 'ASELS', price: 78.45, chg: -0.80, verdict: 'İzle' },
+      { sym: 'SISE', price: 52.15, chg: 1.80, verdict: 'Değerlendir' },
+      { sym: 'KCHOL', price: 218.40, chg: 1.40, verdict: 'İzle' },
+      { sym: 'SASA', price: 38.90, chg: -2.10, verdict: 'Uzak Dur' }
+    ];
+    const mapWatch = (dark) => watchRaw.map(s => {
+      const pos = s.chg >= 0;
+      const VM = dark ? VD : V;
+      return { sym: s.sym, priceStr: this.fmt(s.price),
+        chgStr: (pos ? '+' : '') + this.fmt(s.chg) + '%',
+        chgColor: dark ? (pos ? '#3fce8a' : '#ff6b6b') : (pos ? up : down),
+        dot: VM[s.verdict].color };
+    });
+    const wL = mapWatch(false), wD = mapWatch(true);
+    const wExp = this.state.watchExpanded;
+    const wRemain = watchRaw.length - 5;
+    const watchVisible = wExp ? wL : wL.slice(0, 5);
+    const watchVisibleDark = wExp ? wD : wD.slice(0, 5);
+    const watchVisibleMob = wExp ? wL : wL.slice(0, 3);
+    const watchVisibleMobDark = wExp ? wD : wD.slice(0, 3);
+    const watchHasMore = watchRaw.length > 5;
+    const watchBtnLabel = wExp ? 'Daha az göster' : ('Daha fazla göster (+' + wRemain + ')');
+    const toggleWatch = () => this.setState({ watchExpanded: !this.state.watchExpanded });
+
+    // ---- Bugünün sinyal akışı ----
+    const ST = {
+      smart: { label: 'Akıllı para', c: '#6b6ff5', bg: 'rgba(107,111,245,0.12)' },
+      brk:   { label: 'Teknik kırılım', c: '#0e9f6e', bg: 'rgba(14,159,110,0.12)' },
+      vd:    { label: 'Verdict ↑', c: '#0e8fb7', bg: 'rgba(14,143,183,0.12)' },
+      vol:   { label: 'Hacim anomalisi', c: '#c98a00', bg: 'rgba(201,138,0,0.12)' }
+    };
+    const STD = {
+      smart: { label: 'Akıllı para', c: '#a6a9ff', bg: 'rgba(107,111,245,0.22)' },
+      brk:   { label: 'Teknik kırılım', c: '#3fce8a', bg: 'rgba(63,206,138,0.18)' },
+      vd:    { label: 'Verdict ↑', c: '#4fd0e6', bg: 'rgba(79,208,230,0.18)' },
+      vol:   { label: 'Hacim anomalisi', c: '#f5c451', bg: 'rgba(245,196,81,0.18)' }
+    };
+    const sigRaw = [
+      { sym: 'KONTR', price: 6.55, chg: 9.90, type: 'smart', verdict: 'Değerlendir', reason: 'Akıllı para girişi başladı, güçlü alım sürüyor', time: '09:32' },
+      { sym: 'TURSG', price: 6.66, chg: 4.72, type: 'brk', verdict: 'Değerlendir', reason: 'Teknik kırılım oluştu, hacimle teyitlendi', time: '10:05' },
+      { sym: 'THYAO', price: 312.75, chg: 2.40, type: 'vd', verdict: 'Güçlü İzle', reason: "İzle → Güçlü İzle'ye yükseldi", time: '10:18' },
+      { sym: 'ASTOR', price: 96.20, chg: 3.10, type: 'vol', verdict: 'Değerlendir', reason: '20 günlük ortalamanın 3,2 katı hacim', time: '10:22' },
+      { sym: 'KRDMA', price: 41.02, chg: 0.69, type: 'smart', verdict: 'Değerlendir', reason: '4 gündür alım ve güçlü para girişi sürüyor', time: '11:01' },
+      { sym: 'SOKM', price: 48.80, chg: 2.69, type: 'brk', verdict: 'İzle', reason: 'Direnç kırıldı, 4 gündür alım var', time: '11:14' },
+      { sym: 'DESPC', price: 45.62, chg: 2.15, type: 'vol', verdict: 'Değerlendir', reason: 'Hacim anomalisi ile 4 gündür alım', time: '11:26' }
+    ];
+    const sigFilter = this.state.sigFilter || 'all';
+    const sigMatch = (s) => sigFilter === 'all' || s.type === sigFilter;
+    const mapSig = (dark) => {
+      const TT = dark ? STD : ST, VM = dark ? VD : V;
+      return sigRaw.filter(sigMatch).map(s => {
+        const pos = s.chg >= 0;
+        return { sym: s.sym, tag: s.sym.slice(0, 2), reason: s.reason, time: s.time, verdict: s.verdict,
+          priceStr: this.fmt(s.price),
+          chgStr: (pos ? '+' : '') + this.fmt(s.chg) + '%',
+          chgColor: dark ? (pos ? '#3fce8a' : '#ff6b6b') : (pos ? up : down),
+          typeLabel: TT[s.type].label, typeColor: TT[s.type].c, typeBg: TT[s.type].bg,
+          vColor: VM[s.verdict].color, vBg: VM[s.verdict].bg };
+      });
+    };
+    const signals = mapSig(false), signalsDark = mapSig(true);
+    const signalsMob = signals.slice(0, 3), signalsMobDark = signalsDark.slice(0, 3);
+    const sigCount = sigRaw.filter(sigMatch).length;
+    const chipDefs = [['all', 'Tümü'], ['smart', 'Akıllı para'], ['brk', 'Teknik'], ['vd', 'Verdict ↑'], ['vol', 'Hacim']];
+    const mkChips = (dark) => chipDefs.map(([key, label]) => {
+      const active = sigFilter === key;
+      const on = dark ? { bg: 'rgba(255,255,255,0.16)', fg: '#f4f6fa', bd: 'rgba(255,255,255,0.24)' } : { bg: '#16181d', fg: '#ffffff', bd: '#16181d' };
+      const off = dark ? { bg: 'rgba(255,255,255,0.05)', fg: '#9aa3b2', bd: 'rgba(255,255,255,0.1)' } : { bg: '#ffffff', fg: '#7b818c', bd: '#eef0f2' };
+      const s = active ? on : off;
+      return { key, label, bg: s.bg, fg: s.fg, bd: s.bd, onClick: () => this.setState({ sigFilter: key }) };
+    });
+    const sigChipsL = mkChips(false), sigChipsD = mkChips(true);
+
     const bist = this.wave(42, 24, 0.5, 6, 96);
     const bistMini = this.wave(11, 14, 0.5, 5, 50);
     const resM = this.search(this.state.qm);
     const resD = this.search(this.state.qd);
     return {
       verdicts, verdictsDark, opps,
+      signals, signalsDark, signalsMob, signalsMobDark, sigChipsL, sigChipsD, sigCount,
+      watchVisible, watchVisibleDark, watchVisibleMob, watchVisibleMobDark, watchHasMore, watchBtnLabel, toggleWatch, watchCount: watchRaw.length,
       secStrongName: 'Havacılık', secStrongChg: '+2,1%',
       secWeakName: 'Kimya', secWeakChg: '-1,4%',
       qm: this.state.qm,

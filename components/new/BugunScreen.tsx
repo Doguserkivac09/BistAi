@@ -15,7 +15,7 @@
  * · /api/weekly-picks + /api/ai-portfolio + /api/apex-portfolio (masaüstü şerit).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { SmartSignalResult } from '@/lib/smart-signal/types';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
@@ -39,6 +39,34 @@ const VERDICT: Record<string, { label: string; color: string; bg: string }> = {
   Watch:          { label: 'İzle',        color: '#c98a00', bg: 'rgba(201,138,0,0.12)' },
   Avoid:          { label: 'Uzak Dur',    color: '#8a909b', bg: 'rgba(138,144,155,0.14)' },
 };
+
+// Sinyal akışı tipleri — yalnızca SmartSignalResult'ta GERÇEKTEN var olan alanlardan
+// (flags/technical_score/status) türetilir. "Verdict ↑" ve "Hacim" isimleri handoff'un
+// dilini korur, ama gün-içi zaman-serisi (takas/hacim geçmişi) olmadığı için literal
+// "bugün yükseldi" / "hacim anomalisi" tespiti YAPILMAZ — en yakın gerçek proxy kullanılır:
+// smart_money_entered → Akıllı para; technical_score yüksek → Teknik; status STRONG →
+// Verdict; accumulation/distribution (akış-trend değişimi) → Hacim.
+type FeedType = 'smart' | 'brk' | 'vd' | 'vol';
+const FEED_META: Record<FeedType, { label: string; color: string; bg: string }> = {
+  smart: { label: 'Akıllı para', color: '#6b6ff5', bg: 'rgba(107,111,245,0.14)' },
+  brk: { label: 'Teknik', color: '#0e9f6e', bg: 'rgba(14,159,110,0.14)' },
+  vd: { label: 'Verdict', color: '#0e8fb7', bg: 'rgba(14,143,183,0.14)' },
+  vol: { label: 'Hacim', color: '#c98a00', bg: 'rgba(201,138,0,0.14)' },
+};
+const FEED_FILTERS: Array<{ key: 'all' | FeedType; label: string }> = [
+  { key: 'all', label: 'Tümü' },
+  { key: 'smart', label: 'Akıllı para' },
+  { key: 'brk', label: 'Teknik' },
+  { key: 'vd', label: 'Verdict' },
+  { key: 'vol', label: 'Hacim' },
+];
+function feedTypeOf(r: SmartSignalResult): FeedType | null {
+  if (r.flags.includes('smart_money_entered')) return 'smart';
+  if (r.technical_score >= 6) return 'brk';
+  if (r.status === 'STRONG') return 'vd';
+  if (r.flags.includes('accumulation') || r.flags.includes('distribution')) return 'vol';
+  return null;
+}
 
 const LEGEND = [
   { c: '#16a35b', t: 'Güçlü İzle', d: 'Teknik + akıllı para güçlü hizalı' },
@@ -87,14 +115,23 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-function VerdictRow({ r }: { r: SmartSignalResult }) {
+function VerdictRow({ r, feedType, mobileHidden }: { r: SmartSignalResult; feedType?: FeedType | null; mobileHidden?: boolean }) {
   const v = VERDICT[r.action] ?? VERDICT.Avoid;
+  const fm = feedType ? FEED_META[feedType] : null;
   return (
     <Link
       href={`/hisse/${r.symbol}`}
-      className="ie-glass flex items-center gap-3.5 rounded-[18px] px-4 py-[13px] transition-colors hover:border-white lg:gap-4 lg:rounded-[14px] lg:px-4 lg:py-3"
+      className={`ie-glass items-center gap-3.5 rounded-[18px] px-4 py-[13px] transition-colors hover:border-white lg:flex lg:gap-4 lg:rounded-[14px] lg:px-4 lg:py-3 ${mobileHidden ? 'hidden' : 'flex'}`}
     >
       <span className="w-1 shrink-0 self-stretch rounded-[3px]" style={{ background: v.color }} />
+      {fm && (
+        <span
+          className="hidden shrink-0 rounded-[7px] px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.03em] lg:block"
+          style={{ background: fm.bg, color: fm.color }}
+        >
+          {fm.label}
+        </span>
+      )}
       <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border border-white/70 bg-white/65 font-mono text-[12px] font-semibold text-ink lg:h-[38px] lg:w-[38px] lg:rounded-[11px] lg:text-[11px]">
         {r.symbol.slice(0, 2)}
       </span>
@@ -103,6 +140,11 @@ function VerdictRow({ r }: { r: SmartSignalResult }) {
           <span className="text-[15px] font-bold text-ink lg:text-[14px]">{r.symbol}</span>
           <span className="font-mono text-[12px] font-medium text-t3 lg:hidden">{fmtPrice(r.price)} ₺</span>
         </div>
+        {fm && (
+          <span className="mt-0.5 inline-block rounded-[6px] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.03em] lg:hidden" style={{ background: fm.bg, color: fm.color }}>
+            {fm.label}
+          </span>
+        )}
         <div className="truncate text-[12px] font-medium text-t3 lg:hidden">{r.summary}</div>
         <span className="hidden font-mono text-[12px] font-medium text-t3 lg:block">{fmtPrice(r.price)} ₺</span>
       </div>
@@ -164,6 +206,9 @@ export function BugunScreen() {
   const [portfolio, setPortfolio] = useState<PortfolioStrip | null>(null);
   const [weekly, setWeekly] = useState<{ avg: number | null; beatRate: number | null } | null>(null);
   const [aiRet, setAiRet] = useState<{ aegis: number | null; apex: number | null }>({ aegis: null, apex: null });
+  const [signalFilter, setSignalFilter] = useState<'all' | FeedType>('all');
+  const [watchRows, setWatchRows] = useState<Array<{ sembol: string }>>([]);
+  const [watchExpanded, setWatchExpanded] = useState(false);
 
   useEffect(() => {
     // Smart-signal (verdict) — zorunlu
@@ -248,12 +293,37 @@ export function BugunScreen() {
       .then((d: { summary?: { totalReturn?: number } } | null) =>
         setAiRet((p) => ({ ...p, apex: d?.summary?.totalReturn ?? null })))
       .catch(() => {});
+
+    // Takip listem — auth yoksa sessizce boş kalır (401)
+    fetch('/api/watchlist')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: Array<{ sembol: string }> | null) => setWatchRows(d ?? []))
+      .catch(() => {});
   }, []);
 
-  // Verdict listesi: her zaman EN GÜÇLÜ KURULUMLAR (top-8) — smart-signal skoruna göre.
-  // (Watchlist devralması kaldırıldı: kullanıcı "En güçlü kurulumlar" görünümünü istedi,
-  // ayrıca watchlist ayrı/geç geldiği için görünüm flaşına yol açıyordu.)
-  const list = [...data].sort((a, b) => b.total_score - a.total_score).slice(0, 8);
+  // Bugünün sinyal akışı — "en güçlü kurulumlar" yerine tüm BIST'te bugün öne çıkan
+  // (akıllı para/teknik/verdict/akış) satırlar. Sakin bir günde hiçbir sembol bu
+  // kriterlere uymazsa (feedAll boş), eski "en güçlü kurulumlar" (top-8) davranışına
+  // zarifçe düşülür — sayfa asla boş kalmaz.
+  const feedAll = useMemo(() => {
+    const tagged = data
+      .map((r) => ({ r, type: feedTypeOf(r) }))
+      .filter((x): x is { r: SmartSignalResult; type: FeedType } => x.type !== null);
+    if (tagged.length > 0) return tagged.sort((a, b) => b.r.total_score - a.r.total_score);
+    return [...data]
+      .sort((a, b) => b.total_score - a.total_score)
+      .slice(0, 8)
+      .map((r) => ({ r, type: null as FeedType | null }));
+  }, [data]);
+  const feed = (signalFilter === 'all' ? feedAll : feedAll.filter((x) => x.type === signalFilter)).slice(0, 14);
+
+  // Takip listem — /api/watchlist sembolleri + o günün smart-signal verisiyle (fiyat/verdict) eşle
+  const watchList = useMemo(() => {
+    const map = new Map(data.map((r) => [r.symbol, r]));
+    return watchRows.map((w) => ({ sembol: w.sembol, r: map.get(w.sembol) ?? null }));
+  }, [watchRows, data]);
+  const watchHasMore = watchList.length > 5;
+  const watchShown = watchExpanded ? watchList : watchList.slice(0, 5);
 
   const strong = data.filter((r) => r.status === 'STRONG').length;
   const positive = data.filter((r) => r.status === 'POSITIVE').length;
@@ -337,6 +407,46 @@ export function BugunScreen() {
       <SparklineChartButton symbol="XU100" title="BIST 100" className="block w-full">
         <Sparkline values={bistSeries} color={bist && bist.changePercent < 0 ? '#e5484d' : '#16a35b'} />
       </SparklineChartButton>
+    </div>
+  );
+
+  const takipListemCard = watchList.length > 0 && (
+    <div className="ie-glass rounded-[18px] px-[18px] py-4">
+      <div className="flex items-center justify-between">
+        <span className="text-[14px] font-extrabold text-ink">Takip listem</span>
+        <Link href="/watchlist" className="text-[11px] font-semibold text-t3 hover:text-ink">
+          Tümü →
+        </Link>
+      </div>
+      <div className="mt-2.5 flex flex-col gap-1">
+        {watchShown.map(({ sembol, r }) => {
+          const v = r ? VERDICT[r.action] ?? VERDICT.Avoid : null;
+          return (
+            <Link
+              key={sembol}
+              href={`/hisse/${sembol}`}
+              className="flex items-center gap-2.5 rounded-[10px] px-1.5 py-2 transition-colors hover:bg-fill"
+            >
+              <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: v?.color ?? '#9aa0ad' }} />
+              <span className="w-[62px] shrink-0 text-[13px] font-bold text-ink">{sembol}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-[12px] font-medium text-t3">
+                {r ? `${fmtPrice(r.price)} ₺` : '—'}
+              </span>
+              <span className="shrink-0 font-mono text-[12px] font-semibold" style={{ color: r ? pctColor(r.changePercent) : '#9aa0ad' }}>
+                {r ? fmtPct(r.changePercent) : '—'}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+      {watchHasMore && (
+        <button
+          onClick={() => setWatchExpanded((v) => !v)}
+          className="mt-2 w-full rounded-[10px] py-2 text-center text-[12px] font-bold text-up hover:underline"
+        >
+          {watchExpanded ? 'Daha az göster' : `Daha fazla göster (+${watchList.length - 5})`}
+        </button>
+      )}
     </div>
   );
 
@@ -443,20 +553,37 @@ export function BugunScreen() {
 
             <div className="flex items-center justify-between">
               <span className="text-[16px] font-extrabold tracking-[-0.02em] text-ink">Bugün ne yapmalıyım?</span>
-              <span className="text-[12px] font-semibold text-t3">En güçlü kurulumlar</span>
+              <span className="text-[12px] font-semibold text-t3">Günün sinyal akışı</span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {FEED_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setSignalFilter(f.key)}
+                  className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors ${
+                    signalFilter === f.key ? 'bg-ink text-onink' : 'bg-fill text-t3 hover:text-ink'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
 
             <div className="flex flex-col gap-2.5 lg:gap-[9px]">
               {loading ? (
                 [...Array(5)].map((_, i) => <div key={i} className="ie-glass h-[72px] animate-pulse rounded-[18px]" />)
-              ) : list.length === 0 ? (
+              ) : feed.length === 0 ? (
                 <div className="ie-glass rounded-[18px] px-4 py-8 text-center text-[13px] font-medium text-t3">
-                  Tarama henüz çalışmadı. Günlük cron otomatik koşar.
+                  {data.length === 0 ? 'Tarama henüz çalışmadı. Günlük cron otomatik koşar.' : 'Bu filtrede şu an sinyal yok.'}
                 </div>
               ) : (
-                list.map((r) => <VerdictRow key={r.symbol} r={r} />)
+                feed.map(({ r, type }, i) => <VerdictRow key={r.symbol} r={r} feedType={type} mobileHidden={i >= 3} />)
               )}
             </div>
+
+            {/* Takip listem — mobil (masaüstünde sağ rayda) */}
+            <div className="lg:hidden">{takipListemCard}</div>
 
             {oppsBlock}
 
@@ -497,6 +624,8 @@ export function BugunScreen() {
                 </div>
               </div>
             )}
+
+            {takipListemCard}
 
             <div className="ie-glass flex flex-1 flex-col rounded-[18px] px-[18px] py-4">
               <div className="text-[14px] font-extrabold tracking-[-0.01em] text-ink">Verdict ölçeği</div>
