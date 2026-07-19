@@ -60,4 +60,6 @@ export interface SmartSignalResult {
   smart_money_source: SmartMoneySource
   price: number | null
   changePercent: number | null
+  /** Bir önceki güne göre total_score değişimi (İvme Kazananlar için). null = önceki gün verisi yok. */
+  score_delta?: number | null
 }

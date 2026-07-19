@@ -53,21 +53,6 @@ const FEED_META: Record<FeedType, { label: string; color: string; bg: string }> 
   vd: { label: 'Verdict', color: '#0e8fb7', bg: 'rgba(14,143,183,0.14)' },
   vol: { label: 'Hacim', color: '#c98a00', bg: 'rgba(201,138,0,0.14)' },
 };
-const FEED_FILTERS: Array<{ key: 'all' | FeedType; label: string }> = [
-  { key: 'all', label: 'Tümü' },
-  { key: 'smart', label: 'Akıllı para' },
-  { key: 'brk', label: 'Teknik' },
-  { key: 'vd', label: 'Verdict' },
-  { key: 'vol', label: 'Hacim' },
-];
-function feedTypeOf(r: SmartSignalResult): FeedType | null {
-  if (r.flags.includes('smart_money_entered')) return 'smart';
-  if (r.technical_score >= 6) return 'brk';
-  if (r.status === 'STRONG') return 'vd';
-  if (r.flags.includes('accumulation') || r.flags.includes('distribution')) return 'vol';
-  return null;
-}
-
 const LEGEND = [
   { c: '#16a35b', t: 'Güçlü İzle', d: 'Teknik + akıllı para güçlü hizalı' },
   { c: '#4aa84a', t: 'Değerlendir', d: 'Pozitif sinyal, eşiği geçti' },
@@ -115,7 +100,80 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-function VerdictRow({ r, feedType, mobileHidden }: { r: SmartSignalResult; feedType?: FeedType | null; mobileHidden?: boolean }) {
+// ── Sana Özel: sahip olunan/takip edilen sembol → somut aksiyon ────────────────
+type Tone = 'up' | 'down' | 'neutral';
+const TONE: Record<Tone, { color: string; bg: string }> = {
+  up: { color: '#16a35b', bg: 'rgba(22,163,91,0.12)' },
+  down: { color: '#e5484d', bg: 'rgba(229,72,77,0.12)' },
+  neutral: { color: '#c98a00', bg: 'rgba(201,138,0,0.12)' },
+};
+function personalAction(r: SmartSignalResult | null, held: boolean): { label: string; tone: Tone; hint: string } {
+  if (!r) return { label: held ? 'Fiyat izle' : 'İzle', tone: 'neutral', hint: 'Bugün sinyal verisi yok' };
+  const dist = r.flags.includes('distribution');
+  const acc = r.flags.includes('accumulation') || r.flags.includes('smart_money_entered');
+  if (held) {
+    if (r.status === 'NEGATIVE' || dist)
+      return { label: 'Kâr al / azalt', tone: 'down', hint: dist ? 'Dağıtım sinyali' : 'Zayıflıyor' };
+    if (r.status === 'STRONG' || r.status === 'POSITIVE' || acc)
+      return { label: 'Tut / ekle', tone: 'up', hint: acc ? 'Akıllı para güçlü' : 'Pozitif seyir' };
+    return { label: 'Tut, teyit bekle', tone: 'neutral', hint: 'Nötr seyir' };
+  }
+  if (r.status === 'STRONG' || r.status === 'POSITIVE' || acc)
+    return { label: 'Alım için değerlendir', tone: 'up', hint: acc ? 'Akıllı para girdi' : 'Pozitif sinyal' };
+  if (r.status === 'NEGATIVE') return { label: 'Zayıf, bekle', tone: 'down', hint: 'Negatif sinyal' };
+  return { label: 'İzle, teyit bekle', tone: 'neutral', hint: 'Belirsiz' };
+}
+
+function PersonalRow({
+  sym, held, r, act, mobileHidden,
+}: {
+  sym: string; held: boolean; watched: boolean; r: SmartSignalResult | null;
+  act: { label: string; tone: Tone; hint: string }; mobileHidden?: boolean;
+}) {
+  const t = TONE[act.tone];
+  return (
+    <Link
+      href={`/hisse/${sym}`}
+      className={`ie-glass items-center gap-3.5 rounded-[18px] px-4 py-[13px] transition-colors hover:border-white lg:flex lg:gap-4 lg:rounded-[14px] lg:px-4 lg:py-3 ${mobileHidden ? 'hidden' : 'flex'}`}
+    >
+      <span className="w-1 shrink-0 self-stretch rounded-[3px]" style={{ background: t.color }} />
+      <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[12px] border border-white/70 bg-white/65 font-mono text-[12px] font-semibold text-ink lg:h-[38px] lg:w-[38px] lg:rounded-[11px] lg:text-[11px]">
+        {sym.slice(0, 2)}
+      </span>
+      <div className="min-w-0 lg:w-[150px] lg:shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[15px] font-bold text-ink lg:text-[14px]">{sym}</span>
+          <span
+            className="shrink-0 rounded-[6px] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.03em]"
+            style={held ? { background: 'rgba(107,111,245,0.14)', color: '#6b6ff5' } : { background: 'rgba(14,143,183,0.12)', color: '#0e8fb7' }}
+          >
+            {held ? 'Portföy' : 'Takip'}
+          </span>
+        </div>
+        <div className="truncate text-[12px] font-medium text-t3">{act.hint}</div>
+      </div>
+      <div className="hidden min-w-0 flex-1 truncate text-[12px] font-medium text-t3 lg:block">
+        {r ? r.summary : 'Bugün için sinyal verisi yok'}
+      </div>
+      <span
+        className="hidden w-[58px] shrink-0 text-right font-mono text-[13px] font-semibold lg:block"
+        style={{ color: pctColor(r?.changePercent ?? null) }}
+      >
+        {fmtPct(r?.changePercent ?? null)}
+      </span>
+      <div className="flex shrink-0 flex-col items-end gap-1 lg:w-[118px] lg:flex-none">
+        <span className="inline-block rounded-[9px] px-[11px] py-[5px] text-[12px] font-extrabold lg:px-3" style={{ background: t.bg, color: t.color }}>
+          {act.label}
+        </span>
+        <span className="font-mono text-[11px] font-semibold lg:hidden" style={{ color: pctColor(r?.changePercent ?? null) }}>
+          {fmtPct(r?.changePercent ?? null)}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function VerdictRow({ r, feedType, delta, mobileHidden }: { r: SmartSignalResult; feedType?: FeedType | null; delta?: number | null; mobileHidden?: boolean }) {
   const v = VERDICT[r.action] ?? VERDICT.Avoid;
   const fm = feedType ? FEED_META[feedType] : null;
   return (
@@ -138,6 +196,11 @@ function VerdictRow({ r, feedType, mobileHidden }: { r: SmartSignalResult; feedT
       <div className="min-w-0 lg:w-[150px] lg:shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-[15px] font-bold text-ink lg:text-[14px]">{r.symbol}</span>
+          {typeof delta === 'number' && delta > 0 && (
+            <span className="shrink-0 rounded-[6px] px-1.5 py-0.5 font-mono text-[10px] font-extrabold" style={{ background: 'rgba(22,163,91,0.14)', color: '#16a35b' }}>
+              ▲ +{delta}
+            </span>
+          )}
           <span className="font-mono text-[12px] font-medium text-t3 lg:hidden">{fmtPrice(r.price)} ₺</span>
         </div>
         {fm && (
@@ -206,7 +269,7 @@ export function BugunScreen() {
   const [portfolio, setPortfolio] = useState<PortfolioStrip | null>(null);
   const [weekly, setWeekly] = useState<{ avg: number | null; beatRate: number | null } | null>(null);
   const [aiRet, setAiRet] = useState<{ aegis: number | null; apex: number | null }>({ aegis: null, apex: null });
-  const [signalFilter, setSignalFilter] = useState<'all' | FeedType>('all');
+  const [heldSyms, setHeldSyms] = useState<string[]>([]);
   const [watchRows, setWatchRows] = useState<Array<{ sembol: string }>>([]);
   const [watchExpanded, setWatchExpanded] = useState(false);
 
@@ -249,6 +312,7 @@ export function BugunScreen() {
         if (!positions || !Array.isArray(positions) || positions.length === 0) return;
         const lots = new Map<string, number>();
         for (const p of positions) lots.set(p.sembol, (lots.get(p.sembol) ?? 0) + p.miktar);
+        setHeldSyms([...lots.keys()]);
         let value = 0, prevValue = 0;
         await Promise.all(
           [...lots.entries()].map(async ([sym, lot]) => {
@@ -301,21 +365,41 @@ export function BugunScreen() {
       .catch(() => {});
   }, []);
 
-  // Bugünün sinyal akışı — "en güçlü kurulumlar" yerine tüm BIST'te bugün öne çıkan
-  // (akıllı para/teknik/verdict/akış) satırlar. Sakin bir günde hiçbir sembol bu
-  // kriterlere uymazsa (feedAll boş), eski "en güçlü kurulumlar" (top-8) davranışına
-  // zarifçe düşülür — sayfa asla boş kalmaz.
-  const feedAll = useMemo(() => {
-    const tagged = data
-      .map((r) => ({ r, type: feedTypeOf(r) }))
-      .filter((x): x is { r: SmartSignalResult; type: FeedType } => x.type !== null);
-    if (tagged.length > 0) return tagged.sort((a, b) => b.r.total_score - a.r.total_score);
-    return [...data]
-      .sort((a, b) => b.total_score - a.total_score)
-      .slice(0, 8)
-      .map((r) => ({ r, type: null as FeedType | null }));
-  }, [data]);
-  const feed = (signalFilter === 'all' ? feedAll : feedAll.filter((x) => x.type === signalFilter)).slice(0, 14);
+  // ── #1 Sana Özel Günlük Aksiyon ────────────────────────────────────────────
+  // Kullanıcının SAHİP OLDUĞU (portföy) + TAKİP ETTİĞİ (watchlist) semboller, o günün
+  // smart-signal durumu/flag'leriyle çaprazlanıp somut aksiyona (Kâr al / Tut-ekle /
+  // Değerlendir / İzle) çevrilir. Portföy satırları önce, sonra skor sırası.
+  const sanaOzel = useMemo(() => {
+    const map = new Map(data.map((r) => [r.symbol, r]));
+    const heldSet = new Set(heldSyms);
+    const watchSet = new Set(watchRows.map((w) => w.sembol));
+    const syms = [...new Set([...heldSyms, ...watchRows.map((w) => w.sembol)])];
+    return syms
+      .map((sym) => {
+        const held = heldSet.has(sym);
+        const r = map.get(sym) ?? null;
+        return { sym, held, watched: watchSet.has(sym), r, act: personalAction(r, held) };
+      })
+      .sort((a, b) => {
+        if (a.held !== b.held) return a.held ? -1 : 1; // portföy önce
+        return (b.r?.total_score ?? -1) - (a.r?.total_score ?? -1);
+      });
+  }, [data, heldSyms, watchRows]);
+
+  // ── #2 Bugün İvme Kazananlar ────────────────────────────────────────────────
+  // Bir önceki güne göre skoru ARTAN (score_delta > 0) semboller, delta'ya göre azalan.
+  // Sana Özel'dekiler hariç (tekrar önlemi). Delta verisi henüz yoksa (cron ilk gün)
+  // "en güçlü kurulumlar" (top-8) davranışına zarifçe düşülür — bölüm asla boş kalmaz.
+  const ivme = useMemo(() => {
+    const own = new Set([...heldSyms, ...watchRows.map((w) => w.sembol)]);
+    const rising = data
+      .filter((r) => typeof r.score_delta === 'number' && r.score_delta > 0 && !own.has(r.symbol))
+      .sort((a, b) => (b.score_delta ?? 0) - (a.score_delta ?? 0))
+      .slice(0, 8);
+    if (rising.length > 0) return { rows: rising, fallback: false };
+    const top = [...data].sort((a, b) => b.total_score - a.total_score).slice(0, 8);
+    return { rows: top, fallback: true };
+  }, [data, heldSyms, watchRows]);
 
   // Takip listem — /api/watchlist sembolleri + o günün smart-signal verisiyle (fiyat/verdict) eşle
   const watchList = useMemo(() => {
@@ -553,37 +637,54 @@ export function BugunScreen() {
 
             <div className="flex items-center justify-between">
               <span className="text-[16px] font-extrabold tracking-[-0.02em] text-ink">Bugün ne yapmalıyım?</span>
-              <span className="text-[12px] font-semibold text-t3">Günün sinyal akışı</span>
+              <span className="text-[12px] font-semibold text-t3">Sana özel · günün ivmesi</span>
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
-              {FEED_FILTERS.map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setSignalFilter(f.key)}
-                  className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors ${
-                    signalFilter === f.key ? 'bg-ink text-onink' : 'bg-fill text-t3 hover:text-ink'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-2.5 lg:gap-[9px]">
-              {loading ? (
-                [...Array(5)].map((_, i) => <div key={i} className="ie-glass h-[72px] animate-pulse rounded-[18px]" />)
-              ) : feed.length === 0 ? (
-                <div className="ie-glass rounded-[18px] px-4 py-8 text-center text-[13px] font-medium text-t3">
-                  {data.length === 0 ? 'Tarama henüz çalışmadı. Günlük cron otomatik koşar.' : 'Bu filtrede şu an sinyal yok.'}
+            {/* #1 Sana Özel Günlük Aksiyon — portföyün + takip listen için somut hamle */}
+            {loading ? (
+              <div className="flex flex-col gap-2.5 lg:gap-[9px]">
+                {[...Array(3)].map((_, i) => <div key={i} className="ie-glass h-[72px] animate-pulse rounded-[18px]" />)}
+              </div>
+            ) : sanaOzel.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-extrabold text-ink">Sana özel</span>
+                  <span className="text-[11px] font-semibold text-t3">Portföyün + takip listen · {sanaOzel.length}</span>
                 </div>
-              ) : (
-                feed.map(({ r, type }, i) => <VerdictRow key={r.symbol} r={r} feedType={type} mobileHidden={i >= 3} />)
-              )}
-            </div>
+                <div className="flex flex-col gap-2.5 lg:gap-[9px]">
+                  {sanaOzel.slice(0, 8).map((x, i) => (
+                    <PersonalRow key={x.sym} sym={x.sym} held={x.held} watched={x.watched} r={x.r} act={x.act} mobileHidden={i >= 4} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="ie-glass rounded-[18px] px-4 py-5 text-center text-[13px] font-medium text-t3">
+                Portföy ekle veya hisse takibe al — burada sana özel günlük aksiyonlar belirsin.
+              </div>
+            )}
 
-            {/* Takip listem — mobil (masaüstünde sağ rayda) */}
-            <div className="lg:hidden">{takipListemCard}</div>
+            {/* #2 Bugün İvme Kazananlar — skoru dünden bugüne artanlar */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-extrabold text-ink">Bugün ivme kazananlar</span>
+                <span className="text-[11px] font-semibold text-t3">
+                  {ivme.fallback ? 'En güçlü kurulumlar' : 'Skoru yükselenler'}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2.5 lg:gap-[9px]">
+                {loading ? (
+                  [...Array(4)].map((_, i) => <div key={i} className="ie-glass h-[72px] animate-pulse rounded-[18px]" />)
+                ) : ivme.rows.length === 0 ? (
+                  <div className="ie-glass rounded-[18px] px-4 py-8 text-center text-[13px] font-medium text-t3">
+                    Tarama henüz çalışmadı. Günlük cron otomatik koşar.
+                  </div>
+                ) : (
+                  ivme.rows.map((r, i) => (
+                    <VerdictRow key={r.symbol} r={r} delta={ivme.fallback ? null : r.score_delta} mobileHidden={i >= 3} />
+                  ))
+                )}
+              </div>
+            </div>
 
             {oppsBlock}
 
