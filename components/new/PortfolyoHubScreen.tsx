@@ -304,33 +304,59 @@ function AlarmlarTab() {
 }
 
 // ── Sinyal Takip ──────────────────────────────────────────────────────────
+// KULLANICININ KENDİ EVRENİ: portföy + takip listesi. Tüm BIST taranırsa bu sekme
+// Fırsatlar sayfasının kopyası olur (kullanıcı geri bildirimi) — burası "senin
+// hisselerinde bugün ne oluyor?" sorusunu yanıtlar. Sinyali olmayan sembol de
+// listede kalır ("Sinyal yok"), böylece takip gerçekten takip olur, liste boşalmaz.
 function SinyalTakipTab() {
   const [signals, setSignals] = useState<SmartSignalResult[]>([]);
   const [scoredAt, setScoredAt] = useState<string | null>(null);
+  const [held, setHeld] = useState<string[]>([]);
+  const [watched, setWatched] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | FeedType>('all');
 
   useEffect(() => {
-    fetch('/api/smart-signal')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { results?: SmartSignalResult[]; scoredAt?: string } | null) => {
-        setSignals(d?.results ?? []);
-        setScoredAt(d?.scoredAt ?? null);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    Promise.allSettled([
+      fetch('/api/smart-signal').then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/portfolyo').then((r) => (r.ok ? r.json() : [])),
+      fetch('/api/watchlist').then((r) => (r.ok ? r.json() : [])),
+    ]).then(([s, p, w]) => {
+      if (cancelled) return;
+      const sd: { results?: SmartSignalResult[]; scoredAt?: string } | null = s.status === 'fulfilled' ? s.value : null;
+      setSignals(sd?.results ?? []);
+      setScoredAt(sd?.scoredAt ?? null);
+      const pos: Array<{ sembol: string }> = p.status === 'fulfilled' ? (p.value ?? []) : [];
+      const wl: Array<{ sembol: string }> = w.status === 'fulfilled' ? (w.value ?? []) : [];
+      setHeld([...new Set(pos.map((x) => x.sembol))]);
+      setWatched(wl.map((x) => x.sembol));
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
 
-  const feed = useMemo(() => {
-    const tagged = signals.map((r) => ({ r, type: feedTypeOf(r) })).filter((x): x is { r: SmartSignalResult; type: FeedType } => x.type !== null);
-    return tagged.sort((a, b) => b.r.total_score - a.r.total_score);
-  }, [signals]);
-  const filtered = (filter === 'all' ? feed : feed.filter((x) => x.type === filter)).slice(0, 30);
+  const sigMap = useMemo(() => new Map(signals.map((r) => [r.symbol, r])), [signals]);
+  const rows = useMemo(() => {
+    const heldSet = new Set(held);
+    return [...new Set([...held, ...watched])]
+      .map((sym) => {
+        const r = sigMap.get(sym) ?? null;
+        return { sym, held: heldSet.has(sym), r, type: r ? feedTypeOf(r) : null };
+      })
+      .sort((a, b) => {
+        if (!!a.type !== !!b.type) return a.type ? -1 : 1; // sinyali olan önce
+        return (b.r?.total_score ?? -1) - (a.r?.total_score ?? -1);
+      });
+  }, [held, watched, sigMap]);
+
+  const withSignal = rows.filter((x) => x.type !== null);
+  const filtered = filter === 'all' ? rows : rows.filter((x) => x.type === filter);
   const typeCounts = useMemo(() => {
     const c: Record<FeedType, number> = { smart: 0, brk: 0, vd: 0, vol: 0 };
-    for (const { type } of feed) c[type]++;
+    for (const { type } of withSignal) if (type) c[type]++;
     return c;
-  }, [feed]);
+  }, [withSignal]);
 
   return (
     <div className="flex flex-col gap-3.5 lg:flex-row lg:gap-6">
@@ -345,22 +371,40 @@ function SinyalTakipTab() {
         </div>
         <div className="mt-3 flex flex-col gap-2">
           {loading ? (
-            [...Array(6)].map((_, i) => <div key={i} className="ie-glass h-[68px] animate-pulse rounded-[16px]" />)
+            [...Array(5)].map((_, i) => <div key={i} className="ie-glass h-[68px] animate-pulse rounded-[16px]" />)
+          ) : rows.length === 0 ? (
+            <div className="ie-glass rounded-[16px] px-4 py-8 text-center text-[13px] font-medium text-t3">
+              Portföyün ve takip listen boş. Hisse ekle ya da hisse detayında ★ ile takibe al — sinyalleri burada izleyeyim.
+            </div>
           ) : filtered.length === 0 ? (
-            <div className="ie-glass rounded-[16px] px-4 py-8 text-center text-[13px] font-medium text-t3">Bu filtrede şu an sinyal yok.</div>
+            <div className="ie-glass rounded-[16px] px-4 py-8 text-center text-[13px] font-medium text-t3">
+              Senin hisselerinde bu türde bugün sinyal yok.
+            </div>
           ) : (
-            filtered.map(({ r, type }) => {
-              const m = FEED_META[type];
-              const v = VERDICT[r.action] ?? VERDICT.Avoid;
+            filtered.map(({ sym, held: isHeld, r, type }) => {
+              const m = type ? FEED_META[type] : null;
+              const v = r ? VERDICT[r.action] ?? VERDICT.Avoid : null;
               return (
-                <Link key={r.symbol} href={`/hisse/${r.symbol}`} className="ie-glass flex items-center gap-3 rounded-[16px] px-4 py-3 hover:border-white">
-                  <span className="shrink-0 rounded-[7px] px-2 py-1 text-[10px] font-extrabold uppercase" style={{ background: m.bg, color: m.color }}>{m.label}</span>
+                <Link key={sym} href={`/hisse/${sym}`} className="ie-glass flex items-center gap-3 rounded-[16px] px-4 py-3 hover:border-white">
+                  {m ? (
+                    <span className="w-[76px] shrink-0 rounded-[7px] px-2 py-1 text-center text-[10px] font-extrabold uppercase" style={{ background: m.bg, color: m.color }}>{m.label}</span>
+                  ) : (
+                    <span className="w-[76px] shrink-0 rounded-[7px] bg-fill px-2 py-1 text-center text-[10px] font-bold uppercase text-t4">Sinyal yok</span>
+                  )}
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-bold text-ink">{r.symbol}</div>
-                    <div className="truncate text-[11px] font-medium text-t3">{r.summary}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13px] font-bold text-ink">{sym}</span>
+                      <span
+                        className="shrink-0 rounded-[5px] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.03em]"
+                        style={isHeld ? { background: 'rgba(107,111,245,0.14)', color: '#6b6ff5' } : { background: 'rgba(14,143,183,0.12)', color: '#0e8fb7' }}
+                      >
+                        {isHeld ? 'Portföy' : 'Takip'}
+                      </span>
+                    </div>
+                    <div className="truncate text-[11px] font-medium text-t3">{r?.summary ?? 'Bugün dikkat çeken bir hareket yok.'}</div>
                   </div>
-                  <span className="shrink-0 rounded-[8px] px-2.5 py-1 text-[11px] font-extrabold" style={{ background: v.bg, color: v.color }}>{v.label}</span>
-                  <span className="shrink-0 font-mono text-[12px] font-semibold" style={{ color: pctColor(r.changePercent) }}>{fmtPct(r.changePercent)}</span>
+                  {v && <span className="shrink-0 rounded-[8px] px-2.5 py-1 text-[11px] font-extrabold" style={{ background: v.bg, color: v.color }}>{v.label}</span>}
+                  <span className="shrink-0 font-mono text-[12px] font-semibold" style={{ color: pctColor(r?.changePercent ?? null) }}>{fmtPct(r?.changePercent ?? null)}</span>
                 </Link>
               );
             })
@@ -371,8 +415,16 @@ function SinyalTakipTab() {
       <div className="mt-1 flex flex-col gap-3.5 lg:mt-0 lg:w-[300px] lg:shrink-0">
         <div className="ie-glass-ai rounded-[16px] px-[17px] py-[15px]">
           <div className="flex items-center gap-2"><span className="font-mono text-[11px] font-bold text-ai">✦</span><span className="text-[13px] font-bold text-ink">Sinyal özeti</span></div>
-          <p className="mt-2 text-[12px] font-medium leading-[1.5] text-t2">
-            {feed.length === 0 ? 'Bugün öne çıkan sinyal yok.' : `Bugün ${feed.length} sembolde dikkat çeken sinyal var — ${typeCounts.smart} akıllı para, ${typeCounts.brk} teknik, ${typeCounts.vd} verdict, ${typeCounts.vol} akış.`}
+          <p className="mt-2 text-[13px] font-medium leading-[1.5] text-t2">
+            {rows.length === 0
+              ? 'Henüz izlediğin hisse yok — portföyüne ekle ya da ★ ile takibe al.'
+              : withSignal.length === 0
+                ? `İzlediğin ${rows.length} hissenin hiçbirinde bugün dikkat çeken sinyal yok — sakin gün.`
+                : `İzlediğin ${rows.length} hisseden ${withSignal.length} tanesinde bugün sinyal var: ${typeCounts.smart} akıllı para, ${typeCounts.brk} teknik, ${typeCounts.vd} verdict, ${typeCounts.vol} akış.`}
+          </p>
+          <p className="mt-1.5 text-[11px] font-medium text-t4">
+            Bu sekme yalnızca <strong className="font-bold text-t3">portföyün + takip listendeki</strong> hisseleri
+            izler. Tüm BIST taraması için Fırsatlar sayfasına bak.
           </p>
           {scoredAt && <p className="mt-2 text-[10px] font-medium text-t4">Son tarama: {new Date(scoredAt).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>}
         </div>
