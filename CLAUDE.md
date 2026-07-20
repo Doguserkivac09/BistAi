@@ -132,6 +132,31 @@ Migration GEREKMEZ (saf UI + mevcut API'ler).
 
 ---
 
+## 🔓 GEÇİCİ: Premium tanıtım modu AÇIK (2026-07-20) — GERİ ALINACAK
+
+> **Durum:** pro/premium özellikler şu an HERKESE AÇIK (tanıtım). Kullanıcı talebi:
+> "erişim açılsın ama premium olduğu belli olsun, daha sonra tekrar kapatacağız."
+
+**Tek anahtar:** `lib/tier-guard.ts` → `export const PREMIUM_PREVIEW = true`
+
+**KAPATMAK İÇİN:** bu satırı `false` yap + deploy. Başka hiçbir dosyaya dokunma —
+tüm kapılar bu bayrağı okur:
+- `hasTierAccess()` → preview'de her zaman `true` (VIOP + Gelişmiş AI Analiz route'ları)
+- `getFeatureLimits()` → preview'de premium limitleri (günlük AI kotaları)
+- `app/topluluk/[id]/page.tsx` → `isPremiumLocked` (AI yorumları)
+
+**Bilinçli kararlar:**
+- **Auth engeli KALKMADI:** route'larda 401 (oturum) kontrolü premium kontrolünden
+  önce; giriş hâlâ zorunlu. Anonim istek 403 değil 401 alır.
+- **"PREMIUM" rozetleri KALDI** + yanına yeşil "Tanıtım · şu an ücretsiz" etiketi
+  (`GelismisAiAnaliz`, `ViopScreen`) → kapatınca kullanıcıya sürpriz olmaz.
+- **`needsUpgrade()` bilinçli olarak bayrağı YOK SAYAR** (gerçek tier'a bakar):
+  o bir UI göstergesi, erişim kapısı değil.
+- AI harcama koruması (`lib/ai-budget`) bundan bağımsız çalışmaya devam eder —
+  ama günlük kotalar açıldığı için **AI maliyeti artabilir, izle**.
+
+---
+
 ## 📌 BEKLEYEN MANUEL ADIMLAR
 
 ### Supabase Migrations — Çalıştırılması Gerekenler

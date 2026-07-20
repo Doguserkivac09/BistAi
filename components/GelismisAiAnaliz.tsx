@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { PREMIUM_PREVIEW } from '@/lib/tier-guard';
 
 interface AdvancedReport {
   headline: string;
@@ -125,6 +126,10 @@ export function GelismisAiAnaliz({ sembol, market = 'BIST' }: Props) {
       <span className="font-mono text-[12px] font-bold text-ai">✦ AI</span>
       <h3 className="font-manrope text-[16px] font-extrabold tracking-[-0.01em] text-ink">Gelişmiş AI Analiz</h3>
       <span className="rounded-full bg-ai-panel px-2 py-0.5 text-[10px] font-bold text-ai">PREMIUM</span>
+      {/* Tanıtım modu: özellik premium olarak işaretli kalır, erişim geçici açık */}
+      {PREMIUM_PREVIEW && (
+        <span className="rounded-full bg-up-badge px-2 py-0.5 text-[10px] font-bold text-up">Tanıtım · şu an ücretsiz</span>
+      )}
     </div>
   );
 

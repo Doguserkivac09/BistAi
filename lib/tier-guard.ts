@@ -7,6 +7,19 @@
 
 export type Tier = 'free' | 'pro' | 'premium';
 
+/**
+ * ⚠️ GEÇİCİ TANITIM MODU — pro/premium özellikler HERKESE AÇIK.
+ *
+ * Özellikler "PREMIUM" rozetiyle işaretli kalmaya devam eder (kullanıcı bunun
+ * ücretli bir özellik olduğunu görür, ileride kapanınca sürpriz olmaz), yalnız
+ * erişim engeli kalkar.
+ *
+ * KAPATMAK İÇİN: aşağıyı `false` yap ve deploy et. Başka hiçbir dosyaya
+ * dokunmaya gerek yok — tüm kapılar (hasTierAccess / getFeatureLimits /
+ * topluluk AI yorumları / UI rozetleri) bu tek bayrağı okur.
+ */
+export const PREMIUM_PREVIEW = true;
+
 const TIER_LEVEL: Record<Tier, number> = {
   free: 0,
   pro: 1,
@@ -15,6 +28,7 @@ const TIER_LEVEL: Record<Tier, number> = {
 
 /** Kullanıcının tier'ı gereken minimum tier'a eşit veya üstünde mi? */
 export function hasTierAccess(userTier: Tier, requiredTier: Tier): boolean {
+  if (PREMIUM_PREVIEW) return true; // tanıtım modu — erişim açık
   return TIER_LEVEL[userTier] >= TIER_LEVEL[requiredTier];
 }
 
@@ -57,12 +71,19 @@ export const TIER_LIMITS: Record<Tier, FeatureLimits> = {
 
 /** Kullanıcının belirli bir özelliğe erişimi var mı? */
 export function getFeatureLimits(tier: Tier): FeatureLimits {
+  // Tanıtım modunda günlük limitler de premium seviyede (erişim açıkken günde 5
+  // AI açıklaması ile sınırlamak tutarsız olurdu). Global AI harcama koruması
+  // (lib/ai-budget) bundan bağımsız çalışmaya devam eder.
+  if (PREMIUM_PREVIEW) return TIER_LIMITS.premium;
   return TIER_LIMITS[tier] ?? TIER_LIMITS.free;
 }
 
 /** Upgrade gerekli mi? (UI'da "Upgrade" CTA göstermek için) */
 export function needsUpgrade(userTier: Tier, feature: keyof FeatureLimits): boolean {
-  const limits = getFeatureLimits(userTier);
+  // Bilinçli olarak getFeatureLimits DEĞİL: bu bir UI göstergesi ("bu özellik
+  // ücretli mi?"). Tanıtım modunda erişim açık olsa da rozet/CTA gerçek tier'a
+  // göre görünmeli — kullanıcı özelliğin premium olduğunu bilmeye devam etsin.
+  const limits = TIER_LIMITS[userTier] ?? TIER_LIMITS.free;
   const value = limits[feature];
   if (typeof value === 'boolean') return !value;
   if (typeof value === 'number') return value <= 0;

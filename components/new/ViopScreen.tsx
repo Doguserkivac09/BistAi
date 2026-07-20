@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SignalChart, type SignalMarker } from '@/components/new/SignalChart';
+import { PREMIUM_PREVIEW } from '@/lib/tier-guard';
 import type { ViopSignalResult } from '@/lib/viop-engine';
 
 interface ViopResponse {
@@ -78,7 +79,13 @@ export function ViopScreen() {
       {/* ── Başlık ── */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="font-manrope text-2xl font-bold text-ink">VIOP Vadeli Analiz</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-manrope text-2xl font-bold text-ink">VIOP Vadeli Analiz</h1>
+            <span className="rounded-full bg-ai-panel px-2 py-0.5 text-[10px] font-bold text-ai">PREMIUM</span>
+            {PREMIUM_PREVIEW && (
+              <span className="rounded-full bg-up-badge px-2 py-0.5 text-[10px] font-bold text-up">Tanıtım · şu an ücretsiz</span>
+            )}
+          </div>
           <p className="text-sm text-t3">Endeks vadeli kontratları — kaldıraç-farkındalıklı senaryo</p>
         </div>
         <ProxyBadge generatedAt={data?.generatedAt ?? null} stale={data?.stale ?? true} />

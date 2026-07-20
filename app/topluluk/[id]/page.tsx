@@ -11,6 +11,7 @@ import {
   Send, Trash2, CornerDownRight, Bot, Lock, Copy, Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PREMIUM_PREVIEW } from '@/lib/tier-guard';
 import type { PostDetail, Comment } from '@/types/community';
 import { CATEGORY_LABELS, REPORT_REASONS } from '@/types/community';
 import { useRealtimeComments } from '@/lib/use-realtime-comments';
@@ -92,7 +93,9 @@ function CommentItem({
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const replies = allComments.filter((c) => c.parent_id === comment.id);
-  const isPremiumLocked = comment.is_ai && userTier !== 'premium';
+  // PREMIUM_PREVIEW (tanıtım modu) açıkken AI yorumları da kilitsiz — bayrak
+  // lib/tier-guard.ts'te, kapatmak için tek satır.
+  const isPremiumLocked = !PREMIUM_PREVIEW && comment.is_ai && userTier !== 'premium';
   const isOwner = currentUserId && currentUserId === comment.author_id && !comment.is_ai;
 
   return (
