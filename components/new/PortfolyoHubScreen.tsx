@@ -106,9 +106,25 @@ function TakipListemTab() {
   }, []);
 
   const sigMap = useMemo(() => new Map(signals.map((r) => [r.symbol, r])), [signals]);
-  const list = useMemo(() => rows.map((w) => ({ sembol: w.sembol, r: sigMap.get(w.sembol) ?? null })), [rows, sigMap]);
-  const rising = list.filter((x) => (x.r?.changePercent ?? 0) >= 0).length;
-  const falling = list.length - rising;
+  // Fiyat/değişim smart-signal'e BAĞIMLI DEĞİL: tarama gecikse/boş olsa da (hafta başı,
+  // cron öncesi) zaten sparkline için çekilen OHLCV kapanışlarından türetilir.
+  const list = useMemo(
+    () =>
+      rows.map((w) => {
+        const r = sigMap.get(w.sembol) ?? null;
+        const c = sparks.get(w.sembol) ?? [];
+        const last = c.length > 0 ? c[c.length - 1]! : null;
+        const prev = c.length > 1 ? c[c.length - 2]! : null;
+        const price = r?.price ?? last;
+        const change =
+          r?.changePercent ?? (last != null && prev != null && prev !== 0 ? ((last - prev) / prev) * 100 : null);
+        return { sembol: w.sembol, r, price, change };
+      }),
+    [rows, sigMap, sparks],
+  );
+  // Veri gelmemiş sembol ne yükselen ne düşen sayılır (eskiden null → "yükselen" oluyordu)
+  const rising = list.filter((x) => x.change != null && x.change >= 0).length;
+  const falling = list.filter((x) => x.change != null && x.change < 0).length;
   const verdictCounts = useMemo(() => {
     const c: Record<string, number> = {};
     for (const { r } of list) if (r) c[r.action] = (c[r.action] ?? 0) + 1;
@@ -129,7 +145,7 @@ function TakipListemTab() {
               Takip listen boş. Hisse detayında ★ ile ekleyebilirsin.
             </div>
           ) : (
-            list.map(({ sembol, r }) => {
+            list.map(({ sembol, r, price, change }) => {
               const v = r ? VERDICT[r.action] ?? VERDICT.Avoid : null;
               return (
                 <Link key={sembol} href={`/hisse/${sembol}`} className="flex items-center gap-3 border-b border-hairline px-4 py-3 last:border-0 hover:bg-fill lg:grid lg:grid-cols-[1fr_100px_90px_140px] lg:gap-2">
@@ -138,12 +154,12 @@ function TakipListemTab() {
                     <div className="truncate text-[11px] font-medium text-t3">{getSector(sembol).name}</div>
                   </div>
                   <div className="hidden lg:flex lg:justify-end">
-                    <Sparkline values={sparks.get(sembol) ?? []} color={r && r.changePercent != null && r.changePercent < 0 ? '#e5484d' : '#16a35b'} />
+                    <Sparkline values={sparks.get(sembol) ?? []} color={change != null && change < 0 ? '#e5484d' : '#16a35b'} />
                   </div>
-                  <span className="hidden text-right font-mono text-[13px] font-semibold text-ink lg:block">{r ? `${fmtPrice(r.price)} ₺` : '—'}</span>
-                  <span className="shrink-0 text-right font-mono text-[13px] font-semibold lg:block" style={{ color: r ? pctColor(r.changePercent) : '#9aa0ad' }}>{r ? fmtPct(r.changePercent) : '—'}</span>
+                  <span className="hidden text-right font-mono text-[13px] font-semibold text-ink lg:block">{price != null ? `${fmtPrice(price)} ₺` : '—'}</span>
+                  <span className="shrink-0 text-right font-mono text-[13px] font-semibold lg:block" style={{ color: change != null ? pctColor(change) : '#9aa0ad' }}>{change != null ? fmtPct(change) : '—'}</span>
                   <span className="shrink-0 text-right">
-                    {v ? <span className="rounded-[8px] px-2.5 py-1 text-[11px] font-extrabold" style={{ background: v.bg, color: v.color }}>{v.label}</span> : <span className="text-[11px] text-t3">—</span>}
+                    {v ? <span className="rounded-[8px] px-2.5 py-1 text-[11px] font-extrabold" style={{ background: v.bg, color: v.color }}>{v.label}</span> : <span className="text-[11px] text-t3" title="Günlük tarama henüz koşmadı">Bekliyor</span>}
                   </span>
                 </Link>
               );

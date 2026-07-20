@@ -26,7 +26,10 @@ export interface SmartSignalCoverage {
 
 const CACHE_KEY = 'smart-signal:BIST'
 const PREV_KEY = 'smart-signal-prev:BIST' // önceki GÜNÜN skorları (İvme Kazananlar delta'sı için)
-const TTL_MS = 2 * 24 * 60 * 60 * 1000 // 2 gün (günlük koşu + marj)
+// 5 gün: cron yalnız Pzt-Cum 18:10 koşar. 2 günlük TTL'de Cuma koşusu Pazar akşamı
+// expire oluyor → PAZARTESİ 18:10'a kadar tüm smart-signal bağımlı ekranlar (Bugün,
+// Takip Listem, Sinyal Takip) boş kalıyordu. 5 gün hafta sonu + resmi tatil boşluğunu örter.
+const TTL_MS = 5 * 24 * 60 * 60 * 1000
 const PREV_TTL_MS = 4 * 24 * 60 * 60 * 1000 // 4 gün (hafta sonu boşluğu tolere et)
 const MAX_STORED = 700
 

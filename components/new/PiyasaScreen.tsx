@@ -91,6 +91,26 @@ function AreaSpark({ values, color }: { values: number[]; color: string }) {
   );
 }
 
+/**
+ * Emtia/döviz teknik durumu — kartın KENDİ geçmiş serisinden (macro history) türetilir.
+ * Ölçüt: son fiyat dönem ortalamasının üstünde mi (trend) + son ~5 günlük momentum.
+ * Bilinçli olarak "AL/SAT" demez: bu bir teknik durum tespiti, yatırım tavsiyesi değil
+ * (sitenin geri kalanıyla aynı dil). Seri kısaysa (<6) hiç etiket gösterilmez.
+ */
+function trendVerdict(series: number[]): { label: string; color: string; note: string } | null {
+  if (series.length < 6) return null;
+  const last = series[series.length - 1]!;
+  const ref = series[series.length - 6]!;
+  const mean = series.reduce((a, b) => a + b, 0) / series.length;
+  const mom5 = ref !== 0 ? ((last - ref) / ref) * 100 : 0;
+  const above = last > mean;
+  const note = `${above ? 'Ort. üstünde' : 'Ort. altında'} · 5g ${mom5 >= 0 ? '+' : ''}${mom5.toFixed(1)}%`;
+  if (above && mom5 > 2) return { label: 'Güçlü', color: '#16a35b', note };
+  if (above) return { label: 'Yükselişte', color: '#4aa84a', note };
+  if (mom5 < -2) return { label: 'Zayıf', color: '#e5484d', note };
+  return { label: 'Yatay', color: '#c98a00', note };
+}
+
 type PiyasaTab = 'sektorler' | 'emtia' | 'gundem';
 const TABS: { key: PiyasaTab; label: string }[] = [
   { key: 'sektorler', label: 'Sektörler' },
@@ -159,6 +179,45 @@ export function PiyasaScreen() {
     if (bear > bull * 1.5) return { label: 'Risk-Off', color: '#e5484d' };
     return { label: 'Karışık', color: '#c98a00' };
   }, [sectors]);
+
+  // ── Sektör para akışı ──────────────────────────────────────────────────────
+  // "Para girişi" proxy'si: 20g performansı POZİTİF ve 20 günlük hız, 60 günlük
+  // eşdeğer hızını (perf60d/3) AŞIYOR → son dönemde HIZLANAN sektör. Rotasyon
+  // "Karışık" olsa bile paranın nereye aktığı böyle görünür. Çıkış: 20g negatif.
+  const flow = useMemo(() => {
+    if (sectors.length === 0) return null;
+    const withAccel = sectors.map((s) => ({ s, accel: s.perf20d - s.perf60d / 3 }));
+    return {
+      inflow: withAccel.filter((x) => x.s.perf20d > 0 && x.accel > 0).sort((a, b) => b.accel - a.accel),
+      outflow: withAccel.filter((x) => x.s.perf20d < 0).sort((a, b) => a.s.perf20d - b.s.perf20d),
+    };
+  }, [sectors]);
+
+  // Sektör yorumu — engine'in sabit "Makro koşullar nötr" metni yerine gerçek analiz
+  const sectorComment = useMemo(() => {
+    if (!flow || !bestSector) return null;
+    const parts: string[] = [];
+    if (flow.inflow.length > 0) {
+      const names = flow.inflow.slice(0, 3).map((x) => `${x.s.shortName} ${fmtPct(x.s.perf20d)}`).join(' · ');
+      parts.push(`Para girişi hızlanan sektörler: ${names}.`);
+    } else {
+      parts.push('20 günlük hızı 60 günlük ortalamasını aşan sektör yok — geniş tabanlı giriş görünmüyor.');
+    }
+    if (flow.outflow.length > 0) {
+      const names = flow.outflow.slice(0, 2).map((x) => `${x.s.shortName} ${fmtPct(x.s.perf20d)}`).join(' · ');
+      parts.push(`Çıkış baskısı: ${names}.`);
+    }
+    const lider = bestSector.topPerformers?.[0];
+    if (lider) parts.push(`${bestSector.shortName} sektörünü ${lider.symbol} (${fmtPct(lider.perf20d)}) taşıyor.`);
+    parts.push(
+      rotation.label === 'Risk-On'
+        ? 'Genel eğilim risk alma yönünde.'
+        : rotation.label === 'Risk-Off'
+          ? 'Genel eğilim savunmacı — güçlü sektörler seçici kalıyor.'
+          : 'Rotasyon karışık: yön tek yönlü değil, giriş olan sektörlerde seçici davranmak gerekiyor.',
+    );
+    return parts.join(' ');
+  }, [flow, bestSector, rotation]);
 
   const ind = macro?.indicators ?? {};
   const tr = macro?.turkey;
@@ -246,7 +305,9 @@ export function PiyasaScreen() {
                   <div className="ie-glass-flat rounded-[14px] px-4 py-3">
                     <div className="text-[11px] font-medium text-t3">Rotasyon yönü</div>
                     <div className="mt-0.5 text-[15px] font-bold" style={{ color: rotation.color }}>{rotation.label}</div>
-                    <div className="text-[11px] font-medium text-t3">{sectors.length} sektör</div>
+                    <div className="text-[11px] font-medium text-t3">
+                      {flow ? <><span className="font-semibold text-up">{flow.inflow.length} giriş</span> · <span className="font-semibold text-down">{flow.outflow.length} çıkış</span> · {sectors.length} sektör</> : `${sectors.length} sektör`}
+                    </div>
                   </div>
                 </div>
 
@@ -281,7 +342,22 @@ export function PiyasaScreen() {
                 {bestSector && (
                   <div className="ie-glass-ai rounded-[16px] px-[17px] py-[15px]">
                     <div className="flex items-center gap-2"><span className="font-mono text-[11px] font-bold text-ai">✦</span><span className="text-[13px] font-bold text-ink">Sektör yorumu</span></div>
-                    <p className="mt-2 text-[12px] font-medium leading-[1.5] text-t2">{bestSector.reasoning}</p>
+                    <p className="mt-2 text-[12px] font-medium leading-[1.5] text-t2">{sectorComment ?? bestSector.reasoning}</p>
+                    {flow && flow.inflow.length > 0 && (
+                      <div className="mt-2.5 border-t border-hairline pt-2.5">
+                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.05em] text-t3">Para girişi olan sektörler</div>
+                        <div className="flex flex-col gap-1">
+                          {flow.inflow.slice(0, 4).map(({ s, accel }) => (
+                            <Link key={s.sectorId} href={`/sektorler/${s.sectorId}`} className="flex items-center justify-between rounded-[8px] px-1.5 py-1 hover:bg-fill">
+                              <span className="truncate text-[12px] font-bold text-ink">{s.shortName}</span>
+                              <span className="ml-2 shrink-0 font-mono text-[11px] font-semibold text-up" title="20g hızının 60g ortalamasını aşma payı">
+                                {fmtPct(s.perf20d)} <span className="text-t3">·ivme +{accel.toFixed(1)}</span>
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="ie-glass flex-1 rounded-[16px] px-[17px] py-[15px]">
@@ -310,16 +386,26 @@ export function PiyasaScreen() {
                   {emtiaLoading ? (
                     [...Array(6)].map((_, i) => <div key={i} className="ie-glass h-[130px] animate-pulse rounded-[16px]" />)
                   ) : (
-                    EMTIA_CARDS.map(({ key, label, q }) => (
-                      <div key={key} className="ie-glass rounded-[16px] px-4 py-3.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[12px] font-semibold text-t3">{label}</span>
-                          {q && <span className="rounded-[7px] px-2 py-0.5 font-mono text-[11px] font-bold" style={{ background: `${col(q.changePercent)}1f`, color: col(q.changePercent) }}>{fmtPct(q.changePercent)}</span>}
+                    EMTIA_CARDS.map(({ key, label, q }) => {
+                      const series = seriesOf(key);
+                      const tv = trendVerdict(series);
+                      return (
+                        <div key={key} className="ie-glass rounded-[16px] px-4 py-3.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[12px] font-semibold text-t3">{label}</span>
+                            {q && <span className="rounded-[7px] px-2 py-0.5 font-mono text-[11px] font-bold" style={{ background: `${col(q.changePercent)}1f`, color: col(q.changePercent) }}>{fmtPct(q.changePercent)}</span>}
+                          </div>
+                          <div className="mt-1 font-mono text-[21px] font-bold tracking-[-0.02em] text-ink">{fmtNum(q?.price)}</div>
+                          {tv && (
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <span className="rounded-[7px] px-2 py-0.5 text-[11px] font-extrabold" style={{ background: `${tv.color}1f`, color: tv.color }}>{tv.label}</span>
+                              <span className="truncate font-mono text-[10px] font-medium text-t3">{tv.note}</span>
+                            </div>
+                          )}
+                          <AreaSpark values={series} color={q && q.changePercent < 0 ? '#e5484d' : '#16a35b'} />
                         </div>
-                        <div className="mt-1 font-mono text-[21px] font-bold tracking-[-0.02em] text-ink">{fmtNum(q?.price)}</div>
-                        <AreaSpark values={seriesOf(key)} color={q && q.changePercent < 0 ? '#e5484d' : '#16a35b'} />
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
