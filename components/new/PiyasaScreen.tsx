@@ -193,30 +193,32 @@ export function PiyasaScreen() {
     };
   }, [sectors]);
 
-  // Sektör yorumu — engine'in sabit "Makro koşullar nötr" metni yerine gerçek analiz
+  // Sektör yorumu — engine'in sabit "Makro koşullar nötr" metni yerine gerçek analiz.
+  // Düz metin değil ETİKETLİ satırlar döner: başlıklar kalın, değerler ayrı okunur.
   const sectorComment = useMemo(() => {
     if (!flow || !bestSector) return null;
-    const parts: string[] = [];
-    if (flow.inflow.length > 0) {
-      const names = flow.inflow.slice(0, 3).map((x) => `${x.s.shortName} ${fmtPct(x.s.perf20d)}`).join(' · ');
-      parts.push(`Para girişi hızlanan sektörler: ${names}.`);
-    } else {
-      parts.push('20 günlük hızı 60 günlük ortalamasını aşan sektör yok — geniş tabanlı giriş görünmüyor.');
-    }
-    if (flow.outflow.length > 0) {
-      const names = flow.outflow.slice(0, 2).map((x) => `${x.s.shortName} ${fmtPct(x.s.perf20d)}`).join(' · ');
-      parts.push(`Çıkış baskısı: ${names}.`);
-    }
+    const names = (arr: typeof flow.inflow, n: number) =>
+      arr.slice(0, n).map((x) => `${x.s.shortName} ${fmtPct(x.s.perf20d)}`).join(' · ');
     const lider = bestSector.topPerformers?.[0];
-    if (lider) parts.push(`${bestSector.shortName} sektörünü ${lider.symbol} (${fmtPct(lider.perf20d)}) taşıyor.`);
-    parts.push(
-      rotation.label === 'Risk-On'
-        ? 'Genel eğilim risk alma yönünde.'
-        : rotation.label === 'Risk-Off'
-          ? 'Genel eğilim savunmacı — güçlü sektörler seçici kalıyor.'
-          : 'Rotasyon karışık: yön tek yönlü değil, giriş olan sektörlerde seçici davranmak gerekiyor.',
-    );
-    return parts.join(' ');
+    return {
+      rows: [
+        flow.inflow.length > 0
+          ? { label: 'Para girişi hızlanan sektörler', text: names(flow.inflow, 3), tone: 'up' as const }
+          : { label: 'Para girişi', text: 'Hızlanan sektör yok — geniş tabanlı giriş görünmüyor.', tone: 'flat' as const },
+        flow.outflow.length > 0
+          ? { label: 'Para çıkışı olan sektörler', text: names(flow.outflow, 2), tone: 'down' as const }
+          : null,
+        lider
+          ? { label: 'Lider sektörü taşıyan hisse', text: `${bestSector.shortName}: ${lider.symbol} ${fmtPct(lider.perf20d)}`, tone: 'flat' as const }
+          : null,
+      ].filter((x): x is { label: string; text: string; tone: 'up' | 'down' | 'flat' } => x !== null),
+      sonuc:
+        rotation.label === 'Risk-On'
+          ? 'Genel eğilim risk alma yönünde — giriş olan sektörler geniş tabanlı.'
+          : rotation.label === 'Risk-Off'
+            ? 'Genel eğilim savunmacı — güçlü sektörler seçici kalıyor.'
+            : 'Rotasyon karışık: yön tek yönlü değil. Giriş olan sektörlerde seçici davranmak gerekiyor.',
+    };
   }, [flow, bestSector, rotation]);
 
   const ind = macro?.indicators ?? {};
@@ -319,6 +321,14 @@ export function PiyasaScreen() {
                     <p className="py-6 text-center text-[13px] font-medium text-t3">Sektör verisi yüklenemedi.</p>
                   ) : (
                     <div className="flex flex-col gap-1.5">
+                      {/* Sütun başlıkları — hangi sayının ne olduğu satırın üstünde okunsun */}
+                      <div className="flex items-center gap-3 px-2.5 pb-1 text-[10px] font-bold uppercase tracking-[0.04em] text-t3">
+                        <span className="w-[110px] shrink-0 lg:w-[130px]">Sektör</span>
+                        <span className="hidden w-[64px] shrink-0 sm:block">Lider hisse</span>
+                        <span className="hidden w-[54px] shrink-0 text-right sm:block">20 gün</span>
+                        <span className="hidden w-[54px] shrink-0 text-right lg:block">60 gün</span>
+                        <span className="min-w-0 flex-1 pl-2">Güç skoru</span>
+                      </div>
                       {sortedSectors.map((s, i) => (
                         <Link
                           key={s.sectorId}
@@ -334,7 +344,11 @@ export function PiyasaScreen() {
                       ))}
                     </div>
                   )}
-                  <p className="mt-3 text-[11px] font-medium text-t4">Sıra: kompozit skor (−100…+100). Sütunlar: lider hisse · 20G% · 60G%. Hisse tıkla → sektör detayı.</p>
+                  <p className="mt-3 text-[11px] font-medium leading-[1.45] text-t4">
+                    <strong className="font-bold text-t3">20 / 60 gün</strong>: sektörün o dönemdeki ortalama getirisi.
+                    <strong className="font-bold text-t3"> Güç skoru</strong>: fiyat momentumu + makro uyumundan üretilen
+                    −100…+100 arası bileşik puan; liste bu skora göre sıralı. Satıra tıkla → sektör detayı.
+                  </p>
                 </div>
               </div>
 
@@ -342,20 +356,41 @@ export function PiyasaScreen() {
                 {bestSector && (
                   <div className="ie-glass-ai rounded-[16px] px-[17px] py-[15px]">
                     <div className="flex items-center gap-2"><span className="font-mono text-[11px] font-bold text-ai">✦</span><span className="text-[13px] font-bold text-ink">Sektör yorumu</span></div>
-                    <p className="mt-2 text-[12px] font-medium leading-[1.5] text-t2">{sectorComment ?? bestSector.reasoning}</p>
+                    {sectorComment ? (
+                      <div className="mt-2.5 flex flex-col gap-2">
+                        {sectorComment.rows.map((r) => (
+                          <div key={r.label}>
+                            <div
+                              className="text-[13px] font-extrabold leading-snug"
+                              style={{ color: r.tone === 'up' ? '#16a35b' : r.tone === 'down' ? '#e5484d' : undefined }}
+                            >
+                              {r.label}
+                            </div>
+                            <div className="text-[13px] font-medium leading-[1.5] text-t2">{r.text}</div>
+                          </div>
+                        ))}
+                        <p className="border-t border-hairline pt-2 text-[13px] font-semibold leading-[1.5] text-ink">{sectorComment.sonuc}</p>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[13px] font-medium leading-[1.5] text-t2">{bestSector.reasoning}</p>
+                    )}
                     {flow && flow.inflow.length > 0 && (
-                      <div className="mt-2.5 border-t border-hairline pt-2.5">
-                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.05em] text-t3">Para girişi olan sektörler</div>
+                      <div className="mt-3 border-t border-hairline pt-2.5">
+                        <div className="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.05em] text-t3">Para girişi olan sektörler</div>
                         <div className="flex flex-col gap-1">
                           {flow.inflow.slice(0, 4).map(({ s, accel }) => (
                             <Link key={s.sectorId} href={`/sektorler/${s.sectorId}`} className="flex items-center justify-between rounded-[8px] px-1.5 py-1 hover:bg-fill">
-                              <span className="truncate text-[12px] font-bold text-ink">{s.shortName}</span>
-                              <span className="ml-2 shrink-0 font-mono text-[11px] font-semibold text-up" title="20g hızının 60g ortalamasını aşma payı">
-                                {fmtPct(s.perf20d)} <span className="text-t3">·ivme +{accel.toFixed(1)}</span>
+                              <span className="truncate text-[13px] font-bold text-ink">{s.shortName}</span>
+                              <span className="ml-2 shrink-0 font-mono text-[12px] font-semibold text-up">
+                                {fmtPct(s.perf20d)} <span className="text-t3">· hızlanma +{accel.toFixed(1)}p</span>
                               </span>
                             </Link>
                           ))}
                         </div>
+                        <p className="mt-2 text-[11px] font-medium leading-[1.45] text-t4">
+                          <strong className="font-bold text-t3">Hızlanma</strong> = son 20 günün getirisi, aynı sektörün 60 günlük
+                          ortalama hızının kaç puan üstünde. Yüksek olması paranın son dönemde o sektöre yöneldiğini gösterir.
+                        </p>
                       </div>
                     )}
                   </div>
