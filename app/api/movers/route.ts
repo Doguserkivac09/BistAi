@@ -32,10 +32,12 @@ export async function GET() {
     const admin = createAdminClient();
 
     // Tek query — gainers + losers arası ayırma JS tarafında.
+    // BUG-1 (bkz. CLAUDE.md) — market filtresi olmadan US satırları BIST'i eziyordu.
     const { data, error } = await admin
       .from('scan_cache')
       .select('sembol, change_percent, last_close, sector')
-      .not('change_percent', 'is', null);
+      .not('change_percent', 'is', null)
+      .or('market.eq.BIST,market.is.null');
 
     if (error) {
       console.error('[api/movers] Supabase hatası:', error.message);

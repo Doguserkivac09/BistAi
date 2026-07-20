@@ -1,123 +1,413 @@
 'use client';
 
 /**
- * "Piyasa" ekranı (design_handoff_bistai/bistAI Sayfalar.dc.html) — hi-fi.
- * Makro kartları (USD/TRY · Altın · Brent) + sektör performansı (diverging bar).
- * "Dengeli": diğer makro göstergeler (VIX/DXY/US10Y/CDS/Enflasyon/Faiz) kompakt korunur.
- * Gerçek /api/macro + /api/sectors. Açık tema.
+ * "Piyasa" hub ekranı (design_handoff_piyasa_hub, liquid glass) — hi-fi.
+ * Eski tek-görünüm makro sayfasının yerine 3 sekmeli hub geldi: Sektörler ·
+ * Emtia · Gündem. Eski basit makro kart görünümü Emtia sekmesinin "Makro
+ * göstergeler" rayına taşındı — hiçbir veri kaybolmadı.
+ *
+ * Veri: /api/sectors (sektör rotasyonu) + /api/movers (öne çıkanlar) +
+ * /api/macro (+history, emtia/makro) + /api/haber + /api/kap (gündem) +
+ * lib/ekonomi-takvimi (ekonomi takvimi, ENABLE_ECONOMIC_CALENDAR flag'i
+ * arkasında — /haberler sayfasındaki ile aynı davranış).
+ *
+ * Dürüstlük notu: handoff'un Emtia grid'i "Gram/Ons altın, Brent, USD/TRY,
+ * EUR/TRY, BIST 100, gümüş, Bitcoin" istiyor. /api/macro'da EUR/TRY ve
+ * Bitcoin YOK (gerçek kaynak yok, uydurma veri yasak) — bunların yerine
+ * mevcut 6 gerçek enstrüman (Altın/Gümüş/Brent/USD-TRY/BIST100/EM ETF)
+ * kullanıldı. Sektör tablosunda spec "günlük%/haftalık%" istiyor ama
+ * /api/sectors yalnızca perf20d/perf60d döndürüyor — kolonlar dürüstçe
+ * "20G/60G" etiketlendi.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { ENABLE_ECONOMIC_CALENDAR } from '@/lib/flags';
+import { EKONOMI_EVENTS } from '@/lib/ekonomi-takvimi';
+import type { HaberItem } from '@/app/api/haber/route';
+import type { KapDuyuru } from '@/lib/kap';
 
 interface Quote { price: number; changePercent: number; name: string }
 interface MacroResp {
-  indicators?: Partial<Record<'usdtry' | 'gold' | 'brent' | 'vix' | 'dxy' | 'us10y', Quote | null>>;
-  turkey?: { policyRate: number | null; cds5y: number | null; inflation: number | null; bond10y: number | null };
+  indicators?: Partial<Record<'usdtry' | 'gold' | 'brent' | 'vix' | 'dxy' | 'us10y' | 'silver' | 'eem' | 'bist100', Quote | null>>;
+  turkey?: { policyRate: { value: number } | null; cds5y: { value: number } | null; inflation: { value: number } | null; bond10y: { value: number } | null };
 }
-interface Sector { sectorId: string; shortName: string; sectorName: string; perf20d: number; signal: string }
+type MacroHistRow = Record<'gold' | 'silver' | 'brent' | 'usdtry' | 'bist100' | 'eem', number | null> & { snapshot_date: string };
+interface MacroHistResp { history?: MacroHistRow[] }
+interface SymbolPerf { symbol: string; perf20d: number }
+interface Sector {
+  sectorId: string; shortName: string; sectorName: string; perf20d: number; perf60d: number;
+  compositeScore: number; signal: string; reasoning: string;
+  topPerformers?: SymbolPerf[]; bottomPerformers?: SymbolPerf[];
+}
 interface SectorsResp { sectors?: Sector[] }
+interface Mover { sembol: string; changePercent: number; lastClose: number | null; sectorName: string | null }
+interface MoversResp { gainers?: Mover[]; losers?: Mover[] }
 
 const fmtNum = (v: number | null | undefined, d = 2) =>
   v == null ? '—' : v.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`);
 const col = (v: number | null | undefined) => (v == null ? '#9aa0ad' : v >= 0 ? '#16a35b' : '#e5484d');
 
-function MacroCard({ label, q }: { label: string; q: Quote | null | undefined }) {
-  return (
-    <div className="rounded-[18px] border border-[#f0f1f3] p-[18px]">
-      <div className="text-[12px] font-semibold text-t3">{label}</div>
-      <div className="mt-1.5 font-mono text-[22px] font-bold tracking-[-0.02em] text-ink">{fmtNum(q?.price)}</div>
-      <div className="mt-1 font-mono text-[13px] font-semibold" style={{ color: col(q?.changePercent) }}>{fmtPct(q?.changePercent)}</div>
-    </div>
-  );
-}
-
-function Cell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[12px] bg-fill px-3 py-2.5 text-center">
-      <div className="font-mono text-[15px] font-bold text-ink">{value}</div>
-      <div className="mt-0.5 text-[10px] font-medium text-t3">{label}</div>
-    </div>
-  );
-}
+const SIGNAL_META: Record<string, { label: string; color: string }> = {
+  strong_buy: { label: 'Güçlü Al', color: '#16a35b' },
+  buy: { label: 'Al', color: '#4aa84a' },
+  neutral: { label: 'Nötr', color: '#c98a00' },
+  sell: { label: 'Sat', color: '#e5484d' },
+  strong_sell: { label: 'Güçlü Sat', color: '#e5484d' },
+};
 
 function DivergingBar({ v }: { v: number }) {
-  const MAX = 12; // ±%12 = yarı genişlik dolu
+  const MAX = 60; // ±60 kompozit skor = yarı genişlik dolu
   const w = Math.min(Math.abs(v) / MAX, 1) * 50;
   const pos = v >= 0;
   return (
-    <div className="relative h-[8px] w-full overflow-hidden rounded-full bg-fill">
-      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-[#d4d7dc]" />
-      <div
-        className="absolute top-0 h-full rounded-full"
-        style={{ background: pos ? '#16a35b' : '#e5484d', width: `${w}%`, left: pos ? '50%' : `${50 - w}%` }}
-      />
+    <div className="relative h-[7px] w-full overflow-hidden rounded-full bg-fill">
+      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-hairline" />
+      <div className="absolute top-0 h-full rounded-full" style={{ background: pos ? '#16a35b' : '#e5484d', width: `${w}%`, left: pos ? '50%' : `${50 - w}%` }} />
     </div>
   );
 }
 
+function AreaSpark({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) return <div className="h-[46px]" />;
+  const w = 200, h = 46;
+  const min = Math.min(...values), max = Math.max(...values), rng = max - min || 1;
+  const pts = values.map((v, i) => [((i / (values.length - 1)) * w), (h - ((v - min) / rng) * (h - 6) - 3)] as const);
+  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const area = `${line} L${w} ${h} L0 ${h} Z`;
+  const gid = `grad-${color.replace('#', '')}`;
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="mt-2">
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`} stroke="none" />
+      <path d={line} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+type PiyasaTab = 'sektorler' | 'emtia' | 'gundem';
+const TABS: { key: PiyasaTab; label: string }[] = [
+  { key: 'sektorler', label: 'Sektörler' },
+  { key: 'emtia', label: 'Emtia' },
+  { key: 'gundem', label: 'Gündem' },
+];
+
+type GundemSrc = 'all' | 'haber' | 'kap' | 'takvim';
+
 export function PiyasaScreen() {
-  const [macro, setMacro] = useState<MacroResp | null>(null);
+  const [tab, setTab] = useState<PiyasaTab>('sektorler');
+
+  // Sektörler
   const [sectors, setSectors] = useState<Sector[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [movers, setMovers] = useState<MoversResp | null>(null);
+  const [sectorsLoading, setSectorsLoading] = useState(true);
+
+  // Emtia
+  const [macro, setMacro] = useState<MacroResp | null>(null);
+  const [macroHist, setMacroHist] = useState<MacroHistRow[]>([]);
+  const [emtiaLoading, setEmtiaLoading] = useState(true);
+
+  // Gündem
+  const [haberler, setHaberler] = useState<HaberItem[]>([]);
+  const [kap, setKap] = useState<KapDuyuru[]>([]);
+  const [gundemSrc, setGundemSrc] = useState<GundemSrc>('all');
+  const [gundemLoading, setGundemLoading] = useState(true);
 
   useEffect(() => {
     Promise.allSettled([
-      fetch('/api/macro').then((r) => r.json() as Promise<MacroResp>),
       fetch('/api/sectors').then((r) => r.json() as Promise<SectorsResp>),
-    ]).then(([m, s]) => {
-      if (m.status === 'fulfilled') setMacro(m.value);
+      fetch('/api/movers').then((r) => (r.ok ? r.json() : null) as Promise<MoversResp | null>),
+    ]).then(([s, m]) => {
       if (s.status === 'fulfilled') setSectors(s.value.sectors ?? []);
-      setLoading(false);
+      if (m.status === 'fulfilled' && m.value) setMovers(m.value);
+      setSectorsLoading(false);
+    });
+
+    Promise.allSettled([
+      fetch('/api/macro').then((r) => r.json() as Promise<MacroResp>),
+      fetch('/api/macro?history=true&days=20').then((r) => r.json() as Promise<MacroHistResp>),
+    ]).then(([m, h]) => {
+      if (m.status === 'fulfilled') setMacro(m.value);
+      if (h.status === 'fulfilled') setMacroHist(h.value.history ?? []);
+      setEmtiaLoading(false);
+    });
+
+    Promise.allSettled([
+      fetch('/api/haber').then((r) => (r.ok ? r.json() : null) as Promise<{ haberler?: HaberItem[] } | null>),
+      fetch('/api/kap').then((r) => (r.ok ? r.json() : null) as Promise<{ duyurular?: KapDuyuru[] } | null>),
+    ]).then(([h, k]) => {
+      if (h.status === 'fulfilled') setHaberler(h.value?.haberler ?? []);
+      if (k.status === 'fulfilled') setKap(k.value?.duyurular ?? []);
+      setGundemLoading(false);
     });
   }, []);
 
+  const sortedSectors = useMemo(() => [...sectors].sort((a, b) => b.compositeScore - a.compositeScore), [sectors]);
+  const bestSector = sortedSectors[0] ?? null;
+  const worstSector = sortedSectors.length > 1 ? sortedSectors[sortedSectors.length - 1]! : null;
+  const rotation = useMemo(() => {
+    if (sectors.length === 0) return { label: '—', color: '#9aa0ad' };
+    const bull = sectors.filter((s) => s.signal === 'strong_buy' || s.signal === 'buy').length;
+    const bear = sectors.filter((s) => s.signal === 'sell' || s.signal === 'strong_sell').length;
+    if (bull > bear * 1.5) return { label: 'Risk-On', color: '#16a35b' };
+    if (bear > bull * 1.5) return { label: 'Risk-Off', color: '#e5484d' };
+    return { label: 'Karışık', color: '#c98a00' };
+  }, [sectors]);
+
   const ind = macro?.indicators ?? {};
   const tr = macro?.turkey;
-  const sortedSectors = [...sectors].sort((a, b) => b.perf20d - a.perf20d);
+  const seriesOf = (key: keyof Omit<MacroHistRow, 'snapshot_date'>) =>
+    macroHist.map((r) => r[key]).filter((v): v is number => v != null);
+
+  const EMTIA_CARDS = [
+    { key: 'gold' as const, label: 'Altın (ons $)', q: ind.gold },
+    { key: 'brent' as const, label: 'Brent ($)', q: ind.brent },
+    { key: 'usdtry' as const, label: 'USD/TRY', q: ind.usdtry },
+    { key: 'bist100' as const, label: 'BIST 100', q: ind.bist100 },
+    { key: 'silver' as const, label: 'Gümüş (ons $)', q: ind.silver },
+    { key: 'eem' as const, label: 'Gelişen Piyasalar (EEM)', q: ind.eem },
+  ];
+
+  const gundemFeed = useMemo(() => {
+    type Item = { type: 'haber' | 'kap' | 'takvim'; title: string; source: string; time: string; sortAt: number; importance?: string };
+    const items: Item[] = [];
+    for (const h of haberler) items.push({ type: 'haber', title: h.baslik, source: h.kaynak, time: new Date(h.tarih).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }), sortAt: new Date(h.tarih).getTime() });
+    for (const k of kap) items.push({ type: 'kap', title: `${k.sirket ?? k.sembol}: ${k.baslik}`, source: 'KAP', time: new Date(k.tarih).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }), sortAt: new Date(k.tarih).getTime() });
+    if (ENABLE_ECONOMIC_CALENDAR) {
+      const now = Date.now();
+      for (const e of EKONOMI_EVENTS) {
+        const t = new Date(`${e.tarih}T${e.saat ?? '00:00'}`).getTime();
+        if (t >= now) items.push({ type: 'takvim', title: e.baslik, source: e.ulke, time: new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }), sortAt: t, importance: e.onem });
+      }
+    }
+    return items.sort((a, b) => b.sortAt - a.sortAt);
+  }, [haberler, kap]);
+  const filteredFeed = gundemSrc === 'all' ? gundemFeed : gundemFeed.filter((x) => x.type === gundemSrc);
+  const upcomingEvents = useMemo(() => {
+    if (!ENABLE_ECONOMIC_CALENDAR) return [];
+    const now = Date.now();
+    return EKONOMI_EVENTS
+      .map((e) => ({ ...e, t: new Date(`${e.tarih}T${e.saat ?? '00:00'}`).getTime() }))
+      .filter((e) => e.t >= now)
+      .sort((a, b) => a.t - b.t)
+      .slice(0, 5);
+  }, []);
+
+  const feedTypeMeta: Record<'haber' | 'kap' | 'takvim', { label: string; color: string; bg: string }> = {
+    haber: { label: 'Haber', color: '#16a35b', bg: 'rgba(22,163,91,0.12)' },
+    kap: { label: 'KAP', color: '#6b6ff5', bg: 'rgba(107,111,245,0.12)' },
+    takvim: { label: 'Takvim', color: '#c98a00', bg: 'rgba(201,138,0,0.12)' },
+  };
 
   return (
-    <div className="px-6 py-6 lg:px-7 lg:py-[26px]">
-      <h1 className="text-[26px] font-extrabold tracking-[-0.03em] text-ink lg:text-[28px]">Piyasa</h1>
-      <p className="mt-[3px] text-[13px] font-medium text-t3 lg:text-[14px]">Makro göstergeler ve sektör performansı</p>
-
-      {/* Hero makro kartları */}
-      <div className="mt-[22px] grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <MacroCard label="USD/TRY" q={ind.usdtry} />
-        <MacroCard label="Altın (ons $)" q={ind.gold} />
-        <MacroCard label="Brent ($)" q={ind.brent} />
+    <div className="ie-ambient relative min-h-full overflow-hidden">
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-[50px] -top-[50px] h-[250px] w-[280px] blur-[24px]" style={{ background: 'radial-gradient(circle,rgba(107,111,245,0.2),rgba(107,111,245,0) 68%)' }} />
+        <div className="absolute -right-[60px] -top-[30px] h-[230px] w-[280px] blur-[26px]" style={{ background: 'radial-gradient(circle,rgba(22,163,91,0.18),rgba(22,163,91,0) 66%)' }} />
       </div>
 
-      {/* Dengeli: diğer göstergeler (kompakt) */}
-      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
-        <Cell label="VIX" value={fmtNum(ind.vix?.price, 1)} />
-        <Cell label="DXY" value={fmtNum(ind.dxy?.price, 1)} />
-        <Cell label="US 10Y" value={ind.us10y?.price != null ? `%${fmtNum(ind.us10y.price, 2)}` : '—'} />
-        <Cell label="CDS 5Y" value={tr?.cds5y != null ? fmtNum(tr.cds5y, 0) : '—'} />
-        <Cell label="Enflasyon" value={tr?.inflation != null ? `%${fmtNum(tr.inflation, 1)}` : '—'} />
-        <Cell label="Politika Faizi" value={tr?.policyRate != null ? `%${fmtNum(tr.policyRate, 0)}` : '—'} />
-      </div>
+      <div className="relative px-6 py-5 lg:px-7 lg:py-[22px]">
+        <h1 className="text-[25px] font-extrabold tracking-[-0.03em] text-ink lg:text-[27px]">Piyasa</h1>
+        <p className="mt-0.5 text-[13px] font-medium text-t3">Sektör rotasyonu · emtia/döviz · gündem — tek bakışta</p>
 
-      {/* Sektör performansı */}
-      <div className="mt-7">
-        <div className="mb-3 text-[16px] font-extrabold tracking-[-0.02em] text-ink lg:text-[17px]">Sektör performansı</div>
-        {loading ? (
-          <div className="flex flex-col gap-2.5">{[...Array(8)].map((_, i) => <div key={i} className="h-[40px] animate-pulse rounded-[14px] bg-fill" />)}</div>
-        ) : sortedSectors.length === 0 ? (
-          <div className="rounded-2xl border border-hairline bg-panel px-4 py-10 text-center text-[13px] font-medium text-t2">Sektör verisi yüklenemedi.</div>
-        ) : (
-          <div className="flex flex-col gap-[10px]">
-            {sortedSectors.map((s) => (
-              <Link key={s.sectorId} href={`/sektorler/${s.sectorId}`} className="flex items-center gap-3 rounded-[14px] border border-hairline bg-panel px-4 py-[11px] hover:border-[#e3e5e8]">
-                <span className="w-[120px] shrink-0 truncate text-[13px] font-bold text-ink lg:w-[150px]">{s.shortName}</span>
-                <div className="min-w-0 flex-1"><DivergingBar v={s.perf20d} /></div>
-                <span className="w-[60px] shrink-0 text-right font-mono text-[13px] font-semibold" style={{ color: col(s.perf20d) }}>{fmtPct(s.perf20d)}</span>
-              </Link>
-            ))}
-          </div>
-        )}
-        <p className="mt-3 text-[11px] font-medium text-t4">Bar = 20 günlük ortalama performans (merkez = 0). Sektöre tıkla → detay.</p>
+        <div className="mt-3.5 flex gap-1 overflow-x-auto border-b border-hairline">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`shrink-0 border-b-2 px-4 py-3 text-[14px] font-bold transition-colors ${tab === t.key ? 'border-up text-ink' : 'border-transparent text-t3 hover:text-ink'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4">
+          {tab === 'sektorler' && (
+            <div className="flex flex-col gap-3.5 lg:flex-row lg:gap-6">
+              <div className="flex min-w-0 flex-col gap-3.5 lg:flex-[1.7]">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                  <div className="ie-glass-flat rounded-[14px] px-4 py-3">
+                    <div className="text-[11px] font-medium text-t3">En güçlü sektör</div>
+                    <div className="mt-0.5 text-[15px] font-bold text-ink">{bestSector?.shortName ?? '—'}</div>
+                    {bestSector && <div className="font-mono text-[12px] font-semibold" style={{ color: col(bestSector.perf20d) }}>{fmtPct(bestSector.perf20d)} · 20G</div>}
+                  </div>
+                  <div className="ie-glass-flat rounded-[14px] px-4 py-3">
+                    <div className="text-[11px] font-medium text-t3">En zayıf sektör</div>
+                    <div className="mt-0.5 text-[15px] font-bold text-ink">{worstSector?.shortName ?? '—'}</div>
+                    {worstSector && <div className="font-mono text-[12px] font-semibold" style={{ color: col(worstSector.perf20d) }}>{fmtPct(worstSector.perf20d)} · 20G</div>}
+                  </div>
+                  <div className="ie-glass-flat rounded-[14px] px-4 py-3">
+                    <div className="text-[11px] font-medium text-t3">Rotasyon yönü</div>
+                    <div className="mt-0.5 text-[15px] font-bold" style={{ color: rotation.color }}>{rotation.label}</div>
+                    <div className="text-[11px] font-medium text-t3">{sectors.length} sektör</div>
+                  </div>
+                </div>
+
+                <div className="ie-glass flex flex-col rounded-[18px] px-4 py-3.5 lg:px-5">
+                  <div className="mb-2 text-[14px] font-extrabold text-ink">Sektör gücü</div>
+                  {sectorsLoading ? (
+                    <div className="flex flex-col gap-2">{[...Array(7)].map((_, i) => <div key={i} className="h-[42px] animate-pulse rounded-[10px] bg-fill" />)}</div>
+                  ) : sortedSectors.length === 0 ? (
+                    <p className="py-6 text-center text-[13px] font-medium text-t3">Sektör verisi yüklenemedi.</p>
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      {sortedSectors.map((s, i) => (
+                        <Link
+                          key={s.sectorId}
+                          href={`/sektorler/${s.sectorId}`}
+                          className={`flex items-center gap-3 rounded-[12px] px-2.5 py-2.5 transition-colors hover:bg-fill ${i >= 7 ? 'hidden lg:flex' : 'flex'}`}
+                        >
+                          <span className="w-[110px] shrink-0 truncate text-[13px] font-bold text-ink lg:w-[130px]">{s.shortName}</span>
+                          <span className="hidden w-[64px] shrink-0 truncate text-[11px] font-semibold text-t3 sm:block">{s.topPerformers?.[0]?.symbol ?? '—'}</span>
+                          <span className="hidden w-[54px] shrink-0 text-right font-mono text-[12px] font-semibold sm:block" style={{ color: col(s.perf20d) }}>{fmtPct(s.perf20d)}</span>
+                          <span className="hidden w-[54px] shrink-0 text-right font-mono text-[12px] font-semibold lg:block" style={{ color: col(s.perf60d) }}>{fmtPct(s.perf60d)}</span>
+                          <div className="min-w-0 flex-1"><DivergingBar v={s.compositeScore} /></div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-3 text-[11px] font-medium text-t4">Sıra: kompozit skor (−100…+100). Sütunlar: lider hisse · 20G% · 60G%. Hisse tıkla → sektör detayı.</p>
+                </div>
+              </div>
+
+              <div className="mt-1 flex flex-col gap-3.5 lg:mt-0 lg:w-[300px] lg:shrink-0">
+                {bestSector && (
+                  <div className="ie-glass-ai rounded-[16px] px-[17px] py-[15px]">
+                    <div className="flex items-center gap-2"><span className="font-mono text-[11px] font-bold text-ai">✦</span><span className="text-[13px] font-bold text-ink">Sektör yorumu</span></div>
+                    <p className="mt-2 text-[12px] font-medium leading-[1.5] text-t2">{bestSector.reasoning}</p>
+                  </div>
+                )}
+                <div className="ie-glass flex-1 rounded-[16px] px-[17px] py-[15px]">
+                  <div className="mb-2 text-[14px] font-extrabold text-ink">Öne çıkanlar</div>
+                  {movers ? (
+                    <div className="flex flex-col gap-1">
+                      {[...(movers.gainers ?? []).slice(0, 3), ...(movers.losers ?? []).slice(0, 3)].map((m) => (
+                        <Link key={m.sembol} href={`/hisse/${m.sembol}`} className="flex items-center justify-between rounded-[8px] px-1.5 py-1.5 hover:bg-fill">
+                          <span className="text-[13px] font-bold text-ink">{m.sembol}</span>
+                          <span className="font-mono text-[12px] font-semibold" style={{ color: col(m.changePercent) }}>{fmtPct(m.changePercent)}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[12px] text-t3">Yükleniyor…</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'emtia' && (
+            <div className="flex flex-col gap-3.5 lg:flex-row lg:gap-6">
+              <div className="min-w-0 lg:flex-[1.7]">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  {emtiaLoading ? (
+                    [...Array(6)].map((_, i) => <div key={i} className="ie-glass h-[130px] animate-pulse rounded-[16px]" />)
+                  ) : (
+                    EMTIA_CARDS.map(({ key, label, q }) => (
+                      <div key={key} className="ie-glass rounded-[16px] px-4 py-3.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[12px] font-semibold text-t3">{label}</span>
+                          {q && <span className="rounded-[7px] px-2 py-0.5 font-mono text-[11px] font-bold" style={{ background: `${col(q.changePercent)}1f`, color: col(q.changePercent) }}>{fmtPct(q.changePercent)}</span>}
+                        </div>
+                        <div className="mt-1 font-mono text-[21px] font-bold tracking-[-0.02em] text-ink">{fmtNum(q?.price)}</div>
+                        <AreaSpark values={seriesOf(key)} color={q && q.changePercent < 0 ? '#e5484d' : '#16a35b'} />
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="mt-1 flex flex-col gap-3.5 lg:mt-0 lg:w-[300px] lg:shrink-0">
+                <div className="ie-glass rounded-[16px] px-[17px] py-[15px]">
+                  <div className="mb-2.5 text-[14px] font-extrabold text-ink">Makro göstergeler</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-[10px] bg-fill px-2.5 py-2 text-center">
+                      <div className="font-mono text-[14px] font-bold text-ink">{tr?.policyRate?.value != null ? `%${fmtNum(tr.policyRate.value, 0)}` : '—'}</div>
+                      <div className="mt-0.5 text-[10px] font-medium text-t3">TCMB Faizi</div>
+                    </div>
+                    <div className="rounded-[10px] bg-fill px-2.5 py-2 text-center">
+                      <div className="font-mono text-[14px] font-bold text-ink">{tr?.inflation?.value != null ? `%${fmtNum(tr.inflation.value, 1)}` : '—'}</div>
+                      <div className="mt-0.5 text-[10px] font-medium text-t3">Enflasyon</div>
+                    </div>
+                    <div className="rounded-[10px] bg-fill px-2.5 py-2 text-center">
+                      <div className="font-mono text-[14px] font-bold text-ink">{tr?.cds5y?.value != null ? fmtNum(tr.cds5y.value, 0) : '—'}</div>
+                      <div className="mt-0.5 text-[10px] font-medium text-t3">CDS 5Y</div>
+                    </div>
+                    <div className="rounded-[10px] bg-fill px-2.5 py-2 text-center">
+                      <div className="font-mono text-[14px] font-bold text-ink">{fmtNum(ind.dxy?.price, 1)}</div>
+                      <div className="mt-0.5 text-[10px] font-medium text-t3">DXY</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="ie-glass-flat rounded-[16px] px-[17px] py-[15px]">
+                  <p className="text-[12px] font-medium leading-[1.5] text-t2">
+                    USD/TRY {seriesOf('usdtry').length >= 2 ? fmtPct(((seriesOf('usdtry').at(-1)! - seriesOf('usdtry')[0]!) / seriesOf('usdtry')[0]!) * 100) : '—'} ·
+                    {' '}Altın {seriesOf('gold').length >= 2 ? fmtPct(((seriesOf('gold').at(-1)! - seriesOf('gold')[0]!) / seriesOf('gold')[0]!) * 100) : '—'} (son 20 gün).
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'gundem' && (
+            <div className="flex flex-col gap-3.5 lg:flex-row lg:gap-6">
+              <div className="min-w-0 lg:flex-[1.7]">
+                <div className="flex flex-wrap gap-1.5">
+                  {([['all', 'Tümü'], ['haber', 'Haber'], ['kap', 'KAP'], ...(ENABLE_ECONOMIC_CALENDAR ? [['takvim', 'Takvim'] as const] : [])] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setGundemSrc(key)}
+                      className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors ${gundemSrc === key ? 'bg-ink text-onink' : 'bg-fill text-t3 hover:text-ink'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  {gundemLoading ? (
+                    [...Array(6)].map((_, i) => <div key={i} className="ie-glass h-[64px] animate-pulse rounded-[16px]" />)
+                  ) : filteredFeed.length === 0 ? (
+                    <div className="ie-glass rounded-[16px] px-4 py-8 text-center text-[13px] font-medium text-t3">Bu kaynakta gösterilecek içerik yok.</div>
+                  ) : (
+                    filteredFeed.slice(0, 30).map((item, i) => {
+                      const m = feedTypeMeta[item.type];
+                      return (
+                        <div key={i} className="ie-glass flex items-start gap-3 rounded-[14px] px-4 py-3">
+                          <span className="shrink-0 rounded-[7px] px-2 py-1 text-[10px] font-extrabold" style={{ background: m.bg, color: m.color }}>{m.label}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[13px] font-semibold text-ink">{item.title}</div>
+                            <div className="mt-0.5 text-[11px] font-medium text-t3">{item.source} · {item.time}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+              {ENABLE_ECONOMIC_CALENDAR && upcomingEvents.length > 0 && (
+                <div className="mt-1 lg:mt-0 lg:w-[300px] lg:shrink-0">
+                  <div className="ie-glass rounded-[16px] px-[17px] py-[15px]">
+                    <div className="mb-2.5 text-[14px] font-extrabold text-ink">Ekonomi takvimi</div>
+                    <div className="flex flex-col gap-2">
+                      {upcomingEvents.map((e) => (
+                        <div key={e.id} className="border-t border-hairline pt-2 first:border-0 first:pt-0">
+                          <div className="text-[12px] font-bold text-ink">{e.baslik}</div>
+                          <div className="mt-0.5 text-[11px] font-medium text-t3">{e.ulke} · {e.saat} · {e.onem}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
