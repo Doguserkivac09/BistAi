@@ -75,9 +75,11 @@ function fixtureContract(expiry: Date): ViopContract {
     expiryMonth: expiry.getUTCMonth(),
     expiryYear: expiry.getUTCFullYear(),
     expiry,
-    multiplier: 10,
+    multiplier: 0.1,
     initialMarginRate: 0.1,
+    maintenanceMarginRate: 0.075,
     tickSize: 0.25,
+    settlement: 'nakdi',
   };
 }
 
@@ -140,47 +142,98 @@ describe('deriveGramTryFromOns', () => {
   });
 });
 
-describe('getActiveViopContracts', () => {
-  it('iki aktif kontrat döndürür, ikisi de çift ay', () => {
-    const now = new Date(Date.UTC(2026, 6, 11)); // 11 Tem 2026
-    const active = getActiveViopContracts(now);
-    assert.equal(active.length, 2);
-    for (const c of active) {
-      assert.equal(c.expiryMonth % 2, 0, 'vade ayı çift olmalı');
-    }
+describe('getActiveViopContracts — vade çevrimi (sınıfa göre)', () => {
+  const now = new Date(Date.UTC(2026, 6, 11)); // 11 Tem 2026 (TEK ay)
+
+  it('endeks çift-ay çevrimi: Temmuz atlanır, Ağustos/Ekim/Aralık gelir', () => {
+    const active = getActiveViopContracts(now, 'XU030', 3);
+    assert.equal(active.length, 3);
+    assert.deepEqual(active.map((c) => c.expiryMonth), [7, 9, 11]); // Ağu/Eki/Ara
+    for (const c of active) assert.equal(c.expiryMonth % 2, 1, 'çift-ay çevrimi (0-index tek)');
+  });
+
+  it('pay (banka) YILIN TÜM AYLARI: yakın vade içinde bulunulan ay (Temmuz)', () => {
+    const active = getActiveViopContracts(now, 'GARAN', 3);
+    assert.deepEqual(active.map((c) => c.expiryMonth), [6, 7, 8]); // Tem/Ağu/Eyl
+  });
+
+  it('döviz her-ay çevrimi: yakın vade Temmuz', () => {
+    const active = getActiveViopContracts(now, 'USDTRY', 2);
+    assert.deepEqual(active.map((c) => c.expiryMonth), [6, 7]);
+  });
+
+  it('yanlış çevrim regresyonu: pay yakın vadesi endeksinkinden ÖNCE gelir', () => {
+    // Çift-ay çevrimi tüm sınıflara uygulanırsa GARAN da Ağustos olurdu (dte ~4x fazla)
+    const [pay] = getActiveViopContracts(now, 'GARAN', 1);
+    const [endeks] = getActiveViopContracts(now, 'XU030', 1);
+    assert.ok(pay!.expiry.getTime() < endeks!.expiry.getTime());
   });
 
   it('yakın kontrat vadesi bugünden sonra', () => {
-    const now = new Date(Date.UTC(2026, 6, 11));
-    const active = getActiveViopContracts(now);
-    assert.ok(active[0]!.expiry.getTime() >= now.getTime());
+    assert.ok(getActiveViopContracts(now, 'XU030', 1)[0]!.expiry.getTime() >= now.getTime());
   });
 
-  it('yakın < sonraki vade (sıralı)', () => {
-    const now = new Date(Date.UTC(2026, 6, 11));
-    const [near, next] = getActiveViopContracts(now);
+  it('çoklu vade sıralı (yakın < sonraki)', () => {
+    const [near, next] = getActiveViopContracts(now, 'XU030', 2);
     assert.ok(near!.expiry.getTime() < next!.expiry.getTime());
+  });
+
+  it('ayın son gününde o ayın vadesi hâlâ aktif sayılır (vade günü dahil)', () => {
+    const lastDay = new Date(Date.UTC(2026, 6, 31)); // 31 Tem 2026 = Cuma
+    const [near] = getActiveViopContracts(lastDay, 'GARAN', 1);
+    assert.equal(near!.expiryMonth, 6, 'vade günü henüz geçmedi');
   });
 });
 
 describe('getAllActiveViopContracts', () => {
+  const now = new Date(Date.UTC(2026, 6, 11));
+
   it('tüm varlık sınıfları temsil edilir', () => {
-    const now = new Date(Date.UTC(2026, 6, 11));
-    const all = getAllActiveViopContracts(now);
-    const classes = new Set(all.map((c) => c.cls));
+    const classes = new Set(getAllActiveViopContracts(now).map((c) => c.cls));
     assert.ok(classes.has('endeks') && classes.has('banka') && classes.has('emtia') && classes.has('doviz'));
   });
 
-  it('dayanak sayısı × 2 (yakın+sonraki vade) kontrat üretir', () => {
-    const now = new Date(Date.UTC(2026, 6, 11));
+  it('dayanak başına TEK (yakın) kontrat üretir — vade tekrarı yok', () => {
     const all = getAllActiveViopContracts(now);
-    assert.equal(all.length, Object.keys(VIOP_UNDERLYINGS).length * 2);
+    assert.equal(all.length, Object.keys(VIOP_UNDERLYINGS).length);
+    assert.equal(new Set(all.map((c) => c.underlying)).size, all.length);
   });
 
-  it('her kontratın cls alanı kendi dayanağının sınıfıyla eşleşir', () => {
-    const now = new Date(Date.UTC(2026, 6, 11));
+  it('her kontratın cls/multiplier/settlement alanı dayanak tanımıyla eşleşir', () => {
     for (const c of getAllActiveViopContracts(now)) {
-      assert.equal(c.cls, VIOP_UNDERLYINGS[c.underlying].cls);
+      const def = VIOP_UNDERLYINGS[c.underlying];
+      assert.equal(c.cls, def.cls);
+      assert.equal(c.multiplier, def.multiplier);
+      assert.equal(c.settlement, def.settlement);
+    }
+  });
+});
+
+describe('sözleşme spesifikasyonları (regresyon koruması)', () => {
+  it('endeks çarpanı 0,1 — notional = ham endeks × 0,1 (endeks/1000 × 100 adet)', () => {
+    // Regresyon: çarpan 10 iken notional 100 kat şişikti (15.914 → 159.142 ₺, gerçek ~1.591 ₺)
+    assert.equal(VIOP_UNDERLYINGS.XU030.multiplier, 0.1);
+    assert.equal(15914.21 * VIOP_UNDERLYINGS.XU030.multiplier, 1591.421);
+  });
+
+  it('pay sözleşmesi 100 adet pay ve FİZİKİ teslimatlı', () => {
+    assert.equal(VIOP_UNDERLYINGS.GARAN.multiplier, 100);
+    assert.equal(VIOP_UNDERLYINGS.GARAN.settlement, 'fiziki');
+  });
+
+  it('döviz sözleşmesi 1.000 birim ve nakdi uzlaşmalı', () => {
+    assert.equal(VIOP_UNDERLYINGS.USDTRY.multiplier, 1000);
+    assert.equal(VIOP_UNDERLYINGS.USDTRY.settlement, 'nakdi');
+  });
+
+  it('emtia 1 gram (gram-TL kotasyon)', () => {
+    assert.equal(VIOP_UNDERLYINGS.ALTIN.multiplier, 1);
+  });
+
+  it('her dayanakta sürdürme teminatı başlangıçtan DÜŞÜK (margin call önce gelir)', () => {
+    for (const def of Object.values(VIOP_UNDERLYINGS)) {
+      assert.ok(def.maintenanceMarginRate < def.initialMarginRate, `${def.key}: sürdürme < başlangıç`);
+      assert.ok(def.maintenanceMarginRate > 0, `${def.key}: sürdürme pozitif`);
     }
   });
 });

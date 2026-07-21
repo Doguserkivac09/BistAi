@@ -27,9 +27,11 @@ function contract(overrides: Partial<ViopContract> = {}): ViopContract {
     expiryMonth: 7,
     expiryYear: 2025,
     expiry: new Date(Date.UTC(2025, 7, 29)),
-    multiplier: 10,
+    multiplier: 0.1,
     initialMarginRate: 0.1,
+    maintenanceMarginRate: 0.075,
     tickSize: 0.25,
+    settlement: 'nakdi',
     ...overrides,
   };
 }
@@ -69,43 +71,81 @@ describe('analyzeViop — kaldıraç matematiği', () => {
   it('notional = entry × çarpan, teminat = notional × oran, leverage = 1/oran', () => {
     const r = analyzeViop(baseInput());
     const entry = r.risk.entryPrice;
-    assert.equal(r.risk.notionalPerContract, Math.round(entry * 10));
-    assert.equal(
-      r.risk.initialMarginPerContract,
-      Math.round(entry * 10 * 0.1),
-    );
+    assert.ok(Math.abs(r.risk.notionalPerContract - entry * 0.1) < 0.01);
+    assert.ok(Math.abs(r.risk.initialMarginPerContract - entry * 0.1 * 0.1) < 0.01);
     assert.equal(r.risk.leverage, 10); // 1/0.1
   });
 
-  it('pozisyon boyutu risk %\'sine göre hesaplanır', () => {
-    const r = analyzeViop(baseInput({ account: { equity: 1_000_000, riskPct: 0.02 } }));
-    assert.ok(r.risk.positionSizeContracts !== null);
-    assert.ok(r.risk.positionSizeContracts! >= 0);
-    // Manuel doğrulama: floor(20000 / (stopMesafesi × 10))
-    const stopDist = Math.abs(r.risk.entryPrice - r.risk.stopPrice);
-    const expected = Math.floor(20000 / (stopDist * 10));
-    assert.equal(r.risk.positionSizeContracts, expected);
+  it('endeks notional gerçekçi büyüklükte (çarpan regresyonu)', () => {
+    // Çarpan 10 iken ~10.000 puanlık endekste notional 100.000+ ₺ çıkıyordu (100x şişik).
+    // Doğrusu: endeks × 0,1 → birkaç bin ₺ bandı.
+    const r = analyzeViop(baseInput());
+    assert.ok(r.risk.notionalPerContract < 10_000, `notional ${r.risk.notionalPerContract} makul bandın üstünde`);
+    assert.ok(r.risk.notionalPerContract > 100);
   });
 
-  it('hesap yoksa pozisyon boyutu null', () => {
+  it('sürdürme teminatı başlangıçtan düşük', () => {
     const r = analyzeViop(baseInput());
-    assert.equal(r.risk.positionSizeContracts, null);
+    assert.ok(r.risk.maintenanceMarginPerContract < r.risk.initialMarginPerContract);
   });
 });
 
-describe('analyzeViop — likidasyon', () => {
-  it('likidasyon eşiği = teminat oranı × 100', () => {
+describe('analyzeViop — margin call / likidasyon', () => {
+  it('margin call eşiği = (başlangıç − sürdürme) oranı, likidasyondan ÖNCE gelir', () => {
     const r = analyzeViop(baseInput());
+    assert.equal(r.risk.marginCallMovePct, 2.5); // (0.10 − 0.075) × 100
     assert.equal(r.risk.liquidationMovePct, 10);
+    assert.ok(r.risk.marginCallMovePct < r.risk.liquidationMovePct);
   });
 
-  it('makul stop mesafesi likidasyondan önce devrede (güvenli kurgu)', () => {
+  it('stop margin call eşiğinin altındaysa güvenli kurgu bildirilir', () => {
     const r = analyzeViop(baseInput());
-    // Trend serisinde stop mesafesi tipik olarak %10 altında
-    if (r.risk.stopDistancePct < 10) {
-      assert.equal(r.risk.stopBeforeLiquidation, true);
+    if (r.risk.stopDistancePct < r.risk.marginCallMovePct) {
+      assert.equal(r.risk.stopBeforeMarginCall, true);
       assert.match(r.risk.warning, /plan dahilinde stop önce/);
+    } else {
+      assert.equal(r.risk.stopBeforeMarginCall, false);
+      assert.match(r.risk.warning, /teminat tamamlama çağrısı/);
     }
+  });
+});
+
+describe('analyzeViop — tick yuvarlama', () => {
+  it('stop/hedef/giriş sözleşmenin fiyat adımına yuvarlanır', () => {
+    const r = analyzeViop(baseInput()); // tickSize 0.25
+    for (const p of [r.risk.entryPrice, r.risk.stopPrice, r.risk.targetPrice]) {
+      const steps = p / 0.25;
+      assert.ok(Math.abs(steps - Math.round(steps)) < 1e-6, `${p} 0,25 adımına yuvarlanmamış`);
+    }
+  });
+
+  it('pay sözleşmesinde 0,01 adımına yuvarlanır', () => {
+    const r = analyzeViop(baseInput({
+      contract: contract({ tickSize: 0.01, multiplier: 100, settlement: 'fiziki' }),
+      candles: trendCandles(60, 150, 0.4),
+    }));
+    for (const p of [r.risk.stopPrice, r.risk.targetPrice]) {
+      const steps = p / 0.01;
+      assert.ok(Math.abs(steps - Math.round(steps)) < 1e-6, `${p} 0,01 adımına yuvarlanmamış`);
+    }
+  });
+});
+
+describe('analyzeViop — uzlaşma / fiziki teslimat', () => {
+  it('nakdi sözleşmede teslimat uyarısı YOK', () => {
+    const r = analyzeViop(baseInput());
+    assert.equal(r.settlement, 'nakdi');
+    assert.equal(r.settlementWarning, null);
+  });
+
+  it('fiziki teslimatlı pay sözleşmesinde uyarı üretilir ve adet belirtilir', () => {
+    const r = analyzeViop(baseInput({
+      contract: contract({ settlement: 'fiziki', multiplier: 100, tickSize: 0.01 }),
+    }));
+    assert.equal(r.settlement, 'fiziki');
+    assert.ok(r.settlementWarning);
+    assert.match(r.settlementWarning!, /FİZİKİ TESLİMAT/);
+    assert.match(r.settlementWarning!, /100 adet/);
   });
 });
 

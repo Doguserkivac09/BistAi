@@ -53,8 +53,11 @@ export async function GET(request: NextRequest) {
   const startedAt = Date.now();
   const now = new Date();
 
-  // 1) Makro/rejim bağlamı (tüm kontratlar için ortak — piyasa geneli)
+  // 1) Makro/rejim bağlamı + CANLI TL risksiz faiz (baz/cost-of-carry girdisi).
+  // Sabit %45 varsayımı yerine gerçek TCMB politika faizi kullanılır — baz doğrudan
+  // (r − q)·T ile ölçeklendiği için yanlış faiz tüm giriş/stop/hedef seviyelerini kaydırır.
   let macro: ViopMacroContext = {};
+  let annualRate = DEFAULT_ANNUAL_RATE;
   try {
     const full = await getMacroFull();
     macro = {
@@ -62,34 +65,41 @@ export async function GET(request: NextRequest) {
       label: full.macroScore.label,
       riskScore: full.riskScore.score,          // 0-100
     };
+    const policy = full.bundle.turkey?.policyRate?.value;
+    // Makul aralık dışındaki değeri (veri hatası) yok say → sabit varsayıma düş
+    if (typeof policy === 'number' && policy > 1 && policy < 200) annualRate = policy / 100;
   } catch {
     macro = {}; // makro yoksa motor nötr davranır (zarif düşüş)
   }
 
-  // 2) Tüm varlık sınıflarındaki aktif kontratları tara
+  // 2) Tüm dayanakların YAKIN vadeli kontratlarını tara (dayanak başına tek kontrat).
+  // Dayanak bazında paralel — her dayanak kendi Yahoo çağrısını yapar; lib/yahoo'nun
+  // 5dk bellek-içi cache'i emtia sentezindeki ortak USDTRY=X'i tekrar ağa çıkarmaz.
   const contracts = getAllActiveViopContracts(now);
-  const items: unknown[] = [];
   const failed: string[] = [];
 
-  for (const contract of contracts) {
-    try {
-      const def = VIOP_UNDERLYINGS[contract.underlying];
-      const candles = await fetchUnderlyingCandles(contract.underlying, OHLCV_DAYS);
-      if (!candles.length) { failed.push(contract.code); continue; }
-      const proxy = deriveProxyFutures(candles, contract, DEFAULT_ANNUAL_RATE, def.carryYield);
-      const result = analyzeViop({
-        contract,
-        candles: proxy.candles,
-        daysToExpiry: daysToExpiry(contract, now),
-        basis: proxy.lastBasis,
-        regime: proxy.regime,
-        macro,
-      });
-      items.push(result);
-    } catch {
-      failed.push(contract.code);
-    }
-  }
+  const settled = await Promise.all(
+    contracts.map(async (contract) => {
+      try {
+        const def = VIOP_UNDERLYINGS[contract.underlying];
+        const candles = await fetchUnderlyingCandles(contract.underlying, OHLCV_DAYS);
+        if (!candles.length) { failed.push(contract.code); return null; }
+        const proxy = deriveProxyFutures(candles, contract, annualRate, def.carryYield);
+        return analyzeViop({
+          contract,
+          candles: proxy.candles,
+          daysToExpiry: daysToExpiry(contract, now),
+          basis: proxy.lastBasis,
+          regime: proxy.regime,
+          macro,
+        });
+      } catch {
+        failed.push(contract.code);
+        return null;
+      }
+    }),
+  );
+  const items = settled.filter((x) => x !== null);
 
   if (!items.length) {
     return NextResponse.json({ error: 'Hiç kontrat işlenemedi', failed }, { status: 502 });
@@ -113,6 +123,7 @@ export async function GET(request: NextRequest) {
     ok: true,
     contracts: contracts.length,
     written: items.length,
+    annualRatePct: parseFloat((annualRate * 100).toFixed(2)),
     failed,
     durationMs: Date.now() - startedAt,
   });

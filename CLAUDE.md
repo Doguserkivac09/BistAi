@@ -191,6 +191,31 @@ sıralaması, Makro rejim panelinin gerçek alan eşlemesi, mobilde Makro panel 
 
 **Bekleyen:** Deploy sonrası `curl -H "Authorization: Bearer $CRON_SECRET" https://bistai.vercel.app/api/cron/viop-scan` ile prod store'u doldur (ilk cron koşusuna kadar sayfa "henüz hazır değil" gösterir).
 
+### 🔧 VIOP güçlendirme — resmi kontrat spec'ine hizalama (2026-07-22)
+
+> Kaynak doğrulama: Borsa İstanbul + aracı kurum (GCM/Dinamik) kontrat tanımları.
+> Kendi kodumuzu resmi spec'le karşılaştırınca ciddi doğruluk hataları çıktı; hepsi düzeltildi.
+
+| Hata (önce) | Düzeltme | Dosya |
+|-------------|----------|-------|
+| **Endeks çarpanı 10 → notional 100 KAT şişik** (XU030 15.914 → 159.142 ₺, gerçek ~1.591 ₺). Kaldıraçlı üründe kullanıcı 100x yanlış TL planlıyordu. | Çarpan **0,1** (endeks/1000 × 100 adet). Çapraz doğrulama: GCM'nin 14,25 ₺ teminat örneğiyle tutarlı (~8,7x). | `viop-symbols.ts` |
+| **Vade takvimi 3 sınıfta yanlış** — hepsine "çift-ay" uygulanıyordu. | Sınıf-bazlı `cycle`: endeks/emtia **çift-ay**, pay (banka) **her-ay**, döviz **her-ay**. GARAN yakın vadesi 40g→gerçek 9g (baz 4x düzeldi). | `viop-symbols.ts` |
+| **Baz sabit %45 faizle** hesaplanıyordu (gerçek TCMB %37). | Cron `getMacroFull().bundle.turkey.policyRate` ile **canlı faiz** besliyor (1-200 aralık koruması + zarif düşüş). | `cron/viop-scan` |
+| **Fiziki teslimat riski hiç söylenmiyordu** — pay vadelileri nakdi DEĞİL. | `settlement: 'fiziki'` + kart başlığında rozet + `settlementWarning` (100 adet pay teslim yükümlülüğü). Endeks/emtia/döviz nakdi. | `viop-engine.ts`, `ViopScreen.tsx` |
+| **Likidasyon eşiği fazla iyimser** (teminatın tamamı silinince). | **Margin call** eklendi: sürdürme teminatı (~başlangıcın %75'i) altına düşünce tetiklenir — tasfiye ÖNCE gelir. UI'da "Margin call ~%X · Teminat biter ~%Y". | `viop-engine.ts` |
+| **Fiyat seviyeleri tick'e yuvarlanmıyordu.** | `toTick()` — giriş/stop/hedef sözleşmenin `tickSize`'ına yuvarlanır (girilebilir emir). | `viop-engine.ts` |
+| Ölü kod: `getViopQuote`/`getViopOhlcv`/`ViopQuote`/`ViopOhlcv`/`getActiveViopCodes` (hiç çağrılmıyor), `positionSizeContracts` (hep null), `ViopAccountContext`. | Silindi. | `viop-data.ts`, `viop-engine.ts` |
+| Aynı dayanağın 2 vadesi ≈ özdeş kart (teknik aynı, baz farklı) → liste şişiyordu (22 kontrat). | `getAllActiveViopContracts` dayanak başına **yakın vade** (11 kontrat). | `viop-symbols.ts` |
+| Cron sıralı `for await`. | Dayanak-bazlı `Promise.all` (Yahoo cache ortak USDTRY'yi tekrar çekmez). | `cron/viop-scan` |
+
+**Doğrulama:** 182/182 test (13 yeni: çarpan/çevrim/margin-call/tick/teslimat regresyonları),
+tsc + build temiz. Gerçek Yahoo verisiyle uçtan uca: XU030 notional 1.652 ₺ / teminat 165 ₺,
+GARAN 9g + FİZİKİ, USDTRY 47.601 ₺ (1000×47,60) — hepsi gerçekçi. Tarayıcıda fiziki rozet +
+margin call metriği + roll uyarısı render, konsol hatasız.
+
+**Kalan yaklaşıklık:** Teminat ORANLARI hâlâ tahmini (Takasbank tutarları dinamik, volatiliteyle
+güncellenir). Tek yerde sabit (`VIOP_UNDERLYINGS`) — gerçek tutar beslemesi bağlanınca yalnız orası değişir.
+
 ---
 
 ## 📌 BEKLEYEN MANUEL ADIMLAR

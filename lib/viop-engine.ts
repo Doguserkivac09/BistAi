@@ -24,14 +24,6 @@ export interface ViopMacroContext {
   riskScore?: number;
 }
 
-/** Hesap bağlamı — pozisyon boyutu için. */
-export interface ViopAccountContext {
-  /** Toplam hesap özkaynağı (₺). */
-  equity: number;
-  /** İşlem başına riske edilecek özkaynak oranı (ondalık, ör. 0.02 = %2). */
-  riskPct: number;
-}
-
 export interface ViopEngineInput {
   contract: ViopContract;
   /** Proxy vadeli OHLCV (baz zaten gömülü). */
@@ -40,7 +32,6 @@ export interface ViopEngineInput {
   basis: number;
   regime: 'contango' | 'backwardation' | 'flat';
   macro?: ViopMacroContext;
-  account?: ViopAccountContext;
   /** Vadeye kaç günden az kalınca roll uyarısı verilsin (varsayılan 7). */
   rollWarnDays?: number;
 }
@@ -55,14 +46,19 @@ export interface ViopRiskBlock {
   notionalPerContract: number;
   /** Kontrat başına başlangıç teminatı (₺). */
   initialMarginPerContract: number;
+  /** Kontrat başına sürdürme teminatı (₺) — bunun altına düşünce margin call. */
+  maintenanceMarginPerContract: number;
   /** Etkin kaldıraç (≈ 1 / teminat oranı). */
   leverage: number;
-  /** Risk %'sine göre önerilen kontrat adedi (hesap verilmişse). */
-  positionSizeContracts: number | null;
-  /** Teminatı silen yaklaşık ters hareket yüzdesi. */
+  /**
+   * MARGIN CALL eşiği: teminatı sürdürme seviyesinin altına düşüren ters hareket %'si.
+   * Tasfiye riski BURADA başlar — teminatın tamamının silinmesini beklemez.
+   */
+  marginCallMovePct: number;
+  /** Teminatın TAMAMINI silen ters hareket yüzdesi (margin call'dan sonra gelir). */
   liquidationMovePct: number;
-  /** Stop, likidasyondan ÖNCE mi devrede? (true = güvenli kurgu.) */
-  stopBeforeLiquidation: boolean;
+  /** Stop, margin call'dan ÖNCE mi devrede? (true = güvenli kurgu.) */
+  stopBeforeMarginCall: boolean;
   /** Kaldıraç/likidasyon uyarı metni. */
   warning: string;
 }
@@ -83,6 +79,10 @@ export interface ViopSignalResult {
   };
   risk: ViopRiskBlock;
   expiry: { daysToExpiry: number; rollWarning: string | null };
+  /** Uzlaşma yöntemi — 'fiziki' ise vade sonunda gerçek pay teslim yükümlülüğü doğar. */
+  settlement: 'nakdi' | 'fiziki';
+  /** Fiziki teslimatlı sözleşmelerde vade yaklaşırken gösterilecek uyarı. */
+  settlementWarning: string | null;
   basis: number;
   regime: 'contango' | 'backwardation' | 'flat';
   dataQuality: 'proxy' | 'delayed' | 'realtime';
@@ -134,8 +134,14 @@ function deriveLevels(
  * VIOP kontratı için kaldıraç-farkındalıklı analiz üretir.
  */
 export function analyzeViop(input: ViopEngineInput): ViopSignalResult {
-  const { contract, candles, daysToExpiry, basis, regime, macro, account } = input;
+  const { contract, candles, daysToExpiry, basis, regime, macro } = input;
   const rollWarnDays = input.rollWarnDays ?? 7;
+  /** Fiyatı sözleşmenin minimum fiyat adımına yuvarlar (girilebilir emir seviyesi). */
+  const toTick = (v: number) => {
+    const t = contract.tickSize;
+    if (!t || t <= 0) return parseFloat(v.toFixed(2));
+    return parseFloat((Math.round(v / t) * t).toFixed(6));
+  };
 
   const entry = candles[candles.length - 1]?.close ?? 0;
 
@@ -167,7 +173,9 @@ export function analyzeViop(input: ViopEngineInput): ViopSignalResult {
     score >= 65 ? 'yüksek' : score >= 40 ? 'orta' : 'düşük';
 
   // ── Kaldıraç / risk bloğu ──
-  const { stop, target } = deriveLevels(signals, direction, entry, atr);
+  const raw = deriveLevels(signals, direction, entry, atr);
+  const stop = toTick(raw.stop);
+  const target = toTick(raw.target);
   const stopDistance = Math.abs(entry - stop);
   const stopDistancePct = entry > 0 ? (stopDistance / entry) * 100 : 0;
   const rewardDistance = Math.abs(target - entry);
@@ -175,23 +183,24 @@ export function analyzeViop(input: ViopEngineInput): ViopSignalResult {
 
   const notionalPerContract = entry * contract.multiplier;
   const initialMarginPerContract = notionalPerContract * contract.initialMarginRate;
+  const maintenanceMarginPerContract = notionalPerContract * contract.maintenanceMarginRate;
   const leverage = contract.initialMarginRate > 0 ? parseFloat((1 / contract.initialMarginRate).toFixed(1)) : 0;
 
-  // Risk %'sine göre kontrat adedi: riske edilen ₺ / (stop mesafesi × çarpan)
-  let positionSizeContracts: number | null = null;
-  if (account && account.equity > 0 && account.riskPct > 0 && stopDistance > 0) {
-    const riskAmount = account.equity * account.riskPct;
-    const riskPerContract = stopDistance * contract.multiplier;
-    positionSizeContracts = Math.max(0, Math.floor(riskAmount / riskPerContract));
-  }
-
-  // Teminatı silen yaklaşık ters hareket ≈ teminat oranı (notional'ın %'si)
+  // MARGIN CALL: teminat sürdürme seviyesinin altına düşünce tetiklenir. Zarar
+  // notional üzerinden birikir → ters hareket %'si = (başlangıç − sürdürme) oranı.
+  // Bu, teminatın TAMAMINI silen harekettén (başlangıç oranı) belirgin şekilde ÖNCE gelir.
+  const marginCallMovePct = (contract.initialMarginRate - contract.maintenanceMarginRate) * 100;
   const liquidationMovePct = contract.initialMarginRate * 100;
-  const stopBeforeLiquidation = stopDistancePct > 0 && stopDistancePct < liquidationMovePct;
+  const stopBeforeMarginCall = stopDistancePct > 0 && stopDistancePct < marginCallMovePct;
 
-  const warning = stopBeforeLiquidation
-    ? `Stop mesafesi (%${stopDistancePct.toFixed(1)}) likidasyon eşiğinin (~%${liquidationMovePct.toFixed(0)}) altında — plan dahilinde stop önce devreye girer. Yine de ~%${liquidationMovePct.toFixed(0)} ters hareket teminatı siler.`
-    : `⚠️ Stop mesafesi (%${stopDistancePct.toFixed(1)}) likidasyon eşiğine (~%${liquidationMovePct.toFixed(0)}) yakın/aşıyor — pozisyon açılmadan teminat/stop yeniden değerlendirilmeli.`;
+  const warning = stopBeforeMarginCall
+    ? `Stop mesafesi (%${stopDistancePct.toFixed(1)}) margin call eşiğinin (~%${marginCallMovePct.toFixed(1)}) altında — plan dahilinde stop önce devreye girer. Yine de ~%${liquidationMovePct.toFixed(0)} ters hareket teminatın tamamını siler.`
+    : `⚠️ Stop mesafesi (%${stopDistancePct.toFixed(1)}) margin call eşiğine (~%${marginCallMovePct.toFixed(1)}) yakın/aşıyor — stop tetiklenmeden teminat tamamlama çağrısı gelebilir. Pozisyon açılmadan teminat/stop yeniden değerlendirilmeli.`;
+
+  // ── Fiziki teslimat (pay vadelileri) ──
+  const settlementWarning = contract.settlement === 'fiziki'
+    ? `Bu sözleşme FİZİKİ TESLİMATLIDIR: vadede kapatılmayan pozisyon, ${contract.multiplier} adet payın gerçekten alınması/verilmesi yükümlülüğü doğurur (tam bedel veya pay gerekir). Nakdi uzlaşma YOKTUR.`
+    : null;
 
   // ── Vade uyarısı ──
   const rollWarning = daysToExpiry <= rollWarnDays
@@ -229,20 +238,23 @@ export function analyzeViop(input: ViopEngineInput): ViopSignalResult {
       topSignals,
     },
     risk: {
-      entryPrice: parseFloat(entry.toFixed(2)),
-      stopPrice: parseFloat(stop.toFixed(2)),
-      targetPrice: parseFloat(target.toFixed(2)),
+      entryPrice: toTick(entry),
+      stopPrice: stop,
+      targetPrice: target,
       stopDistancePct: parseFloat(stopDistancePct.toFixed(2)),
       riskRewardRatio,
-      notionalPerContract: parseFloat(notionalPerContract.toFixed(0)),
-      initialMarginPerContract: parseFloat(initialMarginPerContract.toFixed(0)),
+      notionalPerContract: parseFloat(notionalPerContract.toFixed(2)),
+      initialMarginPerContract: parseFloat(initialMarginPerContract.toFixed(2)),
+      maintenanceMarginPerContract: parseFloat(maintenanceMarginPerContract.toFixed(2)),
       leverage,
-      positionSizeContracts,
+      marginCallMovePct: parseFloat(marginCallMovePct.toFixed(2)),
       liquidationMovePct: parseFloat(liquidationMovePct.toFixed(1)),
-      stopBeforeLiquidation,
+      stopBeforeMarginCall,
       warning,
     },
     expiry: { daysToExpiry, rollWarning },
+    settlement: contract.settlement,
+    settlementWarning,
     basis: parseFloat(basis.toFixed(2)),
     regime,
     dataQuality: 'proxy',

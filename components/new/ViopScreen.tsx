@@ -328,6 +328,11 @@ function ViopCard({ item }: { item: ViopSignalResult }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-[7px] bg-ai-panel px-2 py-0.5 font-mono text-[11px] font-bold text-ai">{item.underlying}</span>
             <span className="font-manrope text-[16px] font-bold text-ink">{item.label}</span>
+            {item.settlement === 'fiziki' && (
+              <span className="rounded-[6px] bg-warn/15 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.03em] text-warn" title="Vadede kapatılmazsa gerçek pay teslimi gerekir">
+                Fiziki teslimat
+              </span>
+            )}
           </div>
           <div className="mt-1 font-mono text-[11px] text-t4">{item.code} · {dirSentence(item.direction)}</div>
         </div>
@@ -352,14 +357,20 @@ function ViopCard({ item }: { item: ViopSignalResult }) {
           <Metric label="Hedef" value={fmt(item.risk.targetPrice)} accent="#7ee0a8" />
           <Metric label="R/R" value={item.risk.riskRewardRatio != null ? String(item.risk.riskRewardRatio) : '—'} />
           <Metric label="Kaldıraç" value={`~${item.risk.leverage}x`} accent="#c9aaff" />
-          <Metric label="Teminat/kontrat" value={`₺${fmt0(item.risk.initialMarginPerContract)}`} sub={`Notional ₺${fmt0(item.risk.notionalPerContract)}`} />
-          <Metric label="Likidasyon eşiği" value={`~%${item.risk.liquidationMovePct}`} accent="#ffb27a" />
+          <Metric label="Teminat/kontrat" value={`₺${fmt(item.risk.initialMarginPerContract)}`} sub={`Notional ₺${fmt(item.risk.notionalPerContract)}`} />
+          <Metric label="Margin call" value={`~%${item.risk.marginCallMovePct}`} sub={`Teminat biter ~%${item.risk.liquidationMovePct}`} accent="#ffb27a" />
           <Metric label="Vadeye" value={`${item.expiry.daysToExpiry}g`} />
         </div>
         <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-white/70">
           <span className="shrink-0">⚠️</span>
           <span>{item.risk.warning}</span>
         </div>
+        {item.settlementWarning && (
+          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-warn/15 px-3 py-2 text-[11px] leading-relaxed text-[#ffd08a]">
+            <span className="shrink-0">📦</span>
+            <span>{item.settlementWarning}</span>
+          </div>
+        )}
         {item.expiry.rollWarning && (
           <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-white/70">
             <span className="shrink-0">🗓️</span>
