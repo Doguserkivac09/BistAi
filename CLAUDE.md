@@ -157,6 +157,42 @@ tüm kapılar bu bayrağı okur:
 
 ---
 
+## ✅ VIOP hub — çok varlıklı genişleme (2026-07-21)
+
+> Kaynak: `design_handoff_viop_hub/README.md`. Eski VIOP sayfası yalnızca XU030 endeks
+> vadelisini analiziyordu; yeni hub 4 varlık sınıfında (Endeksler/Bankalar/Emtia/Döviz)
+> her kontrat için net LONG/SHORT/NÖTR karar üretir. Migration YOK.
+
+| Bileşen | Değişiklik |
+|---------|-----------|
+| `lib/viop-symbols.ts` | `VIOP_UNDERLYINGS` kayıt defteri — 11 dayanak: XU030/XU100 (endeks), GARAN/AKBNK/ISCTR/YKBNK/HALKB (banka, tek-hisse vadeli), ALTIN/GUMUS (emtia, gram-TL sentez), USDTRY/EURTRY (döviz). `ViopContract`'a `cls` alanı. `getAllActiveViopContracts()` tüm sınıfları düz listeler (cron). Vade çevrimi (çift ay) tüm sınıflarda ortak VIOP kuralı — değişmedi. |
+| `lib/viop-basis.ts` | `deriveGramTryFromOns()` — ons-USD (GC=F/SI=F) + USD/TRY serilerinden gram-TL sentez (inner-join tarih hizalı). VIOP altın/gümüş kontratları gram-TL bazlı; ons-USD'yi doğrudan kullanmak ~40x birim hatası olurdu. |
+| `lib/viop-data.ts` | `fetchUnderlyingCandles()` — tek/çift Yahoo sembollü dayanakları tek arayüzde soyutlar. `resolveContract` artık tüm sınıfları tarar. Her dayanağın kendi `carryYield`'i (temettü/yabancı faiz/lease) cost-of-carry'ye besleniyor. |
+| `lib/viop-engine.ts` | `ViopSignalResult`'a `cls` alanı (sekme filtreleme için) — motorun kendisi (skor/risk/likidasyon matematiği) değişmedi. |
+| `app/api/cron/viop-scan/route.ts` | `getAllActiveViopContracts()` ile TÜM sınıfları tarar (~22 kontrat); `maxDuration` 60→90. `/api/viop` route'u değişmedi (tek satır okuma, istemci filtreler). |
+| `components/new/ViopScreen.tsx` | Liquid-glass hub: varlık sekmesi (Endeksler/Bankalar/Emtia/Döviz) + yön çipi (Tümü/Long/Short, sayaç) + Makro rejim paneli (**gerçek** `/api/macro`: risk iştahı/TL yönü/TCMB/DXY/ons altın/Brent — sabit metin yok) + Öne çıkan işlemler (tüm varlıklarda en yüksek skorlu long+short, tıklanınca ilgili sekme/filtreye geçer). Kontrat kartı 8 hücreli risk grid'e (Giriş/Stop/Hedef/R-R/Kaldıraç/Teminat/Likidasyon/Vade) hizalandı. |
+
+**Dürüstlük notları:**
+- Sözleşme çarpanı/teminat oranı/tick (banka %20 teminat, döviz 1.000 birim/kontrat, emtia
+  1 gram varsayımı) resmi VIOP kontrat spec'inden **doğrulanmamış yaklaşık** değerler —
+  dosya başlığında zaten mevcut olan aynı uyarı (eski XU030 için de geçerliydi) yeni
+  dayanaklara genişletildi.
+- Handoff'un kart-içi kalıcı mum grafiği **bilinçli olarak eklenmedi** — handoff'un kendi
+  "Genişletme adayları" listesi bunu zaten ileri iş olarak bırakıyor; emtia/döviz
+  dayanaklarının (ALTIN/GUMUS/USDTRY/EURTRY) gerçek Yahoo sembolü olmaması nedeniyle
+  yanlış sembolle grafik çekme riski taşırdı.
+
+**Doğrulama:** 12 yeni birim testi (deriveGramTryFromOns birim çevrimi + inner-join +
+getAllActiveViopContracts sınıf kapsamı), toplam 169/169 test geçti. `tsc` + `npm run
+build` temiz. Mock veriyle (4 sınıf × long/short/nötr karışımı) dev sunucuda uçtan uca
+doğrulandı: sekme filtreleme, yön filtreleme + sayaç, cross-asset en-güçlü-long/short
+sıralaması, Makro rejim panelinin gerçek alan eşlemesi, mobilde Makro panel üstte +
+Öne çıkan işlemler gizli (masaüstü-only, spec gereği), karanlık tema, konsol hatasız.
+
+**Bekleyen:** Deploy sonrası `curl -H "Authorization: Bearer $CRON_SECRET" https://bistai.vercel.app/api/cron/viop-scan` ile prod store'u doldur (ilk cron koşusuna kadar sayfa "henüz hazır değil" gösterir).
+
+---
+
 ## 📌 BEKLEYEN MANUEL ADIMLAR
 
 ### Supabase Migrations — Çalıştırılması Gerekenler

@@ -1,21 +1,28 @@
 /**
- * VIOP veri adaptörü — kaynak-agnostik TEK arayüz (FAZ V0).
+ * VIOP veri adaptörü — kaynak-agnostik TEK arayüz (FAZ V0 → çok-varlıklı genişleme).
  *
  * Üst katman (viop-engine, cron) YALNIZ bu arayüzü tüketir. Kaynak değişse
  * (MVP spot proxy → broker API AlgoLab/Midas/Matriks) SADECE bu dosya değişir.
  *
- * MVP implementasyon: spot XU030 endeks OHLCV (mevcut Yahoo kaynağı) + tahmini baz →
- * proxy vadeli seri. Her yanıt `dataQuality` + `asOf` taşır.
+ * MVP implementasyon: spot OHLCV (mevcut Yahoo kaynağı) + tahmini baz → proxy vadeli
+ * seri. Emtia (Altın/Gümüş) için ons-USD + USD/TRY iki seriden gram-TL sentezlenir
+ * (VIOP_UNDERLYINGS.yahoo iki elemanlıysa). Her yanıt `dataQuality` + `asOf` taşır.
  *
  * ⚠️ Redistribüsyon: ham broker verisi kullanıcıya AKTARILAMAZ (veri lisansı). Yalnız
  * TÜRETİLMİŞ analiz/skor servis edilir. MVP proxy bu kısıtı doğal olarak çözer (kamuya
- * açık spot endeksten türetilir).
+ * açık spot/kur serilerinden türetilir).
  */
 
 import type { OHLCVCandle } from '@/types';
 import { fetchOHLCV } from './yahoo';
-import { getActiveViopContracts, daysToExpiry, type ViopContract } from './viop-symbols';
-import { deriveProxyFutures, estimateBasis, basisRegime } from './viop-basis';
+import {
+  getAllActiveViopContracts,
+  daysToExpiry,
+  VIOP_UNDERLYINGS,
+  type ViopContract,
+  type ViopUnderlyingKey,
+} from './viop-symbols';
+import { deriveProxyFutures, deriveGramTryFromOns, estimateBasis, basisRegime, DEFAULT_ANNUAL_RATE } from './viop-basis';
 
 export type ViopDataQuality = 'proxy' | 'delayed' | 'realtime';
 
@@ -44,10 +51,25 @@ export interface ViopOhlcv {
   asOf: string;
 }
 
-/** Kod → aktif kontrat meta (yoksa null). */
+/** Kod → aktif kontrat meta (yoksa null). Tüm varlık sınıfları taranır. */
 function resolveContract(code: string, now: Date = new Date()): ViopContract | null {
-  const active = getActiveViopContracts(now);
+  const active = getAllActiveViopContracts(now);
   return active.find((c) => c.code.toUpperCase() === code.trim().toUpperCase()) ?? null;
+}
+
+/**
+ * Dayanağın spot OHLCV serisini döndürür. Emtia (2 Yahoo sembollü) için ons-USD +
+ * USD/TRY serilerinden gram-TL sentezlenir; diğerlerinde doğrudan tek seri.
+ */
+export async function fetchUnderlyingCandles(underlying: ViopUnderlyingKey, days: number): Promise<OHLCVCandle[]> {
+  const def = VIOP_UNDERLYINGS[underlying];
+  if (def.yahoo.length === 1) {
+    const { candles } = await fetchOHLCV(def.yahoo[0], days);
+    return candles;
+  }
+  const [onsSym, fxSym] = def.yahoo;
+  const [ons, fx] = await Promise.all([fetchOHLCV(onsSym, days), fetchOHLCV(fxSym, days)]);
+  return deriveGramTryFromOns(ons.candles, fx.candles);
 }
 
 /**
@@ -59,12 +81,13 @@ export async function getViopQuote(code: string): Promise<ViopQuote | null> {
   const contract = resolveContract(code, now);
   if (!contract) return null;
 
-  const { candles, currentPrice } = await fetchOHLCV(contract.underlying, 5);
-  const spot = currentPrice ?? candles[candles.length - 1]?.close;
+  const def = VIOP_UNDERLYINGS[contract.underlying];
+  const candles = await fetchUnderlyingCandles(contract.underlying, 5);
+  const spot = candles[candles.length - 1]?.close;
   if (!spot || !Number.isFinite(spot)) return null;
 
   const dte = daysToExpiry(contract, now);
-  const basis = estimateBasis(spot, dte);
+  const basis = estimateBasis(spot, dte, DEFAULT_ANNUAL_RATE, def.carryYield);
   return {
     code: contract.code,
     underlying: contract.underlying,
@@ -88,10 +111,11 @@ export async function getViopOhlcv(code: string, days = 180): Promise<ViopOhlcv 
   const contract = resolveContract(code, now);
   if (!contract) return null;
 
-  const { candles } = await fetchOHLCV(contract.underlying, days);
+  const def = VIOP_UNDERLYINGS[contract.underlying];
+  const candles = await fetchUnderlyingCandles(contract.underlying, days);
   if (!candles.length) return null;
 
-  const proxy = deriveProxyFutures(candles, contract);
+  const proxy = deriveProxyFutures(candles, contract, DEFAULT_ANNUAL_RATE, def.carryYield);
   return {
     code: contract.code,
     underlying: contract.underlying,
@@ -103,7 +127,7 @@ export async function getViopOhlcv(code: string, days = 180): Promise<ViopOhlcv 
   };
 }
 
-/** Aktif kontratların kodlarını döndürür (cron/UI için). */
+/** Aktif kontratların kodlarını döndürür (tüm varlık sınıfları). */
 export function getActiveViopCodes(now: Date = new Date()): string[] {
-  return getActiveViopContracts(now).map((c) => c.code);
+  return getAllActiveViopContracts(now).map((c) => c.code);
 }

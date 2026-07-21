@@ -57,6 +57,38 @@ export function basisRegime(basis: number): 'contango' | 'backwardation' | 'flat
   return 'flat';
 }
 
+const TROY_OUNCE_GRAMS = 31.1034768;
+
+/**
+ * Ons-USD emtia serisini (altın/gümüş) TRY/gram serisine çevirir:
+ * gramTRY = (onsUSD ÷ 31.1034768) × usdtry.
+ *
+ * VIOP altın/gümüş kontratları gram-TL bazlıdır — ons-USD fiyatını doğrudan "TL"
+ * gibi kullanmak yanlış birim/para birimi olurdu (~40x sapma). Tarihe göre INNER
+ * JOIN yapılır (yalnız iki seride de bulunan tarihler); emtia vadeli takvimi ile
+ * kur takvimi tam örtüşmeyebilir (farklı borsa tatilleri) — bu doğal ve zararsız.
+ */
+export function deriveGramTryFromOns(onsCandles: OHLCVCandle[], usdtryCandles: OHLCVCandle[]): OHLCVCandle[] {
+  const fxByDate = new Map<string, OHLCVCandle>();
+  for (const c of usdtryCandles) fxByDate.set(String(c.date), c);
+
+  const out: OHLCVCandle[] = [];
+  for (const c of onsCandles) {
+    const fx = fxByDate.get(String(c.date));
+    if (!fx) continue;
+    const toGramTry = (v: number) => (v / TROY_OUNCE_GRAMS) * fx.close;
+    out.push({
+      date: c.date,
+      open: toGramTry(c.open),
+      high: toGramTry(c.high),
+      low: toGramTry(c.low),
+      close: toGramTry(c.close),
+      volume: c.volume,
+    });
+  }
+  return out;
+}
+
 export interface ProxyFuturesSeries {
   candles: OHLCVCandle[];
   proxy: true;

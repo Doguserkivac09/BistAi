@@ -22,6 +22,7 @@ function contract(overrides: Partial<ViopContract> = {}): ViopContract {
   return {
     code: 'F_XU0300825',
     underlying: 'XU030',
+    cls: 'endeks',
     label: 'XU030 Ağustos 2025',
     expiryMonth: 7,
     expiryYear: 2025,

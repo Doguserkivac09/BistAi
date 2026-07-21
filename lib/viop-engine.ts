@@ -12,7 +12,7 @@
 
 import type { OHLCVCandle, StockSignal } from '@/types';
 import { detectAllSignals, computeConfluence } from './signals';
-import type { ViopContract } from './viop-symbols';
+import type { ViopAssetClass, ViopContract } from './viop-symbols';
 
 /** Motora dışarıdan verilen makro/rejim bağlamı (cron doldurur; -100..100 bias, 0-100 risk). */
 export interface ViopMacroContext {
@@ -70,6 +70,7 @@ export interface ViopRiskBlock {
 export interface ViopSignalResult {
   code: string;
   underlying: string;
+  cls: ViopAssetClass;
   label: string;
   direction: 'long' | 'short' | 'notr';
   score: number; // 0-100
@@ -216,6 +217,7 @@ export function analyzeViop(input: ViopEngineInput): ViopSignalResult {
   return {
     code: contract.code,
     underlying: contract.underlying,
+    cls: contract.cls,
     label: contract.label,
     direction,
     score,

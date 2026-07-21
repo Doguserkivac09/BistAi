@@ -5,15 +5,24 @@
  * Kapsam:
  *  - estimateBasis: contango (r>q), convergence (vade→0 baz=0), pozitif ölçek
  *  - deriveProxyFutures: tarihsel convergence (eski mum > yeni mum bazı), hacim korunur
+ *  - deriveGramTryFromOns: ons-USD → gram-TL birim çevrimi, inner-join tarih hizası
  *  - getActiveViopContracts: iki aktif kontrat, çift-ay çevrimi, vade gelecekte
+ *  - getAllActiveViopContracts: tüm varlık sınıfları (endeks/banka/emtia/döviz) düz liste
  *  - daysToExpiry işaret/mantık
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { estimateBasis, spotToFutures, basisRegime, deriveProxyFutures } from '../viop-basis';
-import { getActiveViopContracts, daysToExpiry, lastBusinessDayOfMonth, type ViopContract } from '../viop-symbols';
+import { estimateBasis, spotToFutures, basisRegime, deriveProxyFutures, deriveGramTryFromOns } from '../viop-basis';
+import {
+  getActiveViopContracts,
+  getAllActiveViopContracts,
+  daysToExpiry,
+  lastBusinessDayOfMonth,
+  VIOP_UNDERLYINGS,
+  type ViopContract,
+} from '../viop-symbols';
 import type { OHLCVCandle } from '@/types';
 
 describe('estimateBasis', () => {
@@ -61,6 +70,7 @@ function fixtureContract(expiry: Date): ViopContract {
   return {
     code: 'F_XU030TEST',
     underlying: 'XU030',
+    cls: 'endeks',
     label: 'XU030 Test',
     expiryMonth: expiry.getUTCMonth(),
     expiryYear: expiry.getUTCFullYear(),
@@ -107,6 +117,29 @@ describe('deriveProxyFutures', () => {
   });
 });
 
+describe('deriveGramTryFromOns', () => {
+  it('birim çevrimi doğru: gramTRY = (onsUSD / 31.1034768) × usdtry', () => {
+    const ons = [candle('2026-07-01', 3110.34768)]; // tam 100 ons-katı → gram hesabı temiz
+    const fx = [candle('2026-07-01', 40)];
+    const [out] = deriveGramTryFromOns(ons, fx);
+    // 3110.34768 / 31.1034768 = 100 → 100 × 40 = 4000
+    assert.ok(Math.abs(out!.close - 4000) < 0.01, `beklenen 4000, gelen ${out!.close}`);
+  });
+
+  it('tarihi kur serisinde olmayan ons mumu atlanır (inner join)', () => {
+    const ons = [candle('2026-07-01', 2000), candle('2026-07-02', 2010)];
+    const fx = [candle('2026-07-01', 40)]; // 07-02 yok
+    const out = deriveGramTryFromOns(ons, fx);
+    assert.equal(out.length, 1);
+    assert.equal(out[0]!.date, '2026-07-01');
+  });
+
+  it('boş kur serisi → boş sonuç (fabrikasyon yok)', () => {
+    const ons = [candle('2026-07-01', 2000)];
+    assert.equal(deriveGramTryFromOns(ons, []).length, 0);
+  });
+});
+
 describe('getActiveViopContracts', () => {
   it('iki aktif kontrat döndürür, ikisi de çift ay', () => {
     const now = new Date(Date.UTC(2026, 6, 11)); // 11 Tem 2026
@@ -127,6 +160,28 @@ describe('getActiveViopContracts', () => {
     const now = new Date(Date.UTC(2026, 6, 11));
     const [near, next] = getActiveViopContracts(now);
     assert.ok(near!.expiry.getTime() < next!.expiry.getTime());
+  });
+});
+
+describe('getAllActiveViopContracts', () => {
+  it('tüm varlık sınıfları temsil edilir', () => {
+    const now = new Date(Date.UTC(2026, 6, 11));
+    const all = getAllActiveViopContracts(now);
+    const classes = new Set(all.map((c) => c.cls));
+    assert.ok(classes.has('endeks') && classes.has('banka') && classes.has('emtia') && classes.has('doviz'));
+  });
+
+  it('dayanak sayısı × 2 (yakın+sonraki vade) kontrat üretir', () => {
+    const now = new Date(Date.UTC(2026, 6, 11));
+    const all = getAllActiveViopContracts(now);
+    assert.equal(all.length, Object.keys(VIOP_UNDERLYINGS).length * 2);
+  });
+
+  it('her kontratın cls alanı kendi dayanağının sınıfıyla eşleşir', () => {
+    const now = new Date(Date.UTC(2026, 6, 11));
+    for (const c of getAllActiveViopContracts(now)) {
+      assert.equal(c.cls, VIOP_UNDERLYINGS[c.underlying].cls);
+    }
   });
 });
 

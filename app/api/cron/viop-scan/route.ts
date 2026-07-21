@@ -1,12 +1,15 @@
 /**
- * VIOP Analiz Precompute Cron (FAZ V1 — VIOP-TRADINGVIEW-PLAN.md)
+ * VIOP Analiz Precompute Cron (çok-varlıklı — design_handoff_viop_hub)
  *
- * Aktif VIOP kontratlarını (Faz A: XU030 yakın + sonraki vade) tarar; her biri için
- * proxy OHLCV + baz + makro/rejim bağlamı ile viop-engine çalıştırır ve sonucu
- * ai_cache 'viop-scan:BIST' TEK satırına yazar (migration YOK).
+ * TÜM aktif VIOP kontratlarını (Endeksler XU030/XU100 + Bankalar tek-hisse vadeli +
+ * Emtia Altın/Gümüş gram-TL + Döviz USD-TRY/EUR-TRY, her biri yakın+sonraki vade)
+ * tarar; her biri için proxy OHLCV + baz + makro/rejim bağlamı ile viop-engine
+ * çalıştırır ve sonucu ai_cache 'viop-scan:BIST' TEK satırına yazar (migration YOK).
  *
  * /api/viop bu satırı tek sorguyla okur → istek-zamanı Yahoo/broker fan-out'u YOK
- * (scan-cache 17:50 timeout dersi). Kontrat sayısı küçük → maxDuration kısa yeter.
+ * (scan-cache 17:50 timeout dersi). Kontrat sayısı (~22) küçük → maxDuration kısa yeter;
+ * lib/yahoo.ts'in 5dk bellek-içi cache'i aynı sembolün (ör. USDTRY=X, emtia sentezinde
+ * de kullanılır) tekrar ağa gitmesini zaten engeller.
  *
  * GET /api/cron/viop-scan
  * Header: Authorization: Bearer <CRON_SECRET>  (veya x-vercel-cron: 1)
@@ -15,13 +18,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { bistGuard } from '@/lib/bist-guard';
-import { getActiveViopContracts, daysToExpiry } from '@/lib/viop-symbols';
-import { deriveProxyFutures } from '@/lib/viop-basis';
-import { fetchOHLCV } from '@/lib/yahoo';
+import { getAllActiveViopContracts, daysToExpiry, VIOP_UNDERLYINGS } from '@/lib/viop-symbols';
+import { deriveProxyFutures, DEFAULT_ANNUAL_RATE } from '@/lib/viop-basis';
+import { fetchUnderlyingCandles } from '@/lib/viop-data';
 import { analyzeViop, type ViopMacroContext } from '@/lib/viop-engine';
 import { getMacroFull } from '@/lib/macro-service';
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const CACHE_KEY = 'viop-scan:BIST';
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest) {
   const startedAt = Date.now();
   const now = new Date();
 
-  // 1) Makro/rejim bağlamı (tüm kontratlar için ortak — endeks piyasası geneli)
+  // 1) Makro/rejim bağlamı (tüm kontratlar için ortak — piyasa geneli)
   let macro: ViopMacroContext = {};
   try {
     const full = await getMacroFull();
@@ -63,16 +66,17 @@ export async function GET(request: NextRequest) {
     macro = {}; // makro yoksa motor nötr davranır (zarif düşüş)
   }
 
-  // 2) Aktif kontratları tara
-  const contracts = getActiveViopContracts(now);
+  // 2) Tüm varlık sınıflarındaki aktif kontratları tara
+  const contracts = getAllActiveViopContracts(now);
   const items: unknown[] = [];
   const failed: string[] = [];
 
   for (const contract of contracts) {
     try {
-      const { candles } = await fetchOHLCV(contract.underlying, OHLCV_DAYS);
+      const def = VIOP_UNDERLYINGS[contract.underlying];
+      const candles = await fetchUnderlyingCandles(contract.underlying, OHLCV_DAYS);
       if (!candles.length) { failed.push(contract.code); continue; }
-      const proxy = deriveProxyFutures(candles, contract);
+      const proxy = deriveProxyFutures(candles, contract, DEFAULT_ANNUAL_RATE, def.carryYield);
       const result = analyzeViop({
         contract,
         candles: proxy.candles,
