@@ -129,7 +129,7 @@ export function ViopScreen() {
         <div className="rounded-3xl border border-hairline bg-surface-dark p-10 text-white">
           <div className="mb-3 text-3xl">🔒</div>
           <h1 className="mb-2 font-manrope text-xl font-bold">VIOP Analizi — Premium</h1>
-          <p className="mb-6 text-sm text-white/70">
+          <p className="mb-6 text-[15px] leading-relaxed text-white/70">
             Vadeli işlem analizleri (endeks, hisse, emtia, döviz) premium üyeliğe özeldir.
           </p>
           <Link
@@ -161,13 +161,13 @@ export function ViopScreen() {
                 <span className="rounded-full bg-up-badge px-2 py-0.5 text-[10px] font-bold text-up">Tanıtım · şu an ücretsiz</span>
               )}
             </div>
-            <p className="mt-0.5 text-[13px] font-medium text-t3">Endeks · Banka · Emtia · Döviz — kaldıraç-farkındalıklı senaryo</p>
+            <p className="mt-0.5 text-[14px] font-medium text-t3">Endeks · Banka · Emtia · Döviz — kaldıraç-farkındalıklı senaryo</p>
           </div>
           <ProxyBadge generatedAt={data?.generatedAt ?? null} stale={data?.stale ?? true} />
         </div>
 
         {/* ── Kalıcı risk ibaresi ── */}
-        <div className="mb-4 rounded-xl border border-warn/30 bg-warn/8 px-4 py-3 text-[12px] leading-relaxed text-warn">
+        <div className="mb-4 rounded-xl border border-warn/30 bg-warn/8 px-4 py-3 text-[13px] leading-relaxed text-warn">
           <strong>Analiz — yatırım tavsiyesi değildir.</strong> Vadeli işlemler kaldıraçlıdır;
           yatırdığınız teminatın tamamını ve daha fazlasını kaybedebilirsiniz. Buradaki içerik
           genel senaryo değerlendirmesidir, kişiye özel alım-satım önerisi içermez.
@@ -184,7 +184,7 @@ export function ViopScreen() {
             <button
               key={c.key}
               onClick={() => setTab(c.key)}
-              className={`shrink-0 border-b-2 px-4 py-3 text-[14px] font-bold transition-colors ${tab === c.key ? 'border-up text-ink' : 'border-transparent text-t3 hover:text-ink'}`}
+              className={`shrink-0 border-b-2 px-4 py-3 text-[15px] font-bold transition-colors ${tab === c.key ? 'border-up text-ink' : 'border-transparent text-t3 hover:text-ink'}`}
             >
               {c.label}
             </button>
@@ -200,13 +200,13 @@ export function ViopScreen() {
                   <button
                     key={f.key}
                     onClick={() => setDir(f.key)}
-                    className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors ${dir === f.key ? 'bg-ink text-onink' : 'bg-fill text-t3 hover:text-ink'}`}
+                    className={`rounded-full px-3.5 py-1.5 text-[13px] font-bold transition-colors ${dir === f.key ? 'bg-ink text-onink' : 'bg-fill text-t3 hover:text-ink'}`}
                   >
                     {f.label}
                   </button>
                 ))}
               </div>
-              <span className="shrink-0 text-[12px] font-semibold text-t3">{filtered.length} kontrat</span>
+              <span className="shrink-0 text-[13px] font-semibold text-t3">{filtered.length} kontrat</span>
             </div>
 
             {error && <div className="py-16 text-center text-sm text-down">{error}</div>}
@@ -242,7 +242,7 @@ function ProxyBadge({ generatedAt, stale }: { generatedAt: string | null; stale:
     ? new Date(generatedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
     : '—';
   return (
-    <div className="flex items-center gap-1.5 rounded-lg border border-hairline bg-fill px-2.5 py-1.5 text-[11px] font-medium text-t3">
+    <div className="flex items-center gap-1.5 rounded-lg border border-hairline bg-fill px-2.5 py-1.5 text-[12px] font-medium text-t3">
       <span className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-warn' : 'bg-up'}`} />
       Proxy / gecikmeli · {when}
     </div>
@@ -268,13 +268,13 @@ function MacroPanel({ macro }: { macro: MacroResp | null }) {
 
   return (
     <div className="ie-glass-ai rounded-[16px] px-[17px] py-[15px]">
-      <div className="flex items-center gap-2"><span className="font-mono text-[11px] font-bold text-ai">✦</span><span className="text-[13px] font-bold text-ink">Makro rejim</span></div>
-      <p className="mt-2 text-[12px] font-medium leading-[1.5] text-t2">{macroSummary(macro)}</p>
+      <div className="flex items-center gap-2"><span className="font-mono text-[12px] font-bold text-ai">✦</span><span className="text-[15px] font-bold text-ink">Makro rejim</span></div>
+      <p className="mt-2 text-[13px] font-medium leading-[1.5] text-t2">{macroSummary(macro)}</p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         {cells.map((c) => (
-          <div key={c.label} className="rounded-[10px] bg-fill px-2.5 py-2 text-center">
-            <div className="font-mono text-[14px] font-bold" style={c.color ? { color: c.color } : { color: 'var(--ink)' }}>{c.value}</div>
-            <div className="mt-0.5 text-[10px] font-medium text-t3">{c.label}</div>
+          <div key={c.label} className="rounded-[10px] bg-fill px-2.5 py-2.5 text-center">
+            <div className="font-mono text-[16px] font-bold" style={c.color ? { color: c.color } : { color: 'var(--ink)' }}>{c.value}</div>
+            <div className="mt-0.5 text-[11px] font-medium text-t3">{c.label}</div>
           </div>
         ))}
       </div>
@@ -289,7 +289,7 @@ function TopTrades({
   if (!topLong && !topShort) return null;
   return (
     <div className="ie-glass rounded-[16px] px-[17px] py-[15px]">
-      <div className="mb-2.5 text-[14px] font-extrabold text-ink">Öne çıkan işlemler</div>
+      <div className="mb-2.5 text-[15px] font-extrabold text-ink">Öne çıkan işlemler</div>
       <div className="flex flex-col gap-2">
         {topLong && <TopTradeRow item={topLong} onClick={() => onPick(topLong.cls, 'long')} />}
         {topShort && <TopTradeRow item={topShort} onClick={() => onPick(topShort.cls, 'short')} />}
@@ -303,11 +303,11 @@ function TopTradeRow({ item, onClick }: { item: ViopSignalResult; onClick: () =>
   return (
     <button onClick={onClick} className="rounded-[12px] border border-hairline px-3 py-2.5 text-left transition-colors hover:bg-fill">
       <div className="flex items-center justify-between gap-2">
-        <span className="rounded-[7px] px-2 py-0.5 text-[10px] font-extrabold" style={{ background: b.bg, color: b.color }}>{b.text}</span>
-        <span className="font-mono text-[13px] font-bold" style={{ color: scoreColor(item.score) }}>{item.score}</span>
+        <span className="rounded-[7px] px-2 py-0.5 text-[11px] font-extrabold" style={{ background: b.bg, color: b.color }}>{b.text}</span>
+        <span className="font-mono text-[15px] font-bold" style={{ color: scoreColor(item.score) }}>{item.score}</span>
       </div>
-      <div className="mt-1.5 text-[12px] font-bold text-ink">{item.label}</div>
-      <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-t3">
+      <div className="mt-1.5 text-[13px] font-bold text-ink">{item.label}</div>
+      <div className="mt-1 flex items-center gap-2 font-mono text-[12px] text-t3">
         <span>Giriş {fmt(item.risk.entryPrice)}</span>
         <span>·</span>
         <span>Hedef {fmt(item.risk.targetPrice)}</span>
@@ -326,29 +326,29 @@ function ViopCard({ item }: { item: ViopSignalResult }) {
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-hairline px-5 py-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-[7px] bg-ai-panel px-2 py-0.5 font-mono text-[11px] font-bold text-ai">{item.underlying}</span>
-            <span className="font-manrope text-[16px] font-bold text-ink">{item.label}</span>
+            <span className="rounded-[7px] bg-ai-panel px-2 py-0.5 font-mono text-[12px] font-bold text-ai">{item.underlying}</span>
+            <span className="font-manrope text-[18px] font-bold text-ink">{item.label}</span>
             {item.settlement === 'fiziki' && (
-              <span className="rounded-[6px] bg-warn/15 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.03em] text-warn" title="Vadede kapatılmazsa gerçek pay teslimi gerekir">
+              <span className="rounded-[6px] bg-warn/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.03em] text-warn" title="Vadede kapatılmazsa gerçek pay teslimi gerekir">
                 Fiziki teslimat
               </span>
             )}
           </div>
-          <div className="mt-1 font-mono text-[11px] text-t4">{item.code} · {dirSentence(item.direction)}</div>
+          <div className="mt-1 font-mono text-[12px] text-t4">{item.code} · {dirSentence(item.direction)}</div>
         </div>
         <div className="flex shrink-0 items-center gap-4">
-          <span className="rounded-[9px] px-3 py-1.5 text-[12px] font-extrabold" style={{ background: badge.bg, color: badge.color }}>{badge.text}</span>
+          <span className="rounded-[9px] px-3 py-1.5 text-[13px] font-extrabold" style={{ background: badge.bg, color: badge.color }}>{badge.text}</span>
           <div className="text-right">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-t4">Skor</div>
-            <div className="font-mono text-2xl font-bold" style={{ color: scoreColor(item.score) }}>{item.score}</div>
-            <div className="text-[10px] text-t4">{item.confidence} güven</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-t4">Skor</div>
+            <div className="font-mono text-[28px] font-bold leading-none" style={{ color: scoreColor(item.score) }}>{item.score}</div>
+            <div className="mt-0.5 text-[11px] text-t4">{item.confidence} güven</div>
           </div>
         </div>
       </div>
 
       {/* Kaldıraç / teminat / likidasyon — 8 hücre risk grid (koyu feature kart) */}
       <div className="m-5 rounded-xl bg-surface-dark p-4 text-white">
-        <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-white/60">
+        <div className="mb-3 text-[12px] font-bold uppercase tracking-wider text-white/60">
           Kaldıraç &amp; Risk
         </div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
@@ -361,18 +361,18 @@ function ViopCard({ item }: { item: ViopSignalResult }) {
           <Metric label="Margin call" value={`~%${item.risk.marginCallMovePct}`} sub={`Teminat biter ~%${item.risk.liquidationMovePct}`} accent="#ffb27a" />
           <Metric label="Vadeye" value={`${item.expiry.daysToExpiry}g`} />
         </div>
-        <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-white/70">
+        <div className="mt-3 flex items-start gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-[12px] leading-relaxed text-white/70">
           <span className="shrink-0">⚠️</span>
           <span>{item.risk.warning}</span>
         </div>
         {item.settlementWarning && (
-          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-warn/15 px-3 py-2 text-[11px] leading-relaxed text-[#ffd08a]">
+          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-warn/15 px-3 py-2 text-[12px] leading-relaxed text-[#ffd08a]">
             <span className="shrink-0">📦</span>
             <span>{item.settlementWarning}</span>
           </div>
         )}
         {item.expiry.rollWarning && (
-          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-white/70">
+          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-[12px] leading-relaxed text-white/70">
             <span className="shrink-0">🗓️</span>
             <span>{item.expiry.rollWarning}</span>
           </div>
@@ -381,14 +381,14 @@ function ViopCard({ item }: { item: ViopSignalResult }) {
 
       {/* Alt satır: baz + gerekçe + sinyaller */}
       <div className="border-t border-hairline px-5 py-4">
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-t4">
+        <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-t4">
           Baz {item.basis >= 0 ? '+' : ''}{fmt(item.basis)} · {item.regime}
         </div>
-        <p className="text-[13px] leading-relaxed text-t2">{item.rationale}</p>
+        <p className="text-[14px] leading-relaxed text-t2">{item.rationale}</p>
         {item.technical.topSignals.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {item.technical.topSignals.map((s) => (
-              <span key={s} className="rounded-md bg-fill px-2 py-0.5 text-[11px] font-medium text-t3">
+              <span key={s} className="rounded-md bg-fill px-2 py-0.5 text-[12px] font-medium text-t3">
                 {s}
               </span>
             ))}
@@ -402,9 +402,9 @@ function ViopCard({ item }: { item: ViopSignalResult }) {
 function Metric({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
     <div>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-white/50">{label}</div>
-      <div className="font-mono text-[15px] font-bold" style={accent ? { color: accent } : undefined}>{value}</div>
-      {sub && <div className="font-mono text-[10px] text-white/50">{sub}</div>}
+      <div className="text-[11px] font-medium uppercase tracking-wide text-white/50">{label}</div>
+      <div className="font-mono text-[17px] font-bold" style={accent ? { color: accent } : undefined}>{value}</div>
+      {sub && <div className="font-mono text-[11px] text-white/50">{sub}</div>}
     </div>
   );
 }
