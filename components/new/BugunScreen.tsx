@@ -420,6 +420,11 @@ export function BugunScreen() {
   const secStrong = sorted[0] ?? null;
   const secWeak = sorted.length > 1 ? sorted[sorted.length - 1]! : null;
 
+  // Sağ ray sektör momentum listesi: en güçlü 5 + en zayıf 3 (orta bölge atlanır);
+  // az sektör varsa hepsini göster. Bar genişliği için ortak ölçek (mutlak max perf).
+  const sectorRows = sorted.length <= 8 ? sorted : [...sorted.slice(0, 5), ...sorted.slice(-3)];
+  const sectorMax = Math.max(1, ...sectorRows.map((s) => Math.abs(s.perf20d)));
+
   const dateStr = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   // ── Paylaşılan bloklar ──
@@ -728,21 +733,53 @@ export function BugunScreen() {
 
             {takipListemCard}
 
+            {/* Sektör momentumu — sağ rayın ana bağlam kartı (büyük) */}
             <div className="ie-glass flex flex-1 flex-col rounded-[18px] px-[18px] py-4">
-              <div className="text-[14px] font-extrabold tracking-[-0.01em] text-ink">Verdict ölçeği</div>
-              <div className="mt-3 flex flex-col gap-[11px]">
-                {LEGEND.map((l) => (
-                  <div key={l.t} className="flex items-center gap-[11px]">
-                    <span className="h-[10px] w-[10px] shrink-0 rounded-[3px]" style={{ background: l.c }} />
-                    <div>
-                      <div className="text-[12px] font-bold text-ink">{l.t}</div>
-                      <div className="text-[11px] font-medium text-t3">{l.d}</div>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-extrabold tracking-[-0.01em] text-ink">Sektör momentumu</span>
+                <Link href="/makro" className="text-[11px] font-semibold text-t3 hover:text-ink">Tümü →</Link>
               </div>
-              <div className="flex-1" />
-              <p className="mt-3 text-[11px] font-medium leading-[1.5] text-t3">
+              {sectorRows.length === 0 ? (
+                <p className="mt-4 text-[12px] font-medium text-t3">Sektör verisi yükleniyor…</p>
+              ) : (
+                <div className="mt-3 flex flex-col gap-2.5">
+                  {sectorRows.map((s) => (
+                    <div key={s.shortName} className="flex items-center gap-2.5">
+                      <span className="w-[92px] shrink-0 truncate text-[12px] font-semibold text-ink">{s.shortName}</span>
+                      <div className="relative h-[7px] flex-1 rounded-full bg-fill">
+                        <span
+                          className="absolute top-0 h-full rounded-full"
+                          style={{
+                            background: s.perf20d >= 0 ? '#16a35b' : '#e5484d',
+                            width: `${Math.min(100, (Math.abs(s.perf20d) / sectorMax) * 100)}%`,
+                            left: s.perf20d >= 0 ? '50%' : undefined,
+                            right: s.perf20d < 0 ? '50%' : undefined,
+                          }}
+                        />
+                        <span className="absolute left-1/2 top-1/2 h-[11px] w-px -translate-x-1/2 -translate-y-1/2 bg-hairline" />
+                      </div>
+                      <span className="w-[52px] shrink-0 text-right font-mono text-[12px] font-semibold" style={{ color: pctColor(s.perf20d) }}>
+                        {fmtPct(s.perf20d)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="mt-2.5 text-[10px] font-medium text-t4">20 günlük sektör getirisi · çizgi = nötr</p>
+
+              {/* Verdict ölçeği — kompakt (küçük, altta) */}
+              <div className="mt-4 border-t border-hairline pt-3">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.04em] text-t3">Verdict ölçeği</div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                  {LEGEND.map((l) => (
+                    <div key={l.t} className="flex items-center gap-1.5" title={l.d}>
+                      <span className="h-[8px] w-[8px] shrink-0 rounded-[2px]" style={{ background: l.c }} />
+                      <span className="truncate text-[11px] font-semibold text-t2">{l.t}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="mt-3 text-[10px] font-medium leading-[1.5] text-t4">
                 Kararlar kural-tabanlı; AI yalnızca özetler. Yatırım tavsiyesi değildir.
               </p>
             </div>
