@@ -30,6 +30,11 @@ interface MacroResp {
 }
 interface MacroHistResp { history?: Array<{ bist100: number | null }> }
 interface SectorLite { shortName: string; perf20d: number }
+interface ViopLite {
+  code: string; underlying: string; label: string;
+  direction: 'long' | 'short' | 'notr'; score: number;
+  risk: { entryPrice: number; targetPrice: number; riskRewardRatio: number | null };
+}
 interface PortfolioStrip { value: number; dayPct: number | null; dayTL: number | null }
 
 // action → tasarım verdict'i
@@ -173,6 +178,29 @@ function PersonalRow({
   );
 }
 
+function ViopMini({ item }: { item: ViopLite }) {
+  const isLong = item.direction === 'long';
+  const c = isLong ? '#16a35b' : '#e5484d';
+  const bg = isLong ? 'rgba(22,163,91,0.12)' : 'rgba(229,72,77,0.12)';
+  return (
+    <Link href="/viop" className="flex items-center gap-2.5 rounded-[12px] border border-hairline px-3 py-2.5 transition-colors hover:bg-fill">
+      <span className="shrink-0 rounded-[7px] px-2 py-1 text-[10px] font-extrabold" style={{ background: bg, color: c }}>
+        {isLong ? '▲ LONG' : '▼ SHORT'}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-bold text-ink">{item.label}</div>
+        <div className="mt-0.5 truncate font-mono text-[11px] text-t3">
+          Giriş {fmtPrice(item.risk.entryPrice)} → {fmtPrice(item.risk.targetPrice)}
+          {item.risk.riskRewardRatio != null && ` · R/R ${item.risk.riskRewardRatio}`}
+        </div>
+      </div>
+      <span className="shrink-0 font-mono text-[16px] font-bold" style={{ color: item.score >= 70 ? '#16a35b' : item.score >= 55 ? '#c98a00' : '#9aa0ad' }}>
+        {item.score}
+      </span>
+    </Link>
+  );
+}
+
 function VerdictRow({ r, feedType, delta, mobileHidden }: { r: SmartSignalResult; feedType?: FeedType | null; delta?: number | null; mobileHidden?: boolean }) {
   const v = VERDICT[r.action] ?? VERDICT.Avoid;
   const fm = feedType ? FEED_META[feedType] : null;
@@ -270,6 +298,7 @@ export function BugunScreen() {
   const [weekly, setWeekly] = useState<{ avg: number | null; beatRate: number | null } | null>(null);
   const [aiRet, setAiRet] = useState<{ aegis: number | null; apex: number | null }>({ aegis: null, apex: null });
   const [heldSyms, setHeldSyms] = useState<string[]>([]);
+  const [viopTop, setViopTop] = useState<{ long: ViopLite | null; short: ViopLite | null } | null>(null);
   const [watchRows, setWatchRows] = useState<Array<{ sembol: string }>>([]);
   const [watchExpanded, setWatchExpanded] = useState(false);
 
@@ -358,6 +387,21 @@ export function BugunScreen() {
         setAiRet((p) => ({ ...p, apex: d?.summary?.totalReturn ?? null })))
       .catch(() => {});
 
+    // VIOP vadeli — tüm varlıklarda en güçlü long + short (premium; tanıtım modunda açık)
+    fetch('/api/viop')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { items?: ViopLite[] } | null) => {
+        const items = d?.items ?? [];
+        if (items.length === 0) return;
+        let long: ViopLite | null = null, short: ViopLite | null = null;
+        for (const i of items) {
+          if (i.direction === 'long' && (!long || i.score > long.score)) long = i;
+          if (i.direction === 'short' && (!short || i.score > short.score)) short = i;
+        }
+        if (long || short) setViopTop({ long, short });
+      })
+      .catch(() => {});
+
     // Takip listem — auth yoksa sessizce boş kalır (401)
     fetch('/api/watchlist')
       .then((r) => (r.ok ? r.json() : null))
@@ -420,9 +464,9 @@ export function BugunScreen() {
   const secStrong = sorted[0] ?? null;
   const secWeak = sorted.length > 1 ? sorted[sorted.length - 1]! : null;
 
-  // Sağ ray sektör momentum listesi: en güçlü 5 + en zayıf 3 (orta bölge atlanır);
-  // az sektör varsa hepsini göster. Bar genişliği için ortak ölçek (mutlak max perf).
-  const sectorRows = sorted.length <= 8 ? sorted : [...sorted.slice(0, 5), ...sorted.slice(-3)];
+  // Sağ ray sektör momentum listesi: tüm sektörler (alanı doldurur), skorca sıralı.
+  // Bar genişliği için ortak ölçek (mutlak max perf).
+  const sectorRows = sorted;
   const sectorMax = Math.max(1, ...sectorRows.map((s) => Math.abs(s.perf20d)));
 
   const dateStr = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -436,6 +480,24 @@ export function BugunScreen() {
       <span className="mx-1 h-3.5 w-px bg-hairline" />
       <span className="text-[12px] font-bold text-down">▼ {secWeak.shortName}</span>
       <span className="font-mono text-[12px] font-semibold text-down">{fmtPct(secWeak.perf20d)}</span>
+    </div>
+  );
+
+  // VIOP vadeli — en güçlü long + short (auth/tanıtım yoksa viopTop null → gizli)
+  const viopCard = viopTop && (viopTop.long || viopTop.short) && (
+    <div className="ie-glass rounded-[18px] px-[18px] py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[14px] font-extrabold tracking-[-0.01em] text-ink">VIOP vadeli</span>
+          <span className="rounded-full bg-ai-panel px-1.5 py-0.5 text-[9px] font-bold text-ai">PREMIUM</span>
+        </div>
+        <Link href="/viop" className="text-[11px] font-semibold text-t3 hover:text-ink">Tümü →</Link>
+      </div>
+      <p className="mt-1 text-[11px] font-medium text-t3">Tüm varlıklarda öne çıkan kaldıraçlı senaryo</p>
+      <div className="mt-2.5 flex flex-col gap-2">
+        {viopTop.long && <ViopMini item={viopTop.long} />}
+        {viopTop.short && <ViopMini item={viopTop.short} />}
+      </div>
     </div>
   );
 
@@ -693,6 +755,9 @@ export function BugunScreen() {
 
             {oppsBlock}
 
+            {/* VIOP vadeli — mobil (masaüstünde sağ rayda) */}
+            <div className="lg:hidden">{viopCard}</div>
+
             {/* Sektör şeridi — mobil (masaüstünde bilgi şeridinde) */}
             <div className="lg:hidden">{sectorStrip}</div>
 
@@ -733,6 +798,8 @@ export function BugunScreen() {
 
             {takipListemCard}
 
+            {viopCard}
+
             {/* Sektör momentumu — sağ rayın ana bağlam kartı (büyük) */}
             <div className="ie-glass flex flex-1 flex-col rounded-[18px] px-[18px] py-4">
               <div className="flex items-center justify-between">
@@ -746,17 +813,19 @@ export function BugunScreen() {
                   {sectorRows.map((s) => (
                     <div key={s.shortName} className="flex items-center gap-2.5">
                       <span className="w-[92px] shrink-0 truncate text-[12px] font-semibold text-ink">{s.shortName}</span>
-                      <div className="relative h-[7px] flex-1 rounded-full bg-fill">
+                      <div className="relative h-[7px] flex-1 overflow-hidden rounded-full bg-fill">
+                        {/* Diverging bar: merkezden başlar, max yarım genişlik (%50) → taşmaz */}
                         <span
-                          className="absolute top-0 h-full rounded-full"
+                          className="absolute top-0 h-full"
                           style={{
                             background: s.perf20d >= 0 ? '#16a35b' : '#e5484d',
-                            width: `${Math.min(100, (Math.abs(s.perf20d) / sectorMax) * 100)}%`,
+                            width: `${Math.min(50, (Math.abs(s.perf20d) / sectorMax) * 50)}%`,
                             left: s.perf20d >= 0 ? '50%' : undefined,
                             right: s.perf20d < 0 ? '50%' : undefined,
+                            borderRadius: s.perf20d >= 0 ? '0 3px 3px 0' : '3px 0 0 3px',
                           }}
                         />
-                        <span className="absolute left-1/2 top-1/2 h-[11px] w-px -translate-x-1/2 -translate-y-1/2 bg-hairline" />
+                        <span className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-hairline/70" />
                       </div>
                       <span className="w-[52px] shrink-0 text-right font-mono text-[12px] font-semibold" style={{ color: pctColor(s.perf20d) }}>
                         {fmtPct(s.perf20d)}
