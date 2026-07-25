@@ -74,44 +74,65 @@ export function netReturnOf(row: AbSignalRow): number | null {
 }
 
 /**
- * Bir satırı v1 VE v2 ile yeniden skorlar (point-in-time; timeDecay≈1 için scannedAt=now).
- * macroScoreValue verilirse (macro_snapshots'tan) v1 makro-hizasını kullanır, v2 kullanmaz
- * → asıl tez farkı burada oluşur.
+ * Bir sembolün o günkü TÜM sinyallerini birleştirip v1 VE v2 ile yeniden skorlar
+ * (point-in-time; timeDecay≈1 için scannedAt=now). Üretimdeki confluence'ı sadık kurar —
+ * tek satır skorlamak yapay düşük confluence verir (her satır tek signal_type).
+ * macroScoreValue (macro_snapshots'tan) v1 makro-hizasını besler, v2 kullanmaz →
+ * asıl tez (skaler makro sıralamayı sürüklemez) farkı burada oluşur.
  */
-export function scoreRow(row: AbSignalRow, macroScoreValue: number | null): { v1: number; v2: number } {
-  const signals = dbRowsToStockSignals([{
-    signal_type: row.signal_type,
-    direction: row.direction,
-    sembol: row.sembol,
-    confluence_score: row.confluence_score,
-    weekly_aligned: row.weekly_aligned,
-  }]);
+export function scoreGroup(rows: AbSignalRow[], macroScoreValue: number | null, regime: string | null): { v1: number; v2: number } {
+  const signals = dbRowsToStockSignals(rows.map((r) => ({
+    signal_type: r.signal_type,
+    direction: r.direction,
+    sembol: r.sembol,
+    confluence_score: r.confluence_score,
+    weekly_aligned: r.weekly_aligned,
+  })));
   const nowIso = new Date().toISOString(); // staleness≈0 → üretim-anı skoru yeniden kur
   const macroScore = macroScoreValue != null ? ({ score: macroScoreValue } as MacroScoreResult) : null;
 
   const v1 = computeDecision({
-    signals, scannedAt: nowIso, dataSource: 'db_snapshot', macroScore, regime: row.regime, scoringV2: false,
+    signals, scannedAt: nowIso, dataSource: 'db_snapshot', macroScore, regime, scoringV2: false,
   }).score;
   const v2 = computeDecision({
-    signals, scannedAt: nowIso, dataSource: 'db_snapshot', macroScore, regime: row.regime,
+    signals, scannedAt: nowIso, dataSource: 'db_snapshot', macroScore, regime,
     surface: 'short', scoringV2: true,
   }).score;
   return { v1, v2 };
 }
 
-/** DB satırlarından ölçüm event'leri kur (getirisi hesaplanamayan satır atlanır). */
+/** Çoğunluk yönü (üretim firsatlar deseni: yukarı vs aşağı sinyal sayısı). */
+function majorityDirection(rows: AbSignalRow[]): 'yukari' | 'asagi' | 'notr' {
+  let up = 0, down = 0;
+  for (const r of rows) { if (r.direction === 'yukari') up++; else if (r.direction === 'asagi') down++; }
+  return up > down ? 'yukari' : down > up ? 'asagi' : 'notr';
+}
+
+/**
+ * DB satırlarını sembol+gün bazında GRUPLAYIP ölçüm event'leri kurar (üretim confluence'ı
+ * sadık). Grup getirisi = en yüksek confluence'lı satırın kanonik net getirisi (üretimdeki
+ * "best signal" seçimi). Getirisi hesaplanamayan grup atlanır.
+ */
 export function buildEvents(rows: AbSignalRow[], macroByDate: Map<string, number>): AbEvent[] {
+  const groups = new Map<string, AbSignalRow[]>();
+  for (const r of rows) {
+    const key = `${r.sembol}|${r.entry_time.slice(0, 10)}`;
+    const g = groups.get(key);
+    if (g) g.push(r); else groups.set(key, [r]);
+  }
+
   const events: AbEvent[] = [];
-  for (const row of rows) {
-    const netReturn = netReturnOf(row);
+  for (const grp of groups.values()) {
+    const best = grp.reduce((a, b) => (b.confluence_score ?? 0) > (a.confluence_score ?? 0) ? b : a);
+    const netReturn = netReturnOf(best);
     if (netReturn == null) continue;
-    const dateKey = row.entry_time.slice(0, 10);
-    const { v1, v2 } = scoreRow(row, macroByDate.get(dateKey) ?? null);
+    const dateKey = best.entry_time.slice(0, 10);
+    const { v1, v2 } = scoreGroup(grp, macroByDate.get(dateKey) ?? null, best.regime);
     events.push({
-      sembol: row.sembol,
-      entryTime: row.entry_time,
-      regime: bucketRegime(row.regime),
-      direction: normDirection(row.direction),
+      sembol: best.sembol,
+      entryTime: best.entry_time,
+      regime: bucketRegime(best.regime),
+      direction: majorityDirection(grp),
       netReturn,
       v1Score: v1,
       v2Score: v2,

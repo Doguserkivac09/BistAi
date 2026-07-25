@@ -17,6 +17,7 @@ import {
   netReturnOf,
   bucketRegime,
   runAb,
+  buildEvents,
   AB_COMMISSION,
   type AbEvent,
   type AbSignalRow,
@@ -90,6 +91,55 @@ describe('bucketRegime', () => {
     assert.equal(bucketRegime('bear_trend'), 'ayı');
     assert.equal(bucketRegime('sideways'), 'yatay');
     assert.equal(bucketRegime(null), 'bilinmiyor');
+  });
+});
+
+describe('buildEvents — sembol+gün gruplama (üretim confluence sadakati)', () => {
+  const row = (o: Partial<AbSignalRow>): AbSignalRow => ({
+    sembol: 'AAA', signal_type: 'Trend Başlangıcı', direction: 'yukari',
+    entry_time: '2026-05-01T10:00:00Z', confluence_score: 60, weekly_aligned: true,
+    regime: 'bull_trend', return_3d: null, return_7d: 0.1, return_14d: 0.15, return_30d: 0.2, ...o,
+  });
+
+  it('aynı sembol+gün satırları TEK event olur (sinyaller birleşir)', () => {
+    const evts = buildEvents([
+      row({ signal_type: 'Trend Başlangıcı' }),
+      row({ signal_type: 'MACD Kesişimi' }),
+      row({ signal_type: 'Higher Lows' }),
+    ], new Map());
+    assert.equal(evts.length, 1);
+  });
+
+  it('farklı gün → ayrı event', () => {
+    const evts = buildEvents([
+      row({ entry_time: '2026-05-01T10:00:00Z' }),
+      row({ entry_time: '2026-05-02T10:00:00Z' }),
+    ], new Map());
+    assert.equal(evts.length, 2);
+  });
+
+  it('birleşik confluence tek sinyalden yüksek skor verir (üretim gerçekçiliği)', () => {
+    const tek = buildEvents([row({ confluence_score: 70 })], new Map());
+    const cok = buildEvents([
+      row({ signal_type: 'Trend Başlangıcı', confluence_score: 70 }),
+      row({ signal_type: 'MACD Kesişimi', confluence_score: 70 }),
+      row({ signal_type: 'Higher Lows', confluence_score: 70 }),
+    ], new Map());
+    assert.ok(cok[0]!.v1Score >= tek[0]!.v1Score);
+  });
+
+  it('grup getirisi = en yüksek confluence satırın kanonik neti', () => {
+    const evts = buildEvents([
+      row({ signal_type: 'Trend Başlangıcı', confluence_score: 50, return_14d: 0.05 }),
+      row({ signal_type: 'MACD Kesişimi', confluence_score: 90, return_7d: 0.3 }), // best
+    ], new Map());
+    // best = MACD (conf 90), kanonik ufku 7g → return_7d 0.3 − komisyon
+    assert.ok(Math.abs(evts[0]!.netReturn - (0.3 - AB_COMMISSION)) < 1e-9);
+  });
+
+  it('getirisi hesaplanamayan grup atlanır', () => {
+    const evts = buildEvents([row({ return_14d: null, return_7d: null, return_30d: null, return_3d: null })], new Map());
+    assert.equal(evts.length, 0);
   });
 });
 
