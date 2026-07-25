@@ -21,6 +21,7 @@ import type { MacroScoreResult } from '@/lib/macro-score';
 import type { SectorMomentum } from '@/lib/sector-engine';
 import type { RiskScoreResult } from '@/lib/risk-engine';
 import type { SymbolCatalyst } from '@/lib/news-impact';
+import { isScoringV2, regimeGate, type RegimeGate, type ScoringSurface } from '@/lib/scoring-config';
 
 // ── Sabitler ─────────────────────────────────────────────────────────
 
@@ -59,6 +60,32 @@ export interface DecisionInput {
   scannedAt: string;
   /** Veri kaynağı: DB snapshot (cron) vs canlı Yahoo */
   dataSource: DecisionDataSource;
+
+  // ── SCORING v2 (SKOR-MIMARISI-PLAN) — hepsi opsiyonel; verilmezse v1 davranışı ──
+  /** Skor yüzeyi (ufka göre v2 ağırlığı). Vars. 'short'. */
+  surface?: ScoringSurface;
+  /**
+   * v2 açık/kapa EXPLICIT override — A/B harness (aynı girdide v1+v2) ve testler için.
+   * undefined → isScoringV2(surface) (global flag). Bu alan olmadan A/B ölçümü yapılamaz.
+   */
+  scoringV2?: boolean;
+  /**
+   * Temel red-flag'ler — v2 kısa vadede YUKARI sinyale VETO (toplamsal +puan DEĞİL,
+   * yalnız skor tavanı + güven cezası). Verilmezse veto no-op.
+   */
+  fundamental?: {
+    /** Beneish M-Score kâr manipülasyonu şüphesi. */
+    beneishSuspect?: boolean;
+    /** Altman Z'' iflas/sıkıntı bölgesi. */
+    altmanDistress?: boolean;
+    /** İleriye dönük GARP verdict'i (forward-outlook). */
+    garpVerdict?: 'firsat' | 'pahali_ama_hakli' | 'deger_tuzagi' | 'gercekten_pahali' | null;
+  } | null;
+  /**
+   * Hisse-özel makro DUYARLILIK katkısı (±puan, exposure-map.exposureContribution'dan).
+   * Kesitte değişken olduğu için v2 ranking'e MEŞRU girer. Verilmezse 0 (FAZ 2'de bağlanır).
+   */
+  exposureAdj?: number | null;
 }
 
 export interface DecisionFactors {
@@ -105,6 +132,14 @@ export interface DecisionOutput {
   dataSource: DecisionDataSource;
   /** scannedAt zamanını geri döndür (UI için) */
   scannedAt: string;
+
+  // ── SCORING v2 çıktıları (v1'de null/false) ──
+  /** Rejim kapısı — skaler makrodan (skor değil): posture/güven/eşik/sinyal sayısı. */
+  regimeGate?: RegimeGate | null;
+  /** Temel veto tetiklendi mi (v2 kısa vade + yukarı sinyal + red-flag). */
+  fundamentalVetoed?: boolean;
+  /** Bu çıktı v2 skorlamasıyla mı üretildi (şeffaflık/A-B etiketi). */
+  scoringV2?: boolean;
 }
 
 // ── Ayarlama fonksiyonları (firsatlar ile uyumlu) ────────────────────
@@ -233,6 +268,32 @@ function riskMultiplier(riskScore: RiskScoreResult | null | undefined): number {
   }
 }
 
+/**
+ * Temel VETO (v2, yalnız kısa vade + YUKARI yön). Temel red-flag varsa yukarı yönlü
+ * teknik sinyale güvenilmez → skoru TAVANLA (toplamsal +puan YOK) + güveni kır.
+ * Aşağı yönde uygulanmaz: zayıf temel, düşüş senaryosunu zaten teyit eder.
+ * Ufak "veto" felsefesi: temel skora sızmaz, yalnız yanlış-pozitifi keser.
+ */
+function fundamentalVeto(
+  direction: DecisionDirection,
+  fundamental: DecisionInput['fundamental'],
+  surface: ScoringSurface,
+): { scoreCap: number | null; confidencePenalty: number } {
+  if (surface !== 'short' || direction !== 'yukari' || !fundamental) {
+    return { scoreCap: null, confidencePenalty: 0 };
+  }
+  // Sert red-flag: kâr manipülasyonu / iflas bölgesi → yukarı sinyali "Al" eşiğinin
+  // (65) ve "Tut" bandının altına (40) kırp, güveni ciddi düşür.
+  if (fundamental.beneishSuspect || fundamental.altmanDistress) {
+    return { scoreCap: 40, confidencePenalty: 25 };
+  }
+  // Yumuşak: değer tuzağı (ucuz görünüp haklı sebeple ucuz) → tavan + orta ceza.
+  if (fundamental.garpVerdict === 'deger_tuzagi') {
+    return { scoreCap: 55, confidencePenalty: 15 };
+  }
+  return { scoreCap: null, confidencePenalty: 0 };
+}
+
 // ── Yön ve rating çıkarımı ────────────────────────────────────────────
 
 /**
@@ -321,6 +382,10 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
     kapRisk, catalyst, regime, relVol5, daysUntilEarnings, scannedAt, dataSource,
   } = input;
 
+  const surface: ScoringSurface = input.surface ?? 'short';
+  // v2 açık mı: explicit override (A/B harness) yoksa global flag+yüzey kademesi
+  const useV2 = input.scoringV2 ?? isScoringV2(surface);
+
   const now = Date.now();
   const scannedTs = new Date(scannedAt).getTime();
   const stalenessHours = Number.isFinite(scannedTs)
@@ -370,14 +435,40 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   const catalystAdj = catalystAdjustment(direction, catalyst);
   const riskMult   = riskMultiplier(riskScore);
 
-  // 4. Skor hesabı: confluence × timeDecay + ayarlamalar, sonra risk çarpanı
-  const rawMagnitude =
-    confluence.score * timeDecay +
-    winRateAdj + regimeFit + macroAlign + mtfAlign + sectorAlign + volumeConfirm +
-    earningsRisk + kapEvent + catalystAdj;
+  // 4. Skor hesabı — v1 vs v2 ayrımı (v2 flag arkasında; kapalıysa bit-bazında aynı)
+  let score: number;
+  let gate: RegimeGate | null = null;
+  let vetoed = false;
+  let confidencePenaltyV2 = 0;
 
-  const riskAdjusted = rawMagnitude * riskMult;
-  const score = Math.max(0, Math.min(100, Math.round(riskAdjusted)));
+  if (useV2) {
+    // RANKING = teknik + hisse-ÖZEL riskler (kesitte değişken → sıralamayı ayrıştırır).
+    // ÇIKARILAN (skaler → skordan çıktı): macroAlign, regimeFit, sectorAlign → kapı/context;
+    // riskMultiplier → kapı güven çarpanı. Bunlar hâlâ factors'ta (şeffaflık/context).
+    // exposureAdj (hisse-özel makro duyarlılığı) skora GİRER — kesitte değişken (FAZ 2).
+    const exposureAdj = Number.isFinite(input.exposureAdj ?? NaN) ? (input.exposureAdj as number) : 0;
+    const rankingRaw =
+      confluence.score * timeDecay +
+      winRateAdj + mtfAlign + volumeConfirm +
+      earningsRisk + kapEvent + catalystAdj + exposureAdj;
+    let s = Math.max(0, Math.min(100, Math.round(rankingRaw)));
+
+    // Temel VETO (kısa vade, yukarı): skor tavanı + güven cezası (toplamsal +puan YOK)
+    const veto = fundamentalVeto(direction, input.fundamental ?? null, surface);
+    if (veto.scoreCap != null) { s = Math.min(s, veto.scoreCap); vetoed = true; }
+    confidencePenaltyV2 = veto.confidencePenalty;
+
+    score = s;
+    gate = regimeGate(regime ?? null);
+  } else {
+    // v1 — DEĞİŞMEDEN (SCORING_V2 kapalıyken bit-bazında aynı çıktı)
+    const rawMagnitude =
+      confluence.score * timeDecay +
+      winRateAdj + regimeFit + macroAlign + mtfAlign + sectorAlign + volumeConfirm +
+      earningsRisk + kapEvent + catalystAdj;
+    const riskAdjusted = rawMagnitude * riskMult;
+    score = Math.max(0, Math.min(100, Math.round(riskAdjusted)));
+  }
 
   const factors: DecisionFactors = {
     confluence: confluence.score,
@@ -395,7 +486,14 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
   };
 
   const rating = deriveRating(score, direction);
-  const confidence = deriveConfidence(score, factors, signals.length);
+  let confidence = deriveConfidence(score, factors, signals.length);
+
+  if (useV2) {
+    // v2 güven: temel veto cezası − sonra rejim kapısı çarpanı (skaler makro güveni kısar)
+    confidence = Math.max(0, Math.min(100, Math.round(
+      (confidence - confidencePenaltyV2) * (gate?.confidenceMultiplier ?? 1),
+    )));
+  }
 
   return {
     score,
@@ -406,6 +504,9 @@ export function computeDecision(input: DecisionInput): DecisionOutput {
     stalenessHours: Math.round(stalenessHours * 10) / 10,
     dataSource,
     scannedAt,
+    regimeGate: gate,
+    fundamentalVetoed: vetoed,
+    scoringV2: useV2,
   };
 }
 
@@ -491,5 +592,7 @@ export function dbRowsToStockSignals(rows: DBSignalRow[]): StockSignal[] {
 
 // 1.1.0 (2026-06-11): sectorAlign (P1-1) + volumeConfirm (P1-2) faktörleri eklendi
 // 1.2.0 (2026-06-12): earningsRisk (FAZ 2) — yaklaşan bilanço binary event cezası
-export const DECISION_ENGINE_VERSION = '1.2.0';
+// 2.0.0 (2026-07-23): SCORING_V2 (flag arkasında) — ranking/kapı ayrımı + temel veto +
+//                     hisse-özel exposure katkısı. Flag kapalıyken 1.2.0 ile bit-bazında aynı.
+export const DECISION_ENGINE_VERSION = '2.0.0';
 export const SIGNIFICANT_SCORE_DELTA = 15;

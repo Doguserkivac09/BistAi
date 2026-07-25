@@ -188,3 +188,89 @@ describe('signal-horizons: kanonik ufuk ↔ min eval günü senkronu (BUG-A)', (
     assert.equal(getMinEvalDays('Bilinmeyen Sinyal'), 7)
   })
 })
+
+// ── SCORING v2 (SKOR-MIMARISI-PLAN FAZ 1) ────────────────────────────────────
+// v2 explicit override (scoringV2:true) ile test edilir — global flag kapalı kalır.
+
+describe('decision-engine v2: no-op garantisi (flag kapalı)', () => {
+  it('scoringV2 verilmezse çıktı v1 ile birebir aynı (regresyon yok)', () => {
+    const inp = baseInput({ macroScore: { score: 40 } as never, relVol5: 2 })
+    const a = computeDecision(inp)
+    const b = computeDecision(inp)
+    assert.deepEqual(a, b)
+    // v1 yolunda v2 alanları default (gate null / veto false)
+    assert.equal(a.regimeGate ?? null, null)
+    assert.equal(a.fundamentalVetoed ?? false, false)
+    assert.equal(a.scoringV2 ?? false, false)
+  })
+})
+
+describe('decision-engine v2: skaler makro sıralamayı SÜRÜKLEMEZ', () => {
+  it('makro günden güne oynasa da v2 skoru DEĞİŞMEZ (skaler makro skordan çıktı)', () => {
+    const boğaMakro = computeDecision(baseInput({ scoringV2: true, macroScore: { score: 80 } as never }))
+    const ayıMakro  = computeDecision(baseInput({ scoringV2: true, macroScore: { score: -80 } as never }))
+    // Skaler makro artık ranking'e girmiyor → iki skor aynı olmalı
+    assert.equal(boğaMakro.score, ayıMakro.score)
+  })
+
+  it('v1 aynı senaryoda makrodan ETKİLENİR (kontrast — eski davranış)', () => {
+    const boğa = computeDecision(baseInput({ macroScore: { score: 80 } as never }))
+    const ayı  = computeDecision(baseInput({ macroScore: { score: -80 } as never }))
+    assert.notEqual(boğa.score, ayı.score) // v1'de makro skoru oynatıyordu
+  })
+
+  it('sektör momentumu da v2 skorunu sürüklemez (skaler → context)', () => {
+    const güçlü = computeDecision(baseInput({ scoringV2: true, sectorMomentum: makeSector(80) }))
+    const zayıf = computeDecision(baseInput({ scoringV2: true, sectorMomentum: makeSector(-80) }))
+    assert.equal(güçlü.score, zayıf.score)
+  })
+})
+
+describe('decision-engine v2: hisse-özel exposure ranking\'e girer', () => {
+  it('exposureAdj kesitte değişken → v2 skorunu oynatır (meşru)', () => {
+    const artı = computeDecision(baseInput({ scoringV2: true, exposureAdj: 8 }))
+    const eksi = computeDecision(baseInput({ scoringV2: true, exposureAdj: -8 }))
+    assert.ok(artı.score > eksi.score)
+  })
+})
+
+describe('decision-engine v2: temel VETO (kısa vade, yukarı)', () => {
+  it('Altman sıkıntı / Beneish şüphe → yukarı sinyal Al eşiğinin altına kırpılır', () => {
+    const temiz = computeDecision(baseInput({ scoringV2: true }))
+    const vetolu = computeDecision(baseInput({ scoringV2: true, fundamental: { altmanDistress: true } }))
+    assert.equal(vetolu.fundamentalVetoed, true)
+    assert.ok(vetolu.score <= 40, `veto skoru ${vetolu.score} tavanın üstünde`)
+    assert.ok(vetolu.score < temiz.score)
+    assert.ok(vetolu.confidence < temiz.confidence)
+  })
+
+  it('değer tuzağı → yumuşak tavan (55)', () => {
+    const vetolu = computeDecision(baseInput({ scoringV2: true, fundamental: { garpVerdict: 'deger_tuzagi' } }))
+    assert.equal(vetolu.fundamentalVetoed, true)
+    assert.ok(vetolu.score <= 55)
+  })
+
+  it('temel skora +PUAN eklemez (fırsat verdict\'i skoru şişirmez — sadece veto var)', () => {
+    const nötr = computeDecision(baseInput({ scoringV2: true }))
+    const fırsat = computeDecision(baseInput({ scoringV2: true, fundamental: { garpVerdict: 'firsat' } }))
+    assert.equal(fırsat.score, nötr.score) // toplamsal katkı yok
+    assert.equal(fırsat.fundamentalVetoed, false)
+  })
+
+  it('AŞAĞI yönde veto uygulanmaz (zayıf temel düşüşü teyit eder)', () => {
+    const aşağıSignals = [makeSignal({ direction: 'asagi' }), makeSignal({ type: 'MACD Kesişimi', direction: 'asagi' }), makeSignal({ type: 'Lower Highs', direction: 'asagi' })]
+    const out = computeDecision(baseInput({ scoringV2: true, signals: aşağıSignals, fundamental: { altmanDistress: true } }))
+    assert.equal(out.fundamentalVetoed, false)
+  })
+})
+
+describe('decision-engine v2: rejim kapısı (skor değil)', () => {
+  it('ayı rejimi kapıyı temkinli yapar + güveni kısar; skoru DOĞRUDAN düşürmez', () => {
+    const boğa = computeDecision(baseInput({ scoringV2: true, regime: 'bull_trend' }))
+    const ayı  = computeDecision(baseInput({ scoringV2: true, regime: 'bear_trend' }))
+    assert.equal(ayı.regimeGate?.posture, 'temkinli')
+    assert.ok((ayı.regimeGate?.surfacedCount ?? 99) < (boğa.regimeGate?.surfacedCount ?? 0))
+    // Kapı güveni kısar (confidence multiplier), skoru değil
+    assert.ok(ayı.confidence <= boğa.confidence)
+  })
+})
