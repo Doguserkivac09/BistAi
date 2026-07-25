@@ -23,6 +23,8 @@ import {
   dbRowsToStockSignals,
   type DecisionOutput,
 } from '@/lib/decision-engine';
+import { isScoringV2 } from '@/lib/scoring-config';
+import { deriveExposureAdj } from '@/lib/exposure-map';
 import { createServerClient } from '@/lib/supabase-server';
 import { daysUntilEarnings } from '@/lib/yahoo-fundamentals';
 import { getStoredFundamentals } from '@/lib/firsatlar-fundamentals-runner';
@@ -491,6 +493,13 @@ export async function GET(req: NextRequest) {
     const now = Date.now();
     const firsatlar: FirsatItem[] = [];
 
+    // SCORING v2 (FAZ 2): hisse-özel makro duyarlılığı için ortak akım verisi.
+    // Yalnız v2 açıkken hesaplanır → flag kapalıyken firsatlar bit-bazında değişmez.
+    const scoringV2Short = isScoringV2('short');
+    const usdtryMomentum = scoringV2Short && macroRes.status === 'fulfilled'
+      ? macroRes.value.bundle.yahoo.usdtry?.changePercent ?? null
+      : null;
+
     for (const [sembol, sinyaller] of gruplar) {
       const best = sinyaller.reduce((a, b) =>
         (b.confluence_score ?? 0) > (a.confluence_score ?? 0) ? b : a
@@ -551,6 +560,15 @@ export async function GET(req: NextRequest) {
         daysUntilEarnings: daysUntilEarnings(earningsTsMap.get(sembol) ?? null),
         scannedAt: best.entry_time,
         dataSource: 'db_snapshot',
+        // SCORING v2 (FAZ 2) — kısa vade yüzeyi + hisse-özel makro duyarlılık katkısı.
+        // v1'de exposureAdj yok sayılır (flag kapalı → scoringV2Short false → null geçilir).
+        surface: 'short',
+        exposureAdj: scoringV2Short
+          ? deriveExposureAdj(sembol, direction, {
+              usdtryMomentumPct: usdtryMomentum,
+              sectorCompositeScore: sectorMomentumMap.get(sektorId)?.compositeScore ?? null,
+            })
+          : null,
       });
 
       // Katalist yönü sinyal yönü ile uyumlu mu? (UI rozeti için)

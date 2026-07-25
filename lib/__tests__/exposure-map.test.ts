@@ -12,7 +12,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getExposure, exposureContribution } from '../exposure-map';
+import { getExposure, exposureContribution, deriveExposureAdj } from '../exposure-map';
 import { SCORING_V2, isScoringV2, regimeGate } from '../scoring-config';
 
 describe('getExposure — usd ekseni', () => {
@@ -83,6 +83,33 @@ describe('exposureContribution — ranking katkısı', () => {
 
   it('akış verisi yoksa (null) katkı 0', () => {
     assert.equal(exposureContribution('ASELS', 'yukari', null, null), 0);
+  });
+});
+
+describe('deriveExposureAdj — ham makro/sektör → katkı (FAZ 2 bağlama)', () => {
+  it('sağlığa akım (sektör kompozit +80) + SELEC lideri → yukarı yönde pozitif', () => {
+    const c = deriveExposureAdj('SELEC', 'yukari', { sectorCompositeScore: 80, usdtryMomentumPct: 0 });
+    assert.ok(c > 0, `beklenen pozitif, gelen ${c}`);
+  });
+
+  it('TL zayıflıyor (usdtry +%2) + ihracatçı ASELS → yukarı yönde pozitif', () => {
+    const c = deriveExposureAdj('ASELS', 'yukari', { usdtryMomentumPct: 2, sectorCompositeScore: 0 });
+    assert.ok(c > 0);
+  });
+
+  it('TL zayıflıyor + ithalatçı BIMAS → yukarı yönde negatif (maliyet baskısı)', () => {
+    const c = deriveExposureAdj('BIMAS', 'yukari', { usdtryMomentumPct: 2, sectorCompositeScore: 0 });
+    assert.ok(c < 0);
+  });
+
+  it('notr yön / veri yok → 0', () => {
+    assert.equal(deriveExposureAdj('ASELS', 'notr', { usdtryMomentumPct: 2 }), 0);
+    assert.equal(deriveExposureAdj('ASELS', 'yukari', {}), 0);
+  });
+
+  it('katkı ±maxPts bandında (aşırı akış sıralamayı sürüklemez)', () => {
+    const c = deriveExposureAdj('ASELS', 'yukari', { usdtryMomentumPct: 50, sectorCompositeScore: 500 }, 8);
+    assert.ok(c >= -8 && c <= 8);
   });
 });
 

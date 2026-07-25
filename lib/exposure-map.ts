@@ -109,4 +109,31 @@ export function exposureContribution(
   return Math.round(Math.max(-maxPts, Math.min(maxPts, signed * maxPts)));
 }
 
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+/**
+ * FAZ 2 bağlama helper'ı — ham makro/sektör verisinden ranking'e exposure katkısı üretir.
+ * Route'lar (firsatlar/hisse-analiz) bunu çağırıp sonucu computeDecision'ın `exposureAdj`
+ * girdisine geçirir. Yalnız v2'de skora girer (v1 yok sayar → flag kapalıyken no-op).
+ *
+ * Akım normalizasyonu (ham → −1..+1):
+ *  - usdFlow: USD/TL momentumu. TL zayıflaması (usdtry +) → ihracatçı lehine. ~%2 hareket
+ *    ≈ tam ölçek (FX günlük hareketi hisseden küçük). Not: v1'de günlük changePercent
+ *    proxy'si; ileride 20g momentuma yükseltilebilir (harness doğrulamasından sonra).
+ *  - sectorFlow: sektör kompozit skoru (−100..+100) → /100.
+ */
+export function deriveExposureAdj(
+  symbol: string,
+  direction: 'yukari' | 'asagi' | 'notr',
+  ctx: { usdtryMomentumPct?: number | null; sectorCompositeScore?: number | null },
+  maxPts = 8,
+): number {
+  if (direction === 'notr') return 0;
+  const usdFlow = clamp((ctx.usdtryMomentumPct ?? 0) / 2, -1, 1);
+  const sectorFlow = clamp((ctx.sectorCompositeScore ?? 0) / 100, -1, 1);
+  return exposureContribution(symbol, direction, usdFlow, sectorFlow, maxPts);
+}
+
 export const EXPOSURE_MAP_VERSION = '1.0.0';
