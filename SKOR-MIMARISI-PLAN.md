@@ -183,3 +183,42 @@ Faz opsiyonel: veri-türevli duyarlılık ince ayarı
 - **Duyarlılık haritası kapsamı:** kaç eksen? (öneri: usd / faiz / emtia / sektör-teması —
   4 eksenle başla, SELEC gibi net vakaları kanıtla, sonra genişlet.)
 - **Yüzey sırası:** FAZ 3'te önce Fırsatlar mı (en çok görülen) yoksa Bugün mü?
+
+---
+
+## 11. FAZ 0 sonuç + Pazartesi runbook (2026-07-25 eklendi)
+
+**Durum:** Foundation + FAZ 1 + FAZ 2 + FAZ 0 harness KURULU, `SCORING_V2 = false` (dormant).
+Commit'ler: ad9d27d (config+exposure) → 0d75e02 (FAZ1) → 5b74141 (FAZ2) → 82921fd/e7f551d (FAZ0).
+235/235 test, tsc+build temiz. Site davranışı DEĞİŞMEDİ.
+
+### Önceden kayıtlı AÇMA eşiği (sonuca bakmadan sabitlendi)
+`SCORING_V2 = true` yalnız şu İKİSİ birden sağlanınca:
+1. Net-of-cost **Sharpe B(v2) ≥ A(v1)** (genel havuz)
+2. **Ayı rejiminde max drawdown B ≤ A**
+Ek şart: entry tarihleri GÜNCEL (backlog erimiş) — eski veride sonuç yönlendirici değil.
+
+### İlk gözlem koşusu (25 Tem — ESKİ Nis-May verisi, YÖNLENDİRİCİ DEĞİL)
+1000 satır → 685 grup-event. Eşik 65, longOnly:
+| | n | winRate | avgReturn | Sharpe | maxDD |
+|---|---|---|---|---|---|
+| A (v1) | 52 | %65.4 | %2.79 | 0.18 | %82.7 |
+| B (v2) | 38 | %68.4 | %4.46 | 0.48 | %12.7 |
+Tezi destekler yönde AMA: küçük n (~40), eski veri, yalnız skaler-makro ekseni ölçüldü
+(sektör/temel/exposure kanalları signal_performance'ta tarihsel yok → bu koşuda ~nötr).
+
+### Pazartesi (BIST açık) runbook
+```bash
+# 1) Backlog erisin — evaluate cron'u koştur, remaining düşene dek izle
+curl -H "Authorization: Bearer $CRON_SECRET" https://bistai.vercel.app/api/cron/evaluate
+# 2) Entry tarihleri güncellenince A/B harness'i koş (deploy sonrası prod'da):
+curl -H "Authorization: Bearer $CRON_SECRET" "https://bistai.vercel.app/api/dev/scoring-ab?days=60&threshold=65&longOnly=1"
+#    → pool.entryRange GÜNCEL mi kontrol et; comparison.a vs comparison.b + byRegime.ayı
+```
+Eşik sağlanıyorsa: `lib/scoring-config.ts` → `SCORING_V2 = true`, deploy, sonra FAZ 3 (UI:
+skor/kapı/duyarlılık ayrı gösterim + gate'in surfacedCount/thresholdBump'ını firsatlar API'ye
+uygula — sayılar A/B'den kalibre edilir, tahminle değil).
+
+### Neden FAZ 3 UI şimdi kurulMADI (bilinçli)
+Flag açılana dek görsel doğrulanamaz (kör kod); kapı sayıları veriden kalibre edilmeli;
+planın "doğrulanmamış hipoteze makine yığma" uyarısı. Veri gelince tek anahtarla açılır.
