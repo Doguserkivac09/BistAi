@@ -481,7 +481,13 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
     { k: '90G Düşük', v: analiz?.low90d != null ? `${fmt(analiz.low90d)} ₺` : '—' },
   ];
 
-  const aiRating = analiz?.decisionTr ?? '—';
+  // Emir dili (Al/Sat) yerine nötr analitik etiket (yasal: tavsiye çağrışımından kaçınma)
+  const NEUTRAL_AI: Record<string, string> = {
+    'Güçlü Al': 'Güçlü Pozitif', 'Al': 'Pozitif', 'Tut': 'Nötr', 'TUT': 'Nötr',
+    'Sat': 'Zayıf', 'Güçlü Sat': 'Riskli',
+  };
+  const rawRating = analiz?.decisionTr ?? '—';
+  const aiRating = NEUTRAL_AI[rawRating] ?? rawRating;
   const aiColor = analiz?.color ?? '#9aa0ad';
   const target1 = analiz?.priceTargets?.target1?.price ?? null;
 
@@ -798,7 +804,7 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
                       color: r.decision === 'AL' ? '#16a35b' : r.decision === 'SAT' ? '#e5484d' : '#c98a00',
                     }}
                   >
-                    {r.decision}
+                    {r.decision === 'AL' ? 'Pozitif' : r.decision === 'SAT' ? 'Zayıf' : 'Nötr'}
                   </span>
                   <span className="flex-1 text-right text-[11px] font-medium text-t3">{r.strength}</span>
                 </div>
@@ -955,13 +961,13 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
               <StarIcon filled={watching} />
             </button>
           </div>
-          {/* Masaüstü: Sat/Al topbar'da */}
+          {/* Masaüstü: portföy aksiyonları topbar'da (emir dili değil, işlevsel) */}
           <div className="hidden items-center gap-2.5 lg:flex">
-            <Link href="/portfolyo" className="flex h-[42px] w-[100px] items-center justify-center rounded-[12px] border border-hairline text-[14px] font-bold text-ink hover:bg-fill">
-              Sat
+            <Link href="/portfolyo" className="flex h-[42px] w-[110px] items-center justify-center rounded-[12px] border border-hairline text-[14px] font-bold text-ink hover:bg-fill">
+              Portföyüm
             </Link>
-            <button onClick={() => setAddOpen(true)} className="flex h-[42px] w-[120px] items-center justify-center rounded-[12px] bg-up text-[14px] font-bold text-white hover:opacity-95">
-              Al
+            <button onClick={() => setAddOpen(true)} className="flex h-[42px] w-[140px] items-center justify-center rounded-[12px] bg-up text-[14px] font-bold text-white hover:opacity-95">
+              Portföye Ekle
             </button>
           </div>
         </div>
@@ -1037,13 +1043,13 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
           </div>
         </div>
 
-        {/* Al/Sat aksiyon çubuğu — mobil */}
+        {/* Portföy aksiyon çubuğu — mobil (emir dili değil, işlevsel) */}
         <div className="ie-glass-flat flex gap-2.5 px-5 py-3.5 lg:hidden">
           <Link href="/portfolyo" className="flex h-[52px] flex-1 items-center justify-center rounded-[15px] border border-hairline text-[15px] font-bold text-ink">
-            Sat
+            Portföyüm
           </Link>
           <button onClick={() => setAddOpen(true)} className="flex h-[52px] flex-[1.4] items-center justify-center rounded-[15px] bg-up text-[15px] font-bold text-white">
-            Al
+            Portföye Ekle
           </button>
         </div>
       </div>

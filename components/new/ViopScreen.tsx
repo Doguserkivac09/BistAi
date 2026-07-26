@@ -8,7 +8,7 @@
  * kontrat için net LONG/SHORT/NÖTR karar üretir (`lib/viop-engine.ts`, klonlanmadı —
  * spot decision-engine'den AYRI: kaldıraç/teminat/likidasyon katmanı). Üstte Makro rejim
  * paneli (gerçek /api/macro verisi — risk iştahı/TL yönü/TCMB/DXY/ons altın/Brent),
- * sağ rayda tüm varlıklardaki en güçlü long+short (Öne çıkan işlemler).
+ * sağ rayda tüm varlıklardaki en güçlü long+short (Öne çıkan senaryolar).
  *
  * Dürüstlük notu: handoff'un kalıcı "fiyat grafiği" istediği kart-içi mum grafiği bu
  * turda YOK — handoff'un kendi "Genişletme adayları" listesi bunu "henüz yok, kart
@@ -46,13 +46,13 @@ const fmt0 = (v: number) => v.toLocaleString('tr-TR', { maximumFractionDigits: 0
 type DirFilter = 'tumu' | 'long' | 'short';
 const DIR_FILTERS: { key: DirFilter; label: string }[] = [
   { key: 'tumu', label: 'Tümü' },
-  { key: 'long', label: 'Long' },
-  { key: 'short', label: 'Short' },
+  { key: 'long', label: 'Yukarı' },
+  { key: 'short', label: 'Aşağı' },
 ];
 
 function dirBadge(d: ViopSignalResult['direction']) {
-  if (d === 'long') return { text: '▲ LONG', color: '#16a35b', bg: 'rgba(22,163,91,0.12)' };
-  if (d === 'short') return { text: '▼ SHORT', color: '#e5484d', bg: 'rgba(229,72,77,0.12)' };
+  if (d === 'long') return { text: '▲ Yukarı', color: '#16a35b', bg: 'rgba(22,163,91,0.12)' };
+  if (d === 'short') return { text: '▼ Aşağı', color: '#e5484d', bg: 'rgba(229,72,77,0.12)' };
   return { text: '● NÖTR', color: '#9aa0ad', bg: 'rgba(154,160,173,0.14)' };
 }
 function dirSentence(d: ViopSignalResult['direction']) {
@@ -282,14 +282,14 @@ function MacroPanel({ macro }: { macro: MacroResp | null }) {
   );
 }
 
-// ── Öne çıkan işlemler — tüm varlıklarda en güçlü long + short ──────────────────
+// ── Öne çıkan senaryolar — tüm varlıklarda en güçlü long + short ──────────────────
 function TopTrades({
   topLong, topShort, onPick,
 }: { topLong: ViopSignalResult | null; topShort: ViopSignalResult | null; onPick: (cls: ViopAssetClass, dir: DirFilter) => void }) {
   if (!topLong && !topShort) return null;
   return (
     <div className="ie-glass rounded-[16px] px-[17px] py-[15px]">
-      <div className="mb-2.5 text-[15px] font-extrabold text-ink">Öne çıkan işlemler</div>
+      <div className="mb-2.5 text-[15px] font-extrabold text-ink">Öne çıkan senaryolar</div>
       <div className="flex flex-col gap-2">
         {topLong && <TopTradeRow item={topLong} onClick={() => onPick(topLong.cls, 'long')} />}
         {topShort && <TopTradeRow item={topShort} onClick={() => onPick(topShort.cls, 'short')} />}

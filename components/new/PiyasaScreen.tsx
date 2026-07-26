@@ -50,11 +50,11 @@ const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${v >= 0 
 const col = (v: number | null | undefined) => (v == null ? '#9aa0ad' : v >= 0 ? '#16a35b' : '#e5484d');
 
 const SIGNAL_META: Record<string, { label: string; color: string }> = {
-  strong_buy: { label: 'Güçlü Al', color: '#16a35b' },
-  buy: { label: 'Al', color: '#4aa84a' },
+  strong_buy: { label: 'Güçlü Pozitif', color: '#16a35b' },
+  buy: { label: 'Pozitif', color: '#4aa84a' },
   neutral: { label: 'Nötr', color: '#c98a00' },
-  sell: { label: 'Sat', color: '#e5484d' },
-  strong_sell: { label: 'Güçlü Sat', color: '#e5484d' },
+  sell: { label: 'Zayıf', color: '#e5484d' },
+  strong_sell: { label: 'Riskli', color: '#e5484d' },
 };
 
 function DivergingBar({ v }: { v: number }) {

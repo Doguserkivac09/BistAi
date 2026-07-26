@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import { SparklineChartButton } from '@/components/new/ChartModal';
+import { displayRating } from '@/lib/decision-engine';
 
 type Filtre = 'tumu' | 'momentum' | 'akilli' | 'katalist';
 
@@ -115,7 +116,7 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
         <div className="flex items-center gap-2">
           <span className="text-[14px] font-bold text-ink">{it.sembol}</span>
           <span className="shrink-0 rounded-[7px] px-[7px] py-[2px] text-[10px] font-extrabold" style={{ background: `${color}22`, color }}>
-            {rating}
+            {displayRating(rating)}
           </span>
           <span className="font-mono text-[12px] font-semibold lg:hidden" style={{ color: pctColor(it.changePercent) }}>
             {fmtPct(it.changePercent)}
@@ -301,7 +302,7 @@ export function FirsatlarScreen() {
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[20px] font-extrabold tracking-[-0.02em] text-ink">{featured.sembol}</span>
               <span className="rounded-[7px] px-2 py-[3px] text-[11px] font-extrabold" style={{ background: `${featColor}22`, color: featColor }}>
-                {featRating}
+                {displayRating(featRating)}
               </span>
               <span className="font-mono text-[13px] font-semibold" style={{ color: pctColor(featured.changePercent) }}>
                 {fmtPct(featured.changePercent)}

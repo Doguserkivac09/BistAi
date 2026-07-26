@@ -64,6 +64,9 @@ KURALLAR:
   fon hareketi, takas/virman YOK. Sana verilmeyen gösterge değerlerini (RSI, EMA, MACD sayıları)
   uydurma — yalnız verilen skorları/rakamları kullan.
 - Yatırım tavsiyesi verme; "senaryo/olasılık/değerlendirme" dili kullan.
+- EMİR DİLİ YASAK: "al", "sat", "alın", "satın", "pozisyon aç/kapat", "long/short" YAZMA.
+  Bunun yerine analitik görünüm dili: "pozitif/zayıf/nötr görünüm", "yükseliş/düşüş senaryosu",
+  "teknik tablo güçlü/zayıf". Karar etiketini de bu nötr dille aktar.
 - Rakamları somut kullan (fiyat, skor, hedef, %). Jargonu açıkla.
 - UZUNLUK (önemli — çıktı kesilmemeli): her paragraf EN FAZLA 3-4 cümle; "rehber" 3-5 KISA madde
   (her madde tek cümle). Toplam yanıt kısa ve öz olsun.
@@ -75,12 +78,21 @@ KURALLAR:
  "sonuc": "2-3 cümle — bütünsel sonuç",
  "rehber": ["3-5 kısa madde, her biri tek cümle — neye dikkat, hangi seviyeler, hangi senaryoda ne"]}`;
 
+/** Emir dili karar etiketini nötr analitik etikete çevir (modele/başlığa gitmeden). */
+function neutralDecisionTr(s: string): string {
+  const map: Record<string, string> = {
+    'Güçlü Al': 'Güçlü Pozitif', 'Al': 'Pozitif', 'Tut': 'Nötr', 'TUT': 'Nötr',
+    'Sat': 'Zayıf', 'Güçlü Sat': 'Riskli',
+  };
+  return map[s] ?? s;
+}
+
 function buildUserPrompt(inp: AdvancedReportInput): string {
   const t = inp.targets ?? {};
   const lines = [
     `Hisse: ${inp.sembol}${inp.shortName ? ` (${inp.shortName})` : ''}${inp.sectorName ? ` — ${inp.sectorName} sektörü` : ''}`,
     inp.currentPrice != null ? `Güncel fiyat: ${inp.currentPrice} TL${inp.changePercent != null ? ` (bugün %${inp.changePercent.toFixed(2)})` : ''}` : '',
-    `Kompozit karar: ${inp.decisionTr} · güven %${Math.round(inp.confidence)} · kompozit skor ${inp.compositeScore}/100`,
+    `Kompozit görünüm: ${neutralDecisionTr(inp.decisionTr)} · güven %${Math.round(inp.confidence)} · kompozit skor ${inp.compositeScore}/100`,
     `Alt skorlar → teknik ${inp.technicalScore}, makro ${inp.macroScore}, sektör ${inp.sectorScore}`,
     inp.explanation ? `Kısa açıklama: ${inp.explanation}` : '',
     inp.topSignals?.length ? `Aktif teknik sinyaller: ${inp.topSignals.join(', ')}` : '',
@@ -136,7 +148,7 @@ export async function synthesizeAdvancedReport(
   if (!parsed) {
     // Zarif düşüş: ham metni sonuç olarak sun
     return {
-      headline: `${input.sembol} — ${input.decisionTr} (güven %${Math.round(input.confidence)})`,
+      headline: `${input.sembol} — ${neutralDecisionTr(input.decisionTr)} (güven %${Math.round(input.confidence)})`,
       genelGorunum: '', guncelTeknik: '', degerlemeRisk: '',
       sonuc: raw || 'Rapor oluşturulamadı.', rehber: [], generatedAt: now,
     };

@@ -185,7 +185,7 @@ function ViopMini({ item }: { item: ViopLite }) {
   return (
     <Link href="/viop" className="flex items-center gap-2.5 rounded-[12px] border border-hairline px-3 py-2.5 transition-colors hover:bg-fill">
       <span className="shrink-0 rounded-[7px] px-2 py-1 text-[10px] font-extrabold" style={{ background: bg, color: c }}>
-        {isLong ? '▲ LONG' : '▼ SHORT'}
+        {isLong ? '▲ Yukarı' : '▼ Aşağı'}
       </span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-bold text-ink">{item.label}</div>

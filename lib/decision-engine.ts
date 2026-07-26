@@ -527,6 +527,21 @@ export function toLegacyCompositeScore(score: number, direction: DecisionDirecti
 /**
  * Rating'i eski CompositeDecision tipine map'ler (geri-uyumluluk).
  */
+/**
+ * Kullanıcıya GÖSTERİLECEK nötr etiket. İç `DecisionRating` (Al/Sat) mantık/testte kalır;
+ * ekranda emir/tavsiye dili yerine analitik skor-görünüm dili gösterilir (yasal: yatırım
+ * tavsiyesi çağrışımından kaçınma). Renkler iç rating'e göre eşlenmeye devam eder.
+ */
+export function displayRating(rating: DecisionRating): string {
+  switch (rating) {
+    case 'Güçlü Al':  return 'Güçlü Pozitif';
+    case 'Al':        return 'Pozitif';
+    case 'Tut':       return 'Nötr';
+    case 'Sat':       return 'Zayıf';
+    case 'Güçlü Sat': return 'Riskli';
+  }
+}
+
 export function toLegacyDecision(rating: DecisionRating): 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL' {
   switch (rating) {
     case 'Güçlü Al': return 'STRONG_BUY';
