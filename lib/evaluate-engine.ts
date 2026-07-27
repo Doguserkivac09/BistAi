@@ -46,7 +46,7 @@ const OHLCV_WINDOW_DAYS = 120;
 const PAGE_SIZE = 1000;
 
 /** Paralel DB update grubu (round-trip'leri sıkıştırır) */
-const UPDATE_CONCURRENCY = 20;
+const UPDATE_CONCURRENCY = 40;
 
 /** Değerlendirme için gerekli min takvim günü (en kısa canonical horizon) */
 const MIN_AGE_DAYS = 3;
@@ -55,7 +55,7 @@ const MIN_AGE_DAYS = 3;
 const DEAD_AGE_DAYS = 150;
 
 /** Semboller arası bekleme (Yahoo rate limit) */
-const SYMBOL_DELAY_MS = 200;
+const SYMBOL_DELAY_MS = 80;
 
 // ── Admin Client ──────────────────────────────────────────────────────
 

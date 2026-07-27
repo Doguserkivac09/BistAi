@@ -65,6 +65,10 @@
       "schedule": "0 17 * * 1-5"
     },
     {
+      "path": "/api/cron/evaluate",
+      "schedule": "30 3 * * 1-5"
+    },
+    {
       "path": "/api/cron/price-alerts",
       "schedule": "0 10 * * 1-5"
     },
