@@ -1052,6 +1052,13 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
             Portföye Ekle
           </button>
         </div>
+
+        {/* Kalıcı yasal feragat — karar-yoğun ekran */}
+        <p className="px-5 pb-6 pt-1 text-center text-[11px] leading-relaxed text-t3">
+          Bu sayfadaki skorlar, sinyaller ve analizler yalnızca bilgilendirme amaçlıdır;
+          yatırım tavsiyesi, alım-satım önerisi veya kesinlik içermez. Yatırım kararları
+          kişisel sorumluluğunuzdadır. Geçmiş performans gelecek getiriyi garanti etmez.
+        </p>
       </div>
 
       {addOpen && (
