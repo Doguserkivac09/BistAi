@@ -593,6 +593,41 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
       {analiz?.explanation && (
         <p className="mt-3 hidden text-[13px] font-medium leading-[1.55] text-t2 lg:block">{analiz.explanation}</p>
       )}
+      {/* SCORING_V2 FAZ 3 — skoru sürükleyen katmanlar AYRI: ranking skoru tek karışık
+          sayı değil; rejim KAPI (kaç sinyal/eşik), temel VETO, sektör DUYARLILIĞI ayrışır. */}
+      {(() => {
+        const de = analiz?.decisionEngine;
+        if (!de?.scoringV2) return null;
+        const POST: Record<string, { t: string; c: string }> = {
+          agresif:  { t: 'Boğa',     c: '#16a35b' },
+          normal:   { t: 'Nötr',     c: '#c98a00' },
+          temkinli: { t: 'Temkinli', c: '#e5484d' },
+          savunma:  { t: 'Savunma',  c: '#e5484d' },
+        };
+        const pg = POST[de.regimeGate?.posture ?? 'normal'] ?? POST.normal!;
+        const sa = de.factors?.sectorAlign ?? 0;
+        const vetoed = de.fundamentalVetoed ?? false;
+        const Katman = ({ label, value, color }: { label: string; value: string; color: string }) => (
+          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: `${color}18`, color }}>
+            <span className="font-medium opacity-60">{label}</span>
+            {value}
+          </span>
+        );
+        return (
+          <div className="mt-3 border-t border-hairline/60 pt-3">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-t3">Skor v2 · katmanlar</div>
+            <div className="flex flex-wrap gap-1.5">
+              <Katman label="Rejim kapısı" value={pg.t} color={pg.c} />
+              <Katman label="Temel" value={vetoed ? 'veto' : 'geçti'} color={vetoed ? '#e5484d' : '#16a35b'} />
+              <Katman label="Sektör duyarlılığı" value={sa > 0 ? `+${sa}` : `${sa}`} color={sa > 0 ? '#16a35b' : sa < 0 ? '#e5484d' : '#9aa0ad'} />
+            </div>
+            <p className="mt-2 text-[10.5px] font-medium leading-[1.5] text-t3">
+              Rejim kapısı sıralamayı değil, kaç sinyalin ve hangi eşiğin gösterileceğini belirler.
+              Duyarlılık = hissenin makroya tepkisi (skora katkı). Temel veto zayıf bilançoda güveni kırar.
+            </p>
+          </div>
+        );
+      })()}
     </div>
   );
 
