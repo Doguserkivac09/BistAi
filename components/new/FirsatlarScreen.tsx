@@ -16,6 +16,7 @@ import Link from 'next/link';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import { SparklineChartButton } from '@/components/new/ChartModal';
 import YasalFeragat from '@/components/new/YasalFeragat';
+import RejimRozeti from '@/components/new/RejimRozeti';
 import { displayRating } from '@/lib/decision-engine';
 
 type Filtre = 'tumu' | 'momentum' | 'akilli' | 'katalist';
@@ -148,12 +149,13 @@ export function FirsatlarScreen() {
   const [loading, setLoading] = useState(true);
   const [filtre, setFiltre] = useState<Filtre>('tumu');
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
+  const [regime, setRegime] = useState<string | null>(null);
   const [featSpark, setFeatSpark] = useState<Record<string, number[]>>({});
 
   useEffect(() => {
     fetch('/api/firsatlar')
       .then((r) => r.json() as Promise<FirsatlarResponse>)
-      .then((j) => { setItems(j.firsatlar ?? []); setRefreshedAt(j.lastRefreshedAt ?? null); })
+      .then((j) => { setItems(j.firsatlar ?? []); setRefreshedAt(j.lastRefreshedAt ?? null); setRegime(j.regime ?? null); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -386,6 +388,7 @@ export function FirsatlarScreen() {
           {/* Sol: özet + radar */}
           <div className="flex min-w-0 flex-col gap-3.5 lg:flex-[1.7] lg:gap-4">
             {summaryStrip}
+            <RejimRozeti regime={regime} />
 
             {/* Mobil: filtre + öne çıkan kart */}
             <div className="lg:hidden">{filterChips}</div>

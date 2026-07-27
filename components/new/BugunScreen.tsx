@@ -22,6 +22,7 @@ import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import { SymbolSearch } from '@/components/new/SymbolSearch';
 import { SparklineChartButton } from '@/components/new/ChartModal';
 import YasalFeragat from '@/components/new/YasalFeragat';
+import RejimRozeti from '@/components/new/RejimRozeti';
 
 interface SignalResp { ok: boolean; pending?: boolean; results: SmartSignalResult[] }
 interface MacroResp {
@@ -294,6 +295,7 @@ export function BugunScreen() {
   const [macro, setMacro] = useState<MacroResp | null>(null);
   const [bistSeries, setBistSeries] = useState<number[]>([]);
   const [opps, setOpps] = useState<FirsatItem[]>([]);
+  const [firsatRegime, setFirsatRegime] = useState<string | null>(null);
   const [sectors, setSectors] = useState<SectorLite[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioStrip | null>(null);
   const [weekly, setWeekly] = useState<{ avg: number | null; beatRate: number | null } | null>(null);
@@ -326,6 +328,7 @@ export function BugunScreen() {
       .then((r) => (r.ok ? (r.json() as Promise<FirsatlarResponse>) : null))
       .then((d) => {
         if (d?.firsatlar) setOpps([...d.firsatlar].sort((a, b) => b.adjustedScore - a.adjustedScore).slice(0, 3));
+        setFirsatRegime(d?.regime ?? null);
       })
       .catch(() => {});
 
@@ -537,6 +540,7 @@ export function BugunScreen() {
           Tümü →
         </Link>
       </div>
+      <RejimRozeti regime={firsatRegime} />
       <div className="flex gap-2.5 lg:gap-3">
         {opps.map((o) => <OppCard key={o.sembol} o={o} />)}
       </div>
