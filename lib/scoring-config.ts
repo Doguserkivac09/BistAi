@@ -11,13 +11,17 @@
  * no-op — computeDecision bit-bazında eskiyle aynı çıktı verir (regresyon yok).
  * Açılış kademeli: yüzey-bazlı (kısa vade önce, uzun vade sonra).
  *
- * ⚠️ AÇMADAN ÖNCE: veri kirli (signal_performance evaluate backlog). Ölçemediğin
- * şeyi geliştiremezsin — FAZ 0 (A/B harness + backlog erime) bitmeden `SCORING_V2`
- * true yapılMAZ. Kod flag arkasında paralel geliştirilir, veriyle açılır.
+ * DURUM (27 Tem 2026): AÇILDI (yalnız 'short' yüzeyi — Bugün/Fırsatlar). Evaluate
+ * backlog çözüldü (142.858→~15k sağlıklı taban, sembol-bazlı motor), entry tarihleri
+ * güncellendi. A/B harness 3 tutarlı koşuda v2'yi her eksende önde gösterdi (boğa):
+ * wr %69/%64, Sharpe 0.53/0.19, maxDD %13/%83. Kullanıcı kararıyla açıldı.
+ * KALAN RİSK: kanıt boğa-piyasası ağırlıklı (ayı-rejimi örneği yok — pre-registered
+ * "ayı maxDD B≤A" şartı ölçülemedi). Bir düzeltme/ayı döneminde davranışı izle; sorun
+ * çıkarsa `false` yap (tek satır geri alma, anında eski v1.2.0 davranışı).
  */
 
-/** Ana anahtar. FAZ 0 doğrulaması bitene dek `false` kalır. */
-export const SCORING_V2 = false;
+/** Ana anahtar. 27 Tem 2026'da açıldı (short yüzeyi). Sorun çıkarsa `false` = anında rollback. */
+export const SCORING_V2 = true;
 
 /**
  * Skor yüzeyi — ufka göre ağırlık farklıdır:

@@ -114,12 +114,12 @@ describe('deriveExposureAdj — ham makro/sektör → katkı (FAZ 2 bağlama)', 
 });
 
 describe('scoring-config — flag ve kapı', () => {
-  it('SCORING_V2 varsayılan kapalı (FAZ 0 bitene dek)', () => {
-    assert.equal(SCORING_V2, false);
+  it('SCORING_V2 açık (short yüzeyi devrede, 27 Tem 2026)', () => {
+    assert.equal(SCORING_V2, true);
   });
 
-  it('kapalıyken isScoringV2 her yüzeyde false (no-op garanti)', () => {
-    assert.equal(isScoringV2('short'), false);
+  it('kademeli açılım: short yüzeyi v2, long yüzeyi hâlâ v1', () => {
+    assert.equal(isScoringV2('short'), true);
     assert.equal(isScoringV2('long'), false);
   });
 

@@ -192,9 +192,11 @@ describe('signal-horizons: kanonik ufuk ↔ min eval günü senkronu (BUG-A)', (
 // ── SCORING v2 (SKOR-MIMARISI-PLAN FAZ 1) ────────────────────────────────────
 // v2 explicit override (scoringV2:true) ile test edilir — global flag kapalı kalır.
 
-describe('decision-engine v2: no-op garantisi (flag kapalı)', () => {
-  it('scoringV2 verilmezse çıktı v1 ile birebir aynı (regresyon yok)', () => {
-    const inp = baseInput({ macroScore: { score: 40 } as never, relVol5: 2 })
+describe('decision-engine v1 yolu (scoringV2:false) — regresyon yok', () => {
+  it('scoringV2:false → v1 çıktısı, deterministik (gate null / veto false)', () => {
+    // NOT: global SCORING_V2 açık (short). v1 yolu artık yalnız explicit override
+    // (scoringV2:false) veya 'long' yüzeyiyle test edilir.
+    const inp = baseInput({ scoringV2: false, macroScore: { score: 40 } as never, relVol5: 2 })
     const a = computeDecision(inp)
     const b = computeDecision(inp)
     assert.deepEqual(a, b)
@@ -213,9 +215,9 @@ describe('decision-engine v2: skaler makro sıralamayı SÜRÜKLEMEZ', () => {
     assert.equal(boğaMakro.score, ayıMakro.score)
   })
 
-  it('v1 aynı senaryoda makrodan ETKİLENİR (kontrast — eski davranış)', () => {
-    const boğa = computeDecision(baseInput({ macroScore: { score: 80 } as never }))
-    const ayı  = computeDecision(baseInput({ macroScore: { score: -80 } as never }))
+  it('v1 (scoringV2:false) aynı senaryoda makrodan ETKİLENİR (kontrast — eski davranış)', () => {
+    const boğa = computeDecision(baseInput({ scoringV2: false, macroScore: { score: 80 } as never }))
+    const ayı  = computeDecision(baseInput({ scoringV2: false, macroScore: { score: -80 } as never }))
     assert.notEqual(boğa.score, ayı.score) // v1'de makro skoru oynatıyordu
   })
 
