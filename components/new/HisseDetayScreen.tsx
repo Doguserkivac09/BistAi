@@ -1055,7 +1055,7 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
         </div>
 
         {/* Kalıcı yasal feragat — karar-yoğun ekran */}
-        <YasalFeragat className="px-5 pb-6 pt-1" />
+        <YasalFeragat className="mx-5 mb-6 mt-2" />
       </div>
 
       {addOpen && (

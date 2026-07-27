@@ -856,7 +856,7 @@ export function BugunScreen() {
           </div>
         </div>
 
-        <YasalFeragat className="mt-6 px-2" />
+        <YasalFeragat className="mt-6" />
       </div>
     </div>
   );
