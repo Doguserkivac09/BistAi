@@ -27,6 +27,20 @@ export function AiAsistanScreen() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, streamText]);
 
+  // Başka ekrandan gelen otomatik istem (?q=...) → sohbet açılır açılmaz bir kez gönderilir.
+  // Örn. Portföyüm ekranındaki "AI ile analiz et" → /sohbet?q=Portföyümü analiz et
+  const autoSentRef = useRef(false);
+  useEffect(() => {
+    if (autoSentRef.current) return;
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q && q.trim()) {
+      autoSentRef.current = true;
+      send(q);
+    }
+    // send yalnızca ilk mount'ta çağrılır (boş sohbet); bağımlılık kasıtlı boş.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
