@@ -318,7 +318,7 @@ export function PortfoyumScreen() {
         <span className="text-[13px] font-bold text-ink">Portföy notu</span>
       </div>
       <p className="mt-2.5 text-[13px] font-medium leading-[1.6] text-t2">{aiNote}</p>
-      <Link href="/sohbet?q=Portf%C3%B6y%C3%Bcm%C3%BC%20detayl%C4%B1%20analiz%20et" className="mt-3 hidden h-10 items-center justify-center rounded-[12px] border border-[#e0e4ec] text-[13px] font-bold text-ink transition-colors hover:bg-white/60 lg:flex">
+      <Link href="/sohbet?q=Portf%C3%B6y%C3%Bcm%C3%BC%20detayl%C4%B1%20analiz%20et" className="mt-3 flex h-10 items-center justify-center rounded-[12px] border border-[#e0e4ec] text-[13px] font-bold text-ink transition-colors hover:bg-white/60">
         AI ile analiz et
       </Link>
     </div>
