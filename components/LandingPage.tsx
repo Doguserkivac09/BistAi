@@ -588,7 +588,7 @@ function SignalRow({ sig, index, isLoggedIn }: { sig: (typeof MOCK_SIGNALS)[0]; 
         </div>
         {/* Dir badge */}
         <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isAl ? 'bg-bullish/15 text-bullish' : 'bg-bearish/15 text-bearish'}`}>
-          {sig.dir}
+          {isAl ? 'Pozitif' : 'Zayıf'}
         </span>
       </motion.div>
     </Link>
@@ -734,7 +734,7 @@ export default function LandingPage() {
                 className="mt-5 max-w-lg text-base text-text-secondary md:text-lg lg:mx-0 mx-auto"
               >
                 Teknik sinyal × Makro rüzgar × Sektör uyumu →{' '}
-                <span className="gradient-text font-semibold">AL / TUT / SAT</span> kararı.
+                <span className="gradient-text font-semibold">Pozitif / Nötr / Zayıf</span> görünüm değerlendirmesi.
                 Portföy takibi, anlık e-posta uyarıları ve AI sohbet desteği ile.
               </motion.p>
 

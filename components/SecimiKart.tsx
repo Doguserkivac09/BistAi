@@ -173,7 +173,7 @@ export function SecimiKart({ type, data }: SecimiKartProps) {
               </span>
               {isGunluk && (
                 <span className="flex items-center gap-0.5 rounded-full border border-green-500/30 bg-green-500/12 px-2 py-0.5 text-[10px] font-bold text-green-400">
-                  <TrendingUp className="h-2.5 w-2.5" /> AL
+                  <TrendingUp className="h-2.5 w-2.5" /> Pozitif
                 </span>
               )}
               {categoryLabel && (

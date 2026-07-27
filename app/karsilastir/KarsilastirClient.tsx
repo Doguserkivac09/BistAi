@@ -1018,8 +1018,8 @@ function hesaplaMomentumSkoru(data: HisseData): { puan: number; gucler: string[]
   }
 
   // Sinyaller
-  if (alSinyali > 0 && satSinyali === 0) { puan += 10; gucler.push(`${alSinyali} AL sinyali tespit edildi`); }
-  if (satSinyali > 0 && alSinyali === 0) { puan -= 10; zayiflar.push(`${satSinyali} SAT sinyali var`); }
+  if (alSinyali > 0 && satSinyali === 0) { puan += 10; gucler.push(`${alSinyali} pozitif sinyal tespit edildi`); }
+  if (satSinyali > 0 && alSinyali === 0) { puan -= 10; zayiflar.push(`${satSinyali} zayıf sinyal var`); }
   if (gucluSinyal > 0)                  { puan += 5;  gucler.push(`${gucluSinyal} güçlü sinyal`); }
   if (alSinyali === 0 && satSinyali === 0) { zayiflar.push('Aktif sinyal tespit edilemedi'); }
 

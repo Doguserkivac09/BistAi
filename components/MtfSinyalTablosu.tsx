@@ -86,7 +86,7 @@ function MtfSatir({ row, isLast }: { row: MtfRow; isLast: boolean }) {
       {/* Karar badge */}
       <div className="flex justify-center">
         <span className={`rounded border px-2.5 py-0.5 text-xs font-bold ${decisionColor}`}>
-          {row.decision}
+          {row.decision === 'AL' ? 'Pozitif' : row.decision === 'SAT' ? 'Zayıf' : 'Nötr'}
         </span>
       </div>
 
@@ -155,7 +155,7 @@ function ConfluenceBadge({ data }: { data: MtfResponse }) {
           {rows.map(r => (
             <div
               key={r.tf}
-              title={`${r.shortLabel}: ${r.decision}`}
+              title={`${r.shortLabel}: ${r.decision === 'AL' ? 'Pozitif' : r.decision === 'SAT' ? 'Zayıf' : 'Nötr'}`}
               className={`h-2 w-2 rounded-full ${
                 r.decision === 'AL'  ? 'bg-emerald-400' :
                 r.decision === 'SAT' ? 'bg-red-400' :

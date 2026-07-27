@@ -457,12 +457,12 @@ export function FirsatKarti({
               <span className="text-lg font-bold text-text-primary">{firsat.sembol}</span>
               {isAl && (
                 <span className="flex items-center gap-0.5 rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-bold text-green-400 border border-green-500/25">
-                  <TrendingUp className="h-3 w-3" /> AL
+                  <TrendingUp className="h-3 w-3" /> Pozitif
                 </span>
               )}
               {isSat && (
                 <span className="flex items-center gap-0.5 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-bold text-red-400 border border-red-500/25">
-                  <TrendingDown className="h-3 w-3" /> SAT
+                  <TrendingDown className="h-3 w-3" /> Zayıf
                 </span>
               )}
               {/* Hisse Tipi */}

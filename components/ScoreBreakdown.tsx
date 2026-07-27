@@ -8,11 +8,11 @@ import { InfoPopover } from '@/components/InfoPopover';
 // ─── Renk yardımcıları ────────────────────────────────────────────────────────
 
 const DECISION_STYLES: Record<CompositeDecision, { bg: string; text: string; border: string; label: string; ring?: string }> = {
-  STRONG_BUY:  { bg: 'bg-emerald-500/20', text: 'text-emerald-300', border: 'border-emerald-500/50', ring: 'ring-2 ring-emerald-500/30', label: 'Güçlü AL' },
-  BUY:         { bg: 'bg-green-500/10',   text: 'text-green-400',   border: 'border-green-500/30',   label: 'AL' },
-  HOLD:        { bg: 'bg-zinc-500/10',    text: 'text-zinc-400',    border: 'border-zinc-500/30',    label: 'TUT' },
-  SELL:        { bg: 'bg-red-500/10',     text: 'text-red-400',     border: 'border-red-500/30',     label: 'SAT' },
-  STRONG_SELL: { bg: 'bg-red-700/20',     text: 'text-red-300',     border: 'border-red-600/50',     ring: 'ring-2 ring-red-600/30',     label: 'Güçlü SAT' },
+  STRONG_BUY:  { bg: 'bg-emerald-500/20', text: 'text-emerald-300', border: 'border-emerald-500/50', ring: 'ring-2 ring-emerald-500/30', label: 'Güçlü Pozitif' },
+  BUY:         { bg: 'bg-green-500/10',   text: 'text-green-400',   border: 'border-green-500/30',   label: 'Pozitif' },
+  HOLD:        { bg: 'bg-zinc-500/10',    text: 'text-zinc-400',    border: 'border-zinc-500/30',    label: 'Nötr' },
+  SELL:        { bg: 'bg-red-500/10',     text: 'text-red-400',     border: 'border-red-500/30',     label: 'Zayıf' },
+  STRONG_SELL: { bg: 'bg-red-700/20',     text: 'text-red-300',     border: 'border-red-600/50',     ring: 'ring-2 ring-red-600/30',     label: 'Riskli' },
 };
 
 function scoreColor(score: number): string {
@@ -150,7 +150,7 @@ export function ScoreBreakdown({ result, compact = false }: ScoreBreakdownProps)
           transition={{ duration: 0.3 }}
         >
           <span className="text-base leading-none">⚠️</span>
-          <span>Güçlü satış sinyali — pozisyon ve risk yönetimine dikkat edin.</span>
+          <span>Riskli teknik tablo — tüm katmanlar zayıf yönü gösteriyor; risk yönetimine dikkat.</span>
         </motion.div>
       )}
       {/* Güçlü AL bilgi banner */}
@@ -162,7 +162,7 @@ export function ScoreBreakdown({ result, compact = false }: ScoreBreakdownProps)
           transition={{ duration: 0.3 }}
         >
           <span className="text-base leading-none">✅</span>
-          <span>Güçlü alış sinyali — tüm katmanlar aynı yönü gösteriyor.</span>
+          <span>Güçlü pozitif görünüm — tüm katmanlar aynı yönü gösteriyor.</span>
         </motion.div>
       )}
       {/* Skor sistemi etiketi */}

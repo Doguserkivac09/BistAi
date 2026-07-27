@@ -142,7 +142,7 @@ export function BrokerLinkButton({ sembol }: BrokerLinkButtonProps) {
         className="gap-1"
       >
         <ShoppingCart className="h-4 w-4" />
-        <span className="hidden sm:inline">Al / Sat</span>
+        <span className="hidden sm:inline">Aracı Kurumda İşlem</span>
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </Button>
 

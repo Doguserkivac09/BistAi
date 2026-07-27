@@ -285,13 +285,15 @@ function getDecision(compositeScore: number, _direction: SignalDirection): Compo
   return 'HOLD';
 }
 
+// Nötr analitik etiket (emir dili değil) — yatırım tavsiyesi çağrışımından kaçınma.
+// İç `CompositeDecision` enum'u (STRONG_BUY vb.) mantık/renk/emoji için aynen kalır.
 function getDecisionTr(decision: CompositeDecision): string {
   switch (decision) {
-    case 'STRONG_BUY':  return 'Güçlü AL';
-    case 'BUY':         return 'AL';
-    case 'HOLD':        return 'TUT';
-    case 'SELL':        return 'SAT';
-    case 'STRONG_SELL': return 'Güçlü SAT';
+    case 'STRONG_BUY':  return 'Güçlü Pozitif';
+    case 'BUY':         return 'Pozitif';
+    case 'HOLD':        return 'Nötr';
+    case 'SELL':        return 'Zayıf';
+    case 'STRONG_SELL': return 'Riskli';
   }
 }
 

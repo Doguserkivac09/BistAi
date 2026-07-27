@@ -24,8 +24,8 @@ const DIRECTION_STYLE: Record<string, string> = {
 };
 
 const DIRECTION_LABEL: Record<string, string> = {
-  yukari: '↑ AL',
-  asagi:  '↓ SAT',
+  yukari: '↑ Pozitif',
+  asagi:  '↓ Zayıf',
   nötr:   '→ Nötr',
 };
 
