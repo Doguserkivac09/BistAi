@@ -45,6 +45,9 @@ export async function GET(request: NextRequest) {
     ok: true,
     updated: result.updated,
     remaining: result.remaining ?? null,
+    deadMarked: result.deadMarked ?? 0,
+    symbolsProcessed: result.symbolsProcessed ?? 0,
+    durationMs: result.durationMs ?? null,
     timestamp: new Date().toISOString(),
   });
 }
