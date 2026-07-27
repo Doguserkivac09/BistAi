@@ -21,6 +21,7 @@ import type { SmartSignalResult } from '@/lib/smart-signal/types';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import { SymbolSearch } from '@/components/new/SymbolSearch';
 import { SparklineChartButton } from '@/components/new/ChartModal';
+import YasalFeragat from '@/components/new/YasalFeragat';
 
 interface SignalResp { ok: boolean; pending?: boolean; results: SmartSignalResult[] }
 interface MacroResp {
@@ -854,6 +855,8 @@ export function BugunScreen() {
             </div>
           </div>
         </div>
+
+        <YasalFeragat className="mt-6 px-2" />
       </div>
     </div>
   );

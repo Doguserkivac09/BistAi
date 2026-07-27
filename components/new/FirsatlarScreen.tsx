@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import { SparklineChartButton } from '@/components/new/ChartModal';
+import YasalFeragat from '@/components/new/YasalFeragat';
 import { displayRating } from '@/lib/decision-engine';
 
 type Filtre = 'tumu' | 'momentum' | 'akilli' | 'katalist';
@@ -457,9 +458,7 @@ export function FirsatlarScreen() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-[10px] font-medium italic text-t4 lg:hidden">
-          Skor = teknik + makro + sektör + temel + katalist (kural-tabanlı). Yatırım tavsiyesi değildir.
-        </p>
+        <YasalFeragat className="mt-6 px-2" />
       </div>
     </div>
   );

@@ -31,6 +31,7 @@ import { BrokerLinkButton } from '@/components/BrokerLinkButton';
 import { PriceAlertButton } from '@/components/PriceAlertButton';
 import { HisseDetailClient } from '@/app/hisse/[sembol]/HisseDetailClient';
 import { GelismisAiAnaliz } from '@/components/GelismisAiAnaliz';
+import YasalFeragat from '@/components/new/YasalFeragat';
 import { toast } from 'sonner';
 
 interface InvestScoreLite {
@@ -1054,11 +1055,7 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
         </div>
 
         {/* Kalıcı yasal feragat — karar-yoğun ekran */}
-        <p className="px-5 pb-6 pt-1 text-center text-[11px] leading-relaxed text-t3">
-          Bu sayfadaki skorlar, sinyaller ve analizler yalnızca bilgilendirme amaçlıdır;
-          yatırım tavsiyesi, alım-satım önerisi veya kesinlik içermez. Yatırım kararları
-          kişisel sorumluluğunuzdadır. Geçmiş performans gelecek getiriyi garanti etmez.
-        </p>
+        <YasalFeragat className="px-5 pb-6 pt-1" />
       </div>
 
       {addOpen && (
