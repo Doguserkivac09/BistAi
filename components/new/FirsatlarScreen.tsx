@@ -375,9 +375,17 @@ export function FirsatlarScreen() {
               {refreshedAt && ` · ${new Date(refreshedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`}
             </p>
           </div>
-          <div className="flex items-center gap-[7px] rounded-[10px] border border-up/20 bg-up/[0.12] px-[11px] py-[6px]">
-            <span className="h-1.5 w-1.5 rounded-full bg-up" />
-            <span className="text-[10px] font-bold text-up">Canlı</span>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/gecmis-firsatlar"
+              className="rounded-[10px] border border-hairline px-[11px] py-[6px] text-[11px] font-semibold text-t2 transition-colors hover:text-ink"
+            >
+              Geçmiş performans →
+            </Link>
+            <div className="flex items-center gap-[7px] rounded-[10px] border border-up/20 bg-up/[0.12] px-[11px] py-[6px]">
+              <span className="h-1.5 w-1.5 rounded-full bg-up" />
+              <span className="text-[10px] font-bold text-up">Canlı</span>
+            </div>
           </div>
         </div>
 
