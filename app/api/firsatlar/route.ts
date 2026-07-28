@@ -33,6 +33,7 @@ import type {
   InvestableRating,
 } from '@/lib/investment-score';
 import { SIGNAL_CANONICAL_FIELD } from '@/lib/signal-horizons';
+import { getStoredStrongCombos, detectBestCombo, type ComboStat } from '@/lib/combo-stats';
 import type { SymbolCatalyst, SymbolEventRisk } from '@/lib/news-impact';
 import type { OHLCVCandle } from '@/types';
 
@@ -130,6 +131,13 @@ export interface FirsatItem {
     rating: InvestableRating;
     confidence: InvestableConfidence;
     inflationAdjusted: boolean;
+  } | null;
+  /** Onaylı kurulum — hissenin aktif sinyalleri güçlü bir geçmiş combo'ya uyuyorsa. */
+  combo: {
+    members: string[];   // combo sinyal tipleri
+    n: number;           // geçmiş örneklem
+    winRate: number;     // geçmiş isabet %
+    avgNet: number;      // geçmiş ort. net getiri %
   } | null;
   /** Haber katalisti (news-impact precompute) — taze material haber özeti, yoksa null */
   catalyst: {
@@ -493,6 +501,10 @@ export async function GET(req: NextRequest) {
     const now = Date.now();
     const firsatlar: FirsatItem[] = [];
 
+    // Güçlü combo tablosu (combo-stats cron → ai_cache) — tek okuma, istek-anı hesap yok.
+    let strongCombos: ComboStat[] = [];
+    try { strongCombos = await getStoredStrongCombos(supabase); } catch { /* yoksa rozet gösterilmez */ }
+
     // SCORING v2 (FAZ 2): hisse-özel makro duyarlılığı için ortak akım verisi.
     // Yalnız v2 açıkken hesaplanır → flag kapalıyken firsatlar bit-bazında değişmez.
     const scoringV2Short = isScoringV2('short');
@@ -612,6 +624,10 @@ export async function GET(req: NextRequest) {
         },
         daysUntilEarnings: daysUntilEarnings(earningsTsMap.get(sembol) ?? null),
         decision,
+        combo: (() => {
+          const c = detectBestCombo(uniqueSinyaller, strongCombos);
+          return c ? { members: c.members, n: c.n, winRate: c.winRate, avgNet: c.avgNet } : null;
+        })(),
         investmentScore: investmentScoreMap.get(sembol) ?? null,
         catalyst: catalyst
           ? {

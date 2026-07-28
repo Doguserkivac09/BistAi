@@ -69,6 +69,10 @@
       "schedule": "30 3 * * 1-5"
     },
     {
+      "path": "/api/cron/combo-stats",
+      "schedule": "0 5 * * 1"
+    },
+    {
       "path": "/api/cron/price-alerts",
       "schedule": "0 10 * * 1-5"
     },

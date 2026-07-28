@@ -124,7 +124,17 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
             {fmtPct(it.changePercent)}
           </span>
         </div>
-        <div className="truncate text-[11px] font-medium text-t3">{it.sektorAdi}</div>
+        <div className="flex items-center gap-1.5 truncate text-[11px] font-medium text-t3">
+          {it.combo && (
+            <span
+              title={`Onaylı kurulum: ${it.combo.members.join(' + ')} · geçmiş %${it.combo.winRate.toFixed(0)} isabet (n=${it.combo.n})`}
+              className="shrink-0 rounded-[6px] bg-up/12 px-1.5 py-px text-[9px] font-bold text-up"
+            >
+              ✓ combo %{it.combo.winRate.toFixed(0)}
+            </span>
+          )}
+          <span className="truncate">{it.sektorAdi}</span>
+        </div>
       </div>
       {/* Masaüstü fiyat + değişim */}
       <span className="hidden flex-1 text-right font-mono text-[13px] font-semibold text-ink lg:block">
@@ -334,6 +344,19 @@ export function FirsatlarScreen() {
         )}
 
         <p className="mt-2 text-[12px] font-medium leading-[1.55] text-t2">{featReason}</p>
+
+        {featured.combo && (
+          <div className="mt-2.5 flex items-start gap-2 rounded-[12px] border border-up/25 bg-up/[0.07] px-3 py-2">
+            <span aria-hidden className="text-[13px] leading-none">✓</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11.5px] font-bold text-ink">Onaylı kurulum · {featured.combo.members.join(' + ')}</div>
+              <div className="font-mono text-[11px] font-semibold text-up">
+                geçmiş %{featured.combo.winRate.toFixed(0)} isabet · ort {featured.combo.avgNet >= 0 ? '+' : ''}{featured.combo.avgNet.toFixed(1)}%
+                <span className="ml-1 font-sans font-medium text-t3">(n={featured.combo.n})</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {desktop ? (
           <div className="mt-3.5 flex gap-2.5">
