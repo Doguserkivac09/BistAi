@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
   const direction     = searchParams.get('direction') ?? 'all';
   const sort          = searchParams.get('sort') ?? 'return7d';
   const limit         = Math.min(parseInt(searchParams.get('limit') ?? '150'), 300);
+  const market        = (searchParams.get('market') ?? 'BIST').toUpperCase();
 
   const admin = createAdmin();
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
@@ -79,6 +80,15 @@ export async function GET(req: NextRequest) {
     .gte('confluence_score', minConfluence)
     .is('user_id', null)           // sadece global (sistem) sinyalleri
     .limit(limit);
+
+  // Market filtresi (BUG-1 deseni) — market kolonu olmadan US hisseleri BIST
+  // sayfasına sızıyor (canlıda DD/GMSTR %197 getiriyle görüldü). Eski satırlarda
+  // market null olabilir → BIST'e dahil et.
+  if (market === 'US') {
+    query = query.eq('market', 'US');
+  } else {
+    query = query.or('market.eq.BIST,market.is.null');
+  }
 
   if (direction !== 'all') {
     query = query.eq('direction', direction);
