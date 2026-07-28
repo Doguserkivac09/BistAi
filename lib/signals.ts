@@ -4,7 +4,7 @@
  */
 
 import type { OHLCVCandle, StockSignal, SignalSeverity, SignalDirection, ConfluenceResult } from '@/types';
-import { calculateVortex } from '@/lib/indicators';
+import { calculateVortex, calculateOBV } from '@/lib/indicators';
 
 // --- RSI (14 periyot) ---
 function calculateRSI(closes: number[], period: number = 14): number[] {
@@ -99,6 +99,7 @@ const SIGNAL_ATR_PARAMS: Record<string, { stopMult: number; targetMult: number }
   'RSI Uyumsuzluğu':           { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
   'Bollinger Sıkışması':       { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
   'Vortex Kesişimi':           { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta (trend dönüşü)
+  'Para Akışı Uyumsuzluğu':    { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta (OBV divergence)
   'Destek/Direnç Kırılımı':    { stopMult: 1.5, targetMult: 3.0 },  // 14g vade — geniş hedef
   'Trend Başlangıcı':          { stopMult: 1.8, targetMult: 3.0 },  // 14g vade — geniş
   'Higher Lows':               { stopMult: 1.5, targetMult: 3.0 },  // 14g vade — yapı tabanlı, geniş
@@ -318,6 +319,62 @@ export function detectRsiDivergence(sembol: string, candles: OHLCVCandle[]): Sto
             pivotGap:   gap,
             candlesAgo: freshness,
           },
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Para Akışı Uyumsuzluğu (OBV divergence) — akıllı para birikim/dağıtım tespiti.
+ * Fiyat düşerken OBV yükseliyorsa (fiyat LL, OBV HL) → dip alınıyor (birikim, yukarı).
+ * Fiyat yükselirken OBV düşüyorsa (fiyat HH, OBV LH) → satışa satılıyor (dağıtım, aşağı).
+ * RSI Uyumsuzluğu ile aynı "divergence" ailesi — denetimde en iyi performans grubu.
+ * Vade ~7g.
+ */
+export function detectMoneyFlowDivergence(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  if (candles.length < 40) return null;
+
+  const closes  = candles.map((c) => c.close);
+  const lows     = candles.map((c) => c.low);
+  const highs    = candles.map((c) => c.high);
+  const volumes  = candles.map((c) => c.volume);
+  const obv       = calculateOBV(closes, volumes);
+
+  const k = 3, minGap = 5, maxGap = 40, freshMax = 10, lastIdx = candles.length - 1;
+  const relDiff = (a: number, b: number) => (b === 0 ? 0 : (a - b) / Math.abs(b));
+
+  // Bullish: fiyat LL, OBV HL (birikim)
+  const lowPivots = findPivotLows(lows, k);
+  if (lowPivots.length >= 2) {
+    const p1 = lowPivots[lowPivots.length - 1]!, p2 = lowPivots[lowPivots.length - 2]!;
+    const gap = p1 - p2, freshness = lastIdx - p1;
+    if (gap >= minGap && gap <= maxGap && freshness <= freshMax && lows[p1]! < lows[p2]!) {
+      const obvRise = relDiff(obv[p1]!, obv[p2]!); // OBV pivotta yükseldi mi
+      if (obv[p1]! > obv[p2]!) {                    // OBV HL → divergence
+        const severity: SignalSeverity = obvRise > 0.15 ? 'güçlü' : obvRise > 0.05 ? 'orta' : 'zayıf';
+        return {
+          type: 'Para Akışı Uyumsuzluğu', sembol, severity, direction: 'yukari',
+          data: { obvNow: Math.round(obv[p1]!), obvPrev: Math.round(obv[p2]!), divergenceType: 'accumulation', pivotGap: gap, candlesAgo: freshness },
+        };
+      }
+    }
+  }
+
+  // Bearish: fiyat HH, OBV LH (dağıtım)
+  const highPivots = findPivotHighs(highs, k);
+  if (highPivots.length >= 2) {
+    const p1 = highPivots[highPivots.length - 1]!, p2 = highPivots[highPivots.length - 2]!;
+    const gap = p1 - p2, freshness = lastIdx - p1;
+    if (gap >= minGap && gap <= maxGap && freshness <= freshMax && highs[p1]! > highs[p2]!) {
+      const obvFall = relDiff(obv[p2]!, obv[p1]!);
+      if (obv[p1]! < obv[p2]!) {                    // OBV LH → divergence
+        const severity: SignalSeverity = obvFall > 0.15 ? 'güçlü' : obvFall > 0.05 ? 'orta' : 'zayıf';
+        return {
+          type: 'Para Akışı Uyumsuzluğu', sembol, severity, direction: 'asagi',
+          data: { obvNow: Math.round(obv[p1]!), obvPrev: Math.round(obv[p2]!), divergenceType: 'distribution', pivotGap: gap, candlesAgo: freshness },
         };
       }
     }
@@ -1890,6 +1947,7 @@ export function detectAllSignals(
   if (want('Bollinger Sıkışması'))    { const s = detectBollingerSqueeze(sembol, candles);        if (s) signals.push(s); }
   if (want('Higher Lows'))            { const s = detectHigherLows(sembol, candles);              if (s) signals.push(s); }
   if (want('Vortex Kesişimi'))        { const s = detectVortexCross(sembol, candles);             if (s) signals.push(s); }
+  if (want('Para Akışı Uyumsuzluğu')) { const s = detectMoneyFlowDivergence(sembol, candles);      if (s) signals.push(s); }
   // Pre-signals (erken uyarı)
   if (want('Altın Çapraz Yaklaşıyor')) { const s = detectGoldenCrossApproaching(sembol, candles); if (s) signals.push(s); }
   if (want('Trend Olgunlaşıyor'))      { const s = detectTrendApproaching(sembol, candles);       if (s) signals.push(s); }
@@ -1940,6 +1998,8 @@ const SIGNAL_CATEGORY: Record<string, string> = {
   'Trend Başlangıcı':       'trend',
   'Altın Çapraz':           'trend',
   'Hacim Anomalisi':        'hacim',
+  'Para Akışı Uyumsuzluğu': 'hacim',   // OBV divergence — para akışı ailesi
+  'Vortex Kesişimi':        'trend',    // trend dönüşü
   'Destek/Direnç Kırılımı': 'yapı',
   'Bollinger Sıkışması':    'yapı',
   'Higher Lows':            'yapı',  // leading — fiyat yapı dönüşü (HL/LH pattern)
@@ -1960,6 +2020,25 @@ const SIGNAL_CATEGORY: Record<string, string> = {
 
 const SEVERITY_POINTS: Record<string, number> = { güçlü: 35, orta: 22, zayıf: 12 };
 
+/**
+ * Tip-bazlı güvenilirlik ağırlığı (2026-07-28 veri denetimi — 105k sinyal).
+ * Her sinyalin confluence skoruna katkısını geçmiş performansına göre ölçekler.
+ * "lift" = sinyal varken ort. 7g net getirinin baseline'a farkı (pp).
+ *  - RSI Uyumsuzluğu: en iyi (lift +1.60, 8 güçlü combo) → yukarı ağırlık.
+ *  - Ön-sinyaller (Trend Olgunlaşıyor / MACD Daralıyor / Altın Çapraz Yaklaşıyor) +
+ *    Yükselen Üçgen: negatif lift, 0-2 combo → skora az katkı (tespit KALIR, combo için).
+ *  - Hacim Anomalisi: negatif lift, marjinal → hafif düşür.
+ * Listede olmayan tip = 1.0 (nötr). Detektörler SİLİNMEDİ — yalnız skor ağırlığı.
+ */
+const SIGNAL_RELIABILITY: Record<string, number> = {
+  'RSI Uyumsuzluğu':          1.35,
+  'Trend Olgunlaşıyor':       0.40,
+  'MACD Daralıyor':           0.45,
+  'Altın Çapraz Yaklaşıyor':  0.40,
+  'Yükselen Üçgen':           0.45,
+  'Hacim Anomalisi':          0.70,
+};
+
 export function computeConfluence(signals: StockSignal[]): ConfluenceResult {
   if (!signals.length) {
     return { score: 0, level: 'düşük', dominantDirection: 'nötr', bullishCount: 0, bearishCount: 0, categoryCount: 0 };
@@ -1978,8 +2057,11 @@ export function computeConfluence(signals: StockSignal[]): ConfluenceResult {
   );
   const conflictCount = conflictingSigs.length;
 
-  // 1. Severity puan toplamı (dominant yön sinyalleri)
-  let score = dominantSigs.reduce((s, sig) => s + (SEVERITY_POINTS[sig.severity] ?? 12), 0);
+  // 1. Severity puan toplamı × tip-güvenilirlik ağırlığı (dominant yön sinyalleri)
+  let score = dominantSigs.reduce(
+    (s, sig) => s + (SEVERITY_POINTS[sig.severity] ?? 12) * (SIGNAL_RELIABILITY[sig.type] ?? 1),
+    0,
+  );
   score = Math.min(80, score); // severity'den max 80 — güçlü konsensüs tavana çarpmasın
 
   // 2. Hizalama bonusu / cezası (severity-scaled)

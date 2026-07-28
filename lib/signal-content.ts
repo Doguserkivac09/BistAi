@@ -37,6 +37,7 @@ export const SIGNAL_URL_MAP: Record<string, string> = {
   'Altın Çapraz':            'altin-capraz',
   'Bollinger Sıkışması':     'bollinger-sikismasi',
   'Vortex Kesişimi':         'vortex-kesisimi',
+  'Para Akışı Uyumsuzluğu':  'para-akisi-uyumsuzlugu',
   'Higher Lows':             'higher-lows',
   'Altın Çapraz Yaklaşıyor': 'altin-capraz-yaklasıyor',
   'Trend Olgunlaşıyor':      'trend-olgunlasiyor',
@@ -480,6 +481,52 @@ export const SIGNALS: SignalContent[] = [
     bistaiNote:
       'BistAI son 7 mumda kesişim arar; "güçlü" için VI− düşüşü + VI+ yükselişi + açıklık > 0.06. ' +
       'RSI Uyumsuzluğu + Vortex Kesişimi birlikte gelirse combo katmanı bunu "onaylı kurulum" olarak yakalar.',
+  },
+
+  {
+    id: 'para-akisi-uyumsuzlugu',
+    name: 'Para Akışı Uyumsuzluğu',
+    emoji: '💰',
+    category: 'leading',
+    categoryLabel: '⚡ Öncü Gösterge (Leading)',
+    direction: 'both',
+    directionLabel: 'Birikim (fiyat↓ OBV↑) veya Dağıtım (fiyat↑ OBV↓)',
+    directionDetail:
+      'Fiyat yeni dip yaparken OBV (para akışı) yükseliyorsa → dipten birikim, akıllı ' +
+      'para alıyor (POZİTİF). Fiyat yeni tepe yaparken OBV düşüyorsa → tepede dağıtım, ' +
+      'akıllı para satıyor (NEGATİF). Fiyat-hacim çelişkisi trend zayıflığını erken ele verir.',
+    indicator: 'On-Balance Volume (OBV) + fiyat pivot uyumsuzluğu',
+    vade: '7 gün',
+    reliability: 'leading',
+    reliabilityLabel: 'Öncü — fiyat henüz dönmeden para akışını yakalar',
+    description:
+      'OBV kapanış yönüne göre hacmi biriktirir (yükseliş +hacim, düşüş −hacim). ' +
+      'Fiyat ile OBV\'nin zıt yönde ayrışması (divergence), fiyatın arkasındaki gerçek ' +
+      'alım/satım baskısını gösterir — Joseph Granville\'in klasik para-akışı tekniği.',
+    howItWorks:
+      'Son fiyat pivotları ile aynı pivotlardaki OBV karşılaştırılır. ' +
+      'Fiyat LL + OBV HL → birikim (yukarı). Fiyat HH + OBV LH → dağıtım (aşağı). ' +
+      '"Güçlü" = OBV ayrışması %15 üzeri.',
+    whenToAct: [
+      'Fiyat dip + OBV yükseliyor → birikim, pozitif dönüş sinyali',
+      'RSI Uyumsuzluğu ile birlikte gelirse çok güçlü teyit',
+      'Fiyat tepe + OBV düşüyor → dağıtım, dikkat',
+      'Tek başına değil, fiyat kırılımı/RSI ile teyit et',
+    ],
+    tradeRule: {
+      entry: 'Divergence + fiyat teyidi (kırılım/pivot dönüşü)',
+      stop: 'Son pivot dibi / ATR bazlı',
+      target: 'ATR × 2.5 veya bir sonraki direnç',
+    },
+    commonMistakes: [
+      'Divergence tek başına dönüş garantisi değil — teyit bekle',
+      'OBV mutlak değeri değil, YÖNÜ önemli',
+      'Düşük hacimli hisselerde OBV gürültülü olabilir',
+    ],
+    bistaiNote:
+      'BistAI fiyat pivotlarını OBV pivotlarıyla kıyaslar (son 40 mum, tazelik ≤10 bar). ' +
+      'Denetimde "uyumsuzluk" ailesi en iyi performansı verdi → RSI Uyumsuzluğu + Para Akışı ' +
+      'Uyumsuzluğu birlikte gelince combo katmanı güçlü kurulum olarak işaretler.',
   },
 
   {

@@ -119,6 +119,22 @@ export function calculateMACD(
   return { macd, signal, histogram };
 }
 
+/**
+ * On-Balance Volume (OBV) — kümülatif hacim akışı.
+ * Kapanış yükseldiyse +hacim, düştüyse −hacim. Fiyatla OBV çelişkisi (divergence)
+ * akıllı para akışını (birikim/dağıtım) ele verir.
+ */
+export function calculateOBV(closes: number[], volumes: number[]): number[] {
+  const obv = new Array(closes.length).fill(0);
+  for (let i = 1; i < closes.length; i++) {
+    const v = volumes[i] ?? 0;
+    obv[i] = closes[i]! > closes[i - 1]! ? obv[i - 1] + v
+           : closes[i]! < closes[i - 1]! ? obv[i - 1] - v
+           : obv[i - 1];
+  }
+  return obv;
+}
+
 export interface VortexResult {
   /** VI+ (yükseliş vorteksi) — girişe hizalı, ilk `period` eleman NaN */
   viPlus: number[];

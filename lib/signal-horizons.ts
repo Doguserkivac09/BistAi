@@ -36,6 +36,7 @@ export const SIGNAL_CANONICAL_FIELD: Record<string, CanonicalReturnField> = {
   'RSI Uyumsuzluğu':         'return_7d',
   'Bollinger Sıkışması':     'return_7d',
   'Vortex Kesişimi':         'return_7d',
+  'Para Akışı Uyumsuzluğu':  'return_7d',
   'RSI Seviyesi':            'return_3d',
   'Hacim Anomalisi':         'return_3d',
 };
