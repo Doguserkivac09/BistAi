@@ -19,9 +19,10 @@ import YasalFeragat from '@/components/new/YasalFeragat';
 import RejimRozeti from '@/components/new/RejimRozeti';
 import { displayRating } from '@/lib/decision-engine';
 
-type Filtre = 'tumu' | 'momentum' | 'akilli' | 'katalist';
+type Filtre = 'guclu' | 'tumu' | 'momentum' | 'akilli' | 'katalist';
 
 const FILTRELER: { id: Filtre; label: string }[] = [
+  { id: 'guclu', label: 'Güçlü kurulum' },
   { id: 'tumu', label: 'Tümü' },
   { id: 'momentum', label: 'Momentum' },
   { id: 'akilli', label: 'Akıllı Para' },
@@ -40,6 +41,10 @@ const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
 function matchesFilter(it: FirsatItem, f: Filtre): boolean {
   if (f === 'tumu') return true;
+  // Güçlü kurulum: confluence (2+ sinyal birlikte) — tek sinyaller BIST'te komisyonu
+  // zor geçiyor, birleşimler çok daha iyi. İstisna: RSI Uyumsuzluğu tek başına da
+  // pozitif beklentili (geçmiş analiz) → radarda kalır.
+  if (f === 'guclu') return it.sinyaller.length >= 2 || it.combo != null || it.sinyaller.includes('RSI Uyumsuzluğu');
   if (f === 'momentum') return it.direction === 'yukari' && it.adjustedScore >= 55;
   if (f === 'akilli') return (it.adjustments?.volumeConfirm ?? 0) > 0 || it.tavanYaklasıyor || it.isTavan;
   if (f === 'katalist') return it.catalyst != null;
@@ -157,7 +162,7 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
 export function FirsatlarScreen() {
   const [items, setItems] = useState<FirsatItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtre, setFiltre] = useState<Filtre>('tumu');
+  const [filtre, setFiltre] = useState<Filtre>('guclu');
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const [regime, setRegime] = useState<string | null>(null);
   const [featSpark, setFeatSpark] = useState<Record<string, number[]>>({});
@@ -199,6 +204,7 @@ export function FirsatlarScreen() {
   }, [featured?.sembol, featSpark]);
 
   const counts = useMemo(() => ({
+    guclu: items.filter((it) => matchesFilter(it, 'guclu')).length,
     tumu: items.length,
     momentum: items.filter((it) => matchesFilter(it, 'momentum')).length,
     akilli: items.filter((it) => matchesFilter(it, 'akilli')).length,

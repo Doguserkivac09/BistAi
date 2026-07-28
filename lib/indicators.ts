@@ -118,3 +118,42 @@ export function calculateMACD(
   const histogram = macd.map((m, i) => m - (signal[i] ?? 0));
   return { macd, signal, histogram };
 }
+
+export interface VortexResult {
+  /** VI+ (yükseliş vorteksi) — girişe hizalı, ilk `period` eleman NaN */
+  viPlus: number[];
+  /** VI- (düşüş vorteksi) */
+  viMinus: number[];
+}
+
+/**
+ * Vortex Indicator (Etienne Botes & Douglas Siepman).
+ * VM+ = |High_t − Low_{t−1}|, VM- = |Low_t − High_{t−1}|, TR = true range.
+ * VI+ = Σ VM+ / Σ TR (period), VI- = Σ VM- / Σ TR.
+ * VI+ > VI-  → yükseliş baskın; VI- düşerken kesişim = "satış azalıyor".
+ */
+export function calculateVortex(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  period = 14,
+): VortexResult {
+  const n = closes.length;
+  const tr = new Array(n).fill(0);
+  const vmPlus = new Array(n).fill(0);
+  const vmMinus = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const h = highs[i]!, l = lows[i]!, pc = closes[i - 1]!, ph = highs[i - 1]!, pl = lows[i - 1]!;
+    tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+    vmPlus[i] = Math.abs(h - pl);
+    vmMinus[i] = Math.abs(l - ph);
+  }
+  const viPlus = new Array(n).fill(NaN);
+  const viMinus = new Array(n).fill(NaN);
+  for (let i = period; i < n; i++) {
+    let sTr = 0, sP = 0, sM = 0;
+    for (let j = i - period + 1; j <= i; j++) { sTr += tr[j]; sP += vmPlus[j]; sM += vmMinus[j]; }
+    if (sTr > 0) { viPlus[i] = sP / sTr; viMinus[i] = sM / sTr; }
+  }
+  return { viPlus, viMinus };
+}

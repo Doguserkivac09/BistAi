@@ -4,6 +4,7 @@
  */
 
 import type { OHLCVCandle, StockSignal, SignalSeverity, SignalDirection, ConfluenceResult } from '@/types';
+import { calculateVortex } from '@/lib/indicators';
 
 // --- RSI (14 periyot) ---
 function calculateRSI(closes: number[], period: number = 14): number[] {
@@ -97,6 +98,7 @@ const SIGNAL_ATR_PARAMS: Record<string, { stopMult: number; targetMult: number }
   'MACD Kesişimi':             { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
   'RSI Uyumsuzluğu':           { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
   'Bollinger Sıkışması':       { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta
+  'Vortex Kesişimi':           { stopMult: 1.5, targetMult: 2.5 },  // 7g vade — orta (trend dönüşü)
   'Destek/Direnç Kırılımı':    { stopMult: 1.5, targetMult: 3.0 },  // 14g vade — geniş hedef
   'Trend Başlangıcı':          { stopMult: 1.8, targetMult: 3.0 },  // 14g vade — geniş
   'Higher Lows':               { stopMult: 1.5, targetMult: 3.0 },  // 14g vade — yapı tabanlı, geniş
@@ -1719,6 +1721,74 @@ export function detectGoldenCross(sembol: string, candles: OHLCVCandle[]): Stock
   return null;
 }
 
+/**
+ * Vortex Kesişimi — VI+ (yükseliş vorteksi) VI-'yi (düşüş vorteksi) yukarı keser.
+ * Trend dönüşü/başlangıcı sinyali. "Satış azalıyor" boyutu VI-'nin DÜŞÜYOR olmasıyla
+ * yakalanır: VI+ yükselip VI- düşerken kesişim = alım baskısı artıyor, satış tükeniyor.
+ * Vade ~7g (orta). Bearish varyant: VI- VI+'yı yukarı keser (satış baskısı dönüyor).
+ */
+export function detectVortexCross(sembol: string, candles: OHLCVCandle[]): StockSignal | null {
+  const PERIOD = 14;
+  if (candles.length < PERIOD + 10) return null;
+  const highs  = candles.map((c) => c.high);
+  const lows   = candles.map((c) => c.low);
+  const closes = candles.map((c) => c.close);
+  const { viPlus, viMinus } = calculateVortex(highs, lows, closes, PERIOD);
+
+  // Son 7 mumda kesişim ara (en yeni öncelikli)
+  for (let i = 1; i <= 7 && candles.length - 1 - i >= PERIOD; i++) {
+    const idx = candles.length - 1 - i;
+    const prevIdx = idx - 1;
+    const pNow = viPlus[idx]!, pPrev = viPlus[prevIdx]!;
+    const mNow = viMinus[idx]!, mPrev = viMinus[prevIdx]!;
+    if (!Number.isFinite(pNow) || !Number.isFinite(mNow) || !Number.isFinite(pPrev) || !Number.isFinite(mPrev)) continue;
+
+    // Bullish: VI+ VI-'yi yukarı kesti
+    if (pPrev <= mPrev && pNow > mNow) {
+      const sellingFading = mNow < mPrev;   // satış baskısı azalıyor
+      const buyingRising  = pNow > pPrev;   // alım baskısı artıyor
+      const spread = pNow - mNow;           // kesişim gücü
+      const severity: SignalSeverity =
+        i === 1 && sellingFading && buyingRising && spread > 0.06 ? 'güçlü' :
+        i <= 3 && (sellingFading || buyingRising)                ? 'orta'  : 'zayıf';
+      return {
+        type: 'Vortex Kesişimi',
+        sembol, severity,
+        direction: 'yukari',
+        data: {
+          viPlus: parseFloat(pNow.toFixed(3)),
+          viMinus: parseFloat(mNow.toFixed(3)),
+          sellingFading, buyingRising,
+          spread: parseFloat(spread.toFixed(3)),
+          crossoverCandlesAgo: i,
+        },
+      };
+    }
+
+    // Bearish: VI- VI+'yı yukarı kesti (satış baskısı dönüyor)
+    if (mPrev <= pPrev && mNow > pNow) {
+      const buyingFading = pNow < pPrev;
+      const spread = mNow - pNow;
+      const severity: SignalSeverity =
+        i === 1 && buyingFading && spread > 0.06 ? 'güçlü' :
+        i <= 3 && buyingFading                   ? 'orta'  : 'zayıf';
+      return {
+        type: 'Vortex Kesişimi',
+        sembol, severity,
+        direction: 'asagi',
+        data: {
+          viPlus: parseFloat(pNow.toFixed(3)),
+          viMinus: parseFloat(mNow.toFixed(3)),
+          buyingFading,
+          spread: parseFloat(spread.toFixed(3)),
+          crossoverCandlesAgo: i,
+        },
+      };
+    }
+  }
+  return null;
+}
+
 // ─── Multi-Timeframe (Haftalık Uyum) ──────────────────────────────────────────
 
 /**
@@ -1819,6 +1889,7 @@ export function detectAllSignals(
   if (want('Altın Çapraz'))           { const s = detectGoldenCross(sembol, candles);             if (s) signals.push(s); }
   if (want('Bollinger Sıkışması'))    { const s = detectBollingerSqueeze(sembol, candles);        if (s) signals.push(s); }
   if (want('Higher Lows'))            { const s = detectHigherLows(sembol, candles);              if (s) signals.push(s); }
+  if (want('Vortex Kesişimi'))        { const s = detectVortexCross(sembol, candles);             if (s) signals.push(s); }
   // Pre-signals (erken uyarı)
   if (want('Altın Çapraz Yaklaşıyor')) { const s = detectGoldenCrossApproaching(sembol, candles); if (s) signals.push(s); }
   if (want('Trend Olgunlaşıyor'))      { const s = detectTrendApproaching(sembol, candles);       if (s) signals.push(s); }

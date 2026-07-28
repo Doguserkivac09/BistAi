@@ -36,6 +36,7 @@ export const SIGNAL_URL_MAP: Record<string, string> = {
   'RSI Seviyesi':            'rsi-seviyesi',
   'Altın Çapraz':            'altin-capraz',
   'Bollinger Sıkışması':     'bollinger-sikismasi',
+  'Vortex Kesişimi':         'vortex-kesisimi',
   'Higher Lows':             'higher-lows',
   'Altın Çapraz Yaklaşıyor': 'altin-capraz-yaklasıyor',
   'Trend Olgunlaşıyor':      'trend-olgunlasiyor',
@@ -434,6 +435,51 @@ export const SIGNALS: SignalContent[] = [
       'BistAI 50 günlük minimum genişlikle kıyaslar. ' +
       '"Güçlü" = %3 altı genişlik + EMA9-21 yön onayı. ' +
       'Hem Bollinger Sıkışması hem Direnç Testi aynı anda gelirse çok güçlü kurulum.',
+  },
+
+  {
+    id: 'vortex-kesisimi',
+    name: 'Vortex Kesişimi',
+    emoji: '🌀',
+    category: 'leading',
+    categoryLabel: '⚡ Öncü Gösterge (Leading)',
+    direction: 'both',
+    directionLabel: 'VI+ ↑ kesişim (pozitif) veya VI− ↑ kesişim (negatif)',
+    directionDetail:
+      'VI+ (yükseliş vorteksi) VI−\'yi (düşüş vorteksi) yukarı keserse → alım baskısı ' +
+      'baskın hale geliyor, pozitif dönüş. VI− VI+\'yı keserse → satış baskısı dönüyor, ' +
+      'negatif tablo. En güçlü hali: VI+ yükselirken VI− DÜŞÜYORSA (satış tükeniyor).',
+    indicator: 'Vortex Indicator (VI+ / VI−, 14 periyot)',
+    vade: '7 gün',
+    reliability: 'leading',
+    reliabilityLabel: 'Öncü — trend dönüşünü erken yakalar',
+    description:
+      'Vortex Indicator (Botes & Siepman, 2010) iki çizgiyle trend yönünü ölçer: VI+ ' +
+      'yukarı hareketin, VI− aşağı hareketin gücünü izler. Çizgilerin kesişimi trendin ' +
+      'el değiştirdiği ana işaret eder.',
+    howItWorks:
+      'VM+ = |Bugünkü Yüksek − Dünkü Düşük|, VM− = |Bugünkü Düşük − Dünkü Yüksek|. ' +
+      'VI+ = Σ VM+ / Σ TR, VI− = Σ VM− / Σ TR (14 gün). VI+ > VI− → yükseliş baskın. ' +
+      '"Güçlü" = kesişim + VI− düşüyor (satış azalıyor) + VI+ yükseliyor (alım artıyor) + geniş açıklık.',
+    whenToAct: [
+      'VI+ VI−\'yi yukarı kesti + VI− düşüyor → pozitif dönüş sinyali',
+      'RSI Uyumsuzluğu ile birlikte gelirse teyit güçlenir',
+      'VI− VI+\'yı yukarı kesti → satış baskısı, dikkat',
+      'Kesişim sığsa (açıklık dar) fakeout riski — teyit bekle',
+    ],
+    tradeRule: {
+      entry: 'VI+/VI− kesişimi teyit edilince (kapanışta)',
+      stop: 'Son salınım dibi / ATR bazlı',
+      target: 'ATR × 2.5 veya bir sonraki direnç',
+    },
+    commonMistakes: [
+      'Sığ (dar açıklıklı) kesişimde erken girmek — teyit bekle',
+      'Yatay piyasada sık sinyal üretir — trend bağlamıyla değerlendir',
+      'Tek başına değil, hacim/RSI teyidiyle daha güvenilir',
+    ],
+    bistaiNote:
+      'BistAI son 7 mumda kesişim arar; "güçlü" için VI− düşüşü + VI+ yükselişi + açıklık > 0.06. ' +
+      'RSI Uyumsuzluğu + Vortex Kesişimi birlikte gelirse combo katmanı bunu "onaylı kurulum" olarak yakalar.',
   },
 
   {
