@@ -250,7 +250,16 @@ Aşağıdaki migration'lar Supabase SQL Editor'a yapıştırılıp çalıştır�
 - Haftalık seçimler Pazartesi 05:30 UTC tetikleniyor mu?
 - Cuma 18:30 UTC kapanış fiyatları güncelleniyor mu?
 
-### ⚠️ Geçmiş Fırsatlar Sayfası — Navbar'dan Gizlendi (2026-05-17)
+### ✅ Geçmiş Fırsatlar Sayfası — GERİ AÇILDI (2026-07-28)
+> **Durum güncellemesi:** Ön koşul (evaluate backlog erisin + entry tarihleri güncellensin)
+> 2026-07-28'de sağlandı — evaluate motoru sembol-bazlı yeniden yazıldı, backlog 142.858→~15k
+> sağlıklı tabana indi, entry tarihleri güncel. Sayfa yeni AppShell tasarımına taşındı
+> (`components/new/GecmisFirsatlarScreen.tsx` + `/gecmis-firsatlar` NEW_DESIGN_ROUTES'ta),
+> Fırsatlar başlığından "Geçmiş performans →" linkiyle erişiliyor. Düzeltmeler: US sızıntısı
+> kapatıldı (market filtresi), getiriler yön-düzeltmeli (short'lar tutarlı), YasalFeragat eklendi.
+> Aşağıdaki tarihsel not (2026-05-17 gizleme gerekçesi) arşiv amaçlıdır.
+
+### ⚠️ (ARŞİV) Geçmiş Fırsatlar Sayfası — Navbar'dan Gizlendi (2026-05-17)
 **Sayfa:** `app/gecmis-firsatlar/page.tsx` → **KOD DURUYOR, sadece navbar'dan kaldırıldı.**
 
 **Neden gizlendi:** signal_performance tablosundaki veriler backfill kaynaklı.
