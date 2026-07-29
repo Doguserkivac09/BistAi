@@ -187,12 +187,15 @@ export function computeTTM(quarters: IsyQuarter[]): Partial<Record<FieldKey, num
   return ttm;
 }
 
-/** Son ~2 yılın standart dönem referansları (8 çeyrek) — `now` yılından geriye. */
-export function recentQuarterRefs(nowYear: number, nowQuarter: 1 | 2 | 3 | 4): IsyPeriodRef[] {
+/**
+ * `now` çeyreğinden geriye N dönem referansı (varsayılan 8). Raporlama gecikmesi için
+ * geniş pencere istenebilir (henüz açıklanmamış çeyrekler null döner, çağıran filtreler).
+ */
+export function recentQuarterRefs(nowYear: number, nowQuarter: 1 | 2 | 3 | 4, count = 8): IsyPeriodRef[] {
   const refs: IsyPeriodRef[] = [];
   const periodOf = (q: number) => (q * 3) as 3 | 6 | 9 | 12;
   let y = nowYear, q = nowQuarter;
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < count; i++) {
     refs.push({ year: y, period: periodOf(q) });
     q -= 1; if (q < 1) { q = 4; y -= 1; }
   }
