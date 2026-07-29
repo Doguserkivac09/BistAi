@@ -138,6 +138,14 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
               ✓ combo %{it.combo.winRate.toFixed(0)}
             </span>
           )}
+          {it.earningsRisk && (
+            <span
+              title={`Kâr kalitesi: ${it.earningsRisk.redFlag ?? 'finansman yükü'} — bilanço risk uyarısı (İş Yatırım). Getiri tahmini değil.`}
+              className="shrink-0 rounded-[6px] bg-warn/15 px-1.5 py-px text-[9px] font-bold text-warn"
+            >
+              ⚠ {it.earningsRisk.redFlag ? 'kâr riski' : 'finansman yükü'}
+            </span>
+          )}
           <span className="truncate">{it.sektorAdi}</span>
         </div>
       </div>
@@ -359,6 +367,18 @@ export function FirsatlarScreen() {
               <div className="font-mono text-[11px] font-semibold text-up">
                 geçmiş %{featured.combo.winRate.toFixed(0)} isabet · ort {featured.combo.avgNet >= 0 ? '+' : ''}{featured.combo.avgNet.toFixed(1)}%
                 <span className="ml-1 font-sans font-medium text-t3">(n={featured.combo.n})</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {featured.earningsRisk && (
+          <div className="mt-2 flex items-start gap-2 rounded-[12px] border border-warn/30 bg-warn/[0.08] px-3 py-2">
+            <span aria-hidden className="text-[13px] leading-none">⚠️</span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11.5px] font-bold text-warn">Bilanço riski · {featured.earningsRisk.redFlag ?? 'Finansman yükü'}</div>
+              <div className="text-[11px] font-medium leading-[1.45] text-t3">
+                Kâr kalitesi uyarısı (İş Yatırım). Risk merceği — getiri tahmini değil.
               </div>
             </div>
           </div>

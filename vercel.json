@@ -73,6 +73,14 @@
       "schedule": "0 5 * * 1"
     },
     {
+      "path": "/api/cron/earnings-quality?part=1",
+      "schedule": "30 5 * * 1"
+    },
+    {
+      "path": "/api/cron/earnings-quality?part=2",
+      "schedule": "40 5 * * 1"
+    },
+    {
       "path": "/api/cron/price-alerts",
       "schedule": "0 10 * * 1-5"
     },

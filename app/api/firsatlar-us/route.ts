@@ -245,6 +245,7 @@ function buildFirsatItem(
       macroScore:      0,
       sectorScore:     0,
     } as unknown as FirsatItem['decision'],
+    earningsRisk: null, // kâr kalitesi yalnız BIST (İş Yatırım kaynağı)
     combo: null, // combo istatistikleri yalnız BIST (evaluate verisi BIST evreninde)
     investmentScore: null,
     catalyst: null, // US tarafında haber katalisti precompute edilmiyor (TR haber kaynağı)

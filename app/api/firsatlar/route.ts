@@ -34,6 +34,7 @@ import type {
 } from '@/lib/investment-score';
 import { SIGNAL_CANONICAL_FIELD } from '@/lib/signal-horizons';
 import { getStoredStrongCombos, detectBestCombo, type ComboStat } from '@/lib/combo-stats';
+import { getEarningsFlags, type EarningsFlagMap } from '@/lib/earnings-quality-runner';
 import type { SymbolCatalyst, SymbolEventRisk } from '@/lib/news-impact';
 import type { OHLCVCandle } from '@/types';
 
@@ -131,6 +132,12 @@ export interface FirsatItem {
     rating: InvestableRating;
     confidence: InvestableConfidence;
     inflationAdjusted: boolean;
+  } | null;
+  /** Kâr kalitesi risk uyarısı (Bilanço B1) — DOĞRULANMIŞ risk merceği, alfa DEĞİL. null=veri yok. */
+  earningsRisk: {
+    verdict: string;
+    financeBurden: boolean;  // "finansman yükü" (doğrulanmış robust risk)
+    redFlag: string | null;  // kağıt-üstü / faaliyet-zararı / parasal-şişkin
   } | null;
   /** Onaylı kurulum — hissenin aktif sinyalleri güçlü bir geçmiş combo'ya uyuyorsa. */
   combo: {
@@ -505,6 +512,10 @@ export async function GET(req: NextRequest) {
     let strongCombos: ComboStat[] = [];
     try { strongCombos = await getStoredStrongCombos(supabase); } catch { /* yoksa rozet gösterilmez */ }
 
+    // Kâr kalitesi risk map'i (earnings-quality cron → ai_cache) — tek okuma.
+    let earningsFlags: EarningsFlagMap = {};
+    try { earningsFlags = await getEarningsFlags(supabase); } catch { /* yoksa uyarı gösterilmez */ }
+
     // SCORING v2 (FAZ 2): hisse-özel makro duyarlılığı için ortak akım verisi.
     // Yalnız v2 açıkken hesaplanır → flag kapalıyken firsatlar bit-bazında değişmez.
     const scoringV2Short = isScoringV2('short');
@@ -627,6 +638,10 @@ export async function GET(req: NextRequest) {
         combo: (() => {
           const c = detectBestCombo(uniqueSinyaller, strongCombos);
           return c ? { members: c.members, n: c.n, winRate: c.winRate, avgNet: c.avgNet } : null;
+        })(),
+        earningsRisk: (() => {
+          const e = earningsFlags[sembol];
+          return e && (e.financeBurden || e.redFlag) ? { verdict: e.verdict, financeBurden: e.financeBurden, redFlag: e.redFlag } : null;
         })(),
         investmentScore: investmentScoreMap.get(sembol) ?? null,
         catalyst: catalyst
