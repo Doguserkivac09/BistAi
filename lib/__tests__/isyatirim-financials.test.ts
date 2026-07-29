@@ -46,10 +46,13 @@ describe('toStandaloneQuarters — kümülatif → tek çeyrek', () => {
     assert.equal(q[0]!.quarter, 1);
   });
 
-  it('eksik dönem atlanır (yalnız mevcut çeyrekler)', () => {
+  it('eksik önceki dönem → akış NULL (kümülatif standalone sanılmaz)', () => {
     const q = toStandaloneQuarters([p(2024, 3, 20, 6, 100), p(2024, 9, 80, 19, 125)]);
-    // P6 yok → Q2 üretilmez; Q3 prev=P6 yok → fark alınamaz, kümülatif kalır
+    // P6 yok → Q2 üretilmez; Q3 prev=P6 yok → standalone hesaplanamaz → revenue NULL
     assert.deepEqual(q.map((x) => x.quarter), [1, 3]);
+    assert.equal(q[0]!.fields.revenue, 20);   // Q1 kümülatif = standalone
+    assert.equal(q[1]!.fields.revenue, null);  // Q3 hesaplanamaz → null (çağıran düşürür)
+    assert.equal(q[1]!.fields.equity, 125);    // snapshot bilanço etkilenmez
   });
 
   it('ebitda = operatingProfit + amortization', () => {

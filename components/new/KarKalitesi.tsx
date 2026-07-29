@@ -73,7 +73,7 @@ export default function KarKalitesi({ sembol }: { sembol: string }) {
       <div className="flex items-center justify-between gap-2">
         <div>
           <div className="text-[13px] font-bold text-ink">Kâr Kalitesi</div>
-          <div className="text-[11px] font-medium text-t3">Gerçekten kâr ediyor mu? · {data.lastQuarter} (son 12 ay)</div>
+          <div className="text-[11px] font-medium text-t3">Gerçekten kâr ediyor mu? · {data.lastQuarter} ({data.periodBasis === 'quarter' ? 'tek çeyrek' : 'son 12 ay'})</div>
         </div>
         <div className="flex items-center gap-2">
           {data.score != null && (
@@ -101,7 +101,7 @@ export default function KarKalitesi({ sembol }: { sembol: string }) {
       {/* Kâr köprüsü */}
       {bridge.length > 0 && (
         <div className="mt-3.5">
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-t3">Kâr Köprüsü (son 12 ay)</div>
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-t3">Kâr Köprüsü ({data.periodBasis === 'quarter' ? 'tek çeyrek' : 'son 12 ay'})</div>
           <div className="flex flex-col gap-1">
             {bridge.map((s) => {
               const positive = s.amount >= 0;

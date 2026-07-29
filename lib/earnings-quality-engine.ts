@@ -34,7 +34,8 @@ export interface EarningsQualityResult {
   applicable: boolean;
   verdict: EarningsVerdict;
   score: number;                        // 0-100 mutlak kalite
-  bridge: ProfitBridgeStep[];           // TTM bazlı kâr köprüsü
+  periodBasis: 'ttm' | 'quarter';       // 'ttm'=son 12 ay, 'quarter'=tek çeyrek (4 çeyrek yoksa)
+  bridge: ProfitBridgeStep[];           // TTM/çeyrek bazlı kâr köprüsü
   // Metrikler (TTM/YoY)
   operatingMargin: number | null;       // EBIT / hasılat
   netMargin: number | null;
@@ -67,7 +68,7 @@ export function computeEarningsQuality(
   opts: { inflationRate?: number; isBank?: boolean } = {},
 ): EarningsQualityResult {
   const empty = (verdict: EarningsVerdict, note: string): EarningsQualityResult => ({
-    applicable: false, verdict, score: 0, bridge: [],
+    applicable: false, verdict, score: 0, periodBasis: 'ttm', bridge: [],
     operatingMargin: null, netMargin: null, interestCoverage: null, fcfConversion: null,
     operatingLeverage: null, ebitYoY: null, revenueYoY: null,
     netMonetaryPosition: null, estimatedMonetaryGain: null, monetaryShareOfNet: null, exportRatio: null,
@@ -188,7 +189,7 @@ export function computeEarningsQuality(
   if (!ttm) notes.push('4 çeyrek yok — TTM yerine son çeyrek kullanıldı.');
 
   return {
-    applicable: true, verdict, score, bridge,
+    applicable: true, verdict, score, periodBasis: ttm ? 'ttm' : 'quarter', bridge,
     operatingMargin, netMargin, interestCoverage, fcfConversion, operatingLeverage, ebitYoY, revenueYoY,
     netMonetaryPosition, estimatedMonetaryGain, monetaryShareOfNet, exportRatio,
     flags, dataQuality, notes,

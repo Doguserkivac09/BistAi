@@ -154,11 +154,15 @@ export function toStandaloneQuarters(periods: IsyPeriodData[]): IsyQuarter[] {
       const fields: Partial<Record<FieldKey, number | null>> = {};
       for (const key of Object.keys(CODES) as FieldKey[]) {
         const cv = cur.fields[key] ?? null;
-        if (SNAPSHOT_FIELDS.has(key) || prev == null || !prevP) {
+        if (SNAPSHOT_FIELDS.has(key) || prev == null) {
           fields[key] = cv; // snapshot ya da yılın ilk çeyreği → olduğu gibi
+        } else if (!prevP) {
+          // Q2/Q3/Q4 ama önceki dönem fetch penceresinde YOK → standalone hesaplanamaz.
+          // Kümülatifi standalone sanmak YANLIŞ olurdu → null (çağıran bu çeyreği düşürür).
+          fields[key] = null;
         } else {
           const pv = prevP.fields[key] ?? null;
-          fields[key] = cv != null && pv != null ? cv - pv : cv;
+          fields[key] = cv != null && pv != null ? cv - pv : null;
         }
       }
       const op = fields.operatingProfit, am = fields.amortization;
