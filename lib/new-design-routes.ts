@@ -12,6 +12,7 @@ export const NEW_DESIGN_ROUTES = [
   '/portfolyo',
   '/firsatlar',
   '/gecmis-firsatlar',
+  '/bilanco-tarama',
   '/makro',
   '/sohbet',
   '/profil',

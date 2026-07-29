@@ -16,13 +16,17 @@ import { computeEarningsQuality } from '@/lib/earnings-quality-engine';
 const CACHE_KEY = 'earnings-quality:MAP:BIST';
 const TTL_MS = 10 * 24 * 60 * 60 * 1000;
 
-/** Kart için sadeleştirilmiş kayıt (yalnız risk-ilgili alanlar). */
+/** Fırsatlar rozeti + Bilanço Tarama listesi için sadeleştirilmiş kayıt. */
 export interface EarningsFlagEntry {
   verdict: string;
   score: number;
   financeBurden: boolean;   // "finansman-yükü" flag'i (DOĞRULANMIŞ robust risk)
   redFlag: string | null;   // ilk kırmızı bayrak etiketi (kağıt-üstü/faaliyet-zararı/parasal-şişkin)
   lastQuarter: string;
+  // Liste/tarama için ek metrikler
+  operatingMargin: number | null;
+  interestCoverage: number | null;
+  netMargin: number | null;
 }
 
 export type EarningsFlagMap = Record<string, EarningsFlagEntry>;
@@ -55,6 +59,7 @@ export async function runEarningsQuality(
           verdict: r.verdict, score: r.score,
           financeBurden: r.flags.some((f) => f.code === 'finansman-yükü'),
           redFlag, lastQuarter: quarters[quarters.length - 1]!.label,
+          operatingMargin: r.operatingMargin, interestCoverage: r.interestCoverage, netMargin: r.netMargin,
         };
         ok++;
       } catch { skipped++; }

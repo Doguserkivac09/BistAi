@@ -426,6 +426,12 @@ export function FirsatlarScreen() {
           </div>
           <div className="flex items-center gap-2">
             <Link
+              href="/bilanco-tarama"
+              className="hidden rounded-[10px] border border-hairline px-[11px] py-[6px] text-[11px] font-semibold text-t2 transition-colors hover:text-ink sm:block"
+            >
+              Bilanço kalitesi →
+            </Link>
+            <Link
               href="/gecmis-firsatlar"
               className="rounded-[10px] border border-hairline px-[11px] py-[6px] text-[11px] font-semibold text-t2 transition-colors hover:text-ink"
             >
