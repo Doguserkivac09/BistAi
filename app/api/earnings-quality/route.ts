@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const m = now.getUTCMonth();
     const nowQ = (m < 3 ? 1 : m < 6 ? 2 : m < 9 ? 3 : 4) as 1 | 2 | 3 | 4;
-    const refs = recentQuarterRefs(now.getUTCFullYear(), nowQ, 10);
+    const refs = recentQuarterRefs(now.getUTCFullYear(), nowQ, 8);
     const { isBank, periods } = await fetchIsyFinancials(sembol, refs);
 
     if (isBank) {

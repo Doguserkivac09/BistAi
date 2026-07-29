@@ -86,7 +86,7 @@ async function fetchBatch(code: string, refs: IsyPeriodRef[], group: string): Pr
   p.forEach((r, i) => { qs.set(`year${i + 1}`, String(r.year)); qs.set(`period${i + 1}`, String(r.period)); });
   const res = await fetch(`${BASE}?${qs.toString()}`, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)' },
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(12000),
   });
   const json = await res.json() as { ok?: boolean; value?: Array<Record<string, string>> };
   const rows = json?.value ?? [];
@@ -107,13 +107,11 @@ export async function fetchIsyFinancials(
   code: string,
   refs: IsyPeriodRef[],
 ): Promise<{ isBank: boolean; periods: IsyPeriodData[] }> {
-  // Önce sanayi (XI_29)
-  const batches: Map<string, number | null>[] = [];
-  for (let i = 0; i < refs.length; i += 4) {
-    const b = await fetchBatch(code, refs.slice(i, i + 4), 'XI_29');
-    batches.push(...b);
-    if (i > 0) await new Promise((r) => setTimeout(r, 120));
-  }
+  // Önce sanayi (XI_29) — batch'ler PARALEL (cold istekte timeout'u önler)
+  const chunks: IsyPeriodRef[][] = [];
+  for (let i = 0; i < refs.length; i += 4) chunks.push(refs.slice(i, i + 4));
+  const results = await Promise.all(chunks.map((c) => fetchBatch(code, c, 'XI_29').catch(() => c.map(() => new Map<string, number | null>()))));
+  const batches: Map<string, number | null>[] = results.flat();
   // XI_29 tamamen boşsa → banka/finans
   const anyData = batches.some((m) => m.size > 0);
   if (!anyData) {
