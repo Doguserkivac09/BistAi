@@ -35,6 +35,9 @@ export interface EarningsQualityResult {
   verdict: EarningsVerdict;
   score: number;                        // 0-100 mutlak kalite
   periodBasis: 'ttm' | 'quarter';       // 'ttm'=son 12 ay, 'quarter'=tek çeyrek (4 çeyrek yoksa)
+  plainSummary: string;                 // TEK CÜMLE sade cevap (yatırımcı dostu)
+  netIncome: number | null;             // net kâr (TL, dönem bazlı)
+  cleanedNetIncome: number | null;      // enflasyon-arındırılmış kâr (tahmini): net − parasal kazanç
   bridge: ProfitBridgeStep[];           // TTM/çeyrek bazlı kâr köprüsü
   // Metrikler (TTM/YoY)
   operatingMargin: number | null;       // EBIT / hasılat
@@ -68,7 +71,7 @@ export function computeEarningsQuality(
   opts: { inflationRate?: number; isBank?: boolean } = {},
 ): EarningsQualityResult {
   const empty = (verdict: EarningsVerdict, note: string): EarningsQualityResult => ({
-    applicable: false, verdict, score: 0, periodBasis: 'ttm', bridge: [],
+    applicable: false, verdict, score: 0, periodBasis: 'ttm', plainSummary: '', netIncome: null, cleanedNetIncome: null, bridge: [],
     operatingMargin: null, netMargin: null, interestCoverage: null, fcfConversion: null,
     operatingLeverage: null, ebitYoY: null, revenueYoY: null,
     netMonetaryPosition: null, estimatedMonetaryGain: null, monetaryShareOfNet: null, exportRatio: null,
@@ -156,7 +159,7 @@ export function computeEarningsQuality(
   }
   if (monetaryShareOfNet != null && monetaryShareOfNet > 0.5 && netIncome > 0) {
     flags.push({ tone: 'kırmızı', code: 'parasal-şişkin', label: 'Parasal kazançla şişmiş',
-      detail: `Net kârın ~%${Math.round(monetaryShareOfNet * 100)}'i tahmini enflasyon (parasal) kazancı — nakit girişi değil.` });
+      detail: 'Görünen kârın büyük kısmı nakit değil, enflasyon (parasal) kazancı — aşağıdaki arındırılmış kâra bakın.' });
   }
   if (ebit > 0 && interestCoverage != null && interestCoverage < 1.5) {
     flags.push({ tone: 'turuncu', code: 'finansman-yükü', label: 'Finansman yükü',
@@ -188,8 +191,27 @@ export function computeEarningsQuality(
   if (dataQuality === 'tahmini-tms29') notes.push('Net parasal pozisyon KAP dipnotundan değil bilançodan TAHMİN edildi.');
   if (!ttm) notes.push('4 çeyrek yok — TTM yerine son çeyrek kullanıldı.');
 
+  // ── Enflasyon-arındırılmış kâr (tahmini): net kâr − tahmini parasal kazanç ──
+  const cleanedNetIncome = estimatedMonetaryGain != null ? netIncome - estimatedMonetaryGain : null;
+
+  // ── TEK CÜMLE sade cevap ──
+  let plainSummary: string;
+  if (ebit <= 0) {
+    plainSummary = 'Esas faaliyetinden para kazanamıyor — görünen kâr operasyondan değil.';
+  } else if (interestCoverage != null && interestCoverage < 1.5) {
+    plainSummary = 'Faaliyetten kâr ediyor ama faiz/finansman gideri kârın çoğunu eritiyor.';
+  } else if (verdict === 'gerçek') {
+    plainSummary = 'Esas faaliyetinden gerçek, nakde dönen kâr üretiyor.';
+  } else {
+    plainSummary = 'Faaliyet kârı var ama kâr kalitesi ortalama altı.';
+  }
+  if (monetaryShareOfNet != null && monetaryShareOfNet > 0.5) {
+    plainSummary += ' Kârın büyük kısmı nakit değil, enflasyon muhasebesi kaynaklı (tahmini).';
+  }
+
   return {
-    applicable: true, verdict, score, periodBasis: ttm ? 'ttm' : 'quarter', bridge,
+    applicable: true, verdict, score, periodBasis: ttm ? 'ttm' : 'quarter',
+    plainSummary, netIncome, cleanedNetIncome, bridge,
     operatingMargin, netMargin, interestCoverage, fcfConversion, operatingLeverage, ebitYoY, revenueYoY,
     netMonetaryPosition, estimatedMonetaryGain, monetaryShareOfNet, exportRatio,
     flags, dataQuality, notes,

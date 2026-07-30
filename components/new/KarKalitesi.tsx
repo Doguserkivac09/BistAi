@@ -83,6 +83,13 @@ export default function KarKalitesi({ sembol }: { sembol: string }) {
         </div>
       </div>
 
+      {/* TEK CÜMLE sade cevap */}
+      {data.plainSummary && (
+        <div className="mt-2.5 rounded-[12px] px-3 py-2.5" style={{ background: v.bg }}>
+          <p className="text-[13px] font-semibold leading-[1.5]" style={{ color: v.color }}>{data.plainSummary}</p>
+        </div>
+      )}
+
       {/* Bayraklar */}
       {data.flags && data.flags.length > 0 && (
         <div className="mt-3 flex flex-col gap-1.5">
@@ -129,14 +136,27 @@ export default function KarKalitesi({ sembol }: { sembol: string }) {
         <Metric label="İhracat payı" value={pct(data.exportRatio, 0)} />
       </div>
 
-      {/* TMS-29 tahmini */}
-      {data.estimatedMonetaryGain != null && data.monetaryShareOfNet != null && (
-        <div className="mt-3 rounded-[10px] bg-fill px-3 py-2">
-          <div className="text-[11px] font-semibold text-t2">TMS-29 enflasyon muhasebesi (tahmini)</div>
-          <div className="mt-0.5 text-[11px] font-medium leading-[1.5] text-t3">
-            Net parasal pozisyon {data.netMonetaryPosition != null && data.netMonetaryPosition < 0 ? 'borçlu' : 'alacaklı'} →
-            net kârın ~%{Math.round(Math.abs(data.monetaryShareOfNet) * 100)}'i tahmini enflasyon kazancı (nakit değil).
-            <span className="italic"> KAP dipnotu yerine bilançodan tahmin edildi.</span>
+      {/* TMS-29 enflasyon etkisi — somut TL (oran yerine) */}
+      {data.estimatedMonetaryGain != null && data.netIncome != null && data.estimatedMonetaryGain > 0 && (
+        <div className="mt-3 rounded-[10px] bg-fill px-3 py-2.5">
+          <div className="text-[11px] font-semibold text-t2">Enflasyon etkisi arındırılınca (tahmini)</div>
+          <div className="mt-1.5 flex items-center justify-between gap-2 text-[12px]">
+            <span className="text-t3">Net kâr</span>
+            <span className="font-mono font-semibold text-ink">{fmtTL(data.netIncome)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2 text-[12px]">
+            <span className="text-t3">− Tahmini enflasyon kazancı</span>
+            <span className="font-mono font-semibold text-warn">−{fmtTL(data.estimatedMonetaryGain)}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-2 border-t border-hairline pt-1.5 text-[12px]">
+            <span className="font-semibold text-t2">≈ Arındırılmış kâr</span>
+            <span className="font-mono text-[13px] font-bold" style={{ color: (data.cleanedNetIncome ?? 0) >= 0 ? '#16a35b' : '#e5484d' }}>
+              {fmtTL(data.cleanedNetIncome)}{(data.cleanedNetIncome ?? 0) < 0 ? ' (zarar)' : ''}
+            </span>
+          </div>
+          <div className="mt-1.5 text-[10.5px] font-medium leading-[1.5] text-t4">
+            Net kârdan tahmini enflasyon (parasal) kazancı çıkarıldığında kalan gerçek operasyonel kâr.
+            <span className="italic"> KAP dipnotu bloklu → bilançodan tahmin; kesin değer değildir.</span>
           </div>
         </div>
       )}
