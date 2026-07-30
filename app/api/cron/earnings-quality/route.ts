@@ -52,13 +52,22 @@ export async function GET(request: NextRequest) {
     let inflationRate: number | undefined;
     try { const infl = await fetchTurkeyInflation(); if (infl?.value) inflationRate = infl.value / 100; } catch { /* opsiyonel */ }
 
-    const { map, ok, skipped } = await runEarningsQuality(syms, { inflationRate, concurrency: 4 });
-    await storeEarningsFlags(sb, map);
+    // Alt-parça + INCREMENTAL kaydet: İş Yatırım yavaşsa timeout ilerlemeyi kaybetmesin
+    // (store koşu sonundaysa timeout her şeyi siler — scan-cache dersi).
+    const SUB = 40;
+    const DEADLINE_MS = 270_000;
+    let ok = 0, skipped = 0, done = 0;
+    for (let i = 0; i < syms.length; i += SUB) {
+      if (Date.now() - startedAt > DEADLINE_MS) break; // zaman bütçesi — kalanı sonraki koşu
+      const sub = syms.slice(i, i + SUB);
+      const r = await runEarningsQuality(sub, { inflationRate, concurrency: 8 });
+      await storeEarningsFlags(sb, r.map); // her parçadan sonra merge-kaydet
+      ok += r.ok; skipped += r.skipped; done += sub.length;
+    }
 
     const durationMs = Date.now() - startedAt;
-    const burden = Object.values(map).filter((e) => e.financeBurden).length;
-    console.log(`[earnings-quality] part=${part ?? 'all'} ${ok} ok, ${skipped} atlandı, ${burden} finansman-yükü, ${durationMs}ms`);
-    return NextResponse.json({ ok: true, part: part ?? 'all', scanned: syms.length, computed: ok, skipped, financeBurden: burden, durationMs });
+    console.log(`[earnings-quality] part=${part ?? 'all'} ${done}/${syms.length} işlendi, ${ok} ok, ${skipped} atlandı, ${durationMs}ms`);
+    return NextResponse.json({ ok: true, part: part ?? 'all', scanned: syms.length, processed: done, computed: ok, skipped, durationMs });
   } catch (error) {
     console.error('[earnings-quality] Hata:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
