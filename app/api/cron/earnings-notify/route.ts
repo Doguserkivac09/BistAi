@@ -42,10 +42,12 @@ export async function GET(request: NextRequest) {
 
   // 1) Kâr kalitesi map + son-bildirilen state
   const map = await getEarningsFlags(sb);
-  const { data: stateRow } = await sb.from('ai_cache').select('explanation').eq('cache_key', STATE_KEY).maybeSingle();
+  const { data: stateRows } = await sb.from('ai_cache').select('explanation').eq('cache_key', STATE_KEY).limit(1);
   let state: Record<string, string> = {};
-  try { if (stateRow?.explanation) state = JSON.parse(stateRow.explanation); } catch { /* boş */ }
+  const rawState = stateRows?.[0]?.explanation ?? null;
+  try { if (rawState) state = JSON.parse(rawState); } catch { /* boş */ }
   const firstRun = Object.keys(state).length === 0;
+  const dbg = { stateFound: !!rawState, stateLen: rawState?.length ?? 0, stateKeys: Object.keys(state).length };
 
   // 2) lastQuarter ilerleyen (yeni bilanço) semboller
   const changed: Record<string, { quarter: string; verdict: string; redFlag: string | null }> = {};
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
   // İlk koşu: yalnız SEED, bildirim yok (blast önleme)
   if (firstRun) {
     await sb.from('ai_cache').upsert({ cache_key: STATE_KEY, explanation: JSON.stringify(newState), version: 1, hit_count: 0, expires_at: new Date(Date.now() + 400 * 864e5).toISOString() }, { onConflict: 'cache_key' });
-    return NextResponse.json({ ok: true, seeded: Object.keys(newState).length, notified: 0, note: 'İlk koşu — state seed edildi, bildirim yok.' });
+    return NextResponse.json({ ok: true, seeded: Object.keys(newState).length, notified: 0, note: 'İlk koşu — state seed edildi, bildirim yok.', dbg }, { headers: { 'Cache-Control': 'no-store' } });
   }
 
   const changedSymbols = Object.keys(changed);
@@ -124,5 +126,5 @@ export async function GET(request: NextRequest) {
     await sb.from('ai_cache').upsert({ cache_key: STATE_KEY, explanation: JSON.stringify(newState), version: 1, hit_count: 0, expires_at: new Date(Date.now() + 400 * 864e5).toISOString() }, { onConflict: 'cache_key' });
   }
 
-  return NextResponse.json({ ok: true, dryRun, changedSymbols: changedSymbols.length, recipients, emailsSent, pushSent });
+  return NextResponse.json({ ok: true, dryRun, changedSymbols: changedSymbols.length, recipients, emailsSent, pushSent, dbg }, { headers: { 'Cache-Control': 'no-store' } });
 }
