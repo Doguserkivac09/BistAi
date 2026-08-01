@@ -106,6 +106,17 @@ describe('computeEarningsQuality', () => {
     assert.ok(r.flags.some((f) => f.code === 'aşırı-borç'));
   });
 
+  it('doğruluk: finansal gelir > gider → YANILTICI finansman-yükü ÇIKMAZ', () => {
+    // Ekran senaryosu: EBIT zayıf, ama finansal gelir finansman giderini aşıyor (net + finansman)
+    const r = computeEarningsQuality(fourQuarters({
+      revenue: 100, operatingProfit: 2, amortization: 7, financialExpense: -8, financialIncome: 13,
+      tax: -2.6, netIncome: 4, operatingCashFlow: 16, totalAssets: 300,
+    }));
+    assert.notEqual(r.verdict, 'finansman-yükü');                       // net finansman POZİTİF → yanıltıcı değil
+    assert.ok(!r.flags.some((f) => f.code === 'finansman-yükü'));
+    assert.ok(r.flags.some((f) => f.code === 'operasyon-dışı'));        // gerçek hikâye: operasyon-dışı bağımlılık
+  });
+
   it('forensic: alacak balonu (alacak hasılattan çok hızlı)', () => {
     const f = (rev: number, recv: number) => ({ revenue: rev, operatingProfit: 10, netIncome: 6, tradeReceivables: recv });
     const qs = [
