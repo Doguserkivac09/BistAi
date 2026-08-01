@@ -22,6 +22,7 @@ const VERDICT: Record<string, { label: string; color: string; bg: string }> = {
 };
 
 const FLAG_COLOR: Record<string, string> = { kırmızı: '#e5484d', turuncu: '#c98a00', yeşil: '#16a35b' };
+const TONE_ORDER: Record<string, number> = { kırmızı: 0, turuncu: 1, yeşil: 2 };
 
 function fmtTL(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return '—';
@@ -90,16 +91,16 @@ export default function KarKalitesi({ sembol }: { sembol: string }) {
         </div>
       )}
 
-      {/* Bayraklar */}
+      {/* Bayraklar — tek hafif kutu, satır satır (kırmızılar önce) */}
       {data.flags && data.flags.length > 0 && (
-        <div className="mt-3 flex flex-col gap-1.5">
-          {data.flags.map((fl, i) => (
-            <div key={i} className="flex items-start gap-2 rounded-[10px] px-2.5 py-2" style={{ background: `${FLAG_COLOR[fl.tone]}14` }}>
-              <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full" style={{ background: FLAG_COLOR[fl.tone] }} />
-              <div>
-                <div className="text-[12px] font-bold" style={{ color: FLAG_COLOR[fl.tone] }}>{fl.label}</div>
-                <div className="text-[11px] font-medium leading-[1.5] text-t2">{fl.detail}</div>
-              </div>
+        <div className="mt-2.5 flex flex-col gap-2 rounded-[12px] border border-hairline/70 px-3 py-2.5">
+          {[...data.flags].sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone]).map((fl, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span className="mt-[5px] h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: FLAG_COLOR[fl.tone] }} />
+              <p className="text-[12px] leading-[1.5]">
+                <span className="font-bold" style={{ color: FLAG_COLOR[fl.tone] }}>{fl.label}</span>
+                <span className="text-t3"> — {fl.detail}</span>
+              </p>
             </div>
           ))}
         </div>

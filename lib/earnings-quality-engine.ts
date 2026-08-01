@@ -68,6 +68,8 @@ export interface EarningsQualityResult {
 const n = (v: number | null | undefined): number | null => (v == null || !Number.isFinite(v) ? null : v);
 const div = (a: number | null, b: number | null): number | null =>
   a == null || b == null || b === 0 ? null : a / b;
+/** İşaretli yüzde: 0.34 → "+%34", -0.03 → "−%3" (çirkin "+%-3" olmaz) */
+const sp = (v: number): string => `${v >= 0 ? '+' : '−'}%${Math.abs(Math.round(v * 100))}`;
 
 function bridgeStep(key: string, label: string, amount: number | null, revenue: number | null): ProfitBridgeStep | null {
   if (amount == null) return null;
@@ -129,6 +131,10 @@ export function computeEarningsQuality(
   const interestCoverage = finExp != null && finExp !== 0 ? ebit / Math.abs(finExp) : null;
   const fcfConversion = div(opCash, netIncome);
   const exportRatio = div(exportS, revenue);
+  // NET finansman: finansal gelir finansman giderini aşıyorsa finansman NET POZİTİF —
+  // o durumda "faiz kârı yiyor" demek YANILTICI (finansman yardım ediyor). finExp negatif.
+  const netFinance = (finInc ?? 0) + (finExp ?? 0);
+  const financeIsBurden = netFinance < 0; // finansman net drag mı
 
   // YoY (aynı çeyrek, 1 yıl önce) — faaliyet kaldıracı
   let ebitYoY: number | null = null, revenueYoY: number | null = null, operatingLeverage: number | null = null;
@@ -200,9 +206,9 @@ export function computeEarningsQuality(
     flags.push({ tone: 'kırmızı', code: 'parasal-şişkin', label: 'Parasal kazançla şişmiş',
       detail: 'Görünen kârın büyük kısmı nakit değil, enflasyon (parasal) kazancı — aşağıdaki arındırılmış kâra bakın.' });
   }
-  if (ebit > 0 && interestCoverage != null && interestCoverage < 1.5) {
+  if (ebit > 0 && interestCoverage != null && interestCoverage < 1.5 && financeIsBurden) {
     flags.push({ tone: 'turuncu', code: 'finansman-yükü', label: 'Finansman yükü',
-      detail: `Faaliyet kârı pozitif ama faiz gideri onu yiyor (faiz karşılama ${interestCoverage.toFixed(1)}×, <1.5).` });
+      detail: `Faaliyet kârı pozitif ama net finansman gideri onu yiyor (faiz karşılama ${interestCoverage.toFixed(2)}×, <1.5).` });
   }
   // ── FORENSIC bayraklar (Kâr Kalitesi 2.0) ──
   // Tahakkuk şişkin: net kâr toplam varlığın >%8'i kadar nakitten fazla (Sloan)
@@ -213,12 +219,12 @@ export function computeEarningsQuality(
   // Alacak balonu: alacaklar hasılattan belirgin hızlı büyüyorsa (channel stuffing / tahsilat)
   if (receivablesYoY != null && revenueYoY != null && receivablesYoY - revenueYoY > 0.25 && receivablesYoY > 0.3) {
     flags.push({ tone: 'turuncu', code: 'alacak-balonu', label: 'Alacak balonu',
-      detail: `Alacaklar hasılattan çok hızlı büyüyor (alacak +%${Math.round(receivablesYoY * 100)} vs hasılat +%${Math.round(revenueYoY * 100)}) — erken/riskli satış ya da tahsilat sorunu.` });
+      detail: `Alacaklar hasılattan çok hızlı büyüyor (alacak ${sp(receivablesYoY)} vs hasılat ${sp(revenueYoY)}) — erken/riskli satış ya da tahsilat sorunu.` });
   }
   // Stok balonu: stok hasılattan hızlı → talep zayıf, gelecek değer düşüşü
   if (inventoryYoY != null && revenueYoY != null && inventoryYoY - revenueYoY > 0.25 && inventoryYoY > 0.3) {
     flags.push({ tone: 'turuncu', code: 'stok-balonu', label: 'Stok balonu',
-      detail: `Stok hasılattan hızlı büyüyor (stok +%${Math.round(inventoryYoY * 100)} vs hasılat +%${Math.round(revenueYoY * 100)}) — talep zayıflıyor, ileride değer düşüşü/iskonto riski.` });
+      detail: `Stok hasılattan hızlı büyüyor (stok ${sp(inventoryYoY)} vs hasılat ${sp(revenueYoY)}) — talep zayıflıyor, ileride değer düşüşü/iskonto riski.` });
   }
   // Operasyon-dışı kâr: vergi öncesi kârın >%40'ı esas faaliyet dışı (finansal gelir/tek-seferlik)
   if (nonOperatingShare != null && nonOperatingShare > 0.4) {
@@ -255,7 +261,7 @@ export function computeEarningsQuality(
   // ── Verdict ──
   let verdict: EarningsVerdict;
   if (ebit <= 0) verdict = 'kağıt-üstü';
-  else if (interestCoverage != null && interestCoverage < 1.5) verdict = 'finansman-yükü';
+  else if (interestCoverage != null && interestCoverage < 1.5 && financeIsBurden) verdict = 'finansman-yükü';
   else if (score >= 60) verdict = 'gerçek';
   else verdict = 'zayıf';
 
@@ -270,8 +276,10 @@ export function computeEarningsQuality(
   let plainSummary: string;
   if (ebit <= 0) {
     plainSummary = 'Esas faaliyetinden para kazanamıyor — görünen kâr operasyondan değil.';
-  } else if (interestCoverage != null && interestCoverage < 1.5) {
-    plainSummary = 'Faaliyetten kâr ediyor ama faiz/finansman gideri kârın çoğunu eritiyor.';
+  } else if (interestCoverage != null && interestCoverage < 1.5 && financeIsBurden) {
+    plainSummary = 'Faaliyetten kâr ediyor ama net finansman gideri kârın çoğunu eritiyor.';
+  } else if (nonOperatingShare != null && nonOperatingShare > 0.4) {
+    plainSummary = 'Esas faaliyet kârı zayıf; net kârın büyük kısmı operasyon dışından (finansal gelir/tek-seferlik).';
   } else if (verdict === 'gerçek') {
     plainSummary = 'Esas faaliyetinden gerçek, nakde dönen kâr üretiyor.';
   } else {
