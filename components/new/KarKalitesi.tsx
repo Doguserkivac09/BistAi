@@ -84,10 +84,17 @@ export default function KarKalitesi({ sembol }: { sembol: string }) {
         </div>
       </div>
 
-      {/* TEK CÜMLE sade cevap */}
+      {/* TEK CÜMLE sade cevap + operasyon trend */}
       {data.plainSummary && (
         <div className="mt-2.5 rounded-[12px] px-3 py-2.5" style={{ background: v.bg }}>
           <p className="text-[13px] font-semibold leading-[1.5]" style={{ color: v.color }}>{data.plainSummary}</p>
+          {data.operatingTrend && (
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold"
+              style={{ color: data.operatingTrend.direction === 'iyileşiyor' ? '#16a35b' : data.operatingTrend.direction === 'bozuluyor' ? '#e5484d' : '#8a909b' }}>
+              <span>{data.operatingTrend.direction === 'iyileşiyor' ? '↗' : data.operatingTrend.direction === 'bozuluyor' ? '↘' : '→'}</span>
+              {data.operatingTrend.detail}
+            </div>
+          )}
         </div>
       )}
 
@@ -103,6 +110,20 @@ export default function KarKalitesi({ sembol }: { sembol: string }) {
               </p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* KATMAN 1: Ne izlemeli / ne düzeltirse iyileşir */}
+      {data.watchTriggers && data.watchTriggers.length > 0 && (
+        <div className="mt-2.5 rounded-[12px] bg-fill px-3 py-2.5">
+          <div className="mb-1 text-[11px] font-bold text-ink">Ne izlemeli · iyileşme için ne gerekir?</div>
+          <ul className="flex flex-col gap-1">
+            {data.watchTriggers.map((w, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11.5px] font-medium leading-[1.5] text-t2">
+                <span className="mt-[3px] text-ai">•</span>{w}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

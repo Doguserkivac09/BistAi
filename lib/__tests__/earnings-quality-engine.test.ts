@@ -130,6 +130,24 @@ describe('computeEarningsQuality', () => {
     assert.ok(r.flags.some((fl) => fl.code === 'alacak-balonu'));
   });
 
+  it('katman 1: watchTriggers bayraklardan türer (alacak balonu → izle metni)', () => {
+    const f = (rev: number, recv: number) => ({ revenue: rev, operatingProfit: 10, netIncome: 6, tradeReceivables: recv });
+    const r = computeEarningsQuality([
+      q('24Q1', 2024, 1, f(100, 100)), q('24Q2', 2024, 2, f(100, 110)),
+      q('24Q3', 2024, 3, f(100, 130)), q('24Q4', 2024, 4, f(100, 180)),
+      q('25Q1', 2025, 1, f(110, 260)),
+    ]);
+    assert.ok(r.watchTriggers.some((w) => w.toLowerCase().includes('alacak')));
+  });
+
+  it('katman 2: yükselen marj → operatingTrend iyileşiyor', () => {
+    const mk = (op: number) => ({ revenue: 100, operatingProfit: op, netIncome: op / 2 });
+    const r = computeEarningsQuality([
+      q('24Q1', 2024, 1, mk(5)), q('24Q2', 2024, 2, mk(7)), q('24Q3', 2024, 3, mk(9)), q('24Q4', 2024, 4, mk(12)),
+    ]);
+    assert.equal(r.operatingTrend?.direction, 'iyileşiyor');
+  });
+
   it('kâr köprüsü hasılat yüzdeleri doğru', () => {
     const r = computeEarningsQuality(fourQuarters({ revenue: 100, grossProfit: 30, operatingProfit: 20, netIncome: 10 }));
     const ebitStep = r.bridge.find((s) => s.key === 'ebit')!;

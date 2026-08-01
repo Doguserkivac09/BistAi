@@ -37,6 +37,8 @@ export interface EarningsQualityResult {
   score: number;                        // 0-100 mutlak kalite
   periodBasis: 'ttm' | 'quarter';       // 'ttm'=son 12 ay, 'quarter'=tek çeyrek (4 çeyrek yoksa)
   plainSummary: string;                 // TEK CÜMLE sade cevap (yatırımcı dostu)
+  watchTriggers: string[];              // "ne izlemeli / ne düzeltirse iyileşir" (kural-tabanlı)
+  operatingTrend: { direction: 'iyileşiyor' | 'bozuluyor' | 'yatay'; detail: string } | null; // son çeyrekler faaliyet marjı yönü
   netIncome: number | null;             // net kâr (TL, dönem bazlı)
   cleanedNetIncome: number | null;      // enflasyon-arındırılmış kâr (tahmini): net − parasal kazanç
   bridge: ProfitBridgeStep[];           // TTM/çeyrek bazlı kâr köprüsü
@@ -81,7 +83,7 @@ export function computeEarningsQuality(
   opts: { inflationRate?: number; isBank?: boolean } = {},
 ): EarningsQualityResult {
   const empty = (verdict: EarningsVerdict, note: string): EarningsQualityResult => ({
-    applicable: false, verdict, score: 0, periodBasis: 'ttm', plainSummary: '', netIncome: null, cleanedNetIncome: null, bridge: [],
+    applicable: false, verdict, score: 0, periodBasis: 'ttm', plainSummary: '', watchTriggers: [], operatingTrend: null, netIncome: null, cleanedNetIncome: null, bridge: [],
     operatingMargin: null, netMargin: null, interestCoverage: null, fcfConversion: null,
     operatingLeverage: null, ebitYoY: null, revenueYoY: null,
     netMonetaryPosition: null, estimatedMonetaryGain: null, monetaryShareOfNet: null, exportRatio: null,
@@ -293,9 +295,48 @@ export function computeEarningsQuality(
     plainSummary += ' Ayrıca kârın önemli kısmı esas faaliyet dışından.';
   }
 
+  // ── KATMAN 1: "Ne izlemeli / ne düzeltirse iyileşir" (kural-tabanlı, tahmin DEĞİL) ──
+  const WATCH: Record<string, string> = {
+    'alacak-balonu': 'Alacaklar nakde dönerse (tahsilat hızlanırsa) nakit akışı ve kâr kalitesi düzelir — bunu izleyin.',
+    'stok-balonu': 'Stok eritilip satışa dönerse marj toparlar; dönmezse değer düşüşü/iskonto riski.',
+    'finansman-yükü': 'Faiz düşüşü ya da borç azaltımı/refinansman finansman yükünü hafifletir.',
+    'aşırı-borç': 'Net borç/FAVÖK düşmeli — borç azaltımı ya da özkaynak güçlenmesi gerekir.',
+    'parasal-şişkin': 'Enflasyon düştükçe bu kâğıt kâr erir; gerçek operasyonel kâra bakın.',
+    'faaliyet-zararı': 'Esas iş henüz kâr etmiyor; marj toparlaması ya da hasılat büyümesi şart.',
+    'kağıt-üstü': 'Kâr operasyondan gelmeli; esas faaliyet kârına dönüş beklenmeli.',
+    'tahakkuk-şişkin': 'Kâr nakde dönmeli — faaliyet nakit akışı net kâra yaklaşmalı.',
+    'operasyon-dışı': 'Kâr esas faaliyete dayanmalı; finansal gelir/tek-seferliklere değil.',
+  };
+  const seen = new Set<string>();
+  const watchTriggers: string[] = [];
+  for (const fl of flags) {
+    if (fl.tone === 'yeşil') continue;
+    const w = WATCH[fl.code];
+    if (w && !seen.has(w)) { seen.add(w); watchTriggers.push(w); }
+  }
+
+  // ── KATMAN 2: Operasyon trend (son ~4 çeyrek faaliyet marjı yönü — OLGUSAL) ──
+  let operatingTrend: EarningsQualityResult['operatingTrend'] = null;
+  const marginSeries = quarters.slice(-4)
+    .map((q) => { const rv = n(q.fields.revenue), ep = n(q.fields.operatingProfit); return rv && rv > 0 && ep != null ? ep / rv : null; })
+    .filter((x): x is number => x != null);
+  if (marginSeries.length >= 3) {
+    const half = Math.floor(marginSeries.length / 2);
+    const early = marginSeries.slice(0, half).reduce((a, b) => a + b, 0) / half;
+    const late = marginSeries.slice(-half).reduce((a, b) => a + b, 0) / half;
+    const deltaPp = (late - early) * 100;
+    const dir = deltaPp > 2 ? 'iyileşiyor' : deltaPp < -2 ? 'bozuluyor' : 'yatay';
+    operatingTrend = {
+      direction: dir,
+      detail: dir === 'yatay'
+        ? 'Son çeyreklerde faaliyet marjı yatay seyrediyor.'
+        : `Son çeyreklerde faaliyet marjı ${dir} (${deltaPp >= 0 ? '+' : ''}${deltaPp.toFixed(1)} puan).`,
+    };
+  }
+
   return {
     applicable: true, verdict, score, periodBasis: ttm ? 'ttm' : 'quarter',
-    plainSummary, netIncome, cleanedNetIncome, bridge,
+    plainSummary, watchTriggers, operatingTrend, netIncome, cleanedNetIncome, bridge,
     operatingMargin, netMargin, interestCoverage, fcfConversion, operatingLeverage, ebitYoY, revenueYoY,
     netMonetaryPosition, estimatedMonetaryGain, monetaryShareOfNet, exportRatio,
     accrualsRatio, receivablesYoY, inventoryYoY, netDebtToEbitda, nonOperatingShare, effectiveTaxRate,
