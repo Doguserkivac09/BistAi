@@ -148,6 +148,17 @@ describe('computeEarningsQuality', () => {
     assert.equal(r.operatingTrend?.direction, 'iyileşiyor');
   });
 
+  it('doğruluk: faaliyet marjı >%100 (GYO/holding değerleme) → "gerçek" DEĞİL, belirsiz', () => {
+    // Faaliyet kârı hasılatı aşıyor → operasyondan olamaz (yatırım/yeniden değerleme)
+    const r = computeEarningsQuality(fourQuarters({
+      revenue: 10, operatingProfit: 50, amortization: 1, netIncome: 45, operatingCashFlow: 2, totalAssets: 500,
+    }));
+    assert.ok(r.operatingMargin! > 1);
+    assert.equal(r.verdict, 'belirsiz');                                // "gerçek faaliyet kârı" BLOKLANIR
+    assert.ok(r.flags.some((f) => f.code === 'olağandışı-marj'));
+    assert.ok(!r.flags.some((f) => f.code === 'gerçek-faaliyet'));
+  });
+
   it('kâr köprüsü hasılat yüzdeleri doğru', () => {
     const r = computeEarningsQuality(fourQuarters({ revenue: 100, grossProfit: 30, operatingProfit: 20, netIncome: 10 }));
     const ebitStep = r.bridge.find((s) => s.key === 'ebit')!;

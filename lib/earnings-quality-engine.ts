@@ -26,7 +26,7 @@ export interface ProfitBridgeStep {
 export interface EarningsQualityFlag {
   tone: 'kırmızı' | 'turuncu' | 'yeşil';
   code: 'kağıt-üstü' | 'finansman-yükü' | 'gerçek-faaliyet' | 'faaliyet-zararı' | 'parasal-şişkin'
-      | 'tahakkuk-şişkin' | 'alacak-balonu' | 'stok-balonu' | 'operasyon-dışı' | 'aşırı-borç';
+      | 'tahakkuk-şişkin' | 'alacak-balonu' | 'stok-balonu' | 'operasyon-dışı' | 'aşırı-borç' | 'olağandışı-marj';
   label: string;
   detail: string;
 }
@@ -137,6 +137,10 @@ export function computeEarningsQuality(
   // o durumda "faiz kârı yiyor" demek YANILTICI (finansman yardım ediyor). finExp negatif.
   const netFinance = (finInc ?? 0) + (finExp ?? 0);
   const financeIsBurden = netFinance < 0; // finansman net drag mı
+  // Faaliyet marjı >%100 → kâr hasılatı aşıyor: operasyondan OLAMAZ (yatırım/iştirak/
+  // gayrimenkul yeniden değerleme "faaliyet kârı"na sızmış — GYO/holding). Faaliyet
+  // kârı bu tabloda güvenilmez → verdict "gerçek" verilmez, uyarı basılır.
+  const marginImplausible = operatingMargin != null && operatingMargin > 1.0;
 
   // YoY (aynı çeyrek, 1 yıl önce) — faaliyet kaldıracı
   let ebitYoY: number | null = null, revenueYoY: number | null = null, operatingLeverage: number | null = null;
@@ -212,6 +216,11 @@ export function computeEarningsQuality(
     flags.push({ tone: 'turuncu', code: 'finansman-yükü', label: 'Finansman yükü',
       detail: `Faaliyet kârı pozitif ama net finansman gideri onu yiyor (faiz karşılama ${interestCoverage.toFixed(2)}×, <1.5).` });
   }
+  // Olağandışı marj — faaliyet kârı hasılatı aşıyor (yatırım/değerleme kârı, operasyonel değil)
+  if (marginImplausible) {
+    flags.push({ tone: 'turuncu', code: 'olağandışı-marj', label: 'Olağandışı marj',
+      detail: `Faaliyet kârı hasılatı aşıyor (marj %${Math.round(operatingMargin! * 100)}) — kâr operasyondan DEĞİL, yatırım/iştirak/yeniden değerleme kazancından (GYO/holding). Operasyonel kâr bu tabloda güvenilir ölçülemez.` });
+  }
   // ── FORENSIC bayraklar (Kâr Kalitesi 2.0) ──
   // Tahakkuk şişkin: net kâr toplam varlığın >%8'i kadar nakitten fazla (Sloan)
   if (accrualsRatio != null && accrualsRatio > 0.08 && netIncome > 0) {
@@ -238,7 +247,7 @@ export function computeEarningsQuality(
     flags.push({ tone: 'turuncu', code: 'aşırı-borç', label: 'Aşırı borç',
       detail: `Net borç FAVÖK'ün ${netDebtToEbitda.toFixed(1)}× katı (>4) — yüksek faizde borç çevirme riski.` });
   }
-  if (ebit > 0 && (interestCoverage == null || interestCoverage >= 2) && (fcfConversion == null || fcfConversion >= 0.4) && (ebitYoY == null || ebitYoY >= 0)
+  if (ebit > 0 && !marginImplausible && (interestCoverage == null || interestCoverage >= 2) && (fcfConversion == null || fcfConversion >= 0.4) && (ebitYoY == null || ebitYoY >= 0)
       && (accrualsRatio == null || accrualsRatio <= 0.08) && (nonOperatingShare == null || nonOperatingShare <= 0.4)) {
     flags.push({ tone: 'yeşil', code: 'gerçek-faaliyet', label: 'Gerçek faaliyet kârı',
       detail: 'Faaliyet kârı pozitif, faizi rahat karşılıyor, nakde dönüyor ve esas işten geliyor.' });
@@ -246,7 +255,8 @@ export function computeEarningsQuality(
 
   // ── Skor (0-100 mutlak kalite) ──
   let score = 50;
-  if (operatingMargin != null) score += Math.max(-20, Math.min(20, operatingMargin * 100)); // marj ±20
+  if (marginImplausible) score -= 12; // olağandışı marj — yatırım/değerleme kârı, ödüllendirme
+  else if (operatingMargin != null) score += Math.max(-20, Math.min(20, operatingMargin * 100)); // marj ±20
   if (interestCoverage != null) score += Math.max(-15, Math.min(15, (interestCoverage - 1.5) * 5)); // faiz karşılama
   if (fcfConversion != null) score += Math.max(-10, Math.min(12, (fcfConversion - 0.5) * 12)); // nakde dönüşüm
   if (ebitYoY != null) score += Math.max(-8, Math.min(10, ebitYoY * 20)); // faaliyet büyümesi
@@ -262,7 +272,8 @@ export function computeEarningsQuality(
 
   // ── Verdict ──
   let verdict: EarningsVerdict;
-  if (ebit <= 0) verdict = 'kağıt-üstü';
+  if (marginImplausible) verdict = 'belirsiz';   // faaliyet kârı güvenilmez (yatırım/değerleme) → "gerçek" DENMEZ
+  else if (ebit <= 0) verdict = 'kağıt-üstü';
   else if (interestCoverage != null && interestCoverage < 1.5 && financeIsBurden) verdict = 'finansman-yükü';
   else if (score >= 60) verdict = 'gerçek';
   else verdict = 'zayıf';
@@ -276,7 +287,9 @@ export function computeEarningsQuality(
 
   // ── TEK CÜMLE sade cevap ──
   let plainSummary: string;
-  if (ebit <= 0) {
+  if (marginImplausible) {
+    plainSummary = 'Faaliyet kârı hasılatı aşıyor — kâr operasyondan değil, yatırım/yeniden değerleme kazancından (GYO/holding). Operasyonel kâr güvenilir ölçülemiyor.';
+  } else if (ebit <= 0) {
     plainSummary = 'Esas faaliyetinden para kazanamıyor — görünen kâr operasyondan değil.';
   } else if (interestCoverage != null && interestCoverage < 1.5 && financeIsBurden) {
     plainSummary = 'Faaliyetten kâr ediyor ama net finansman gideri kârın çoğunu eritiyor.';
