@@ -333,6 +333,58 @@ export async function sendSignalAlert(params: {
   }
 }
 
+// ─── Bilanço / Kâr Kalitesi bildirimi ─────────────────────────────────────────
+
+const VERDICT_TR: Record<string, { label: string; color: string }> = {
+  'gerçek':         { label: 'Gerçek faaliyet kârı', color: '#16a35b' },
+  'finansman-yükü': { label: 'Finansman yükü',       color: '#c98a00' },
+  'kağıt-üstü':     { label: 'Kâğıt üstü kâr',        color: '#e5484d' },
+  'zayıf':          { label: 'Zayıf kâr kalitesi',    color: '#8a909b' },
+  'belirsiz':       { label: 'Değerlendirilemedi',    color: '#8a909b' },
+};
+
+/**
+ * Takip/portföydeki hisse YENİ bilanço açıkladığında kâr kalitesi bildirimi.
+ * items: değişen hisseler (sembol + dönem + verdict + risk özeti).
+ */
+export async function sendEarningsAlert(params: {
+  to: string;
+  items: Array<{ sembol: string; quarter: string; verdict: string; redFlag: string | null }>;
+}): Promise<{ success: boolean; error?: string }> {
+  const { to, items } = params;
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'RESEND_API_KEY eksik' };
+  if (!items.length) return { success: false, error: 'boş' };
+
+  const rows = items.map((it) => {
+    const v = VERDICT_TR[it.verdict] ?? VERDICT_TR['belirsiz']!;
+    return `<tr>
+      <td style="padding:10px 12px;font-weight:600;">${it.sembol}</td>
+      <td style="padding:10px 12px;color:#6b7280;">${it.quarter}</td>
+      <td style="padding:10px 12px;"><span style="color:${v.color};font-weight:600;">${v.label}</span>${it.redFlag ? `<br/><span style="color:#e5484d;font-size:12px;">⚠ ${it.redFlag}</span>` : ''}</td>
+      <td style="padding:10px 12px;"><a href="${APP_URL}/hisse/${it.sembol}" style="color:#6b6ff5;">İncele →</a></td>
+    </tr>`;
+  }).join('');
+  const syms = items.map((i) => i.sembol).join(', ');
+
+  try {
+    const { error } = await getResend().emails.send({
+      from: FROM,
+      to,
+      subject: `📊 ${syms} — yeni bilanço açıklandı`,
+      html: `<div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;">
+        <h2 style="font-size:18px;">Takip ettiğiniz hisselerde yeni bilanço</h2>
+        <p style="color:#6b7280;font-size:14px;">Aşağıdaki hisseler yeni çeyreklik bilanço açıkladı. Kâr kalitesi değerlendirmesi:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">${rows}</table>
+        <p style="color:#9ca3af;font-size:12px;margin-top:16px;">Kural-tabanlı analiz, yatırım tavsiyesi değildir. Bildirimleri profilinizden kapatabilirsiniz.</p>
+      </div>`,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 // ─── Formasyon özel bildirim ──────────────────────────────────────────────────
 
 /**
