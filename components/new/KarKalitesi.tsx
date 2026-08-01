@@ -132,8 +132,8 @@ export default function KarKalitesi({ sembol }: { sembol: string }) {
       <div className="mt-3.5 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <Metric label="Faaliyet marjı" value={pct(data.operatingMargin)} />
         <Metric label="Faiz karşılama" value={x(data.interestCoverage)} hint={data.interestCoverage != null && data.interestCoverage < 1.5 ? 'düşük' : undefined} />
-        <Metric label="Nakde dönüşüm" value={x(data.fcfConversion)} />
-        <Metric label="İhracat payı" value={pct(data.exportRatio, 0)} />
+        <Metric label="Nakde dönüşüm" value={x(data.fcfConversion)} hint={data.fcfConversion != null && data.fcfConversion < 0.3 ? 'zayıf' : undefined} />
+        <Metric label="Net borç/FAVÖK" value={x(data.netDebtToEbitda)} hint={data.netDebtToEbitda != null && data.netDebtToEbitda > 4 ? 'yüksek' : undefined} />
       </div>
 
       {/* TMS-29 enflasyon etkisi — somut TL (oran yerine) */}

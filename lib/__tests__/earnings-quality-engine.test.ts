@@ -76,6 +76,49 @@ describe('computeEarningsQuality', () => {
     assert.equal(computeEarningsQuality(fourQuarters({ revenue: 100 })).verdict, 'belirsiz'); // ebit/net yok
   });
 
+  it('forensic: tahakkuk şişkin (net kâr nakde dönmüyor)', () => {
+    const r = computeEarningsQuality(fourQuarters({
+      revenue: 100, operatingProfit: 20, amortization: 2, financialExpense: -3,
+      netIncome: 40, operatingCashFlow: 5, totalAssets: 200,
+    }));
+    // accruals = (TTM 160 − 20) / 200 = 0.70 → şişkin
+    assert.ok(r.accrualsRatio! > 0.08);
+    assert.ok(r.flags.some((f) => f.code === 'tahakkuk-şişkin'));
+  });
+
+  it('forensic: operasyon-dışı kâr (vergi öncesi EBIT\'i aşıyor)', () => {
+    const r = computeEarningsQuality(fourQuarters({
+      revenue: 100, operatingProfit: 5, amortization: 1, financialExpense: -1,
+      netIncome: 20, tax: -2, operatingCashFlow: 18, totalAssets: 500,
+    }));
+    // pretax = 88, ebit = 20 → nonOp = (88-20)/88 ≈ 0.77
+    assert.ok(r.nonOperatingShare! > 0.4);
+    assert.ok(r.flags.some((f) => f.code === 'operasyon-dışı'));
+  });
+
+  it('forensic: aşırı borç (net borç / FAVÖK > 4)', () => {
+    const r = computeEarningsQuality(fourQuarters({
+      revenue: 100, operatingProfit: 10, amortization: 5, financialExpense: -2,
+      netIncome: 5, operatingCashFlow: 8, shortFinDebt: 200, longFinDebt: 100, cash: 10, totalAssets: 400,
+    }));
+    // netDebt = 290, FAVÖK TTM = (10+5)*4 = 60 → 4.83×
+    assert.ok(r.netDebtToEbitda! > 4);
+    assert.ok(r.flags.some((f) => f.code === 'aşırı-borç'));
+  });
+
+  it('forensic: alacak balonu (alacak hasılattan çok hızlı)', () => {
+    const f = (rev: number, recv: number) => ({ revenue: rev, operatingProfit: 10, netIncome: 6, tradeReceivables: recv });
+    const qs = [
+      q('24Q1', 2024, 1, f(100, 100)), q('24Q2', 2024, 2, f(100, 110)),
+      q('24Q3', 2024, 3, f(100, 130)), q('24Q4', 2024, 4, f(100, 180)),
+      q('25Q1', 2025, 1, f(110, 260)),
+    ];
+    const r = computeEarningsQuality(qs);
+    // receivablesYoY = (260-100)/100 = 1.6 ; revenueYoY = 0.10 → balon
+    assert.ok(r.receivablesYoY! - r.revenueYoY! > 0.25);
+    assert.ok(r.flags.some((fl) => fl.code === 'alacak-balonu'));
+  });
+
   it('kâr köprüsü hasılat yüzdeleri doğru', () => {
     const r = computeEarningsQuality(fourQuarters({ revenue: 100, grossProfit: 30, operatingProfit: 20, netIncome: 10 }));
     const ebitStep = r.bridge.find((s) => s.key === 'ebit')!;

@@ -25,7 +25,8 @@ export interface ProfitBridgeStep {
 
 export interface EarningsQualityFlag {
   tone: 'kırmızı' | 'turuncu' | 'yeşil';
-  code: 'kağıt-üstü' | 'finansman-yükü' | 'gerçek-faaliyet' | 'faaliyet-zararı' | 'parasal-şişkin';
+  code: 'kağıt-üstü' | 'finansman-yükü' | 'gerçek-faaliyet' | 'faaliyet-zararı' | 'parasal-şişkin'
+      | 'tahakkuk-şişkin' | 'alacak-balonu' | 'stok-balonu' | 'operasyon-dışı' | 'aşırı-borç';
   label: string;
   detail: string;
 }
@@ -52,6 +53,13 @@ export interface EarningsQualityResult {
   estimatedMonetaryGain: number | null; // |netMonPos| × enflasyon (borçluysa)
   monetaryShareOfNet: number | null;    // tahmini parasal kazancın net kâra oranı
   exportRatio: number | null;           // yurtdışı / hasılat
+  // ── Forensic (Kâr Kalitesi 2.0) — bilanço/nakit-akış kaynaklı şişirme kanalları ──
+  accrualsRatio: number | null;         // (net kâr − faaliyet nakdi) / toplam varlık; yüksek+ = tahakkuk şişkin
+  receivablesYoY: number | null;        // ticari alacak YoY (snapshot)
+  inventoryYoY: number | null;          // stok YoY (snapshot)
+  netDebtToEbitda: number | null;       // (finansal borç − nakit) / FAVÖK
+  nonOperatingShare: number | null;     // vergi-öncesi kârın EBIT dışı (operasyon-dışı) payı
+  effectiveTaxRate: number | null;      // |vergi| / vergi öncesi kâr
   flags: EarningsQualityFlag[];
   dataQuality: 'gerçek' | 'tahmini-tms29';  // TMS-29 tahmin içeriyorsa işaretle
   notes: string[];
@@ -75,6 +83,7 @@ export function computeEarningsQuality(
     operatingMargin: null, netMargin: null, interestCoverage: null, fcfConversion: null,
     operatingLeverage: null, ebitYoY: null, revenueYoY: null,
     netMonetaryPosition: null, estimatedMonetaryGain: null, monetaryShareOfNet: null, exportRatio: null,
+    accrualsRatio: null, receivablesYoY: null, inventoryYoY: null, netDebtToEbitda: null, nonOperatingShare: null, effectiveTaxRate: null,
     flags: [], dataQuality: 'gerçek', notes: [note],
   });
 
@@ -132,6 +141,36 @@ export function computeEarningsQuality(
     operatingLeverage = revenueYoY != null && revenueYoY !== 0 && ebitYoY != null ? ebitYoY / revenueYoY : null;
   }
 
+  // ── FORENSIC KANALLAR (Kâr Kalitesi 2.0) — bilanço/nakit-akış şişirme ──
+  const bs0 = latest.fields;
+  const totalAssets = n(bs0.totalAssets);
+  const ebitdaTTM = ebit != null && amort != null ? ebit + amort : ebit;
+
+  // 1) Tahakkuk (accruals): kâr nakde dönüyor mu? (Sloan) — yüksek+ = kalitesiz
+  const accrualsRatio = netIncome != null && opCash != null && totalAssets && totalAssets > 0
+    ? (netIncome - opCash) / totalAssets : null;
+
+  // 2/3) Alacak & stok YoY (snapshot, aynı çeyrek 1 yıl önce)
+  let receivablesYoY: number | null = null, inventoryYoY: number | null = null;
+  if (yoyIdx >= 0) {
+    const py = quarters[yoyIdx]!.fields;
+    const pRecv = n(py.tradeReceivables), pInv = n(py.inventory);
+    const cRecv = n(bs0.tradeReceivables), cInv = n(bs0.inventory);
+    receivablesYoY = pRecv && pRecv > 0 && cRecv != null ? (cRecv - pRecv) / pRecv : null;
+    inventoryYoY = pInv && pInv > 0 && cInv != null ? (cInv - pInv) / pInv : null;
+  }
+
+  // 4) Net borç / FAVÖK
+  const netDebt = (n(bs0.shortFinDebt) ?? 0) + (n(bs0.longFinDebt) ?? 0) - (n(bs0.cash) ?? 0) - (n(bs0.shortFinInvest) ?? 0);
+  const netDebtToEbitda = ebitdaTTM != null && ebitdaTTM > 0 ? netDebt / ebitdaTTM : null;
+
+  // 5) Operasyon-dışı bağımlılık: vergi-öncesi kâr EBIT'i AŞIYORSA fark operasyon-dışı gelirle şişmiş
+  const pretax = tax != null ? netIncome - tax : null; // tax negatif gider → pretax = net − tax
+  const nonOperatingShare = pretax != null && pretax > 0 && ebit != null ? (pretax - ebit) / pretax : null;
+
+  // 6) Efektif vergi oranı
+  const effectiveTaxRate = pretax != null && pretax > 0 && tax != null ? Math.abs(tax) / pretax : null;
+
   // ── TMS-29 net parasal pozisyon (TAHMİN, snapshot son çeyrek) ──
   const bs = latest.fields;
   const monetaryAssets = (n(bs.cash) ?? 0) + (n(bs.shortFinInvest) ?? 0) + (n(bs.tradeReceivables) ?? 0);
@@ -165,9 +204,36 @@ export function computeEarningsQuality(
     flags.push({ tone: 'turuncu', code: 'finansman-yükü', label: 'Finansman yükü',
       detail: `Faaliyet kârı pozitif ama faiz gideri onu yiyor (faiz karşılama ${interestCoverage.toFixed(1)}×, <1.5).` });
   }
-  if (ebit > 0 && (interestCoverage == null || interestCoverage >= 2) && (fcfConversion == null || fcfConversion >= 0.4) && (ebitYoY == null || ebitYoY >= 0)) {
+  // ── FORENSIC bayraklar (Kâr Kalitesi 2.0) ──
+  // Tahakkuk şişkin: net kâr toplam varlığın >%8'i kadar nakitten fazla (Sloan)
+  if (accrualsRatio != null && accrualsRatio > 0.08 && netIncome > 0) {
+    flags.push({ tone: 'kırmızı', code: 'tahakkuk-şişkin', label: 'Tahakkukla şişmiş',
+      detail: `Kâr nakde dönmüyor — net kâr, faaliyet nakdinin toplam varlığın ~%${Math.round(accrualsRatio * 100)}'i kadar üstünde. Tahakkuk kârı ileride geri döner.` });
+  }
+  // Alacak balonu: alacaklar hasılattan belirgin hızlı büyüyorsa (channel stuffing / tahsilat)
+  if (receivablesYoY != null && revenueYoY != null && receivablesYoY - revenueYoY > 0.25 && receivablesYoY > 0.3) {
+    flags.push({ tone: 'turuncu', code: 'alacak-balonu', label: 'Alacak balonu',
+      detail: `Alacaklar hasılattan çok hızlı büyüyor (alacak +%${Math.round(receivablesYoY * 100)} vs hasılat +%${Math.round(revenueYoY * 100)}) — erken/riskli satış ya da tahsilat sorunu.` });
+  }
+  // Stok balonu: stok hasılattan hızlı → talep zayıf, gelecek değer düşüşü
+  if (inventoryYoY != null && revenueYoY != null && inventoryYoY - revenueYoY > 0.25 && inventoryYoY > 0.3) {
+    flags.push({ tone: 'turuncu', code: 'stok-balonu', label: 'Stok balonu',
+      detail: `Stok hasılattan hızlı büyüyor (stok +%${Math.round(inventoryYoY * 100)} vs hasılat +%${Math.round(revenueYoY * 100)}) — talep zayıflıyor, ileride değer düşüşü/iskonto riski.` });
+  }
+  // Operasyon-dışı kâr: vergi öncesi kârın >%40'ı esas faaliyet dışı (finansal gelir/tek-seferlik)
+  if (nonOperatingShare != null && nonOperatingShare > 0.4) {
+    flags.push({ tone: 'turuncu', code: 'operasyon-dışı', label: 'Operasyon-dışı kâr',
+      detail: `Vergi öncesi kârın ~%${Math.round(nonOperatingShare * 100)}'i esas faaliyet DIŞINDAN (finansal gelir/tek-seferlik) — operasyon kadar sürdürülebilir değil.` });
+  }
+  // Aşırı borç: net borç / FAVÖK > 4 (yüksek faizde rollover riski)
+  if (netDebtToEbitda != null && netDebtToEbitda > 4) {
+    flags.push({ tone: 'turuncu', code: 'aşırı-borç', label: 'Aşırı borç',
+      detail: `Net borç FAVÖK'ün ${netDebtToEbitda.toFixed(1)}× katı (>4) — yüksek faizde borç çevirme riski.` });
+  }
+  if (ebit > 0 && (interestCoverage == null || interestCoverage >= 2) && (fcfConversion == null || fcfConversion >= 0.4) && (ebitYoY == null || ebitYoY >= 0)
+      && (accrualsRatio == null || accrualsRatio <= 0.08) && (nonOperatingShare == null || nonOperatingShare <= 0.4)) {
     flags.push({ tone: 'yeşil', code: 'gerçek-faaliyet', label: 'Gerçek faaliyet kârı',
-      detail: 'Faaliyet kârı pozitif, faizi rahat karşılıyor ve nakde dönüyor.' });
+      detail: 'Faaliyet kârı pozitif, faizi rahat karşılıyor, nakde dönüyor ve esas işten geliyor.' });
   }
 
   // ── Skor (0-100 mutlak kalite) ──
@@ -178,6 +244,12 @@ export function computeEarningsQuality(
   if (ebitYoY != null) score += Math.max(-8, Math.min(10, ebitYoY * 20)); // faaliyet büyümesi
   if (ebit <= 0) score -= 25; // faaliyet zararı ağır ceza
   if (monetaryShareOfNet != null && monetaryShareOfNet > 0.5) score -= 12; // parasal şişkinlik
+  // Forensic cezalar (Kâr Kalitesi 2.0)
+  if (accrualsRatio != null) score -= Math.max(0, Math.min(15, (accrualsRatio - 0.03) * 120)); // tahakkuk şişkinliği
+  if (netDebtToEbitda != null) score -= Math.max(0, Math.min(10, (netDebtToEbitda - 3) * 3)); // aşırı kaldıraç
+  if (nonOperatingShare != null && nonOperatingShare > 0.4) score -= 8; // operasyon-dışı bağımlılık
+  if (receivablesYoY != null && revenueYoY != null && receivablesYoY - revenueYoY > 0.25) score -= 6; // alacak balonu
+  if (inventoryYoY != null && revenueYoY != null && inventoryYoY - revenueYoY > 0.25) score -= 5; // stok balonu
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   // ── Verdict ──
@@ -207,6 +279,10 @@ export function computeEarningsQuality(
   }
   if (monetaryShareOfNet != null && monetaryShareOfNet > 0.5) {
     plainSummary += ' Kârın büyük kısmı nakit değil, enflasyon muhasebesi kaynaklı (tahmini).';
+  } else if (accrualsRatio != null && accrualsRatio > 0.08 && netIncome > 0) {
+    plainSummary += ' Ayrıca kâr nakde dönmüyor (tahakkuk şişkin).';
+  } else if (nonOperatingShare != null && nonOperatingShare > 0.4) {
+    plainSummary += ' Ayrıca kârın önemli kısmı esas faaliyet dışından.';
   }
 
   return {
@@ -214,6 +290,7 @@ export function computeEarningsQuality(
     plainSummary, netIncome, cleanedNetIncome, bridge,
     operatingMargin, netMargin, interestCoverage, fcfConversion, operatingLeverage, ebitYoY, revenueYoY,
     netMonetaryPosition, estimatedMonetaryGain, monetaryShareOfNet, exportRatio,
+    accrualsRatio, receivablesYoY, inventoryYoY, netDebtToEbitda, nonOperatingShare, effectiveTaxRate,
     flags, dataQuality, notes,
   };
 }
