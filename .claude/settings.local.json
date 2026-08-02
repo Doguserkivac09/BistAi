@@ -3,7 +3,15 @@
     "allow": [
       "Bash(grep -E '\\(sk-[a-zA-Z0-9]{20,}|sk_live_[a-zA-Z0-9]+|sk_test_[a-zA-Z0-9]+|ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|glpat-[a-zA-Z0-9_-]+|AKIA[A-Z0-9]{16}|xox[baprs]-[a-zA-Z0-9-]+|-----BEGIN.*PRIVATE KEY|eyJ[a-zA-Z0-9_-]+\\\\.eyJ[a-zA-Z0-9_-]+\\\\.\\)' .planning/codebase/*.md)",
       "Bash(node \"C:/Users/MspDo/PROJELERİMİZ/BISTAI/.claude/get-shit-done/bin/gsd-tools.cjs\" commit \"docs: map existing codebase\" --files .planning/codebase/STACK.md .planning/codebase/INTEGRATIONS.md .planning/codebase/ARCHITECTURE.md .planning/codebase/STRUCTURE.md .planning/codebase/CONVENTIONS.md .planning/codebase/TESTING.md .planning/codebase/CONCERNS.md)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npx tsx *)",
+      "PowerShell($gh = Get-Command gh -ErrorAction SilentlyContinue; if \\($gh\\) { Write-Output \\(\"gh bulundu: \" + $gh.Source\\); gh --version | Select-Object -First 1; gh auth status 2>&1 | Select-Object -First 3 } else { Write-Output \"gh YOK\" })",
+      "PowerShell(npx tsc --noEmit)",
+      "PowerShell(Remove-Item -Recurse -Force .next\\\\types\\\\app\\\\dev-karsilama-preview -Confirm:$false)",
+      "PowerShell(git add components/new/GirisScreen.tsx components/new/KayitScreen.tsx components/new/KarsilamaScreen.tsx design_handoff_kalan_ekranlar)",
+      "PowerShell(git push origin main)"
     ]
   }
 }
