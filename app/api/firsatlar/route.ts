@@ -23,7 +23,7 @@ import {
   dbRowsToStockSignals,
   type DecisionOutput,
 } from '@/lib/decision-engine';
-import { isScoringV2 } from '@/lib/scoring-config';
+import { isScoringV2, MIN_PUBLISH_SCORE, HARD_FLAG_VERDICTS } from '@/lib/scoring-config';
 import { deriveExposureAdj } from '@/lib/exposure-map';
 import { createServerClient } from '@/lib/supabase-server';
 import { daysUntilEarnings } from '@/lib/yahoo-fundamentals';
@@ -684,6 +684,21 @@ export async function GET(req: NextRequest) {
           return days.length > 0 ? Math.min(...days) : null;
         })(),
       });
+    }
+
+    // ── FAZ S0: YAYIN KAPISI (tuzak eleme) — yalnız SCORING_V2 açıkken ──────────
+    // "Fırsatlar'da olmak başlı başına onaydır" → eşik altı + sert red-flag ÇIKAR.
+    if (isScoringV2('short')) {
+      const before = firsatlar.length;
+      for (let i = firsatlar.length - 1; i >= 0; i--) {
+        const it = firsatlar[i]!;
+        const eq = earningsFlags[it.sembol];
+        const hardFlag = eq && HARD_FLAG_VERDICTS.includes(eq.verdict); // kağıt-üstü = faaliyet zararı tuzağı
+        if (it.adjustedScore < MIN_PUBLISH_SCORE || hardFlag) firsatlar.splice(i, 1);
+      }
+      if (before !== firsatlar.length) {
+        console.log(`[firsatlar] yayın kapısı: ${before}→${firsatlar.length} (eşik ${MIN_PUBLISH_SCORE} + sert red-flag)`);
+      }
     }
 
     // Nihai skora göre sırala (en yüksek → en düşük)

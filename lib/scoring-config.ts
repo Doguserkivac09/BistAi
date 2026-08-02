@@ -24,6 +24,22 @@
 export const SCORING_V2 = true;
 
 /**
+ * Fırsatlar YAYIN eşiği (FAZ S0 — tuzak eleme). "Fırsatlar sayfasında olmak başlı başına
+ * onaydır" → nihai skoru bu eşiğin altında olan hisse listeye ÇIKMAZ. Yalnız SCORING_V2
+ * açıkken uygulanır (kapalıyken eski davranış). 40 = zayıf uzun kuyruğu eler, ~25-35
+ * anlamlı fırsat kalır. (Plandaki 55 bu skor ölçeğinde listeyi ~3'e düşürüyordu — ölçek
+ * sinyal-denetimi ağırlık düşüşü sonrası sıkıştı; A/B ile ileride ayarlanır.)
+ */
+export const MIN_PUBLISH_SCORE = 40;
+
+/**
+ * Sert red-flag (kâr kalitesi) — bu verdict'lerdeki hisse Fırsatlar'da HİÇBİR katmanda
+ * görünmez. 'kağıt-üstü' = net kâr var ama faaliyet zararı / kâr operasyondan değil.
+ * (earnings-quality-engine verdict'i; earnings-quality:MAP:BIST'ten okunur.)
+ */
+export const HARD_FLAG_VERDICTS: readonly string[] = ['kağıt-üstü'];
+
+/**
  * Skor yüzeyi — ufka göre ağırlık farklıdır:
  *  - 'short' (Bugün/Fırsatlar): teknik-öncelikli + temel VETO (toplamsal değil) +
  *    duyarlılık toplamsal. Makro = risk kapısı.
