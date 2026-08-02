@@ -22,6 +22,10 @@ import {
   type InvestableConfidence,
 } from './investment-score'
 import { getSectorValuationProfile } from './sector-valuation'
+import { getSectorId } from './sectors'
+import { computePeerValuation } from './peer-valuation'
+import { computeBankHealth, isBankSector, type BankHealth } from './bank-health'
+import type { SectorMediansMap } from './sector-medians'
 
 export interface FundamentalsEntry {
   score: number
@@ -30,6 +34,19 @@ export interface FundamentalsEntry {
   inflationAdjusted: boolean
   /** Sonraki bilanço unix-saniye (yoksa null) */
   nextEarningsTs: number | null
+  /**
+   * Banka sağlık değerlendirmesi (FAZ K1) — YALNIZ banka sektöründe dolu.
+   * Bankalarda Piotroski/Altman/Beneish "uygulanmaz" döndüğü için temel kalite
+   * kapısı boştu; bu alan o kör noktayı kapatır (kısmi veri, tier 1).
+   */
+  bank?: {
+    tier: BankHealth['tier']
+    score: number | null
+    verdict: BankHealth['verdict']
+    redFlag: boolean
+    flags: BankHealth['flags']
+    dataQuality: BankHealth['dataQuality']
+  }
 }
 
 export interface FundamentalsStore {
@@ -45,6 +62,8 @@ export async function runFirsatlarFundamentals(
   symbols: string[],
   opts: {
     inflationYoy?: number | null
+    /** Sektör medyanları (peer karşılaştırması) — banka sağlık skoru için */
+    medians?: SectorMediansMap | null
     batchSize?: number
     batchDelay?: number
     merge?: boolean
@@ -68,13 +87,31 @@ export async function runFirsatlarFundamentals(
           const f = await fetchYahooFundamentals(sym)
           const profile = getSectorValuationProfile(sym)
           const inv = computeInvestableScore(f, undefined, inflation, profile)
-          items[sym] = {
+          const entry: FundamentalsEntry = {
             score: inv.score,
             rating: inv.ratingLabel,
             confidence: inv.confidence,
             inflationAdjusted: inv.inflationAdjustment?.applied ?? false,
             nextEarningsTs: f.nextEarningsTimestamp,
           }
+          // Banka rotası (K1): sanayi metrikleri bankada anlamsız → peer + reel ROE
+          const sectorId = getSectorId(sym)
+          if (isBankSector(sectorId)) {
+            const median = opts.medians?.[sectorId] ?? null
+            const bh = computeBankHealth({
+              sectorId,
+              peer: median ? computePeerValuation(f, sectorId, median) : null,
+              roe: f.returnOnEquity,
+              inflationYoy: opts.inflationYoy ?? null,
+            })
+            if (bh.applicable) {
+              entry.bank = {
+                tier: bh.tier, score: bh.score, verdict: bh.verdict,
+                redFlag: bh.redFlag, flags: bh.flags, dataQuality: bh.dataQuality,
+              }
+            }
+          }
+          items[sym] = entry
         } catch {
           failed++
         }

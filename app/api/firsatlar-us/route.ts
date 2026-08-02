@@ -232,6 +232,7 @@ function buildFirsatItem(
     relVol5,
     // US tarafında temel teyit katmanı (Yatırım Skoru / kâr kalitesi) YOK →
     // dürüstçe teknik-öncelikli işaretlenir (BIST'teki onaylı katman iddiası edilmez).
+    bankHealth:      null,  // banka motoru BIST'e özgü (BDDK şablonu)
     tier:            'teknik' as const,
     tierNote:        'Temel teyidi yok (ABD)',
     persistedDays:   null,

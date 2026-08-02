@@ -283,6 +283,13 @@ export function computeDuPont(years: FinancialYear[]): DuPontResult {
 
 export interface FundamentalHealth {
   isFinancial: boolean
+  /**
+   * Hangi analiz rotası geçerli (BANKA-MOTORU-PLAN K1-1). Eskiden banka için
+   * yalnız `applicable:false` dönüyordu ve bu SESSİZ bir geçiş anlamına geliyordu
+   * ("yargılayamıyoruz"). Artık niyet açık: banka `bank` rotasına yönlendirilir
+   * (lib/bank-health.ts) — sanayi metrikleri yerine peer + reel ROE değerlendirilir.
+   */
+  route: 'industrial' | 'bank'
   piotroski: PiotroskiResult
   altman: AltmanResult
   beneish: BeneishResult
@@ -292,8 +299,10 @@ export interface FundamentalHealth {
 }
 
 export function computeFundamentalHealth(years: FinancialYear[]): FundamentalHealth {
+  const isFin = isFinancialSector(years)
   return {
-    isFinancial: isFinancialSector(years),
+    isFinancial: isFin,
+    route: isFin ? 'bank' : 'industrial',
     piotroski: computePiotroski(years),
     altman: computeAltman(years),
     beneish: computeBeneish(years),

@@ -33,6 +33,11 @@ export interface OpportunityInput {
   combo?: { members: string[]; winRate: number; n: number } | null;
   sectorAlign?: number | null;
   kapEvent?: boolean;
+  /**
+   * Banka sağlık bayrakları (BANKA-MOTORU-PLAN K1) — bankalarda sanayi temel
+   * metrikleri hesaplanamadığı için gerekçeler bu kanaldan gelir.
+   */
+  bankFlags?: Array<{ id: string; tone: 'pos' | 'warn'; text: string; detail?: string }> | null;
 }
 
 // ── Sinyal → sade Türkçe rozet sözlüğü (motor adları DEĞİŞMEZ, yalnız görüntü) ──
@@ -128,6 +133,18 @@ export function deriveReasons(input: OpportunityInput): Reason[] {
   if (input.isTavan) out.push({ id: 'tavan', priority: 13, tone: 'neutral', text: 'Tavana yakın / tavan' });
   else if (input.tavanYaklasiyor) out.push({ id: 'tavan-yak', priority: 13, tone: 'neutral', text: 'Tavana yaklaşıyor' });
 
+  // 7b) Banka bayrakları — reel getiri / emsal konumu (sanayi metriklerinin karşılığı)
+  for (const bf of input.bankFlags ?? []) {
+    out.push({
+      id: bf.id,
+      // Uyarı bilanço uyarılarıyla aynı bantta; pozitif banka bayrağı hacim/MA arası
+      priority: bf.tone === 'warn' ? 21 : 8,
+      tone: bf.tone,
+      text: bf.text,
+      detail: bf.detail,
+    });
+  }
+
   // 8) Uyarılar — bilanço / KAP / temel (motor içi sayı SIZMAZ, gerekçeye çevrilir)
   if (input.daysUntilEarnings != null && input.daysUntilEarnings >= 0 && input.daysUntilEarnings <= 5) {
     out.push({ id: 'earnings-soon', priority: 21, tone: 'warn', text: `Bilanço ${input.daysUntilEarnings} gün sonra — belirsizlik` });
@@ -180,6 +197,7 @@ export interface FirsatLike {
   catalyst?: { sentiment: string; aligned: boolean } | null;
   adjustments?: { sectorAlign: number; kapEvent: number };
   kapUyarisi?: { var: boolean } | null;
+  bankHealth?: { flags: Array<{ id: string; tone: 'pos' | 'warn'; text: string; detail?: string }> } | null;
 }
 
 export function firsatToInput(f: FirsatLike): OpportunityInput {
@@ -196,6 +214,7 @@ export function firsatToInput(f: FirsatLike): OpportunityInput {
     catalyst: f.catalyst ? { sentiment: f.catalyst.sentiment, aligned: f.catalyst.aligned } : null,
     sectorAlign: f.adjustments?.sectorAlign ?? null,
     kapEvent: (f.adjustments?.kapEvent ?? 0) !== 0 || !!f.kapUyarisi?.var,
+    bankFlags: f.bankHealth?.flags ?? null,
   };
 }
 

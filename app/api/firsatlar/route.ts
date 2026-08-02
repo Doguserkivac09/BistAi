@@ -126,6 +126,19 @@ export interface FirsatItem {
   tier:            'onayli' | 'teknik';
   /** Katman gerekçesi (kullanıcıya gösterilir) — null = ek açıklama gerekmiyor */
   tierNote:        string | null;
+  /**
+   * Banka sağlık değerlendirmesi (FAZ K1) — YALNIZ banka sektöründe dolu.
+   * Bankada Piotroski/Altman/Beneish "uygulanmaz" döndüğü için temel kalite kapısı
+   * boştu; bu alan bankayı denetimsiz olmaktan çıkarır. tier 1 = kısmi veri.
+   */
+  bankHealth: {
+    tier: 1 | 2;
+    score: number | null;
+    verdict: string;
+    redFlag: boolean;
+    flags: Array<{ id: string; tone: 'pos' | 'warn'; text: string; detail?: string }>;
+    dataQuality: string;
+  } | null;
 
   /**
    * Kaç gün önce de bu sinyal fırsatlar sayfasında vardı.
@@ -453,6 +466,7 @@ export async function GET(req: NextRequest) {
     // (firsatlar-fundamentals:BIST), burada TEK satır okunur — Yahoo YOK.
     const uniqueSymbols = Array.from(gruplar.keys());
     const investmentScoreMap = new Map<string, FirsatItem['investmentScore']>();
+    const bankHealthMap = new Map<string, FirsatItem['bankHealth']>();
     const earningsTsMap = new Map<string, number | null>();
     {
       const store = fundamentalsRes.status === 'fulfilled' ? fundamentalsRes.value : null;
@@ -466,6 +480,7 @@ export async function GET(req: NextRequest) {
             inflationAdjusted: entry.inflationAdjusted,
           });
           earningsTsMap.set(sym, entry.nextEarningsTs ?? null);
+          if (entry.bank) bankHealthMap.set(sym, entry.bank);
         } else {
           investmentScoreMap.set(sym, null);
         }
@@ -597,6 +612,11 @@ export async function GET(req: NextRequest) {
         // SCORING v2 (FAZ 2) — kısa vade yüzeyi + hisse-özel makro duyarlılık katkısı.
         // v1'de exposureAdj yok sayılır (flag kapalı → scoringV2Short false → null geçilir).
         surface: 'short',
+        // Banka rotası (K1): sanayi red-flag'leri bankada hesaplanamadığı için banka
+        // veto katmanından muaf kalıyordu. Artık banka motorunun sert bayrağı geçiliyor.
+        fundamental: bankHealthMap.get(sembol)
+          ? { bankRedFlag: bankHealthMap.get(sembol)!.redFlag }
+          : null,
         exposureAdj: scoringV2Short
           ? deriveExposureAdj(sembol, direction, {
               usdtryMomentumPct: usdtryMomentum,
@@ -655,6 +675,7 @@ export async function GET(req: NextRequest) {
           return e && (e.financeBurden || e.redFlag) ? { verdict: e.verdict, financeBurden: e.financeBurden, redFlag: e.redFlag } : null;
         })(),
         investmentScore: investmentScoreMap.get(sembol) ?? null,
+        bankHealth: bankHealthMap.get(sembol) ?? null,
         catalyst: catalyst
           ? {
               sentiment:   catalyst.sentiment,
@@ -698,6 +719,12 @@ export async function GET(req: NextRequest) {
           // yükü" düşürmez — gerekçe rozetinde uyarı olarak ZATEN görünür (gizlenmiyor).
           if (eq?.redFlag) return { tier: 'teknik' as const, tierNote: 'Bilanço kalitesi uyarısı var' };
           if (catalystConflict) return { tier: 'teknik' as const, tierNote: 'Haber sinyalle çelişiyor' };
+          // Banka (K1): sanayi Yatırım Skoru yerine banka motorunun verdict'i belirler.
+          const bh = bankHealthMap.get(sembol);
+          if (bh) {
+            if (bh.redFlag || bh.verdict === 'zayif') return { tier: 'teknik' as const, tierNote: 'Banka değerlendirmesi zayıf' };
+            return { tier: 'onayli' as const, tierNote: 'Banka değerlendirmesi — kısmi veri' };
+          }
           if (inv == null) {
             // Veri YOKLUĞU ≠ temel zayıflığı. Precompute store boşsa (cron gecikti) tüm
             // liste haksızca "teknik"e düşerdi → dürüst etiketle onaylı katmanda kalır.

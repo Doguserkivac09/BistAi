@@ -276,3 +276,27 @@ describe('decision-engine v2: rejim kapısı (skor değil)', () => {
     assert.ok(ayı.confidence <= boğa.confidence)
   })
 })
+
+// ── Banka veto rotası (BANKA-MOTORU-PLAN K1-3) ───────────────────────────────
+describe('decision-engine: banka red-flag veto', () => {
+  it('bankRedFlag → yukarı sinyal tavanlanır (sanayi red-flag ile aynı kapı)', () => {
+    const temiz = computeDecision(baseInput({ scoringV2: true }))
+    const bayrak = computeDecision(baseInput({ scoringV2: true, fundamental: { bankRedFlag: true } }))
+    assert.ok(bayrak.score <= 40, `banka red-flag tavanı uygulanmadı (${bayrak.score})`)
+    assert.ok(bayrak.score < temiz.score)
+    assert.equal(bayrak.fundamentalVetoed, true)
+    assert.ok(bayrak.confidence < temiz.confidence)
+  })
+
+  it('bankRedFlag=false veto ÜRETMEZ (sağlıklı banka cezalandırılmaz)', () => {
+    const temiz = computeDecision(baseInput({ scoringV2: true }))
+    const saglikli = computeDecision(baseInput({ scoringV2: true, fundamental: { bankRedFlag: false } }))
+    assert.equal(saglikli.score, temiz.score)
+    assert.equal(saglikli.fundamentalVetoed ?? false, false)
+  })
+
+  it('v1 yolunda (scoringV2:false) banka vetosu YOK — regresyon', () => {
+    const v1 = computeDecision(baseInput({ scoringV2: false, fundamental: { bankRedFlag: true } }))
+    assert.equal(v1.fundamentalVetoed ?? false, false)
+  })
+})

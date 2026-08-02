@@ -80,6 +80,13 @@ export interface DecisionInput {
     altmanDistress?: boolean;
     /** İleriye dönük GARP verdict'i (forward-outlook). */
     garpVerdict?: 'firsat' | 'pahali_ama_hakli' | 'deger_tuzagi' | 'gercekten_pahali' | null;
+    /**
+     * BANKA rotası (K1) — bankalarda Piotroski/Altman/Beneish "uygulanmaz" döner,
+     * yani yukarıdaki red-flag'ler ASLA tetiklenmez ve banka veto katmanından
+     * denetimsiz geçerdi. `bankRedFlag` o kör noktayı kapatır: bugünkü Kademe 1
+     * tetikleyicisi reel ROE'nin negatif olması (nominal kâr var, özkaynak eriyor).
+     */
+    bankRedFlag?: boolean;
   } | null;
   /**
    * Hisse-özel makro DUYARLILIK katkısı (±puan, exposure-map.exposureContribution'dan).
@@ -285,6 +292,11 @@ function fundamentalVeto(
   // Sert red-flag: kâr manipülasyonu / iflas bölgesi → yukarı sinyali "Al" eşiğinin
   // (65) ve "Tut" bandının altına (40) kırp, güveni ciddi düşür.
   if (fundamental.beneishSuspect || fundamental.altmanDistress) {
+    return { scoreCap: 40, confidencePenalty: 25 };
+  }
+  // Banka karşılığı: sanayi red-flag'leri bankada hesaplanamaz → banka motorunun
+  // sert bayrağı aynı tavanı uygular (yoksa banka veto katmanından muaf kalırdı).
+  if (fundamental.bankRedFlag) {
     return { scoreCap: 40, confidencePenalty: 25 };
   }
   // Yumuşak: değer tuzağı (ucuz görünüp haklı sebeple ucuz) → tavan + orta ceza.

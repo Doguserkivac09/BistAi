@@ -92,6 +92,7 @@ function makeHealth(overrides: Partial<{
   const o = { isFinancial: false, piotroskiScore: 8, altmanZone: 'güvenli' as const, eqRating: 'iyi' as const, ...overrides }
   return {
     isFinancial: o.isFinancial,
+    route: o.isFinancial ? 'bank' : 'industrial',
     piotroski: {
       applicable: o.piotroskiScore !== null,
       score: o.piotroskiScore,

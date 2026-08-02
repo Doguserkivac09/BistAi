@@ -18,6 +18,7 @@ import { createClient } from '@supabase/supabase-js'
 import { bistGuard } from '@/lib/bist-guard'
 import { fetchTurkeyInflation } from '@/lib/turkey-macro'
 import { runFirsatlarFundamentals } from '@/lib/firsatlar-fundamentals-runner'
+import { getStoredSectorMedians } from '@/lib/sector-medians'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -80,8 +81,13 @@ export async function GET(request: NextRequest) {
   const inflation = await fetchTurkeyInflation().catch(() => null)
   const inflationYoy = inflation?.value ?? null
 
+  // Sektör medyanları — banka sağlık skoru (K1) peer karşılaştırmasını buradan alır.
+  // Yoksa banka skoru yalnız reel ROE'den üretilir (zarif düşüş, uydurma yok).
+  const medians = await getStoredSectorMedians(sb).catch(() => null)
+
   const result = await runFirsatlarFundamentals(sb, symbols, {
     inflationYoy,
+    medians,
     batchSize: 8,
     batchDelay: 250,
   })
