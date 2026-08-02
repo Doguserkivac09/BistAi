@@ -23,6 +23,7 @@ import { SymbolSearch } from '@/components/new/SymbolSearch';
 import { SparklineChartButton } from '@/components/new/ChartModal';
 import YasalFeragat from '@/components/new/YasalFeragat';
 import RejimRozeti from '@/components/new/RejimRozeti';
+import { firsatReasons } from '@/lib/opportunity-reasons';
 
 interface SignalResp { ok: boolean; pending?: boolean; results: SmartSignalResult[] }
 interface MacroResp {
@@ -264,14 +265,21 @@ function VerdictRow({ r, feedType, delta, mobileHidden }: { r: SmartSignalResult
 }
 
 function OppCard({ o }: { o: FirsatItem }) {
-  const tag = o.sinyaller?.[0] ?? (o.direction === 'yukari' ? 'Momentum' : 'Sinyal');
+  // Ham sinyal adı (jargon) yerine tek-kaynak gerekçe (FAZ S1/S2).
+  const top = firsatReasons(o, 1)[0];
+  const tag = top?.text ?? (o.direction === 'yukari' ? 'Momentum' : 'Sinyal');
   return (
     <Link href={`/hisse/${o.sembol}`} className="ie-glass min-w-0 flex-1 rounded-[16px] p-[13px] transition-colors hover:border-white lg:rounded-[14px] lg:px-[15px]">
       <div className="flex items-center justify-between">
         <span className="truncate text-[14px] font-bold text-ink">{o.sembol}</span>
         <span className="font-mono text-[12px] font-bold text-ai lg:text-[13px]">{Math.round(o.adjustedScore)}</span>
       </div>
-      <div className="mt-1 truncate text-[10px] font-semibold uppercase tracking-[0.05em] text-t3">{tag}</div>
+      <div
+        className={`mt-1 truncate text-[10.5px] font-semibold ${top?.tone === 'warn' ? 'text-warn' : 'text-t3'}`}
+        title={top?.evidence ?? top?.detail ?? tag}
+      >
+        {tag}
+      </div>
       <div className="mt-2 font-mono text-[12px] font-semibold" style={{ color: pctColor(o.changePercent) }}>
         {fmtPct(o.changePercent)}
       </div>

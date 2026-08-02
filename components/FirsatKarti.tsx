@@ -19,6 +19,14 @@ import { InfoPopover } from '@/components/InfoPopover';
 import { detectPhase } from '@/lib/market-phase';
 import { getThemesForSymbol } from '@/lib/us-symbols';
 import { getThemeEmoji } from '@/lib/theme-descriptions';
+import { firsatReasons, deriveReasons, firsatToInput, buildSummary, type ReasonTone } from '@/lib/opportunity-reasons';
+
+// Gerekçe rozeti tonları (eski koyu tema paleti)
+const REASON_CLS: Record<ReasonTone, string> = {
+  pos: 'bg-emerald-500/12 border-emerald-500/30 text-emerald-300',
+  warn: 'bg-amber-500/12 border-amber-500/30 text-amber-300',
+  neutral: 'bg-white/5 border-border text-text-secondary',
+};
 
 // ── Sinyal güç seviyeleri ────────────────────────────────────────────
 
@@ -216,107 +224,6 @@ export function confluenceLabel(score: number) {
   if (score >= 70) return 'Güçlü';
   if (score >= 55) return 'Orta';
   return 'Zayıf';
-}
-
-function adjustmentBadges(f: FirsatItem) {
-  const badges: { key: string; text: string; cls: string; title: string }[] = [];
-
-  if (f.adjustments.winRate !== 0) {
-    const positive = f.adjustments.winRate > 0;
-    badges.push({
-      key: 'wr',
-      text: `Geçmiş ${positive ? '+' : ''}${f.adjustments.winRate}`,
-      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
-                    : 'text-red-400 border-red-500/25 bg-red-500/10',
-      title: `Bu sinyal tipinin geçmiş win rate'i: %${Math.round((f.historicalWinRate ?? 0) * 100)} (n=${f.winRateN})`,
-    });
-  }
-
-  if (f.adjustments.regimeFit !== 0) {
-    const positive = f.adjustments.regimeFit > 0;
-    badges.push({
-      key: 'rg',
-      text: `Rejim ${positive ? '+' : ''}${f.adjustments.regimeFit}`,
-      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
-                    : 'text-red-400 border-red-500/25 bg-red-500/10',
-      title: positive ? 'XU100 trendi sinyal yönü ile uyumlu' : 'XU100 trendi sinyal yönü ile ters',
-    });
-  }
-
-  if (f.adjustments.macroAlign !== 0) {
-    const positive = f.adjustments.macroAlign > 0;
-    badges.push({
-      key: 'mc',
-      text: `Makro ${positive ? '+' : ''}${f.adjustments.macroAlign}`,
-      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
-                    : 'text-red-400 border-red-500/25 bg-red-500/10',
-      title: positive ? 'Makro ortam sinyal yönü ile uyumlu' : 'Makro ortam sinyal yönü ile ters',
-    });
-  }
-
-  if (f.adjustments.timeDecay < 0.85) {
-    badges.push({
-      key: 'td',
-      text: `Yaş ×${f.adjustments.timeDecay.toFixed(2)}`,
-      cls: 'text-orange-400 border-orange-500/25 bg-orange-500/10',
-      title: `${f.ageHours}s önce — time decay uygulandı (half-life 48s)`,
-    });
-  }
-
-  if (f.adjustments.mtfAlign !== 0) {
-    const positive = f.adjustments.mtfAlign > 0;
-    badges.push({
-      key: 'mtf',
-      text: `MTF ${positive ? '+' : ''}${f.adjustments.mtfAlign}`,
-      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
-                    : 'text-red-400 border-red-500/25 bg-red-500/10',
-      title: positive ? 'Haftalık trend sinyal yönü ile uyumlu' : 'Haftalık trend sinyal yönü ile ters',
-    });
-  }
-
-  if (f.adjustments.sectorAlign !== 0) {
-    const positive = f.adjustments.sectorAlign > 0;
-    badges.push({
-      key: 'sec',
-      text: `Sektör ${positive ? '+' : ''}${f.adjustments.sectorAlign}`,
-      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
-                    : 'text-red-400 border-red-500/25 bg-red-500/10',
-      title: positive ? 'Sektör momentumu sinyal yönü ile uyumlu' : 'Sektör momentumu sinyal yönü ile ters',
-    });
-  }
-
-  if (f.adjustments.volumeConfirm !== 0) {
-    const positive = f.adjustments.volumeConfirm > 0;
-    badges.push({
-      key: 'vol',
-      text: `Hacim ${positive ? '+' : ''}${f.adjustments.volumeConfirm}`,
-      cls: positive ? 'text-green-400 border-green-500/25 bg-green-500/10'
-                    : 'text-red-400 border-red-500/25 bg-red-500/10',
-      title: positive ? 'Hareket göreli hacimle destekleniyor' : 'Cansız hacim — hareket teyitsiz',
-    });
-  }
-
-  if (f.adjustments.earningsRisk !== 0) {
-    badges.push({
-      key: 'ern',
-      text: `📅 Bilanço ${f.adjustments.earningsRisk}`,
-      cls: 'text-amber-400 border-amber-500/25 bg-amber-500/10',
-      title: f.daysUntilEarnings != null
-        ? `Bilançoya ~${f.daysUntilEarnings} gün — binary event riski, skor düşürüldü`
-        : 'Yaklaşan bilanço — binary event riski',
-    });
-  }
-
-  if (f.adjustments.kapEvent !== 0) {
-    badges.push({
-      key: 'kap',
-      text: `KAP ${f.adjustments.kapEvent}`,
-      cls: 'text-amber-400 border-amber-500/25 bg-amber-500/10',
-      title: `Son 7 günde kritik KAP duyurusu — sinyal event'ten etkilenmiş olabilir`,
-    });
-  }
-
-  return badges;
 }
 
 // Yatırım Skoru rozeti — investment-score rating eşikleriyle (80/65/45/30) hizalı
@@ -599,25 +506,29 @@ export function FirsatKarti({
           </div>
         </div>
 
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {firsat.sinyaller.map((s) => sinyalEtiket(s))}
-        </div>
-
+        {/* Neden bu hisse? — tek kaynak (lib/opportunity-reasons, FAZ S1/S2).
+            Ham sinyal adları ve motor-içi ±puan rozetleri KALDIRILDI: kullanıcı
+            "RSI Div." veya "📅 Bilanço -8" değil, sade gerekçe görür. */}
         {(() => {
-          const badges = adjustmentBadges(firsat);
-          if (badges.length === 0) return null;
+          const reasons = firsatReasons(firsat, 4);
+          if (reasons.length === 0) return null;
           return (
-            <div className="mb-3 flex flex-wrap gap-1">
-              {badges.map((b) => (
-                <span
-                  key={b.key}
-                  title={b.title}
-                  className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${b.cls}`}
-                >
-                  {b.text}
-                </span>
-              ))}
-            </div>
+            <>
+              <p className="mb-2 text-[11px] leading-snug text-text-secondary">
+                {buildSummary(deriveReasons(firsatToInput(firsat)))}
+              </p>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {reasons.map((r) => (
+                  <span
+                    key={r.id}
+                    title={r.evidence ?? r.detail ?? r.text}
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${REASON_CLS[r.tone]}`}
+                  >
+                    {r.text}
+                  </span>
+                ))}
+              </div>
+            </>
           );
         })()}
 

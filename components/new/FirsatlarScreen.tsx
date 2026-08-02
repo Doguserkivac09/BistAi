@@ -18,16 +18,47 @@ import { SparklineChartButton } from '@/components/new/ChartModal';
 import YasalFeragat from '@/components/new/YasalFeragat';
 import RejimRozeti from '@/components/new/RejimRozeti';
 import { displayRating } from '@/lib/decision-engine';
+import { firsatReasons, deriveReasons, firsatToInput, buildSummary, type Reason } from '@/lib/opportunity-reasons';
 
-type Filtre = 'guclu' | 'tumu' | 'momentum' | 'akilli' | 'katalist';
+type Filtre = 'onayli' | 'guclu' | 'tumu' | 'momentum' | 'akilli' | 'katalist' | 'uyarili';
 
 const FILTRELER: { id: Filtre; label: string }[] = [
+  { id: 'onayli', label: 'Onaylı' },
   { id: 'guclu', label: 'Güçlü kurulum' },
   { id: 'tumu', label: 'Tümü' },
   { id: 'momentum', label: 'Momentum' },
   { id: 'akilli', label: 'Akıllı Para' },
   { id: 'katalist', label: 'Katalist' },
+  { id: 'uyarili', label: 'Uyarılı' },
 ];
+
+// Gerekçe rozeti tonları (S1 ReasonTone → görsel)
+const TONE_CLS: Record<Reason['tone'], string> = {
+  pos: 'border-up/25 bg-up/[0.10] text-up',
+  warn: 'border-warn/30 bg-warn/[0.12] text-warn',
+  neutral: 'border-hairline bg-fill text-t2',
+};
+
+function ReasonBadges({ reasons, max = 4 }: { reasons: Reason[]; max?: number }) {
+  if (reasons.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {reasons.slice(0, max).map((r) => (
+        <span
+          key={r.id}
+          title={r.evidence ?? r.detail ?? r.text}
+          className={`rounded-[8px] border px-2 py-[3px] text-[10.5px] font-semibold ${TONE_CLS[r.tone]}`}
+        >
+          {r.text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function hasWarn(it: FirsatItem): boolean {
+  return deriveReasons(firsatToInput(it)).some((r) => r.tone === 'warn');
+}
 
 const VC: Record<string, string> = {
   'Güçlü Al': '#16a35b', Al: '#4aa84a', Tut: '#c98a00', Sat: '#e5484d', 'Güçlü Sat': '#d23b40',
@@ -41,6 +72,10 @@ const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
 function matchesFilter(it: FirsatItem, f: Filtre): boolean {
   if (f === 'tumu') return true;
+  // Onaylı: teknik + temel (ve varsa katalist) uyumlu — route'ta işaretlenir (S2).
+  if (f === 'onayli') return it.tier === 'onayli';
+  // Uyarılı: en az bir uyarı gerekçesi olanlar (şeffaflık — gizlenmez, ayrıca listelenir).
+  if (f === 'uyarili') return hasWarn(it);
   // Güçlü kurulum: confluence (2+ sinyal birlikte) — tek sinyaller BIST'te komisyonu
   // zor geçiyor, birleşimler çok daha iyi. İstisna: RSI Uyumsuzluğu tek başına da
   // pozitif beklentili (geçmiş analiz) → radarda kalır.
@@ -49,25 +84,6 @@ function matchesFilter(it: FirsatItem, f: Filtre): boolean {
   if (f === 'akilli') return (it.adjustments?.volumeConfirm ?? 0) > 0 || it.tavanYaklasıyor || it.isTavan;
   if (f === 'katalist') return it.catalyst != null;
   return true;
-}
-
-function reasonOf(it: FirsatItem): string {
-  const parts: string[] = [];
-  if (it.sinyaller?.length) parts.push(it.sinyaller.slice(0, 2).join(', '));
-  if (it.catalyst) parts.push('haber katalisti destekli');
-  if (it.weeklyAligned) parts.push('haftalık trend uyumlu');
-  if (it.tavanYaklasıyor || it.isTavan) parts.push('tavana yakın');
-  if (parts.length === 0) parts.push(`${it.sektorAdi} · çoklu faktör skoru ${Math.round(it.adjustedScore)}`);
-  return parts.join(' · ');
-}
-
-function tagsOf(it: FirsatItem): string[] {
-  const t: string[] = [];
-  if (it.tavanYaklasıyor || it.isTavan) t.push('⚡ Tavan yakın');
-  if (it.catalyst) t.push('🗞️ Katalist');
-  if (it.weeklyAligned) t.push('Haftalık ✓');
-  if (it.sinyaller?.[0] && t.length < 3) t.push(it.sinyaller[0]);
-  return t.slice(0, 3);
 }
 
 /** SVG skor halkası (stroke-dasharray). */
@@ -110,6 +126,10 @@ function buildSpark(vals: number[], w: number, h: number, pad = 3) {
 function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
   const rating = it.decision?.rating ?? 'Tut';
   const color = VC[rating] ?? '#8a909b';
+  // Rozet sayısı breakpoint'e göre farklı → seçim de ayrı yapılır: selectTopReasons
+  // "en az 1 uyarı görünür" garantisini SEÇİM anında verir, sonradan slice etmek onu bozar.
+  const reasonsSm = firsatReasons(it, 2);
+  const reasonsLg = firsatReasons(it, 3);
   return (
     <Link
       href={`/hisse/${it.sembol}`}
@@ -129,21 +149,30 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
             {fmtPct(it.changePercent)}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 truncate text-[11px] font-medium text-t3">
-          {it.combo && (
-            <span
-              title={`Onaylı kurulum: ${it.combo.members.join(' + ')} · geçmiş %${it.combo.winRate.toFixed(0)} isabet (n=${it.combo.n})`}
-              className="shrink-0 rounded-[6px] bg-up/12 px-1.5 py-px text-[9px] font-bold text-up"
-            >
-              ✓ combo %{it.combo.winRate.toFixed(0)}
+        {/* Gerekçeler — tek kaynak (lib/opportunity-reasons). Mobilde 2, masaüstünde 3. */}
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 lg:hidden">
+          {reasonsSm.map((r) => (
+            <span key={r.id} title={r.evidence ?? r.detail ?? r.text}
+              className={`shrink-0 rounded-[7px] border px-1.5 py-px text-[10px] font-semibold ${TONE_CLS[r.tone]}`}>
+              {r.text}
             </span>
-          )}
-          {it.earningsRisk && (
+          ))}
+        </div>
+        <div className="mt-1 hidden flex-wrap items-center gap-1.5 lg:flex">
+          {reasonsLg.map((r) => (
+            <span key={r.id} title={r.evidence ?? r.detail ?? r.text}
+              className={`shrink-0 rounded-[7px] border px-1.5 py-px text-[10px] font-semibold ${TONE_CLS[r.tone]}`}>
+              {r.text}
+            </span>
+          ))}
+        </div>
+        <div className="mt-1 flex items-center gap-1.5 truncate text-[11px] font-medium text-t3">
+          {it.tier === 'teknik' && (
             <span
-              title={`Kâr kalitesi: ${it.earningsRisk.redFlag ?? 'finansman yükü'} — bilanço risk uyarısı (İş Yatırım). Getiri tahmini değil.`}
-              className="shrink-0 rounded-[6px] bg-warn/15 px-1.5 py-px text-[9px] font-bold text-warn"
+              title={it.tierNote ?? 'Temel teyidi yok — yalnız teknik kurulum'}
+              className="shrink-0 rounded-[6px] border border-hairline bg-fill px-1.5 py-px text-[9px] font-bold text-t3"
             >
-              ⚠ {it.earningsRisk.redFlag ? 'kâr riski' : 'finansman yükü'}
+              Yalnız teknik
             </span>
           )}
           <span className="truncate">{it.sektorAdi}</span>
@@ -170,7 +199,8 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
 export function FirsatlarScreen() {
   const [items, setItems] = useState<FirsatItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtre, setFiltre] = useState<Filtre>('guclu');
+  // Varsayılan katman: Onaylı (teknik + temel uyumlu). "Tümü" çipi teknik-öncelikliyi de açar.
+  const [filtre, setFiltre] = useState<Filtre>('onayli');
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const [regime, setRegime] = useState<string | null>(null);
   const [featSpark, setFeatSpark] = useState<Record<string, number[]>>({});
@@ -212,6 +242,8 @@ export function FirsatlarScreen() {
   }, [featured?.sembol, featSpark]);
 
   const counts = useMemo(() => ({
+    onayli: items.filter((it) => matchesFilter(it, 'onayli')).length,
+    uyarili: items.filter((it) => matchesFilter(it, 'uyarili')).length,
     guclu: items.filter((it) => matchesFilter(it, 'guclu')).length,
     tumu: items.length,
     momentum: items.filter((it) => matchesFilter(it, 'momentum')).length,
@@ -237,7 +269,14 @@ export function FirsatlarScreen() {
     { label: 'Katalist', n: counts.katalist, color: '#e0a92e' },
   ];
 
-  const featReason = featured ? reasonOf(featured) : '';
+  // Öne çıkan kartın gerekçeleri — tek kaynak (S1). Özet cümle en yüksek öncelikli
+  // pozitiflerden; rozetler maks 4 (uyarı varsa mutlaka görünür — selectTopReasons).
+  const featAllReasons = featured ? deriveReasons(firsatToInput(featured)) : [];
+  const featReason = featured ? buildSummary(featAllReasons) : '';
+  // combo + kâr kalitesi rozetleri altta kendi kanıt panellerinde zaten var → tekrar etme
+  const featBadges = firsatReasons(featured ?? { sinyaller: [], direction: 'notr' }, 6)
+    .filter((r) => r.id !== 'combo' && !r.id.startsWith('eq-'))
+    .slice(0, 4);
   const featCloses = featured ? featSpark[featured.sembol] : undefined;
 
   // ── Paylaşılan bloklar ──
@@ -359,6 +398,15 @@ export function FirsatlarScreen() {
 
         <p className="mt-2 text-[12px] font-medium leading-[1.55] text-t2">{featReason}</p>
 
+        <div className="mt-2">
+          <ReasonBadges reasons={featBadges} />
+        </div>
+        {featured.tier === 'teknik' && (
+          <div className="mt-2 rounded-[10px] border border-hairline bg-fill px-2.5 py-1.5 text-[11px] font-medium text-t3">
+            Yalnız teknik — {featured.tierNote ?? 'temel teyidi yok'}
+          </div>
+        )}
+
         {featured.combo && (
           <div className="mt-2.5 flex items-start gap-2 rounded-[12px] border border-up/25 bg-up/[0.07] px-3 py-2">
             <span aria-hidden className="text-[13px] leading-none">✓</span>
@@ -394,10 +442,10 @@ export function FirsatlarScreen() {
             </Link>
           </div>
         ) : (
-          <div className="mt-3 flex gap-1.5">
-            {tagsOf(featured).map((t) => (
-              <span key={t} className="rounded-[8px] border border-white/70 bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-t2">{t}</span>
-            ))}
+          <div className="mt-3 flex gap-2.5">
+            <Link href={`/hisse/${featured.sembol}`} className="flex h-10 flex-1 items-center justify-center rounded-[12px] border border-white/70 bg-white/60 text-[13px] font-bold text-ink">
+              Detay
+            </Link>
           </div>
         )}
       </div>
@@ -478,8 +526,23 @@ export function FirsatlarScreen() {
               {loading ? (
                 [...Array(6)].map((_, i) => <div key={i} className="ie-glass h-[64px] animate-pulse rounded-[16px]" />)
               ) : matched.length === 0 ? (
-                <div className="ie-glass rounded-[16px] px-4 py-10 text-center text-[13px] font-medium text-t2">
-                  Bu filtrede fırsat bulunamadı.
+                <div className="ie-glass rounded-[16px] px-5 py-9 text-center">
+                  <div className="text-[14px] font-bold text-ink">
+                    {filtre === 'onayli' ? 'Bugün onaylı kurulum yok.' : 'Bu filtrede fırsat bulunamadı.'}
+                  </div>
+                  <p className="mx-auto mt-1.5 max-w-[340px] text-[12px] font-medium leading-[1.55] text-t2">
+                    {filtre === 'onayli'
+                      ? 'Piyasa temkinli — beklemek de bir karar. Teknik-öncelikli kurulumları görmek için “Tümü”ne geçebilirsin.'
+                      : 'Eşiği düşürmek yerine dürüst davranıyoruz: kriterlere uyan kurulum yok.'}
+                  </p>
+                  {filtre === 'onayli' && (
+                    <button
+                      onClick={() => setFiltre('tumu')}
+                      className="mt-3.5 rounded-[12px] bg-ink px-4 py-2 text-[12.5px] font-bold text-onink"
+                    >
+                      Tümünü göster ({counts.tumu})
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>

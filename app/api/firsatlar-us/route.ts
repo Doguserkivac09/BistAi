@@ -229,6 +229,11 @@ function buildFirsatItem(
     tavanYaklasıyor: false,
     tavanLabel:      null,
     changePercent,
+    relVol5,
+    // US tarafında temel teyit katmanı (Yatırım Skoru / kâr kalitesi) YOK →
+    // dürüstçe teknik-öncelikli işaretlenir (BIST'teki onaylı katman iddiası edilmez).
+    tier:            'teknik' as const,
+    tierNote:        'Temel teyidi yok (ABD)',
     persistedDays:   null,
     decision: {
       sembol:         r.sembol as string,

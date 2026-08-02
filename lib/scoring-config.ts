@@ -40,6 +40,14 @@ export const MIN_PUBLISH_SCORE = 40;
 export const HARD_FLAG_VERDICTS: readonly string[] = ['kağıt-üstü'];
 
 /**
+ * FAZ S2 — "onaylı kurulum" katmanı için gereken minimum Yatırım Skoru (temel teyidi).
+ * Altında kalan / temel verisi olmayan hisse 'teknik' katmanına düşer: listeden ELENMEZ,
+ * ama varsayılan görünümde gizlenir ve "yalnız teknik" etiketiyle gösterilir.
+ * 45 = investment-score'un "nötr" bandının alt sınırı (80/65/45/30 eşikleri).
+ */
+export const MIN_FUNDAMENTAL_CONFIRM = 45;
+
+/**
  * Skor yüzeyi — ufka göre ağırlık farklıdır:
  *  - 'short' (Bugün/Fırsatlar): teknik-öncelikli + temel VETO (toplamsal değil) +
  *    duyarlılık toplamsal. Makro = risk kapısı.

@@ -23,7 +23,7 @@ import {
   dbRowsToStockSignals,
   type DecisionOutput,
 } from '@/lib/decision-engine';
-import { isScoringV2, MIN_PUBLISH_SCORE, HARD_FLAG_VERDICTS } from '@/lib/scoring-config';
+import { isScoringV2, MIN_PUBLISH_SCORE, HARD_FLAG_VERDICTS, MIN_FUNDAMENTAL_CONFIRM } from '@/lib/scoring-config';
 import { deriveExposureAdj } from '@/lib/exposure-map';
 import { createServerClient } from '@/lib/supabase-server';
 import { daysUntilEarnings } from '@/lib/yahoo-fundamentals';
@@ -117,6 +117,15 @@ export interface FirsatItem {
   tavanLabel:      TavanResult['label'];
   /** Bugünkü % değişim */
   changePercent:   number | null;
+  /** 5 günlük ortalamaya göre göreli hacim (scan_cache) — gerekçe rozeti için */
+  relVol5:         number | null;
+  /**
+   * FAZ S2 — iki katman. 'onayli' = teknik + temel (ve varsa katalist) uyumlu;
+   * 'teknik' = yalnız teknik, temel teyidi yok/zayıf → varsayılan görünümde gizli.
+   */
+  tier:            'onayli' | 'teknik';
+  /** Katman gerekçesi (kullanıcıya gösterilir) — null = ek açıklama gerekmiyor */
+  tierNote:        string | null;
 
   /**
    * Kaç gün önce de bu sinyal fırsatlar sayfasında vardı.
@@ -462,6 +471,8 @@ export async function GET(req: NextRequest) {
         }
       }
     }
+    /** Temel teyit verisi HİÇ yoksa (precompute store boş/eski) katman düşürme uygulanmaz. */
+    const fundamentalsAvailable = Array.from(investmentScoreMap.values()).some((v) => v != null);
 
     // ── Sektör momentum (P1-1) — scan_cache'teki hazır mumlardan ────────
     // Temsilci hisselerin candles_json'u (son 60 mum) ile analyzeSector çalışır;
@@ -674,7 +685,29 @@ export async function GET(req: NextRequest) {
             tavanYaklasıyor: tavan.yaklasıyor,
             tavanLabel:      tavan.label,
             changePercent:   sc?.change_percent ?? null,
+            relVol5:         sc?.rel_vol5 ?? null,
           };
+        })(),
+        // ── FAZ S2: katman (onaylı / teknik-öncelikli) ────────────────
+        ...(() => {
+          const inv = investmentScoreMap.get(sembol) ?? null;
+          const eq = earningsFlags[sembol];
+          const finansal = sektorId === 'banka' || sektorId === 'sigorta_finans';
+          const catalystConflict = !!catalyst && !catalystAligned && catalyst.sentiment !== 'nötr';
+          // Yalnız red-flag (kâr kalitesi bulgusu) katman düşürür. Tek başına "finansman
+          // yükü" düşürmez — gerekçe rozetinde uyarı olarak ZATEN görünür (gizlenmiyor).
+          if (eq?.redFlag) return { tier: 'teknik' as const, tierNote: 'Bilanço kalitesi uyarısı var' };
+          if (catalystConflict) return { tier: 'teknik' as const, tierNote: 'Haber sinyalle çelişiyor' };
+          if (inv == null) {
+            // Veri YOKLUĞU ≠ temel zayıflığı. Precompute store boşsa (cron gecikti) tüm
+            // liste haksızca "teknik"e düşerdi → dürüst etiketle onaylı katmanda kalır.
+            if (!fundamentalsAvailable) return { tier: 'onayli' as const, tierNote: 'Temel teyidi uygulanamadı (veri yok)' };
+            return finansal
+              ? { tier: 'onayli' as const, tierNote: 'Temel teyidi uygulanmadı (banka/finans)' }
+              : { tier: 'teknik' as const, tierNote: 'Temel teyidi yok' };
+          }
+          if (inv.score < MIN_FUNDAMENTAL_CONFIRM) return { tier: 'teknik' as const, tierNote: 'Temeli zayıf — yalnız teknik' };
+          return { tier: 'onayli' as const, tierNote: null };
         })(),
         persistedDays: (() => {
           // En az bir sinyalin 3-10 gün önce de var olup olmadığına bak

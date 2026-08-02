@@ -7,7 +7,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { deriveReasons, selectTopReasons, buildSummary, type OpportunityInput } from '../opportunity-reasons';
+import {
+  deriveReasons, selectTopReasons, buildSummary, firsatToInput, firsatReasons,
+  type OpportunityInput, type FirsatLike,
+} from '../opportunity-reasons';
 import { SIGNAL_CANONICAL_FIELD } from '../signal-horizons';
 
 const base = (over: Partial<OpportunityInput> = {}): OpportunityInput => ({ sinyaller: [], direction: 'yukari', ...over });
@@ -93,5 +96,47 @@ describe('buildSummary', () => {
   });
   it('boş → nötr mesaj', () => {
     assert.ok(buildSummary([]).length > 0);
+  });
+});
+
+// ── FAZ S2: FirsatItem adaptörü (3 ekranın ortak girişi) ────────────────────
+describe('firsatToInput / firsatReasons — S2 adaptörü', () => {
+  const firsat = (over: Partial<FirsatLike> = {}): FirsatLike => ({
+    sinyaller: [], direction: 'yukari', ...over,
+  });
+
+  it('FirsatItem alanlarını doğru eşler (hacim · haftalık · sektör · combo)', () => {
+    const inp = firsatToInput(firsat({
+      sinyaller: ['Trend Başlangıcı'],
+      relVol5: 2.4,
+      weeklyAligned: true,
+      adjustments: { sectorAlign: 5, kapEvent: 0 },
+      combo: { members: ['A', 'B'], n: 30, winRate: 68 },
+    }));
+    assert.equal(inp.relVol5, 2.4);
+    assert.equal(inp.weeklyAligned, true);
+    assert.equal(inp.sectorAlign, 5);
+    assert.equal(inp.combo?.winRate, 68);
+    assert.equal(inp.kapEvent, false);
+  });
+
+  it('kapEvent hem adjustments hem kapUyarisi’ndan türetilir', () => {
+    assert.equal(firsatToInput(firsat({ adjustments: { sectorAlign: 0, kapEvent: -10 } })).kapEvent, true);
+    assert.equal(firsatToInput(firsat({ kapUyarisi: { var: true } })).kapEvent, true);
+    assert.equal(firsatToInput(firsat()).kapEvent, false);
+  });
+
+  it('firsatReasons maks 4 döndürür ve uyarıyı korur', () => {
+    const rs = firsatReasons(firsat({
+      sinyaller: ['Para Akışı Uyumsuzluğu', 'Trend Başlangıcı', 'Destek/Direnç Kırılımı', 'Altın Çapraz'],
+      relVol5: 3, weeklyAligned: true,
+      earningsRisk: { verdict: 'zayıf', financeBurden: true, redFlag: null },
+    }));
+    assert.ok(rs.length <= 4);
+    assert.ok(rs.some((r) => r.tone === 'warn'), 'uyarı gerekçesi kayboldu');
+  });
+
+  it('gerekçesiz fırsat boş dizi döndürür (kart özet cümleye düşer)', () => {
+    assert.deepEqual(firsatReasons(firsat()), []);
   });
 });

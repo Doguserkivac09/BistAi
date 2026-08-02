@@ -158,6 +158,52 @@ export function selectTopReasons(reasons: Reason[], max = 4): Reason[] {
   return picked.sort((a, b) => a.priority - b.priority);
 }
 
+/**
+ * FirsatItem → OpportunityInput adaptörü (FAZ S2 tek-kaynak entegrasyonu).
+ * Yapısal tip kullanılır: lib katmanı app/api'ye BAĞIMLI OLMAZ, ama FirsatItem
+ * bu şekle uyduğu için 3 ekran da doğrudan geçirebilir.
+ *
+ * NOT: `aboveMA` bilinçli olarak beslenmez — scan_cache'te hareketli ortalama
+ * kolonu yok, ~150 sembolün candles_json'unu istek anında çekmek pahalı olurdu.
+ * Alan lib'de destekleniyor (başka yüzey besleyebilir); firsatlar'da atlanır.
+ */
+export interface FirsatLike {
+  sinyaller: string[];
+  direction: 'yukari' | 'asagi' | 'notr';
+  relVol5?: number | null;
+  weeklyAligned?: boolean | null;
+  tavanYaklasıyor?: boolean;
+  isTavan?: boolean;
+  daysUntilEarnings?: number | null;
+  earningsRisk?: { verdict: string; financeBurden: boolean; redFlag: string | null } | null;
+  combo?: { members: string[]; n: number; winRate: number } | null;
+  catalyst?: { sentiment: string; aligned: boolean } | null;
+  adjustments?: { sectorAlign: number; kapEvent: number };
+  kapUyarisi?: { var: boolean } | null;
+}
+
+export function firsatToInput(f: FirsatLike): OpportunityInput {
+  return {
+    sinyaller: f.sinyaller ?? [],
+    direction: f.direction,
+    relVol5: f.relVol5 ?? null,
+    weeklyAligned: f.weeklyAligned ?? null,
+    tavanYaklasiyor: f.tavanYaklasıyor,
+    isTavan: f.isTavan,
+    daysUntilEarnings: f.daysUntilEarnings ?? null,
+    earningsRisk: f.earningsRisk ?? null,
+    combo: f.combo ? { members: f.combo.members, winRate: f.combo.winRate, n: f.combo.n } : null,
+    catalyst: f.catalyst ? { sentiment: f.catalyst.sentiment, aligned: f.catalyst.aligned } : null,
+    sectorAlign: f.adjustments?.sectorAlign ?? null,
+    kapEvent: (f.adjustments?.kapEvent ?? 0) !== 0 || !!f.kapUyarisi?.var,
+  };
+}
+
+/** Kısayol: FirsatItem'dan doğrudan gösterilecek rozetler (maks `max`). */
+export function firsatReasons(f: FirsatLike, max = 4): Reason[] {
+  return selectTopReasons(deriveReasons(firsatToInput(f)), max);
+}
+
 /** Tek cümlelik özet — en yüksek öncelikli 1-2 pozitiften; yoksa ilk gerekçeden. */
 export function buildSummary(reasons: Reason[]): string {
   if (reasons.length === 0) return 'Belirgin bir gerekçe yok.';

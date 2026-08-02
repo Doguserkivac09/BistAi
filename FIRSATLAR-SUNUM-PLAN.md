@@ -23,12 +23,37 @@
   `deriveReasons(OpportunityInput)` + `selectTopReasons(max=4, warn korunur)` +
   `buildSummary()`. 23 sinyal sözlüğü + sinyal-dışı gerekçeler (akıllı para, combo
   kanıtı, hacim, MA, katalist, kâr-kalitesi uyarısı). 12 test geçiyor.
-- **⏳ S2 BEKLİYOR** ← BU OTURUMDA YAP. FirsatItem alanlarından `OpportunityInput`
-  kurup 3 ekranı bağla: `components/new/FirsatlarScreen.tsx` (`reasonOf()` KALDIR),
-  `components/FirsatKarti.tsx` (ham `📅 Bilanço -8` rozetleri KALDIR),
-  `components/new/BugunScreen.tsx` sinyal akışı. + onaylı/tümü katman geçişi + boş durum.
-  **NOT:** FirsatItem'da `relVol5` ve `aboveMA` doğrudan YOK — S2'de firsatlar route'a
-  eklenebilir (opsiyonel; yoksa deriveReasons o gerekçeleri atlar, sorun değil).
+- **✅ S2 TAMAM** (2026-08-02): 3 ekran tek kaynağa bağlandı.
+  - `lib/opportunity-reasons.ts` → `FirsatLike` + `firsatToInput()` + `firsatReasons()`
+    adaptörü (lib app/api'ye BAĞIMLI DEĞİL, yapısal tip). 4 yeni test → 295/295 geçiyor.
+  - `app/api/firsatlar/route.ts` → FirsatItem'a **`relVol5`** (scan_cache) + **`tier`**
+    (`onayli`/`teknik`) + **`tierNote`**. Katman kuralı: red-flag kâr kalitesi VEYA
+    çelişen katalist VEYA Yatırım Skoru < `MIN_FUNDAMENTAL_CONFIRM` (=45, yeni sabit
+    `lib/scoring-config.ts`) → `teknik`. **Dürüstlük kararları:** (a) tek başına
+    "finansman yükü" katman DÜŞÜRMEZ — rozette uyarı olarak zaten görünür; (b) temel
+    precompute store'u BOŞSA (cron gecikti) hiçbir hisse haksızca düşmez, "Temel teyidi
+    uygulanamadı (veri yok)" etiketiyle onaylı kalır; (c) banka/finans "Temel teyidi
+    uygulanmadı (banka/finans)"; (d) `/api/firsatlar-us` temel katmanı olmadığı için
+    tümü `teknik` + "Temel teyidi yok (ABD)".
+  - `FirsatlarScreen`: `reasonOf()`/`tagsOf()` SİLİNDİ; özet cümle `buildSummary`,
+    rozetler `firsatReasons` (mobil 2 / masaüstü 3 — sayı breakpoint'e göre AYRI
+    seçilir, yoksa "warn mutlaka görünür" garantisi slice ile bozulurdu). Yeni çipler:
+    **Onaylı (varsayılan)** + **Uyarılı**. Boş durum: onaylı katmanda "beklemek de bir
+    karar" + "Tümünü göster" CTA; diğer filtrelerde eşik düşürmeme mesajı.
+  - `FirsatKarti` (eski tema): ham sinyal çipleri + `📅 Bilanço -8`/`KAP -10`/`Rejim +5`
+    rozetleri (`adjustmentBadges`) KALDIRILDI → özet cümle + tonlu gerekçe rozetleri.
+  - `BugunScreen` OppCard: ham sinyal adı yerine en yüksek öncelikli gerekçe (tonlu).
+    Sinyal akışı (`VerdictRow`) DEĞİŞMEDİ — smart-signal `summary`'si zaten sade Türkçe
+    ve S1 deseninin kaynağı; jargon yok, gereksiz ikinci katman eklenmedi.
+  - **`aboveMA` bilinçli olarak beslenmiyor:** scan_cache'te MA kolonu yok, ~150 sembolün
+    `candles_json`'unu istek anında çekmek pahalı. Alan lib'de duruyor (ileride bir
+    precompute besleyebilir); yokken deriveReasons o gerekçeyi atlar.
+  - **Doğrulama:** tsc + build temiz, 295/295 test. Gerçek veriyle (dev, 15 fırsat):
+    8 onaylı / 7 teknik, "Uyarılı" 14, rozetler sade Türkçe (Direnci kırdı · Onaylı
+    kurulum · Finansman yükü yüksek), motor-içi sayı sızmıyor, mobil 2/masaüstü 3 rozet,
+    karanlık tema, konsol hatasız, boş-durum mesajı doğrulandı.
+    Auth-korumalı yüzeyler (`/bugun`, `/ters-portfolyo`) yerelde giriş olmadan
+    açılmadı → Vercel preview'de giriş yapıp göz doğrulaması yapılmalı.
 
 ---
 
