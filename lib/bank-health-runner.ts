@@ -30,6 +30,7 @@ export interface BankHealthEntry {
   flags: BankHealth['flags'];
   dataQuality: BankHealth['dataQuality'];
   metrics: BankHealth['metrics'];
+  outlook: BankHealth['outlook'];
   /** Kademe 2 hangi çeyreğe dayanıyor (şeffaflık) */
   lastQuarter: string | null;
 }
@@ -130,6 +131,15 @@ export async function runBankHealth(
       inflationYoy: opts.inflationYoy ?? null,
       financials: r.financials,
       sectorContext,
+      analyst: r.fundamentals
+        ? {
+            currentPrice: r.fundamentals.currentPrice,
+            targetMeanPrice: r.fundamentals.targetMeanPrice,
+            recommendationMean: r.fundamentals.recommendationMean,
+            recommendationKey: r.fundamentals.recommendationKey,
+            analystCount: r.fundamentals.numberOfAnalystOpinions,
+          }
+        : null,
     });
 
     if (!health.applicable || (health.score === null && health.flags.length === 0)) { skipped++; continue; }
@@ -137,7 +147,7 @@ export async function runBankHealth(
     map[r.sembol] = {
       tier: health.tier, institution: health.institution, score: health.score, verdict: health.verdict,
       redFlag: health.redFlag, flags: health.flags, dataQuality: health.dataQuality,
-      metrics: health.metrics ?? null, lastQuarter: r.lastQuarter,
+      metrics: health.metrics ?? null, outlook: health.outlook ?? null, lastQuarter: r.lastQuarter,
     };
     ok++;
     if (health.tier === 2) tier2++;

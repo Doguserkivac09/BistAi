@@ -57,6 +57,74 @@ export interface BankSectorContext {
   corDeltaMedianBps: number | null;
 }
 
+/**
+ * Analist BEKLENTİSİ (ileriye dönük) — skora KARIŞMAZ, ayrı gösterilir.
+ *
+ * NEDEN AYRI: `score` gerçekleşmiş kaliteyi ölçer (geçmiş 12 ay kârlılığı, emsal
+ * çarpanları, gelir kalitesi). Toparlanma/değer hikâyelerinde bu ikisi zıt yönde
+ * olabilir — dip kârla F/K yüksek çıkar, skor düşer; beklenti ise yüksek olabilir.
+ * İkisini tek nota karıştırmak hangi bilginin nereden geldiğini gizlerdi. Ayrıca
+ * analist kapsamı bankaların yarısında YOK (YKBNK/AKBNK) → skora katılsa ağırlık
+ * yeniden normalize edilir ve skorlar karşılaştırılamaz hale gelirdi.
+ */
+export interface BankAnalystInput {
+  currentPrice: number | null;
+  targetMeanPrice: number | null;
+  /** 1 = güçlü al … 5 = güçlü sat (Yahoo recommendationMean) */
+  recommendationMean: number | null;
+  recommendationKey: string | null;
+  analystCount: number | null;
+}
+
+export interface BankOutlook {
+  /** Kapsam var mı — yoksa hiçbir şey İDDİA EDİLMEZ */
+  available: boolean;
+  targetPrice: number | null;
+  currentPrice: number | null;
+  /** Hedefe göre yükseliş potansiyeli % */
+  upsidePct: number | null;
+  /** Sade Türkçe konsensüs etiketi */
+  consensusLabel: string | null;
+  consensusMean: number | null;
+  analystCount: number | null;
+}
+
+/** Konsensüs ortalaması (1-5) → sade Türkçe. */
+function consensusLabel(mean: number | null): string | null {
+  if (mean == null || !Number.isFinite(mean)) return null;
+  if (mean <= 1.5) return 'güçlü al';
+  if (mean <= 2.5) return 'al';
+  if (mean <= 3.5) return 'tut';
+  if (mean <= 4.5) return 'sat';
+  return 'güçlü sat';
+}
+
+/**
+ * Analist beklentisini derler. Kapsam yoksa `available:false` — sıfır/uydurma YOK.
+ * `analystCount < 3` de kapsamsız sayılır (tek-iki kurum konsensüs değildir).
+ */
+export function computeBankOutlook(a: BankAnalystInput | null | undefined): BankOutlook {
+  const empty: BankOutlook = {
+    available: false, targetPrice: null, currentPrice: null,
+    upsidePct: null, consensusLabel: null, consensusMean: null, analystCount: null,
+  };
+  if (!a) return empty;
+  const n = a.analystCount ?? 0;
+  const hasTarget = a.targetMeanPrice != null && a.currentPrice != null && a.currentPrice > 0;
+  if (n < 3 || (!hasTarget && a.recommendationMean == null)) return { ...empty, analystCount: a.analystCount ?? null };
+  return {
+    available: true,
+    targetPrice: a.targetMeanPrice ?? null,
+    currentPrice: a.currentPrice ?? null,
+    upsidePct: hasTarget
+      ? Math.round(((a.targetMeanPrice! - a.currentPrice!) / a.currentPrice!) * 1000) / 10
+      : null,
+    consensusLabel: consensusLabel(a.recommendationMean),
+    consensusMean: a.recommendationMean ?? null,
+    analystCount: a.analystCount ?? null,
+  };
+}
+
 export interface BankHealthInput {
   sectorId: SectorId;
   /** Sektör emsal karşılaştırması (banka medyanı canlı doğrulanmış, n≈17) */
@@ -69,6 +137,8 @@ export interface BankHealthInput {
   financials?: BankFinancials | null;
   /** Sektör trend medyanları — trend bayraklarını göreceli yapar (runner iki geçişte üretir) */
   sectorContext?: BankSectorContext | null;
+  /** Analist beklentisi — SKORA GİRMEZ, ayrı alan olarak taşınır */
+  analyst?: BankAnalystInput | null;
 }
 
 /** Kademe 2 ölçümleri — UI ve şeffaflık için ham oranlar (null = ölçülemedi). */
@@ -116,6 +186,11 @@ export interface BankHealth {
   reason?: string;
   /** Kademe 2 ham ölçümleri (tier 1'de null) */
   metrics?: BankMetrics | null;
+  /**
+   * İleriye dönük analist beklentisi. `score`/`verdict`/`redFlag` ile İLİŞKİSİ YOKTUR
+   * — geçmiş kalite ile beklenti zıt olabilir, ikisi ayrı okunmalıdır.
+   */
+  outlook?: BankOutlook | null;
 }
 
 /**
@@ -283,7 +358,7 @@ function tier2Flags(m: BankMetrics, ctx: BankSectorContext | null): { flags: Ban
 
 const empty = (reason: string): BankHealth => ({
   applicable: false, tier: 1, score: null, verdict: 'olculemedi', institution: 'finans',
-  flags: [], redFlag: false, dataQuality: 'yok', reason, metrics: null,
+  flags: [], redFlag: false, dataQuality: 'yok', reason, metrics: null, outlook: null,
 });
 
 /**
@@ -397,5 +472,6 @@ export function computeBankHealth(input: BankHealthInput): BankHealth {
     // (İş Yatırım şablonunda mevcut değil). En iyi durum "geniş"tir.
     dataQuality: tier === 2 ? 'geniş' : 'kısmi',
     metrics,
+    outlook: computeBankOutlook(input.analyst),
   };
 }

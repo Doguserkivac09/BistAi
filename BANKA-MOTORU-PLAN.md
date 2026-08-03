@@ -121,6 +121,38 @@ zayıf temel düşüş tezini teyit eder), SKBNK `asagi` olduğu için vetolanma
 **Doğrulanamayan:** `/hisse/*` auth korumalı → `BankaPaneli` görsel kontrolü Vercel
 preview'de giriş yapılarak yapılmalı (API çıktısı doğrulandı).
 
+### ✅ K4 — Beklenti boyutu (2026-08-03, kullanıcı itirazı üzerine)
+
+**İtiraz:** "HALKB 30/100 doğru gelmiyor; bu bankalar hukuki süreçlerden iyi geçti, USD
+bazlı düşükler, aracı kurum hedefleri yüksek."
+
+**Denetim (gerçek veri):** HALKB'nin 30'u → reel ROE **0**/100 (ROE %15,4 − TÜFE %31,75 =
+reel −%16,3) ×40 + emsal **17**/100 (F/K **8,86** vs medyan 5,49) ×30 + çekirdek gelir
+**84**/100 ×30. İki düşük bileşen de aynı kökten: **kâr dipte** → F/K şişik, ROE emsal altı.
+Model **toparlanma hikâyesini tam da toparlanacağı için cezalandırıyor** (trough-earnings
+tuzağı) — itiraz bu yönüyle HAKLI.
+**Ama** analist verisi HALKB için tezi desteklemiyor: hedef 39,59 vs fiyat 37,30 → **+%6**,
+konsensüs **"tut"**, 7 kurum. Kıyas: ISCTR +%59 "al" (13), GARAN +%42 "güçlü al" (15),
+VAKBN +%36 "al" (10). (Yahoo kapsamı = ağırlıkla yabancı kurumlar; yerli hedefler bizde YOK.)
+Ayrıca motor HALKB'ye "risk maliyeti emsalinden hızlı artıyor" bayrağı takmıştı (+157 bp
+vs medyan ~+49) — gerçek bir uyarı.
+
+**Karar (kullanıcı seçimi): beklenti AYRI boyut, skora KARIŞMAZ.**
+- `computeBankOutlook()` → `BankOutlook {available, targetPrice, upsidePct, consensusLabel,
+  consensusMean, analystCount}`. Kapsam < 3 kurum → `available:false`, hiçbir şey iddia edilmez.
+- Panelde skorun yanına **"gerçekleşmiş kalite & risk"** etiketi (artık "genel cazibe notu"
+  gibi okunmuyor) + altında ayrı **Beklenti** kutusu; kutu metni skordan bağımsız olduğunu
+  ve kaynağın yabancı kapsam olduğunu açıkça yazar.
+- **Skora KATILMADI** çünkü analist verisi bankaların yarısında yok (YKBNK/AKBNK) → ağırlık
+  yeniden normalize edilseydi skorlar birbiriyle karşılaştırılamaz hale gelirdi.
+  Test bunu koruyor: analistli/analistsiz `score`/`verdict`/`redFlag`/`flags` AYNI.
+- Canlı: HALKB 30 + beklenti %6/tut · ISCTR 44 + beklenti %59/al (aranan ayrışma görünür
+  hale geldi) · YKBNK 51 + "kapsam yok". 330/330 test.
+
+**Kapatılamayan boşluk:** motorda **hukuki süreç / tek-seferlik olay** verisi YOK
+(ör. Halkbank ABD davası). Böyle bir risk çözülürse piyasa bizim görmediğimiz bir şeye
+göre fiyatlanır — bu dürüstçe kabul edilmiştir, tahmin edilmez.
+
 ### ⏳ KALAN
 - **BDDK entegrasyonu** (NPL/coverage/Stage 2/SYR) — ayrı iş; gelirse K2-3 tam kurulur
   ve "karşılık ertelemesi üçlüsü" gerçek kanıtla çalışır.

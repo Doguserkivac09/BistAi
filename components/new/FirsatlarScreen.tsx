@@ -158,6 +158,16 @@ function RadarRow({ it, rank, onDetay }: { it: FirsatItem; rank: number; onDetay
               {r.text}
             </span>
           ))}
+          {/* Mobil tetikleyici: satır sonundaki "Neden?" butonu dar ekranda gizli kalıyor
+              (sm:block) → detay yüzeyi telefonda erişilemezdi. Rozetlerin yanına akar. */}
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDetay(it); }}
+            aria-label={`${it.sembol} — tüm gerekçeleri gör`}
+            className="shrink-0 rounded-[7px] px-1 py-px text-[10px] font-bold text-ai underline underline-offset-2"
+          >
+            Neden?
+          </button>
         </div>
         <div className="mt-1 hidden flex-wrap items-center gap-1.5 lg:flex">
           {reasonsLg.map((r) => (

@@ -27,6 +27,16 @@ interface BankMetrics {
   netIncomeGrowthPct: number | null;
 }
 
+interface BankOutlook {
+  available: boolean;
+  targetPrice: number | null;
+  currentPrice: number | null;
+  upsidePct: number | null;
+  consensusLabel: string | null;
+  consensusMean: number | null;
+  analystCount: number | null;
+}
+
 interface BankHealthResp {
   available: boolean;
   tier?: 1 | 2;
@@ -36,6 +46,7 @@ interface BankHealthResp {
   flags?: BankFlag[];
   dataQuality?: string;
   metrics?: BankMetrics | null;
+  outlook?: BankOutlook | null;
   lastQuarter?: string | null;
   message?: string;
 }
@@ -101,6 +112,12 @@ export function BankaPaneli({ sembol }: { sembol: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-[14px] font-extrabold text-ink">{baslik}</span>
+          <span
+            className="rounded-[7px] border border-hairline bg-fill px-1.5 py-px text-[9.5px] font-bold text-t3"
+            title="Skor GERÇEKLEŞMİŞ kârlılık, emsal çarpanları ve gelir kalitesini ölçer — ileriye dönük beklenti DEĞİLDİR (o aşağıda ayrı gösterilir)."
+          >
+            gerçekleşmiş kalite &amp; risk
+          </span>
           <span className="rounded-[7px] border border-hairline bg-fill px-1.5 py-px text-[9.5px] font-bold text-t3">
             {tier2 ? 'Kademe 2 · geniş veri' : 'Kademe 1 · kısmi veri'}
           </span>
@@ -166,6 +183,47 @@ export function BankaPaneli({ sembol }: { sembol: string }) {
           ))}
         </div>
       )}
+
+      {/* BEKLENTİ — skordan BAĞIMSIZ. Geçmiş kalite düşükken beklenti yüksek olabilir
+          (dip kârla F/K şişer, skor düşer); ikisini karıştırmıyoruz. */}
+      <div className="mt-3.5 rounded-[12px] border border-ai/25 bg-ai/[0.06] px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[12px] font-bold text-ink">Beklenti (analist konsensüsü)</span>
+          {data.outlook?.available && data.outlook.analystCount != null && (
+            <span className="text-[10px] font-semibold text-t3">{data.outlook.analystCount} kurum</span>
+          )}
+        </div>
+        {data.outlook?.available ? (
+          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            {data.outlook.upsidePct != null && (
+              <span className="font-mono text-[14px] font-bold" style={{ color: data.outlook.upsidePct >= 0 ? '#16a35b' : '#e5484d' }}>
+                {data.outlook.upsidePct >= 0 ? '+' : ''}{data.outlook.upsidePct.toFixed(0)}%
+                <span className="ml-1 font-sans text-[11px] font-medium text-t3">hedefe göre</span>
+              </span>
+            )}
+            {data.outlook.targetPrice != null && (
+              <span className="font-mono text-[11.5px] font-semibold text-t2">
+                hedef {data.outlook.targetPrice.toFixed(2)} ₺
+              </span>
+            )}
+            {data.outlook.consensusLabel && (
+              <span className="text-[11.5px] font-semibold text-t2">
+                tavsiye: <strong className="font-bold text-ink">{data.outlook.consensusLabel}</strong>
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="mt-1 text-[11.5px] font-medium leading-[1.45] text-t3">
+            Bu hisse için yeterli analist kapsamı yok (en az 3 kurum) — beklenti iddia edilmiyor.
+          </div>
+        )}
+        <div className="mt-1.5 text-[10.5px] font-medium leading-[1.45] text-t3">
+          Yukarıdaki skordan <strong className="font-semibold">bağımsızdır</strong>: skor geçmiş
+          12 ayın kârlılığını ölçer, buradaki beklenti geleceğe bakar. Toparlanma hikâyelerinde
+          ikisi zıt yönde olabilir. Kaynak kapsamı ağırlıkla yabancı kurumlardır; yerli aracı
+          kurum hedefleri farklı olabilir.
+        </div>
+      </div>
 
       <p className="mt-3 text-[10.5px] font-medium leading-[1.5] text-t3">
         {!isBank && (

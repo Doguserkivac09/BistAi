@@ -259,3 +259,47 @@ describe('institution — banka tablosu yoksa "banka" İDDİA EDİLMEZ', () => {
     assert.equal(r.applicable, true); // değerlendirme yine yapılır, yalnız ETİKET farklı
   });
 });
+
+// ── BEKLENTİ (analist) — skordan BAĞIMSIZ ──────────────────────────────────
+import { computeBankOutlook } from '../bank-health';
+
+describe('computeBankOutlook — ileriye dönük beklenti', () => {
+  const analyst = {
+    currentPrice: 100, targetMeanPrice: 140,
+    recommendationMean: 1.5, recommendationKey: 'strong_buy', analystCount: 12,
+  };
+
+  it('yükseliş potansiyeli ve konsensüs etiketi üretir', () => {
+    const o = computeBankOutlook(analyst);
+    assert.equal(o.available, true);
+    assert.equal(o.upsidePct, 40);
+    assert.equal(o.consensusLabel, 'güçlü al');
+  });
+
+  it('konsensüs eşikleri sade Türkçeye doğru çevrilir', () => {
+    assert.equal(computeBankOutlook({ ...analyst, recommendationMean: 2.2 }).consensusLabel, 'al');
+    assert.equal(computeBankOutlook({ ...analyst, recommendationMean: 3.43 }).consensusLabel, 'tut');
+    assert.equal(computeBankOutlook({ ...analyst, recommendationMean: 4.1 }).consensusLabel, 'sat');
+  });
+
+  it('kapsam yetersizse (n<3) beklenti İDDİA EDİLMEZ', () => {
+    const o = computeBankOutlook({ ...analyst, analystCount: 2 });
+    assert.equal(o.available, false);
+    assert.equal(o.upsidePct, null);
+  });
+
+  it('analist verisi hiç yoksa boş döner (uydurma yok)', () => {
+    assert.equal(computeBankOutlook(null).available, false);
+  });
+
+  it('BEKLENTİ SKORU DEĞİŞTİRMEZ — geçmiş kalite ile karıştırılmaz', () => {
+    const base = { sectorId: 'banka' as const, peer: peer(), roe: 0.5, inflationYoy: 30 };
+    const beklentisiz = computeBankHealth(base);
+    const beklentili = computeBankHealth({ ...base, analyst });
+    assert.equal(beklentili.score, beklentisiz.score);
+    assert.equal(beklentili.verdict, beklentisiz.verdict);
+    assert.equal(beklentili.redFlag, beklentisiz.redFlag);
+    assert.deepEqual(beklentili.flags, beklentisiz.flags);
+    assert.equal(beklentili.outlook?.available, true); // yalnız ayrı alanda görünür
+  });
+});
