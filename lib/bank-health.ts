@@ -96,6 +96,14 @@ export interface BankMetrics {
 
 export interface BankHealth {
   applicable: boolean;
+  /**
+   * `banka` = BDDK banka mali tablosu (UFRS_K) beyan eden mevduat/katılım bankası.
+   * `finans` = sektör listesinde 'banka' altında duran ama banka tablosu OLMAYAN
+   * kuruluş (aracı kurum, faktoring, leasing, holding, kurucu payı — GEDIK/GARFA/
+   * QNBFK/VAKFN/GSDHO…). Değerlendirme (emsal + reel ROE) geçerlidir ama bunu
+   * "banka değerlendirmesi" diye sunmak YANLIŞ olurdu → etiket ayrıştırılır.
+   */
+  institution: 'banka' | 'finans';
   /** 1 = kısmi veri (peer + reel ROE) · 2 = tam banka motoru (Kademe 2) */
   tier: 1 | 2;
   /** 0-100; null = skorlanacak girdi yok */
@@ -274,7 +282,7 @@ function tier2Flags(m: BankMetrics, ctx: BankSectorContext | null): { flags: Ban
 }
 
 const empty = (reason: string): BankHealth => ({
-  applicable: false, tier: 1, score: null, verdict: 'olculemedi',
+  applicable: false, tier: 1, score: null, verdict: 'olculemedi', institution: 'finans',
   flags: [], redFlag: false, dataQuality: 'yok', reason, metrics: null,
 });
 
@@ -379,6 +387,8 @@ export function computeBankHealth(input: BankHealthInput): BankHealth {
   return {
     applicable: true,
     tier,
+    // Banka tablosu YOKSA "banka" iddia edilmez (aracı kurum/leasing/faktoring olabilir).
+    institution: input.financials ? 'banka' : 'finans',
     score,
     verdict,
     flags,

@@ -17,6 +17,7 @@ import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
 import { SparklineChartButton } from '@/components/new/ChartModal';
 import YasalFeragat from '@/components/new/YasalFeragat';
 import RejimRozeti from '@/components/new/RejimRozeti';
+import { FirsatDetay } from '@/components/new/FirsatDetay';
 import { displayRating } from '@/lib/decision-engine';
 import { firsatReasons, deriveReasons, firsatToInput, buildSummary, type Reason } from '@/lib/opportunity-reasons';
 
@@ -123,7 +124,7 @@ function buildSpark(vals: number[], w: number, h: number, pad = 3) {
   return { line, area };
 }
 
-function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
+function RadarRow({ it, rank, onDetay }: { it: FirsatItem; rank: number; onDetay: (it: FirsatItem) => void }) {
   const rating = it.decision?.rating ?? 'Tut';
   const color = VC[rating] ?? '#8a909b';
   // Rozet sayısı breakpoint'e göre farklı → seçim de ayrı yapılır: selectTopReasons
@@ -185,6 +186,16 @@ function RadarRow({ it, rank }: { it: FirsatItem; rank: number }) {
       <span className="hidden flex-1 text-right font-mono text-[13px] font-semibold lg:block" style={{ color: pctColor(it.changePercent) }}>
         {fmtPct(it.changePercent)}
       </span>
+      {/* Gerekçe detayı — satırın kendi linkini bozmadan (preventDefault) */}
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDetay(it); }}
+        title="Tüm gerekçeleri gör"
+        aria-label={`${it.sembol} — tüm gerekçeleri gör`}
+        className="hidden shrink-0 rounded-[9px] border border-hairline px-2 py-1 text-[11px] font-bold text-t3 transition-colors hover:text-ink sm:block"
+      >
+        Neden?
+      </button>
       {/* Skor barı */}
       <div className="flex shrink-0 items-center gap-2 lg:flex-[1.6] lg:gap-3 lg:pl-5">
         <div className="h-[5px] w-[46px] overflow-hidden rounded-full bg-[rgba(80,90,120,0.14)] lg:h-[7px] lg:w-auto lg:flex-1 lg:rounded-[4px]">
@@ -204,6 +215,7 @@ export function FirsatlarScreen() {
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const [regime, setRegime] = useState<string | null>(null);
   const [featSpark, setFeatSpark] = useState<Record<string, number[]>>({});
+  const [detay, setDetay] = useState<FirsatItem | null>(null);
 
   useEffect(() => {
     fetch('/api/firsatlar')
@@ -434,16 +446,27 @@ export function FirsatlarScreen() {
 
         {desktop ? (
           <div className="mt-3.5 flex gap-2.5">
-            <Link href={`/hisse/${featured.sembol}`} className="flex h-10 flex-1 items-center justify-center rounded-[12px] border border-[#e0e4ec] text-[13px] font-bold text-ink transition-colors hover:bg-white/60">
-              İzle
-            </Link>
+            <button
+              type="button"
+              onClick={() => setDetay(featured)}
+              className="flex h-10 flex-1 items-center justify-center rounded-[12px] border border-[#e0e4ec] text-[13px] font-bold text-ink transition-colors hover:bg-white/60"
+            >
+              Neden bu hisse?
+            </button>
             <Link href={`/hisse/${featured.sembol}`} className="flex h-10 flex-1 items-center justify-center rounded-[12px] bg-up text-[13px] font-bold text-white hover:opacity-95">
               Detay
             </Link>
           </div>
         ) : (
           <div className="mt-3 flex gap-2.5">
-            <Link href={`/hisse/${featured.sembol}`} className="flex h-10 flex-1 items-center justify-center rounded-[12px] border border-white/70 bg-white/60 text-[13px] font-bold text-ink">
+            <button
+              type="button"
+              onClick={() => setDetay(featured)}
+              className="flex h-10 flex-1 items-center justify-center rounded-[12px] border border-white/70 bg-white/60 text-[13px] font-bold text-ink"
+            >
+              Neden bu hisse?
+            </button>
+            <Link href={`/hisse/${featured.sembol}`} className="flex h-10 flex-1 items-center justify-center rounded-[12px] bg-up text-[13px] font-bold text-white">
               Detay
             </Link>
           </div>
@@ -548,11 +571,11 @@ export function FirsatlarScreen() {
                 <>
                   {/* Masaüstü: #1 dahil tam liste; Mobil: öne çıkan zaten üstte → kalanı */}
                   <div className="hidden lg:flex lg:flex-col lg:gap-1">
-                    {matched.slice(0, visCount(matched.length)).map((it, i) => <RadarRow key={it.sembol} it={it} rank={i + 1} />)}
+                    {matched.slice(0, visCount(matched.length)).map((it, i) => <RadarRow key={it.sembol} it={it} rank={i + 1} onDetay={setDetay} />)}
                     <MoreControls total={matched.length} />
                   </div>
                   <div className="flex flex-col gap-2.5 lg:hidden">
-                    {rest.slice(0, visCount(rest.length)).map((it, i) => <RadarRow key={it.sembol} it={it} rank={i + 2} />)}
+                    {rest.slice(0, visCount(rest.length)).map((it, i) => <RadarRow key={it.sembol} it={it} rank={i + 2} onDetay={setDetay} />)}
                     <MoreControls total={rest.length} />
                   </div>
                 </>
@@ -588,6 +611,8 @@ export function FirsatlarScreen() {
         </div>
 
         <YasalFeragat className="mt-6" />
+
+        {detay && <FirsatDetay firsat={detay} onClose={() => setDetay(null)} />}
       </div>
     </div>
   );

@@ -243,3 +243,19 @@ describe('computeBankHealth — Kademe 2 bayrakları', () => {
     assert.equal(t1.tier, 1);
   });
 });
+
+describe('institution — banka tablosu yoksa "banka" İDDİA EDİLMEZ', () => {
+  const base = { sectorId: 'banka' as const, peer: peer(), roe: 0.5, inflationYoy: 30 };
+
+  it('banka mali tablosu VARSA institution = banka', () => {
+    const r = computeBankHealth({ ...base, financials: { ttm: bf(), prev: null } });
+    assert.equal(r.institution, 'banka');
+  });
+
+  it('banka mali tablosu YOKSA institution = finans (aracı kurum/leasing/faktoring)', () => {
+    // GEDIK/GARFA/QNBFK/VAKFN sectors.ts'te 'banka' altında ama UFRS_K beyan etmiyorlar.
+    const r = computeBankHealth(base);
+    assert.equal(r.institution, 'finans');
+    assert.equal(r.applicable, true); // değerlendirme yine yapılır, yalnız ETİKET farklı
+  });
+});

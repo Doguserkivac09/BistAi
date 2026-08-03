@@ -30,6 +30,7 @@ interface BankMetrics {
 interface BankHealthResp {
   available: boolean;
   tier?: 1 | 2;
+  institution?: 'banka' | 'finans';
   score?: number | null;
   verdict?: string;
   flags?: BankFlag[];
@@ -80,9 +81,9 @@ export function BankaPaneli({ sembol }: { sembol: string }) {
   if (!data?.available) {
     return (
       <div className="ie-glass rounded-[16px] px-[18px] py-[15px]">
-        <div className="text-[14px] font-extrabold text-ink">Banka değerlendirmesi</div>
+        <div className="text-[14px] font-extrabold text-ink">Kurum değerlendirmesi</div>
         <p className="mt-1 text-[12px] font-medium leading-[1.5] text-t2">
-          {data?.message ?? 'Bu banka için değerlendirme verisi yok.'}
+          {data?.message ?? 'Bu şirket için değerlendirme verisi yok.'}
         </p>
       </div>
     );
@@ -91,12 +92,15 @@ export function BankaPaneli({ sembol }: { sembol: string }) {
   const v = VERDICT_META[data.verdict ?? 'olculemedi'] ?? VERDICT_META.olculemedi!;
   const m = data.metrics ?? null;
   const tier2 = data.tier === 2;
+  // Banka tablosu beyan etmeyen kuruluş (aracı kurum/leasing/faktoring) "banka" diye sunulmaz.
+  const isBank = data.institution !== 'finans';
+  const baslik = isBank ? 'Banka değerlendirmesi' : 'Finans kuruluşu değerlendirmesi';
 
   return (
     <div className="ie-glass rounded-[16px] px-[18px] py-[15px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-[14px] font-extrabold text-ink">Banka değerlendirmesi</span>
+          <span className="text-[14px] font-extrabold text-ink">{baslik}</span>
           <span className="rounded-[7px] border border-hairline bg-fill px-1.5 py-px text-[9.5px] font-bold text-t3">
             {tier2 ? 'Kademe 2 · geniş veri' : 'Kademe 1 · kısmi veri'}
           </span>
@@ -164,6 +168,13 @@ export function BankaPaneli({ sembol }: { sembol: string }) {
       )}
 
       <p className="mt-3 text-[10.5px] font-medium leading-[1.5] text-t3">
+        {!isBank && (
+          <>
+            Bu şirket banka sektöründe listeleniyor ama <strong className="font-semibold">BDDK banka
+            mali tablosu beyan etmiyor</strong> (aracı kurum / faktoring / leasing / holding olabilir);
+            değerlendirme yalnız emsal karşılaştırması ve reel getiriye dayanıyor.{' '}
+          </>
+        )}
         Bankalarda Piotroski/Altman/Beneish uygulanmaz (brüt marj, işletme sermayesi raporlanmaz);
         bunların yerine gelir kalitesi, marj ve risk maliyeti ölçülür.
         {' '}<strong className="font-semibold">Takipteki kredi (NPL), karşılık oranı, yakın izleme (Stage 2) ve

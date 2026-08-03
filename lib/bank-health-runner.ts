@@ -23,6 +23,7 @@ import type { YahooFundamentals } from './yahoo-fundamentals';
 
 export interface BankHealthEntry {
   tier: BankHealth['tier'];
+  institution: BankHealth['institution'];
   score: number | null;
   verdict: BankHealth['verdict'];
   redFlag: boolean;
@@ -134,7 +135,7 @@ export async function runBankHealth(
     if (!health.applicable || (health.score === null && health.flags.length === 0)) { skipped++; continue; }
 
     map[r.sembol] = {
-      tier: health.tier, score: health.score, verdict: health.verdict,
+      tier: health.tier, institution: health.institution, score: health.score, verdict: health.verdict,
       redFlag: health.redFlag, flags: health.flags, dataQuality: health.dataQuality,
       metrics: health.metrics ?? null, lastQuarter: r.lastQuarter,
     };

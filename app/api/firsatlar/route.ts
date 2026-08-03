@@ -134,6 +134,8 @@ export interface FirsatItem {
    */
   bankHealth: {
     tier: 1 | 2;
+    /** 'banka' = banka mali tablosu var · 'finans' = aracı kurum/leasing/faktoring vb. */
+    institution: 'banka' | 'finans';
     score: number | null;
     verdict: string;
     redFlag: boolean;
@@ -497,7 +499,10 @@ export async function GET(req: NextRequest) {
       if (bankStore) {
         for (const [sym, e] of Object.entries(bankStore)) {
           bankHealthMap.set(sym, {
-            tier: e.tier, score: e.score, verdict: e.verdict,
+            // Eski store satırlarında institution yok: tier 2 = banka mali tablosu
+            // çekilebilmiş demektir → gerçek bankayı "finans kuruluşu" diye etiketleme.
+            tier: e.tier, institution: e.institution ?? (e.tier === 2 ? 'banka' : 'finans'),
+            score: e.score, verdict: e.verdict,
             redFlag: e.redFlag, flags: e.flags, dataQuality: e.dataQuality,
           });
         }
@@ -740,8 +745,10 @@ export async function GET(req: NextRequest) {
           // Banka (K1): sanayi Yatırım Skoru yerine banka motorunun verdict'i belirler.
           const bh = bankHealthMap.get(sembol);
           if (bh) {
-            if (bh.redFlag || bh.verdict === 'zayif') return { tier: 'teknik' as const, tierNote: 'Banka değerlendirmesi zayıf' };
-            return { tier: 'onayli' as const, tierNote: 'Banka değerlendirmesi — kısmi veri' };
+            const kurum = bh.institution === 'banka' ? 'Banka' : 'Finans kuruluşu';
+            if (bh.redFlag || bh.verdict === 'zayif') return { tier: 'teknik' as const, tierNote: `${kurum} değerlendirmesi zayıf` };
+            const kalite = bh.tier === 2 ? 'geniş veri' : 'kısmi veri';
+            return { tier: 'onayli' as const, tierNote: `${kurum} değerlendirmesi — ${kalite}` };
           }
           if (inv == null) {
             // Veri YOKLUĞU ≠ temel zayıflığı. Precompute store boşsa (cron gecikti) tüm

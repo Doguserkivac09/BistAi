@@ -55,6 +55,19 @@
     Auth-korumalı yüzeyler (`/bugun`, `/ters-portfolyo`) yerelde giriş olmadan
     açılmadı → Vercel preview'de giriş yapıp göz doğrulaması yapılmalı.
 
+- **✅ 3. YÜZEY (fırsat detayı) TAMAM** (2026-08-03): `components/new/FirsatDetay.tsx`
+  — planın "progressive disclosure" sözleşmesi. Karttaki 4-rozet sınırının karşılığı:
+  **tüm gerekçeler kısıtsız** (+ her birinin açıklaması/kanıtı), risk planı
+  (giriş/zarar-kes/hedef/R-R), "bu kurulum geçmişte nasıl performans gösterdi"
+  (combo isabeti; yoksa sinyal-tipi win-rate; o da yoksa **"ölçüm yok, iddia edilmiyor"**),
+  bağlam (ADV/yaş/sektör) ve `/hisse/[sembol]` linki. Hisse detay sayfasını TEKRARLAMAZ.
+  Erişim: radar satırındaki "Neden?" butonu (satır linkini bozmadan, `preventDefault`)
+  + öne çıkan karttaki "Neden bu hisse?". Portal + Esc + backdrop + body-scroll kilidi.
+  **Canlı veride yakalanan 2 hata düzeltildi:** (a) kısa (asagi) kurulumda risk yüzdeleri
+  `hedef +-42.6%` gibi çıkıyordu → yön-farkında "zarar kes %X yukarıda · hedef %Y aşağıda";
+  (b) eski banka store satırlarında `institution` yokken gerçek banka "finans kuruluşu"
+  etiketleniyordu → tier 2 varsayılanı 'banka'. 325/325 test, tsc + build temiz.
+
 ---
 
 ## Context

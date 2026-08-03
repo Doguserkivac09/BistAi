@@ -125,9 +125,12 @@ preview'de giriş yapılarak yapılmalı (API çıktısı doğrulandı).
 - **BDDK entegrasyonu** (NPL/coverage/Stage 2/SYR) — ayrı iş; gelirse K2-3 tam kurulur
   ve "karşılık ertelemesi üçlüsü" gerçek kanıtla çalışır.
 - **TÜFEX** portföy ağırlığı — mali tabloda ayrı kalem yok; kaynak bulunmadıkça yok.
-- `sectors.ts`'te `banka` grubunda gerçek banka olmayanlar var (GEDIK/GARFA/QNBFK/ISKUR
-  aracı kurum/leasing/holding). Kademe 1'de zararsız ama etiket "banka değerlendirmesi"
-  diyor — sektör taksonomisi ayrı bir temizlik işi.
+- ~~`sectors.ts`'te `banka` grubunda gerçek banka olmayanlar~~ → **✅ ÇÖZÜLDÜ (2026-08-03)**
+  cerrahi yolla: sektör eşlemesi DEĞİŞTİRİLMEDİ (peer/momentum/exposure katmanlarını da
+  etkilerdi). Bunun yerine `BankHealth.institution` eklendi: banka mali tablosu (UFRS_K)
+  beyan eden → `banka`, etmeyen (GEDIK/GARFA/QNBFK/VAKFN/GSDHO — aracı kurum/leasing/
+  faktoring/holding) → `finans`. Değerlendirme (emsal + reel ROE) yine yapılır ama
+  "banka değerlendirmesi" diye SUNULMAZ; panel bunu ayrıca açıklar.
 
 ---
 

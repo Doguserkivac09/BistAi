@@ -41,6 +41,7 @@ export interface FundamentalsEntry {
    */
   bank?: {
     tier: BankHealth['tier']
+    institution: BankHealth['institution']
     score: number | null
     verdict: BankHealth['verdict']
     redFlag: boolean
@@ -106,7 +107,7 @@ export async function runFirsatlarFundamentals(
             })
             if (bh.applicable) {
               entry.bank = {
-                tier: bh.tier, score: bh.score, verdict: bh.verdict,
+                tier: bh.tier, institution: bh.institution, score: bh.score, verdict: bh.verdict,
                 redFlag: bh.redFlag, flags: bh.flags, dataQuality: bh.dataQuality,
               }
             }
