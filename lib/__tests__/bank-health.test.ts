@@ -119,3 +119,127 @@ describe('computeBankHealth — Kademe 1 tespitleri', () => {
     assert.equal(r.dataQuality, 'kısmi');
   });
 });
+
+// ── KADEME 2 (K2): gelir kalitesi + marj + risk maliyeti ────────────────────
+import { computeBankMetrics } from '../bank-health';
+import type { BankFields } from '../isyatirim-bank';
+
+const bf = (over: Partial<BankFields> = {}): BankFields => ({
+  interestIncome: 1000, interestExpense: 700, netInterestIncome: 300,
+  netFeeIncome: 200, tradingProfit: 20, otherOperatingIncome: 30,
+  totalOperatingIncome: 550, provisions: 60, operatingExpense: 250,
+  netIncome: 180, loans: 4000, deposits: 5000, totalAssets: 8000, equity: 800,
+  ...over,
+});
+
+describe('computeBankMetrics — Kademe 2 ölçümleri', () => {
+  it('çekirdek oran, ticari pay, NIM proxy, CoR ve maliyet/gelir doğru hesaplanır', () => {
+    const m = computeBankMetrics({ ttm: bf(), prev: null });
+    assert.equal(Math.round(m.coreIncomeRatio! * 100), 91);  // (300+200)/550
+    assert.equal(Math.round(m.tradingShare! * 100), 4);      // 20/550
+    assert.equal(m.nimProxy, 3.8);                            // 300/8000 → %3,8
+    assert.equal(m.corBps, 150);                              // 60/4000 → 150bp
+    assert.equal(Math.round(m.costIncome! * 100), 45);        // 250/550
+  });
+
+  it('stok kalemlerinde DÖNEM ORTALAMASI kullanılır (enflasyonda dönem-sonu yanıltır)', () => {
+    const m = computeBankMetrics({ ttm: bf(), prev: bf({ totalAssets: 4000, loans: 2000 }) });
+    assert.equal(m.nimProxy, 5);    // 300 / ((8000+4000)/2) = %5
+    assert.equal(m.corBps, 200);    // 60 / ((4000+2000)/2) = 200bp
+  });
+
+  it('eksik kalem → ilgili ölçüm null (0 sayılmaz)', () => {
+    const m = computeBankMetrics({ ttm: bf({ totalOperatingIncome: null, provisions: null }), prev: null });
+    assert.equal(m.coreIncomeRatio, null);
+    assert.equal(m.costIncome, null);
+    assert.equal(m.corBps, null);
+    assert.equal(m.nimProxy, 3.8); // etkilenmeyen ölçüm hâlâ üretilir
+  });
+});
+
+describe('computeBankHealth — Kademe 2 bayrakları', () => {
+  const base = { sectorId: 'banka' as const, peer: peer(), roe: 0.5, inflationYoy: 30 };
+
+  it('mali tablo varsa tier 2 + "geniş" veri kalitesi (asla "tam" iddia edilmez)', () => {
+    const r = computeBankHealth({ ...base, financials: { ttm: bf(), prev: null } });
+    assert.equal(r.tier, 2);
+    assert.equal(r.dataQuality, 'geniş');
+    assert.ok(r.metrics);
+  });
+
+  it('çekirdek gelir güçlü → pozitif bayrak', () => {
+    const r = computeBankHealth({ ...base, financials: { ttm: bf(), prev: null } });
+    assert.ok(r.flags.some((f) => f.id === 'bank-core-strong' && f.tone === 'pos'));
+  });
+
+  it('kâr ticari gelirden → uyarı + SERT bayrak (sürdürülemez)', () => {
+    const ttm = bf({ netInterestIncome: 100, netFeeIncome: 50, tradingProfit: 250, totalOperatingIncome: 500 });
+    const r = computeBankHealth({ ...base, financials: { ttm, prev: null } });
+    const f = r.flags.find((x) => x.id === 'bank-core-weak');
+    assert.ok(f, 'çekirdek zayıf bayrağı yok');
+    assert.equal(f!.text, 'Kâr ticari gelirden — sürdürülemez');
+    assert.equal(r.redFlag, true);
+  });
+
+  it('çekirdek düşük AMA ticari pay düşükse veto YOK (yalnız uyarı)', () => {
+    const ttm = bf({ netInterestIncome: 100, netFeeIncome: 50, tradingProfit: 10, otherOperatingIncome: 340, totalOperatingIncome: 500 });
+    const r = computeBankHealth({ ...base, financials: { ttm, prev: null } });
+    assert.ok(r.flags.some((x) => x.id === 'bank-core-weak'));
+    assert.equal(r.redFlag, false);
+  });
+
+  it('sektör bağlamı YOKken mutlak (daha zayıf) eşikler geçerli', () => {
+    const prev = bf({ provisions: 20, netInterestIncome: 150 });
+    const r = computeBankHealth({ ...base, financials: { ttm: bf(), prev } });
+    assert.ok(r.flags.some((f) => f.id === 'bank-cor-up'), 'CoR +100bp mutlak eşiği geçmeli');
+    assert.ok(r.flags.some((f) => f.id === 'bank-nim-up'), 'NIM +1.9pp mutlak eşiği geçmeli');
+    // Metin sektör medyanı İDDİA ETMEZ (bağlam yok)
+    assert.equal(r.flags.find((f) => f.id === 'bank-nim-up')!.text, 'Faiz marjı genişliyor');
+  });
+
+  it('sektör bağlamı VARsa trend bayrağı GÖRECELİ olur — sektörle birlikte hareket rozet ÜRETMEZ', () => {
+    // Faiz döngüsünde tüm bankaların marjı genişler; medyanla aynı hareket ayrıştırıcı değil.
+    const prev = bf({ netInterestIncome: 150, provisions: 20 });
+    const ctx = { nimDeltaMedianPp: 1.9, corDeltaMedianBps: 100 };
+    const birlikte = computeBankHealth({ ...base, financials: { ttm: bf(), prev }, sectorContext: ctx });
+    assert.ok(!birlikte.flags.some((f) => f.id === 'bank-nim-up'), 'medyanla aynı hareket rozet üretmemeli');
+    assert.ok(!birlikte.flags.some((f) => f.id === 'bank-cor-up'), 'medyanla aynı CoR artışı rozet üretmemeli');
+
+    // Emsalden AYRIŞAN banka rozet alır
+    const ayrisan = computeBankHealth({
+      ...base,
+      financials: { ttm: bf(), prev },
+      sectorContext: { nimDeltaMedianPp: 0.5, corDeltaMedianBps: 10 },
+    });
+    assert.ok(ayrisan.flags.some((f) => f.id === 'bank-nim-up' && /emsalinden/.test(f.text)));
+    assert.ok(ayrisan.flags.some((f) => f.id === 'bank-cor-up' && /emsalinden/.test(f.text)));
+  });
+
+  it('marjı sektörün gerisinde kalan banka uyarı alır', () => {
+    const prev = bf({ netInterestIncome: 295 }); // marj neredeyse yatay
+    const r = computeBankHealth({
+      ...base,
+      financials: { ttm: bf(), prev },
+      sectorContext: { nimDeltaMedianPp: 1.6, corDeltaMedianBps: 50 },
+    });
+    assert.ok(r.flags.some((f) => f.id === 'bank-nim-down' && f.tone === 'warn'));
+  });
+
+  it('karşılık düşerken kâr artıyor → "karşılık giderindeki düşüşten" uyarısı', () => {
+    const prev = bf({ provisions: 200, netIncome: 100 });
+    const r = computeBankHealth({ ...base, financials: { ttm: bf(), prev } });
+    assert.ok(r.flags.some((f) => f.id === 'bank-cor-relief' && f.tone === 'warn'));
+  });
+
+  it('NPL/coverage/SYR bayrağı ASLA üretilmez (veri yok — uydurulmaz)', () => {
+    const r = computeBankHealth({ ...base, financials: { ttm: bf(), prev: bf() } });
+    assert.ok(!r.flags.some((f) => /npl|coverage|stage|syr|sermaye|tufex|tüfex/i.test(f.id + f.text)));
+  });
+
+  it('mali tablo yoksa Kademe 1 davranışı DEĞİŞMEZ (regresyon)', () => {
+    const t1 = computeBankHealth(base);
+    const t1b = computeBankHealth({ ...base, financials: null });
+    assert.deepEqual(t1, t1b);
+    assert.equal(t1.tier, 1);
+  });
+});

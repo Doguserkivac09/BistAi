@@ -149,6 +149,10 @@
       "schedule": "0 7 * * 1"
     },
     {
+      "path": "/api/cron/bank-health",
+      "schedule": "20 7 * * 1"
+    },
+    {
       "path": "/api/cron/long-term?part=1",
       "schedule": "30 7 * * 1"
     },

@@ -28,6 +28,7 @@ import { deriveExposureAdj } from '@/lib/exposure-map';
 import { createServerClient } from '@/lib/supabase-server';
 import { daysUntilEarnings } from '@/lib/yahoo-fundamentals';
 import { getStoredFundamentals } from '@/lib/firsatlar-fundamentals-runner';
+import { getBankHealthMap } from '@/lib/bank-health-runner';
 import type {
   InvestableConfidence,
   InvestableRating,
@@ -275,7 +276,7 @@ export async function GET(req: NextRequest) {
     statsCutoff.setDate(statsCutoff.getDate() - STATS_LOOKBACK_D);
 
     // Paralel çek: win rate + makro + scan_cache + katalist + temel-veri precompute
-    const [statsRes, macroRes, scanCacheRes, catalystRes, fundamentalsRes] = await Promise.allSettled([
+    const [statsRes, macroRes, scanCacheRes, catalystRes, fundamentalsRes, bankHealthRes] = await Promise.allSettled([
       // Win rate istatistiği — yalnızca BIST (BUG-B: market filtresi yokken
       // scan-us kayıtları BIST win-rate'lerini kirletiyordu)
       supabase
@@ -301,6 +302,8 @@ export async function GET(req: NextRequest) {
         .single(),
       // Yatırım Skoru + bilanço tarihi — cron precompute (FAZ 2; istek-anı Yahoo YOK)
       getStoredFundamentals(supabase),
+      // Banka Kademe 2 değerlendirmesi — haftalık cron precompute (FAZ K2)
+      getBankHealthMap(supabase),
     ]);
 
     // Katalist + event risk haritaları: sembol → SymbolCatalyst / SymbolEventRisk
@@ -486,6 +489,21 @@ export async function GET(req: NextRequest) {
         }
       }
     }
+    // Kademe 2 banka store'u (haftalık cron) — VARSA Kademe 1'in yerine geçer.
+    // Kademe 1 (firsatlar-fundamentals içindeki peer+reel ROE) yalnızca yedek kalır:
+    // günlük koşar, yani haftalık banka cron'u gecikse de banka denetimsiz kalmaz.
+    {
+      const bankStore = bankHealthRes.status === 'fulfilled' ? bankHealthRes.value : null;
+      if (bankStore) {
+        for (const [sym, e] of Object.entries(bankStore)) {
+          bankHealthMap.set(sym, {
+            tier: e.tier, score: e.score, verdict: e.verdict,
+            redFlag: e.redFlag, flags: e.flags, dataQuality: e.dataQuality,
+          });
+        }
+      }
+    }
+
     /** Temel teyit verisi HİÇ yoksa (precompute store boş/eski) katman düşürme uygulanmaz. */
     const fundamentalsAvailable = Array.from(investmentScoreMap.values()).some((v) => v != null);
 

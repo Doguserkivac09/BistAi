@@ -33,6 +33,8 @@ import { HisseDetailClient } from '@/app/hisse/[sembol]/HisseDetailClient';
 import { GelismisAiAnaliz } from '@/components/GelismisAiAnaliz';
 import YasalFeragat from '@/components/new/YasalFeragat';
 import KarKalitesi from '@/components/new/KarKalitesi';
+import BankaPaneli from '@/components/new/BankaPaneli';
+import { isBankSector } from '@/lib/bank-health';
 import { toast } from 'sonner';
 
 interface InvestScoreLite {
@@ -859,7 +861,9 @@ export function HisseDetayScreen({ sembol, isInWatchlist, savedSignalTypes }: Hi
   const temelPane = (
     <div className="flex flex-col gap-3.5 lg:flex-row lg:gap-6">
       <div className="flex min-w-0 flex-col gap-3.5 lg:flex-[1.6]">
-        {!isUS && <KarKalitesi sembol={sembol} />}
+        {/* Banka rotası (K3): sanayi kâr-kalitesi motoru bankada "uygulanmaz" döner →
+            yerine banka paneli (gelir kırılımı + marj + risk maliyeti). Sanayi DEĞİŞMEDİ. */}
+        {!isUS && (isBankSector(getSectorId(sembol)) ? <BankaPaneli sembol={sembol} /> : <KarKalitesi sembol={sembol} />)}
         {invScore ? (
           <div className="ie-glass flex items-center gap-5 rounded-[16px] px-[18px] py-[16px]">
             <svg width="82" height="82" viewBox="0 0 82 82" className="shrink-0">

@@ -80,7 +80,7 @@ function num(v: unknown): number | null {
 }
 
 /** İş Yatırım MaliTablo — tek çağrı en fazla 4 dönem (value1..value4). */
-async function fetchBatch(code: string, refs: IsyPeriodRef[], group: string): Promise<Map<string, number | null>[]> {
+export async function fetchBatch(code: string, refs: IsyPeriodRef[], group: string): Promise<Map<string, number | null>[]> {
   const p = refs.slice(0, 4);
   const qs = new URLSearchParams({ companyCode: code, exchange: 'TRY', financialGroup: group });
   p.forEach((r, i) => { qs.set(`year${i + 1}`, String(r.year)); qs.set(`period${i + 1}`, String(r.period)); });

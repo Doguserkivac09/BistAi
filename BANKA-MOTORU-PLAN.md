@@ -77,9 +77,57 @@ Sanayi (ASELS) rotaya **girmiyor**. Uçtan uca `/firsatlar`: VAKFN → bankHealt
 katman "Banka değerlendirmesi — kısmi veri", gerekçe rozetleri sade Türkçe render,
 uyarı mobil+masaüstünde korunuyor.
 
-### ⏳ K2 / K3 — BEKLİYOR
-K2 kapsamı spike'a göre daraltılmalı: **K2-1 gelir kalitesi ✅ · K2-2 NIM/CoR ✅ ·
-K2-3 aktif kalitesi KISMİ (NPL/Stage2/coverage YOK, yalnız CoR) · K2-4 SYR/TÜFEX ❌**.
+### ✅ K2 + K3 — TAMAM (2026-08-03)
+
+**BDDK NO-GO (denendi, ölçüldü):** `bddk.org.tr/BultenAylik` rapor endpoint'i JSON değil,
+oturum + form parametresi isteyen ASP.NET uygulaması döndürüyor. Ayrı bir entegrasyon
+işi → bu fazda kapsam dışı. Sonuç: **NPL / coverage / Stage 2 / SYR / TÜFEX yok**,
+K2-3 kısmi ve K2-4 uygulanmadı. Panelde bu **açıkça yazılıyor** (tahmin edilmiyor).
+
+| Bileşen | Dosya | Not |
+|---|---|---|
+| Banka mali tablo katmanı | `lib/isyatirim-bank.ts` (YENİ) | UFRS_K; **iki kod haritası** — geleneksel (8 bankada doğrulandı) + **katılım** (ALBRK; `3AAR`/`3AAS`/`3ABI`…). Şablon otomatik tespit. Standalone çeyrek + TTM sanayi ile aynı kural |
+| Kademe 2 motoru | `lib/bank-health.ts` | `computeBankMetrics` (çekirdek oran · ticari pay · NIM proxy · CoR · maliyet/gelir + yıllık deltalar) + `tier2Flags`. Stok kalemlerde **dönem ortalaması** (TL enflasyonunda dönem-sonu bakiye akış kalemini küçük gösterir) |
+| Precompute | `lib/bank-health-runner.ts` + `app/api/cron/bank-health` (Pzt 10:20 TRT) | **İKİ GEÇİŞLİ**: 1) veri çek + ölçüm, 2) sektör medyanlarını türet + verdict. `ai_cache: bank-health:BIST`, MIGRATION YOK |
+| Okuma API | `app/api/bank-health` | tek satır okur, fan-out YOK; `?symbol=` tekil |
+| Fırsatlar | `app/api/firsatlar/route.ts` | Kademe 2 store'u **Kademe 1'in yerine geçer**; K1 (günlük) yedek kalır → haftalık cron gecikse de banka denetimsiz kalmaz |
+| UI | `components/new/BankaPaneli.tsx` (YENİ) + `HisseDetayScreen` | Temel sekmesinde banka için `KarKalitesi` yerine banka paneli. **Sanayi paneli değişmedi** |
+
+**⚠️ İKİNCİ KALİBRASYON (K1'dekiyle aynı ders, yine canlı veride yakalandı):** İlk sürümde
+NIM trend eşiği mutlaktı (+0,3 p) → faiz indirim döngüsünde **12 bankanın 12'sinde**
+"Faiz marjı genişliyor" rozeti çıktı (deltalar +0,1…+3,5 p, medyan ≈1,6). Sektörün
+tamamında olan hareket ayrıştırıcı değildir. Çözüm: runner iki geçişli yapıldı, **NIM ve
+CoR trend bayrakları sektör medyanına GÖRECELİ** (±0,75 p / ±50 bp). Bağlam yoksa (n<3)
+mutlak eşiğe düşülür ve rozet metni sektör iddiası **etmez**. Sonuç: NIM rozeti yalnız
+ICBCT (+3,5) ve TSKB (geride, +0,1) için çıkıyor.
+
+**Ek düzeltmeler (canlı veride görüldü):**
+- `prev` TTM hiç dolmuyordu (pencere 10 dönem) → tüm trend bayrakları ölüydü. Pencere
+  **14 döneme** çıkarıldı; artık CoR/NIM/net-kâr deltaları geliyor.
+- Ticari **zarar** çekirdek oranı %100'ün üstüne çıkarıyor (YKBNK %121, ticari −%30).
+  Aritmetik doğru ama "çekirdek güçlü" rozeti tek başına kaybı gizliyordu → ayrı
+  **"Ticari işlemler geliri baskılıyor"** uyarısı eklendi (|pay| ≥ %15).
+- `corBps` piyasanın "net CoR"u DEĞİL (tahsilat netleştirilmiyor, diğer alacaklar dahil)
+  → panelde ve tipte "brüt karşılık oranı, seviyeden çok trendi anlamlı" diye etiketlendi.
+
+**Doğrulama:** 323/323 test (14 yeni: ölçüm birimleri, dönem ortalaması, ticari-zarar,
+göreli vs mutlak eşik, "NPL/SYR bayrağı asla üretilmez", Kademe 1 regresyonu),
+tsc + build temiz. Canlı (12 banka): GARAN T2 58/nötr (çekirdek %90, NIM≈5,8 Δ+2,0,
+CoR 385bp), YKBNK ticari-zarar uyarısı, ICBCT emsalden hızlı marj + hızlı CoR artışı,
+ISATR/ISBTR 21/zayıf (veto). `/api/firsatlar`'da SKBNK T2 "geniş veri" ile görünüyor,
+katman "Banka değerlendirmesi zayıf". **Veto aşağı yönde uygulanmaz** (tasarım gereği —
+zayıf temel düşüş tezini teyit eder), SKBNK `asagi` olduğu için vetolanmadı: doğru.
+
+**Doğrulanamayan:** `/hisse/*` auth korumalı → `BankaPaneli` görsel kontrolü Vercel
+preview'de giriş yapılarak yapılmalı (API çıktısı doğrulandı).
+
+### ⏳ KALAN
+- **BDDK entegrasyonu** (NPL/coverage/Stage 2/SYR) — ayrı iş; gelirse K2-3 tam kurulur
+  ve "karşılık ertelemesi üçlüsü" gerçek kanıtla çalışır.
+- **TÜFEX** portföy ağırlığı — mali tabloda ayrı kalem yok; kaynak bulunmadıkça yok.
+- `sectors.ts`'te `banka` grubunda gerçek banka olmayanlar var (GEDIK/GARFA/QNBFK/ISKUR
+  aracı kurum/leasing/holding). Kademe 1'de zararsız ama etiket "banka değerlendirmesi"
+  diyor — sektör taksonomisi ayrı bir temizlik işi.
 
 ---
 
