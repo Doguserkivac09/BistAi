@@ -153,6 +153,52 @@ vs medyan ~+49) — gerçek bir uyarı.
 (ör. Halkbank ABD davası). Böyle bir risk çözülürse piyasa bizim görmediğimiz bir şeye
 göre fiyatlanır — bu dürüstçe kabul edilmiştir, tahmin edilmez.
 
+### ✅ K5 — Kârlılığa göre değerleme (2026-08-03)
+
+**Sorun:** Banka değerleme bileşeni genel emsal skorunu (F/K + PD/DD + EV/FAVÖK iskonto
+ortalaması) kullanıyordu. Bankada F/K **dip kârda şişer** → model toparlanma adayına
+"pahalı" der. HALKB örneği: F/K 8,86 vs medyan 5,49 → "%61 pahalı" (yanlış sinyal).
+
+**Çözüm:** `computeBankValuation(pb, roe, medianRoeToPb)` — ölçü **ROE ÷ PD/DD**
+(1x defter değerine ödenen fiyat başına özkaynak getirisi ≈ piyasanın ima ettiği sermaye
+maliyeti). YÜKSEK = ucuz. Regresyon değil oran: ~12 bankalık evrende doğru uydurmak
+gürültü üretir. Sektör medyanı **koşunun kendi bankalarından** türetilir (iki-geçişli
+runner), `sector-medians` store'undan değil → tek kaynak, tek an.
+Skorda genel emsal skorunun YERİNE geçer (ağırlık 30 aynı); banka mali tablosu olmayan
+kuruluşta (aracı kurum/faktoring/leasing) uygulanmaz, emsale düşülür.
+
+**Yol boyunca çıkan 3 gerçek veri kusuru (hepsi canlı veride yakalandı):**
+1. **Medyan kirliliği:** ilk koşuda medyan %17,3 çıktı çünkü GEDIK/GARFA/QNBFK/GSDHO gibi
+   banka olmayanlar dahildi → medyan artık yalnız banka tablosu beyan edenlerden (%21,1).
+2. **Saçma PD/DD:** Yahoo İş Bankası A/B ve kurucu paylarında PD/DD **293.908** dönüyor
+   (aynı bankanın ana payı ISCTR'de 0,75). Oran ~0 çıkıp "kârlılığına göre pahalı" diye
+   **kendinden emin yanlış hüküm** üretiyordu → `MAX_PB_FOR_VALUATION = 10` koruması.
+3. **ROE = 0:** Yahoo veri dolduramadığında 0 dönebiliyor; "sıfır kârlılık" sayıp −%100
+   damgası vurmak veri eksiğini ölçüm gibi göstermekti → ölçülemedi sayılır.
+   (Negatif ROE gerçek bilgidir, ölçülmeye devam eder.)
+
+**Bonus — sessiz gerileme koruması:** Doğrulama sırasında İş Yatırım yavaşladı (yanıt
+**10,7 sn**, istemci sınırı 12 sn) → tüm bankalar sessizce Kademe 2'den Kademe 1'e düştü
+ve store bu bozuk hâlle ÜZERİNE YAZILDI. Üç düzeltme: `fetchBatch` zaman aşımı 12→**25 sn**,
+banka runner eşzamanlılığı 4→**2** (haftalık koşu, acele yok), ve `storeBankHealth` artık
+**Kademe 2 kaydının üstüne Kademe 1 yazmaz** (kaynak arızası ürüne "veri kayboldu" diye
+yansımasın; TTL 8 gün zaten bayatlamayı sınırlar).
+
+**Sonuç (canlı, 12 Kademe-2 bankası, ROE/PD-DD medyanı %21,1):** Sıralama beklendiği gibi
+kayda değer değişmedi — kazanım **gerekçenin savunulabilir olması**. Yeni ölçü bağımsız
+analist beklentisiyle tutarlı çıktı:
+
+| | ROE/PD-DD | değerleme skoru | analist beklentisi |
+|---|---|---|---|
+| ISCTR | %30,1 (+43%) | 93 | +%61 "al" |
+| VAKBN | %28,0 (+33%) | 83 | +%36 "al" |
+| GARAN | %24,8 (+18%) | 68 | +%42 "güçlü al" |
+| YKBNK | %21,1 (medyan) | 50 | kapsam yok |
+| HALKB | %13,1 (−38%) | 12 | +%6 "tut" |
+
+HALKB toplam skoru **30 → 29** (öngörüldüğü gibi neredeyse değişmedi): "trailing F/K'n
+yüksek" yerine artık "kârlılığın başına daha pahalısın" diyor. 338/338 test, tsc+build temiz.
+
 ### ⏳ KALAN
 - **BDDK entegrasyonu** (NPL/coverage/Stage 2/SYR) — ayrı iş; gelirse K2-3 tam kurulur
   ve "karşılık ertelemesi üçlüsü" gerçek kanıtla çalışır.

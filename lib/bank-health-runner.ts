@@ -30,6 +30,7 @@ export interface BankHealthEntry {
   flags: BankHealth['flags'];
   dataQuality: BankHealth['dataQuality'];
   metrics: BankHealth['metrics'];
+  valuation: BankHealth['valuation'];
   outlook: BankHealth['outlook'];
   /** Kademe 2 hangi çeyreğe dayanıyor (şeffaflık) */
   lastQuarter: string | null;
@@ -56,7 +57,9 @@ export async function runBankHealth(
 ): Promise<{ map: BankHealthMap; ok: number; tier2: number; skipped: number; sectorContext?: BankSectorContext }> {
   const map: BankHealthMap = {};
   let ok = 0, tier2 = 0, skipped = 0;
-  const conc = opts.concurrency ?? 4;
+  // Kaynak nazik davranmayı ödüllendiriyor: yüksek eşzamanlılıkta yanıt 10sn+'a çıkıp
+  // zaman aşımına düşüyor. Evren ~20 sembol ve koşu haftalık → acele etmeye gerek yok.
+  const conc = opts.concurrency ?? 2;
 
   const now = new Date();
   const m = now.getUTCMonth();
@@ -113,9 +116,23 @@ export async function runBankHealth(
     if (m.nimDeltaPp != null) nimDeltas.push(m.nimDeltaPp);
     if (m.corDeltaBps != null) corDeltas.push(m.corDeltaBps);
   }
+  // Kârlılığa göre değerleme medyanı (ROE ÷ PD/DD). Sektör medyanı store'undan DEĞİL,
+  // bu koşunun kendi bankalarından türetilir → tek kaynak, tek an, tutarlı.
+  // Medyan YALNIZ gerçek bankalardan (banka mali tablosu beyan edenler). Aracı kurum /
+  // faktoring / leasing aynı kovada duruyor ama farklı iş modeli — medyanı kaydırıyorlardı.
+  // roe === 0 = Yahoo veri eksiği (bkz. computeBankValuation) → örnekleme alınmaz.
+  const roeToPbs: number[] = [];
+  for (const r of rows) {
+    if (!r.financials) continue;
+    const pb = r.fundamentals?.priceToBook ?? null;
+    const roe = r.fundamentals?.returnOnEquity ?? null;
+    if (pb == null || roe == null || roe === 0 || pb < 0.1 || pb > 10) continue;
+    roeToPbs.push(Math.round(((roe * 100) / pb) * 10) / 10);
+  }
   const sectorContext: BankSectorContext = {
     nimDeltaMedianPp: median(nimDeltas),
     corDeltaMedianBps: median(corDeltas),
+    roeToPbMedian: median(roeToPbs),
   };
 
   // ── 2. GEÇİŞ: verdict üret (fetch YOK) ──────────────────────────────────
@@ -128,6 +145,7 @@ export async function runBankHealth(
       sectorId,
       peer,
       roe: r.fundamentals?.returnOnEquity ?? null,
+      priceToBook: r.fundamentals?.priceToBook ?? null,
       inflationYoy: opts.inflationYoy ?? null,
       financials: r.financials,
       sectorContext,
@@ -147,7 +165,8 @@ export async function runBankHealth(
     map[r.sembol] = {
       tier: health.tier, institution: health.institution, score: health.score, verdict: health.verdict,
       redFlag: health.redFlag, flags: health.flags, dataQuality: health.dataQuality,
-      metrics: health.metrics ?? null, outlook: health.outlook ?? null, lastQuarter: r.lastQuarter,
+      metrics: health.metrics ?? null, valuation: health.valuation ?? null,
+      outlook: health.outlook ?? null, lastQuarter: r.lastQuarter,
     };
     ok++;
     if (health.tier === 2) tier2++;
@@ -158,7 +177,19 @@ export async function runBankHealth(
 
 export async function storeBankHealth(sb: SupabaseClient, partial: BankHealthMap): Promise<void> {
   const existing = await getBankHealthMap(sb);
-  const merged = { ...(existing ?? {}), ...partial };
+  const merged: BankHealthMap = { ...(existing ?? {}) };
+  for (const [sym, fresh] of Object.entries(partial)) {
+    const prev = existing?.[sym];
+    // GERİLEME KORUMASI: İş Yatırım geçici olarak yavaşlar/yanıt vermezse mali tablo
+    // boş gelir ve banka Kademe 2 → Kademe 1'e düşer. Bunu store'a yazmak, kaynak
+    // arızasını "veri kayboldu" diye ürüne yansıtmak olurdu. Önceki zengin kayıt
+    // korunur (TTL 8 gün zaten bayatlamayı sınırlar).
+    if (prev && prev.tier === 2 && fresh.tier !== 2) {
+      console.warn(`[bank-health] ${sym}: mali tablo bu koşuda gelmedi — önceki Kademe 2 kaydı korundu`);
+      continue;
+    }
+    merged[sym] = fresh;
+  }
   await sb.from('ai_cache').upsert({
     cache_key: CACHE_KEY,
     explanation: JSON.stringify(merged),

@@ -303,3 +303,69 @@ describe('computeBankOutlook — ileriye dönük beklenti', () => {
     assert.equal(beklentili.outlook?.available, true); // yalnız ayrı alanda görünür
   });
 });
+
+// ── KÂRLILIĞA GÖRE DEĞERLEME (ROE ÷ PD/DD) ─────────────────────────────────
+import { computeBankValuation } from '../bank-health';
+
+describe('computeBankValuation — bankacılığın değerleme çerçevesi', () => {
+  it('ROE ÷ PD-DD oranını ve medyana göre konumu hesaplar', () => {
+    const v = computeBankValuation(1.1, 0.28, 21.1);   // GARAN benzeri
+    assert.equal(v.available, true);
+    assert.equal(v.roeToPb, 25.5);
+    assert.ok(v.vsMedianPct! > 0);
+    assert.ok(v.score! > 50, 'medyanın üstü = ucuz = yüksek skor');
+  });
+
+  it('kârlılığı düşük + PD/DD yüksek → pahalı (dip kârda F-K değil BU ölçülür)', () => {
+    const v = computeBankValuation(1.19, 0.154, 21.1); // HALKB benzeri
+    assert.ok(v.roeToPb! < 21.1);
+    assert.ok(v.score! < 40);
+  });
+
+  it('saçma PD/DD (veri hatası) ölçüm ÜRETMEZ — kendinden emin yanlış hüküm olmaz', () => {
+    // Yahoo İş Bankası A/B paylarında PD/DD 293.908 dönüyor (ana pay ISCTR'de 0,75).
+    const v = computeBankValuation(293908, 0.2237, 21.1);
+    assert.equal(v.available, false);
+    assert.equal(v.score, null);
+  });
+
+  it('PD/DD tabanı ve ROE=0 (Yahoo veri eksiği) korumaları', () => {
+    assert.equal(computeBankValuation(0.05, 0.2, 21.1).available, false);
+    assert.equal(computeBankValuation(1.0, 0, 21.1).available, false);
+  });
+
+  it('negatif ROE gerçek bilgidir — ölçülür ve en düşük skoru alır', () => {
+    const v = computeBankValuation(1.0, -0.05, 21.1);
+    assert.equal(v.available, true);
+    assert.equal(v.score, 0);
+  });
+
+  it('sektör medyanı yoksa oran gösterilir ama SKOR üretilmez', () => {
+    const v = computeBankValuation(1.1, 0.28, null);
+    assert.equal(v.available, true);
+    assert.ok(v.roeToPb != null);
+    assert.equal(v.score, null);
+  });
+});
+
+describe('computeBankHealth — değerleme bileşeni entegrasyonu', () => {
+  const fin = { ttm: bf(), prev: null };
+
+  it('banka mali tablosu VARSA kârlılığa göre değerleme kullanılır (genel emsal DEĞİL)', () => {
+    const r = computeBankHealth({
+      sectorId: 'banka', peer: peer(), roe: 0.28, priceToBook: 1.1, inflationYoy: 30,
+      financials: fin, sectorContext: { nimDeltaMedianPp: null, corDeltaMedianBps: null, roeToPbMedian: 21.1 },
+    });
+    assert.ok(r.valuation?.available);
+    assert.ok(r.flags.some((f) => /Kârlılığına göre/.test(f.text)));
+  });
+
+  it('banka tablosu YOKSA (aracı kurum/leasing) değerleme uygulanmaz, emsale düşer', () => {
+    const r = computeBankHealth({
+      sectorId: 'banka', peer: peer(), roe: 0.28, priceToBook: 1.1, inflationYoy: 30,
+      sectorContext: { nimDeltaMedianPp: null, corDeltaMedianBps: null, roeToPbMedian: 21.1 },
+    });
+    assert.equal(r.valuation ?? null, null);
+    assert.ok(!r.flags.some((f) => /Kârlılığına göre/.test(f.text)));
+  });
+});

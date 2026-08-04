@@ -37,6 +37,14 @@ interface BankOutlook {
   analystCount: number | null;
 }
 
+interface BankValuation {
+  available: boolean;
+  roeToPb: number | null;
+  medianRoeToPb: number | null;
+  vsMedianPct: number | null;
+  score: number | null;
+}
+
 interface BankHealthResp {
   available: boolean;
   tier?: 1 | 2;
@@ -46,6 +54,7 @@ interface BankHealthResp {
   flags?: BankFlag[];
   dataQuality?: string;
   metrics?: BankMetrics | null;
+  valuation?: BankValuation | null;
   outlook?: BankOutlook | null;
   lastQuarter?: string | null;
   message?: string;
@@ -156,6 +165,22 @@ export function BankaPaneli({ sembol }: { sembol: string }) {
             label="Maliyet / gelir"
             value={pctText(m.costIncome)}
             hint="Faaliyet gideri / toplam faaliyet geliri. Düşük = verimli."
+          />
+          <Metric
+            label="Kârlılığa göre değerleme"
+            value={data.valuation?.roeToPb == null ? '—' : `%${data.valuation.roeToPb.toFixed(1)}`}
+            delta={
+              data.valuation?.vsMedianPct == null
+                ? null
+                : `${data.valuation.vsMedianPct >= 0 ? '+' : ''}${data.valuation.vsMedianPct.toFixed(0)}% vs sektör`
+            }
+            hint={
+              'ROE ÷ PD-DD: 1x defter değerine ödediğin fiyat başına özkaynak getirisi. '
+              + 'YÜKSEK = kârlılığına göre UCUZ. Bankada F/K yanıltır (dip kârda şişer); '
+              + 'bankacılığın standardı, düşük ROE’li bankanın düşük PD/DD hak ettiğidir — '
+              + 'soru iskontonun kârlılık farkını aşıp aşmadığıdır.'
+              + (data.valuation?.medianRoeToPb != null ? ` Sektör medyanı %${data.valuation.medianRoeToPb}.` : '')
+            }
           />
           <Metric
             label="Net kâr (yıllık)"

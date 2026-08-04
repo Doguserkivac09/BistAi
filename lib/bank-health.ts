@@ -55,6 +55,71 @@ export interface BankFinancials {
 export interface BankSectorContext {
   nimDeltaMedianPp: number | null;
   corDeltaMedianBps: number | null;
+  /** Sektörün ROE ÷ PD/DD medyanı — kârlılığa göre değerleme karşılaştırması için */
+  roeToPbMedian?: number | null;
+}
+
+/**
+ * KÂRLILIĞA GÖRE DEĞERLEME (bankacılığın standart çerçevesi).
+ *
+ * Genel emsal skoru (F/K + PD/DD + EV/FAVÖK iskonto ortalaması) bankada YANILTIR:
+ * kârı dipte olan bankanın F/K'sı şişer ve model ona "pahalı" der — yani tam da
+ * toparlanma adayını cezalandırır. Bankacılıkta doğrusu: *düşük ROE'li banka düşük
+ * PD/DD hak eder*; soru iskontonun kârlılık farkını AŞIP AŞMADIĞIDIR.
+ *
+ * Ölçü: `ROE ÷ PD/DD` = 1 birim defter değerine ödediğin fiyat başına özkaynak getirisi
+ * (yaklaşık olarak piyasanın ima ettiği sermaye maliyeti). YÜKSEK = UCUZ.
+ * Regresyon yerine oran kullanılır: ~10 bankalık evrende doğru uydurmak gürültü üretir.
+ */
+export interface BankValuation {
+  available: boolean;
+  /** ROE ÷ PD/DD, yüzde puan (ör. 25.5 = 1x defter değeri başına %25,5 özkaynak getirisi) */
+  roeToPb: number | null;
+  medianRoeToPb: number | null;
+  /** Sektör medyanına göre fark % (+ = emsalinden ucuz) */
+  vsMedianPct: number | null;
+  /** 0-100 (yüksek = kârlılığına göre ucuz) */
+  score: number | null;
+}
+
+/** PD/DD tabanı: 0'a yakın defter değerinde oran patlar → ölçüm güvenilmez. */
+const MIN_PB_FOR_VALUATION = 0.1;
+/**
+ * PD/DD tavanı — VERİ KALİTESİ KORUMASI. Yahoo, İş Bankası A/B ve kurucu payları gibi
+ * enstrümanlarda saçma PD/DD dönüyor (ISATR 293.908, ISKUR 244.923; aynı bankanın ana
+ * payı ISCTR'de 0,75). Bu değerlerle hesaplanan oran ~0 çıkıp "kârlılığına göre pahalı"
+ * diye KENDİNDEN EMİN YANLIŞ bir hüküm üretiyordu. Gerçek bir bankanın PD/DD'si
+ * 0,1-5 bandındadır; üstü ölçüm değil veri hatasıdır → ölçülemedi say.
+ */
+const MAX_PB_FOR_VALUATION = 10;
+
+export function computeBankValuation(
+  pb: number | null,
+  roe: number | null,
+  medianRoeToPb: number | null,
+): BankValuation {
+  const empty: BankValuation = { available: false, roeToPb: null, medianRoeToPb, vsMedianPct: null, score: null };
+  if (pb == null || roe == null || !Number.isFinite(pb) || !Number.isFinite(roe)) return empty;
+  if (pb < MIN_PB_FOR_VALUATION || pb > MAX_PB_FOR_VALUATION) return empty;
+  // ROE tam olarak 0: Yahoo bu alanı dolduramadığında 0 dönebiliyor (ör. İş Bankası
+  // A/B pay sınıfları). "Sıfır kârlılık" sanıp −%100 damgası vurmak VERİ EKSİĞİNİ
+  // ölçüm gibi göstermek olurdu → ölçülemedi say. Negatif ROE gerçek bilgidir, kalır.
+  if (roe === 0) return empty;
+
+  const roeToPb = Math.round(((roe * 100) / pb) * 10) / 10;
+  if (medianRoeToPb == null || medianRoeToPb <= 0) {
+    return { available: true, roeToPb, medianRoeToPb, vsMedianPct: null, score: null };
+  }
+  const vs = (roeToPb - medianRoeToPb) / medianRoeToPb;
+  // Emsal skoruyla AYNI konvansiyon: ±%50 sapma tam aralığı gezer (0-100).
+  const score = Math.max(0, Math.min(100, Math.round(50 + (vs / 0.5) * 50)));
+  return {
+    available: true,
+    roeToPb,
+    medianRoeToPb,
+    vsMedianPct: Math.round(vs * 1000) / 10,
+    score,
+  };
 }
 
 /**
@@ -131,6 +196,8 @@ export interface BankHealthInput {
   peer: PeerValuation | null;
   /** Özkaynak kârlılığı — ORAN (0.45 = %45), Yahoo `returnOnEquity` */
   roe: number | null;
+  /** PD/DD — kârlılığa göre değerleme için. Verilmezse peer'den okunur. */
+  priceToBook?: number | null;
   /** TÜFE yıllık % (35.1 = %35,1) — null ise reelleştirme yapılmaz */
   inflationYoy: number | null;
   /** Kademe 2 — banka mali tabloları (yoksa Kademe 1'de kalınır) */
@@ -184,6 +251,8 @@ export interface BankHealth {
   redFlag: boolean;
   dataQuality: 'kısmi' | 'geniş' | 'yok';
   reason?: string;
+  /** Kârlılığa göre değerleme (ROE ÷ PD/DD) — bankada genel emsal skorunun yerine geçer */
+  valuation?: BankValuation | null;
   /** Kademe 2 ham ölçümleri (tier 1'de null) */
   metrics?: BankMetrics | null;
   /**
@@ -358,7 +427,7 @@ function tier2Flags(m: BankMetrics, ctx: BankSectorContext | null): { flags: Ban
 
 const empty = (reason: string): BankHealth => ({
   applicable: false, tier: 1, score: null, verdict: 'olculemedi', institution: 'finans',
-  flags: [], redFlag: false, dataQuality: 'yok', reason, metrics: null, outlook: null,
+  flags: [], redFlag: false, dataQuality: 'yok', reason, metrics: null, valuation: null, outlook: null,
 });
 
 /**
@@ -410,10 +479,38 @@ export function computeBankHealth(input: BankHealthInput): BankHealth {
     }
   }
 
-  // ── Emsal konumu (yalnız güvenilir medyanda — n<5'te verdict zayıf) ──
+  // ── Değerleme konumu ────────────────────────────────────────────────
+  // ÖNCELİK: kârlılığa göre değerleme (ROE ÷ PD/DD). Genel emsal skoru (F/K ağırlıklı)
+  // bankada dip kârı "pahalı" diye okuyor → yalnız bu ölçü yoksa ona düşülür.
   const peerOk = peer !== null && peer.reliable;
-  const roeBelowPeer = peerOk && peer.roe.pctVsMedian !== null && peer.roe.pctVsMedian < 0;
-  if (peerOk) {
+  // Kârlılığa göre değerleme YALNIZ gerçek bankada uygulanır: "hak edilen PD/DD ≈ ROE/
+  // sermaye maliyeti" bankacılık çerçevesidir. Aracı kurum/faktoring/leasing (banka mali
+  // tablosu beyan etmeyen) için anlamı yoktur → onlarda genel emsal skoruna düşülür.
+  const valuation = input.financials
+    ? computeBankValuation(
+        input.priceToBook ?? peer?.pb.value ?? null,
+        roe,
+        input.sectorContext?.roeToPbMedian ?? null,
+      )
+    : { available: false, roeToPb: null, medianRoeToPb: null, vsMedianPct: null, score: null };
+  const valOk = valuation.available && valuation.score !== null;
+
+  if (valOk) {
+    const v = valuation.score!;
+    const yon = (valuation.vsMedianPct ?? 0) >= 0 ? 'üstünde' : 'altında';
+    const detay = `Her 1x defter değerine karşılık %${valuation.roeToPb} özkaynak getirisi`
+      + (valuation.medianRoeToPb != null
+          ? ` — sektör medyanı %${valuation.medianRoeToPb} (%${Math.abs(valuation.vsMedianPct ?? 0)} ${yon})`
+          : '');
+    if (v < 40) {
+      flags.push({ id: 'bank-expensive-weak-roe', tone: 'warn',
+        text: 'Kârlılığına göre pahalı', detail: detay });
+    } else if (v > 60) {
+      flags.push({ id: 'bank-cheap-strong-roe', tone: 'pos',
+        text: 'Kârlılığına göre ucuz', detail: detay });
+    }
+  } else if (peerOk) {
+    const roeBelowPeer = peer.roe.pctVsMedian !== null && peer.roe.pctVsMedian < 0;
     if (peer.relativeScore < 40 && roeBelowPeer) {
       flags.push({
         id: 'bank-expensive-weak-roe', tone: 'warn',
@@ -434,7 +531,9 @@ export function computeBankHealth(input: BankHealthInput): BankHealth {
   // eksik veri sıfır sayılıp skoru haksızca ezmez.
   const parts: Array<{ v: number; w: number }> = [];
   if (real !== null) parts.push({ v: realRoeScore(real), w: 40 });
-  if (peerOk) parts.push({ v: peer.relativeScore, w: 30 });
+  // Değerleme bileşeni: kârlılığa göre ölçü varsa O, yoksa genel emsal skoru.
+  if (valOk) parts.push({ v: valuation.score!, w: 30 });
+  else if (peerOk) parts.push({ v: peer.relativeScore, w: 30 });
 
   // ── Kademe 2: gelir kalitesi + marj + risk maliyeti (mali tablo varsa) ──
   let metrics: BankMetrics | null = null;
@@ -471,6 +570,7 @@ export function computeBankHealth(input: BankHealthInput): BankHealth {
     // 'tam' İDDİA EDİLMEZ: Kademe 2'de bile NPL/coverage/Stage 2/SYR/TÜFEX yok
     // (İş Yatırım şablonunda mevcut değil). En iyi durum "geniş"tir.
     dataQuality: tier === 2 ? 'geniş' : 'kısmi',
+    valuation: valuation.available ? valuation : null,
     metrics,
     outlook: computeBankOutlook(input.analyst),
   };

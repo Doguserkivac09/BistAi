@@ -86,7 +86,9 @@ export async function fetchBatch(code: string, refs: IsyPeriodRef[], group: stri
   p.forEach((r, i) => { qs.set(`year${i + 1}`, String(r.year)); qs.set(`period${i + 1}`, String(r.period)); });
   const res = await fetch(`${BASE}?${qs.toString()}`, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Investable Edge/1.0)' },
-    signal: AbortSignal.timeout(12000),
+    // Kaynak yük altında 10sn+ sürebiliyor (ölçüldü) — 12sn'lik eski sınır sessiz
+    // veri kaybına yol açıyordu (batch boş döner, banka tier 2'den tier 1'e düşerdi).
+    signal: AbortSignal.timeout(25000),
   });
   const json = await res.json() as { ok?: boolean; value?: Array<Record<string, string>> };
   const rows = json?.value ?? [];
