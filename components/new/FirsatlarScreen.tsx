@@ -18,6 +18,7 @@ import { SparklineChartButton } from '@/components/new/ChartModal';
 import YasalFeragat from '@/components/new/YasalFeragat';
 import RejimRozeti from '@/components/new/RejimRozeti';
 import { FirsatDetay } from '@/components/new/FirsatDetay';
+import { SicilSeridi } from '@/components/new/SicilSeridi';
 import { displayRating } from '@/lib/decision-engine';
 import { firsatReasons, deriveReasons, firsatToInput, buildSummary, type Reason } from '@/lib/opportunity-reasons';
 
@@ -532,6 +533,9 @@ export function FirsatlarScreen() {
           {/* Sol: özet + radar */}
           <div className="flex min-w-0 flex-col gap-3.5 lg:flex-[1.7] lg:gap-4">
             {summaryStrip}
+            {/* Sicil: "gösterdiklerimiz gerçekte ne getirdi" — listeden ÖNCE gelir,
+                çünkü listenin güvenilirliği bu ölçüme dayanır. */}
+            <SicilSeridi />
             <RejimRozeti regime={regime} />
 
             {/* Mobil: filtre + öne çıkan kart */}

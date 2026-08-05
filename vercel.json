@@ -153,6 +153,14 @@
       "schedule": "20 7 * * 1"
     },
     {
+      "path": "/api/cron/firsat-picks-snapshot",
+      "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/firsat-picks-evaluate",
+      "schedule": "30 8 * * 1"
+    },
+    {
       "path": "/api/cron/long-term?part=1",
       "schedule": "30 7 * * 1"
     },
