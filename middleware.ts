@@ -32,6 +32,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/bugun', request.url));
   }
 
+  // Oturum YOKSA kök → yeni tasarımın karşılama ekranı (/giris: koyu hero + form).
+  // Bu kural eksikti: '/' yalnızca `user` dalında ele alınıyordu, anonim ziyaretçi
+  // aşağı düşüp app/page.tsx'i (ESKİ tasarım landing) görüyordu — redesign'ın
+  // dışında kalan tek giriş noktasıydı.
+  if (!user && pathname === '/') {
+    return NextResponse.redirect(new URL('/giris', request.url));
+  }
+
   if (
     !user &&
     (pathname.startsWith('/bugun') ||
