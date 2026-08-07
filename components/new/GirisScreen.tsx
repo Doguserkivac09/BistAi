@@ -39,6 +39,20 @@ export function GirisScreen() {
   // Open redirect koruması — sadece relative path'lere izin ver
   const redirect = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/bugun';
 
+  // /auth/callback başarısız olduğunda sebebi TAŞIR. Eskiden sessizce buraya
+  // düşülüyordu: kullanıcı boş giriş ekranı görüp "doğrulama çalışmıyor" diyordu.
+  const callbackError = searchParams.get('hata');
+  const callbackMessage =
+    callbackError === 'suresi-doldu'
+      ? 'Doğrulama bağlantısının süresi dolmuş veya daha önce kullanılmış. Yeni bağlantı için tekrar kayıt olun ya da şifre sıfırlama isteyin.'
+      : callbackError === 'eksik'
+        ? 'Doğrulama bağlantısı eksik görünüyor. E-postadaki bağlantıyı tarayıcıya kopyalayıp tekrar deneyin.'
+        : callbackError === 'baglanti'
+          ? 'Doğrulama sırasında bir sorun oluştu. Lütfen tekrar deneyin.'
+          : callbackError
+            ? 'E-posta doğrulaması tamamlanamadı. Lütfen tekrar deneyin.'
+            : null;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -139,9 +153,9 @@ export function GirisScreen() {
               <p className="mt-1 text-[13px] font-medium text-[#8f95a3]">Hesabına giriş yap</p>
             </div>
 
-            {error && (
-              <div className="rounded-[12px] border border-down/40 bg-down/15 px-3 py-2 text-[13px] font-medium text-[#f58b8e]">
-                {error}
+            {(error || callbackMessage) && (
+              <div className="rounded-[12px] border border-down/40 bg-down/15 px-3 py-2 text-[13px] font-medium leading-[1.45] text-[#f58b8e]">
+                {error ?? callbackMessage}
               </div>
             )}
 

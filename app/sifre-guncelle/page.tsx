@@ -19,14 +19,30 @@ export default function SifreGuncellePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Supabase recovery token'ı URL hash'inden otomatik olarak session'a çevirir
     const supabase = createClient();
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+
+    // 1) PKCE: `@supabase/ssr` istemcisi kurtarma bağlantısını `?code=...` olarak
+    //    getirir ve bunu OTURUMA ÇEVİREN kod YOKTU → `sessionReady` hiç true olmuyor,
+    //    kullanıcı formu açamıyordu. (Eski kod yalnız hash/implicit akışı bekliyordu.)
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          setError('Bağlantının süresi dolmuş veya daha önce kullanılmış. Yeni bir sıfırlama bağlantısı isteyin.');
+          return;
+        }
         setSessionReady(true);
-      }
+        // Kodu adres çubuğundan temizle (yenilemede tekrar kullanılamaz)
+        window.history.replaceState({}, '', window.location.pathname);
+      });
+    }
+
+    // 2) Implicit/hash akışı (eski şablonlar) — olduğu gibi korunur
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setSessionReady(true);
     });
-    // Sayfa yüklendiğinde zaten session varsa da hazır say
+
+    // 3) Zaten oturum varsa hazır say
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) setSessionReady(true);
     });
