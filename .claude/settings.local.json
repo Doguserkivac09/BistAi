@@ -11,7 +11,15 @@
       "PowerShell(npx tsc --noEmit)",
       "PowerShell(Remove-Item -Recurse -Force .next\\\\types\\\\app\\\\dev-karsilama-preview -Confirm:$false)",
       "PowerShell(git add components/new/GirisScreen.tsx components/new/KayitScreen.tsx components/new/KarsilamaScreen.tsx design_handoff_kalan_ekranlar)",
-      "PowerShell(git push origin main)"
+      "PowerShell(git push origin main)",
+      "mcp__claude-in-chrome__computer",
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__find",
+      "Bash(npm test *)",
+      "Bash(python -)",
+      "Bash(echo \"build çıkış kodu: $?\")",
+      "PowerShell(Get-Volume | Select-Object DriveLetter, FileSystemLabel, FileSystem, @{n='SizeGB';e={[math]::Round\\($_.Size/1GB,1\\)}}, @{n='FreeGB';e={[math]::Round\\($_.SizeRemaining/1GB,1\\)}}, DriveType | Format-Table -AutoSize)",
+      "PowerShell(Get-Disk | Select-Object Number, FriendlyName, @{n='SizeGB';e={[math]::Round\\($_.Size/1GB,1\\)}}, PartitionStyle, BusType | Format-Table -AutoSize; \"---PARTITIONS---\"; Get-Partition | Select-Object DiskNumber, PartitionNumber, DriveLetter, @{n='SizeGB';e={[math]::Round\\($_.Size/1GB,1\\)}}, @{n='OffsetGB';e={[math]::Round\\($_.Offset/1GB,1\\)}}, Type | Format-Table -AutoSize)"
     ]
   }
 }
