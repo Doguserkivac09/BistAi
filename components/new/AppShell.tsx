@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/components/new/brand';
 import { SymbolSearch } from '@/components/new/SymbolSearch';
+import { MisafirSeridi } from '@/components/new/MisafirSeridi';
 
 interface NavItem {
   href: string;
@@ -52,6 +53,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-page font-manrope text-ink">
+      {/* Misafir oturumunda en üstte uyarı + hesaba geçiş (yalnız misafirde görünür) */}
+      <MisafirSeridi />
       <div className="mx-auto flex min-h-screen w-full">
         {/* ── Sidebar (masaüstü) ── */}
         <aside className="hidden w-[230px] shrink-0 flex-col border-r border-[#f0f1f3] bg-page p-4 lg:flex">

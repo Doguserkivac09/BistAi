@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { GUEST_SIGNUP_METADATA } from '@/lib/guest';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import { Wordmark, AnimatedNightScene } from '@/components/new/brand';
@@ -33,6 +34,7 @@ export function GirisScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
+  const [guestLoading, setGuestLoading] = useState(false);
 
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get('redirect') ?? '/bugun';
@@ -77,6 +79,32 @@ export function GirisScreen() {
       setError(e instanceof Error ? e.message : 'Giriş yapılamadı.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  /**
+   * Misafir girişi — Supabase anonim oturum. Gerçek bir kullanıcı yaratılır,
+   * dolayısıyla RLS/portföy/izleme listesi normal çalışır (paylaşılan hesap YOK).
+   * `onboarded: true` metadata'sı karşılama akışını atlatır: tanıtım için sürtünme yok.
+   */
+  async function guestLogin() {
+    setError(null);
+    setGuestLoading(true);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.auth.signInAnonymously({
+        options: { data: { ...GUEST_SIGNUP_METADATA } },
+      });
+      if (err) {
+        // Sağlayıcı kapalıysa (Supabase → Providers → Anonymous sign-ins) buraya düşer
+        setError('Misafir girişi şu an kullanılamıyor. E-posta ile devam edebilirsin.');
+        setGuestLoading(false);
+        return;
+      }
+      window.location.assign('/bugun');
+    } catch {
+      setError('Misafir girişi şu an kullanılamıyor. E-posta ile devam edebilirsin.');
+      setGuestLoading(false);
     }
   }
 
@@ -243,6 +271,20 @@ export function GirisScreen() {
                 {oauthLoading === 'apple' ? '…' : 'Apple'}
               </button>
             </div>
+
+            {/* Misafir girişi — kayıt/doğrulama sürtünmesi olmadan ürünü görmek için */}
+            <button
+              type="button"
+              onClick={guestLogin}
+              disabled={guestLoading || loading}
+              className="mt-0.5 flex h-[50px] items-center justify-center gap-2 rounded-[14px] border border-dashed border-white/25 text-[13px] font-bold text-[#dfe2e8] transition-colors hover:bg-white/[0.06] disabled:opacity-60"
+            >
+              {guestLoading ? 'Misafir oturumu açılıyor…' : 'Misafir olarak keşfet'}
+            </button>
+            <p className="text-center text-[11.5px] font-medium leading-[1.45] text-[#6f7581]">
+              Kayıt olmadan gez. Misafir modunda AI Asistan kapalıdır ve
+              kaydettiklerin kalıcı değildir.
+            </p>
 
             <div className="flex-1 lg:hidden" />
 

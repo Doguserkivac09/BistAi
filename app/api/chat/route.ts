@@ -17,6 +17,7 @@ import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
+import { isGuestUser, GUEST_BLOCKED_MESSAGE } from '@/lib/guest';
 import { createClient } from '@supabase/supabase-js';
 import { checkAndRecordAiBudget } from '@/lib/ai-budget';
 import { sanitizeUserInput, sanitizeTicker } from '@/lib/sanitize';
@@ -209,6 +210,16 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return new Response(JSON.stringify({ error: 'Giriş yapmanız gerekiyor.' }), {
       status: 401, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // MİSAFİR KAPISI: anonim giriş her tıklamada YENİ kullanıcı yaratır; günlük AI
+  // kotası kullanıcı başına olduğu için misafir çıkış-giriş yaparak kotayı sonsuz
+  // yenileyebilir → sınırsız model maliyeti. Bu yüzden sohbet misafire kapalı.
+  // (Önbellekli AI uçları açık: oradaki maliyet ziyaretçiyle değil sembolle artar.)
+  if (isGuestUser(user)) {
+    return new Response(JSON.stringify({ error: GUEST_BLOCKED_MESSAGE, guestBlocked: true }), {
+      status: 403, headers: { 'Content-Type': 'application/json' },
     });
   }
 
