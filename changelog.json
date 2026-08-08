@@ -1,0 +1,13 @@
+{
+  "stage": "Pre-Alpha",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "date": "2026-08-04",
+      "type": "minor",
+      "items": [
+        { "category": "yeni", "text": "Yama notu sistemi kuruldu — bundan sonra geliştirmeler sürüm numarasıyla gruba paylaşılacak." }
+      ]
+    }
+  ]
+}

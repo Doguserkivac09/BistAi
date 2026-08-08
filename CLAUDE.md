@@ -5,6 +5,34 @@
 
 ---
 
+## 📋 Telegram bot — sinyal paylaşımından yama notu sistemine geçiş (2026-08-04)
+
+> **Karar:** Telegram grubundaki bot artık otomatik sinyal PAYLAŞMAYACAK — kullanıcılar
+> kendi sinyallerini grupta paylaşıp yorumluyor. Bot bundan sonra yalnızca bizim
+> geliştirmelerimizi **sürümlü yama notu (changelog)** olarak paylaşacak. Proje henüz
+> **Pre-Alpha** aşamasında — sürüm numarası bunu yansıtır (0.x.y, semver).
+
+| Bileşen | Dosya | Açıklama |
+|---------|-------|----------|
+| Sürüm kaydı (tek kaynak, git'te takip edilir) | `changelog.json` | `{ stage: "Pre-Alpha", versions: [{version, date, type, items:[{category,text}]}] }`. Her yeni özellik/düzeltme yapıldığında buraya giriş eklenir — patch=küçük düzeltme, minor=yeni özellik, major=büyük değişiklik. |
+| Okuma API'si | `app/api/changelog/latest/route.ts` | `/api/signals/latest` ile birebir aynı desen (`SOCIAL_API_KEY` korumalı, `x-api-key` header veya `?apiKey`). `changelog.json`'daki henüz yayınlanmamış versiyonları bulur, her biri için Telegram'a hazır formatlı mesaj (`telegramMessage`) üretir, döndürdüğü versiyonları `changelog_publish_log`'a işaretler (bir daha dönmez). |
+| Yayın takip tablosu (migration) | `supabase/migrations/20260804_changelog_publish_log.sql` | `changelog_publish_log(version TEXT PK, published_at)` — RLS: yalnızca service role. **✅ Supabase'de çalıştırıldı (2026-08-04).** |
+
+**Eski sinyal-paylaşım altyapısı (`app/api/signals/latest`) SİLİNMEDİ** — kod duruyor ama
+artık Make.com senaryosundan çağrılmamalı. **BEKLEYEN MANUEL ADIM (kullanıcı tarafı):**
+Make.com senaryosu `/api/signals/latest` yerine `/api/changelog/latest`'i çağıracak şekilde
+güncellenmeli; dönen `entries[].telegramMessage`'lar sırayla gruba gönderilmeli (loop/iterator).
+`hasNew:false` dönerse gönderilecek bir şey yok demektir.
+
+**Sürüm numaralandırma kuralı:** 1.0.0'a geçiş = tam sürüm/gerçek lansman kararı; o ana kadar
+`0.x.y` ve "Pre-Alpha" etiketi korunur. Mesaj formatı: `✨ Yenilikler` / `🛠️ İyileştirmeler` /
+`🐛 Düzeltmeler` başlıkları + alt not ("Bu sürüm Pre-Alpha aşamasındadır...").
+
+**Doğrulama (2026-08-04):** tsc + build temiz, dev sunucuda gerçek istekle mesaj formatı
+doğrulandı (`{"entries":[...],"hasNew":true}`).
+
+---
+
 ## 🎨 YENİ TASARIM — Frontend Redesign (Modern-Minimalist Açık Tema) — DEVAM EDİYOR
 
 > **Bu, AKTİF frontend iş akışıdır. Tasarım işine yeni pencerede devam ederken BURAYI oku.**
@@ -243,6 +271,7 @@ Aşağıdaki migration'lar Supabase SQL Editor'a yapıştırılıp çalıştır�
 | `20260602_signal_performance_market.sql` | signal_performance: market kolonu + unique constraint (sembol,signal_type,entry_time,market) | ✅ Çalıştırıldı (2026-06-03) |
 | `20260603_signal_performance_market.sql` | signal_performance.market kolonu + backfill (BUG-1 fix) | ✅ Çalıştırıldı (2026-06-03) |
 | `20260617_baby_picks.sql` | baby_picks tablosu (Bebek Hisseler forward-tracking, 4/12/26h + BIST benchmark) | ✅ Çalıştırıldı (2026-06-24) |
+| `20260804_changelog_publish_log.sql` | changelog_publish_log tablosu (Telegram yama notu yayın takibi) | ✅ Çalıştırıldı (2026-08-04) |
 
 ### AI Portföyü Doğrulama (2026-05-17 sonrası)
 - `/yapay-zeka-portfoyu` sayfası açılıyor mu?
