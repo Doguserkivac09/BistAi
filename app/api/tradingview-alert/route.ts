@@ -63,6 +63,7 @@ interface ScannerItem {
   rs?: number; // göreli güç (hisse% − endeks%)
   ld?: number; // en yakın seviyeye ATR uzaklığı
   ft?: number; // follow-through (1/0)
+  vs?: number; // iFVG yapı kalitesi (0-100) — "V"ye benzerlik
   p: number;   // fiyat
   atr?: number;
 }
@@ -73,6 +74,8 @@ interface ScannerPayload {
   tf: string;     // "15" | "60" | "D"
   kz?: string;    // killzone adı
   reg?: number;   // endeks rejimi
+  sp?: string;    // seans fazı: acilis | govde | ogle | kapanis | disi
+  bso?: number;   // BIST açılışından geçen dakika
   t?: number;     // bar kapanış zamanı (ms)
   items: ScannerItem[];
 }
@@ -133,9 +136,11 @@ function buildMessage(p: ScannerPayload): string {
           : it.rs > 0 ? ` · endeksten güçlü (+${fmt(it.rs)}%)`
           : ` · endeksten zayıf (${fmt(it.rs)}%)`;
       const ft = it.ft === 1 ? ' · teyitli' : '';
+      // V-skor yalnızca iFVG (bit 64) varken anlamlı
+      const vs = (it.m & 64) !== 0 && typeof it.vs === 'number' ? ` · V-skor ${fmt(it.vs, 0)}` : '';
       return (
         `${it.s} ${arrow} · ${sig}\n` +
-        `skor ${fmt(it.sc, 0)} · hacim ${fmt(it.rv)}x${lvl}${rs}${ft}\n` +
+        `skor ${fmt(it.sc, 0)} · hacim ${fmt(it.rv)}x${lvl}${rs}${ft}${vs}\n` +
         `https://www.tradingview.com/chart/?symbol=BIST%3A${it.s}`
       );
     })
@@ -171,6 +176,11 @@ async function persist(p: ScannerPayload): Promise<{ saved: number; error?: stri
     rel_strength: it.rs ?? null,
     level_dist_atr: it.ld ?? null,
     follow_through: it.ft ?? null,
+    // V-skor yalnızca iFVG içeren sinyalde anlamlı; diğerlerinde null bırakılır
+    // ki istatistikte 0'lar ortalamayı bozmasın.
+    v_score: (it.m & 64) !== 0 ? it.vs ?? null : null,
+    session_phase: p.sp ?? null,
+    mins_since_open: typeof p.bso === 'number' ? Math.round(p.bso) : null,
     price: it.p,
     atr: it.atr ?? null,
   }));
