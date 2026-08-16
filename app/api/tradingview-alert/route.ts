@@ -11,7 +11,9 @@
  *
  * Env:
  *   TELEGRAM_BOT_TOKEN         — BotFather'dan alınan token
- *   TELEGRAM_CHAT_ID           — mesajın gideceği sohbet (kendi kullanıcı id'in)
+ *   TELEGRAM_CHAT_ID           — hedef sohbet(ler). VİRGÜLLE birden fazla yazılabilir:
+ *                                "1042817562,-1001234567890" → hem özel sohbet hem grup.
+ *                                Grup id'leri NEGATİF olur (supergroup: -100... ile başlar).
  *   TRADINGVIEW_WEBHOOK_SECRET — URL'deki `key` değeri
  *
  * Test: GET /api/tradingview-alert?key=...&test=1 → Telegram'a örnek mesaj atar.
@@ -65,27 +67,51 @@ function splitForTelegram(text: string): string[] {
 
 async function sendTelegram(text: string): Promise<{ ok: boolean; error?: string }> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!token || !chatId) {
+  const chatIdRaw = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatIdRaw) {
     return { ok: false, error: 'TELEGRAM_BOT_TOKEN veya TELEGRAM_CHAT_ID tanımlı değil.' };
   }
 
-  for (const chunk of splitForTelegram(text)) {
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: chunk,
-        // parse_mode YOK: alarm metni serbest biçimli, Markdown kaçışı hataya açık.
-        disable_web_page_preview: true,
-      }),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      // Token/chat id sızmaması için detay kısaltılır
-      return { ok: false, error: `Telegram ${res.status}: ${detail.slice(0, 200)}` };
+  // Virgülle ayrılmış birden fazla hedef desteklenir (özel sohbet + grup gibi).
+  const chatIds = chatIdRaw
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+  if (!chatIds.length) {
+    return { ok: false, error: 'TELEGRAM_CHAT_ID boş.' };
+  }
+
+  const chunks = splitForTelegram(text);
+  const errors: string[] = [];
+
+  for (const chatId of chatIds) {
+    for (const chunk of chunks) {
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: chunk,
+          // parse_mode YOK: alarm metni serbest biçimli, Markdown kaçışı hataya açık.
+          disable_web_page_preview: true,
+        }),
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        // Token sızmaması için detay kısaltılır. Bir hedef başarısız olsa da
+        // diğerlerine gönderim SÜRER — grup hatası özel mesajı engellemesin.
+        errors.push(`${chatId} → ${res.status}: ${detail.slice(0, 120)}`);
+        break; // bu hedefin kalan parçalarını deneme
+      }
     }
+  }
+
+  // Hepsi başarısızsa hata döndür; kısmi başarıda uyarı loglanır ama 200 dönülür.
+  if (errors.length === chatIds.length) {
+    return { ok: false, error: errors.join(' | ') };
+  }
+  if (errors.length) {
+    console.warn('[tradingview-alert] Bazı hedeflere gönderilemedi:', errors.join(' | '));
   }
   return { ok: true };
 }
