@@ -191,6 +191,14 @@
     {
       "path": "/api/cron/smart-signal",
       "schedule": "10 15 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scanner-evaluate",
+      "schedule": "40 15 * * 1-5"
+    },
+    {
+      "path": "/api/cron/scanner-evaluate",
+      "schedule": "0 5 * * 1-5"
     }
   ]
 }
