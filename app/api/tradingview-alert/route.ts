@@ -112,9 +112,28 @@ function fmt(n: number | undefined, digits = 1): string {
   return typeof n === 'number' && Number.isFinite(n) ? n.toFixed(digits) : '—';
 }
 
+// Seans fazı — "sebep" hipotezinin zaman ayağı. Killzone'dan daha keskin:
+// açılışın 5. dakikası ile 25. dakikası aynı şey değil.
+const PHASE_LABELS: Record<string, string> = {
+  acilis: 'açılış',
+  govde: 'gövde',
+  ogle: 'öğle',
+  kapanis: 'kapanış',
+  disi: 'seans dışı',
+};
+
+function phaseText(p: ScannerPayload): string {
+  if (!p.sp) return '';
+  const label = PHASE_LABELS[p.sp] ?? p.sp;
+  // Dakika yalnızca seans içindeyken anlamlı
+  const min = typeof p.bso === 'number' && p.bso >= 0 ? ` ${Math.round(p.bso)}. dk` : '';
+  return ` · ${label}${min}`;
+}
+
 function buildMessage(p: ScannerPayload): string {
   const head =
     `📊 VIOP Fırsat Tarayıcı${p.src ? ' · ' + p.src : ''} (${p.tf})` +
+    phaseText(p) +
     (p.kz ? ` · ${p.kz}` : '') +
     (p.reg === 1 ? ' · endeks+' : p.reg === -1 ? ' · endeks−' : '');
 
