@@ -13,6 +13,7 @@ export const NEW_DESIGN_ROUTES = [
   '/firsatlar',
   '/gecmis-firsatlar',
   '/bilanco-tarama',
+  '/fonlar',
   '/makro',
   '/sohbet',
   '/profil',

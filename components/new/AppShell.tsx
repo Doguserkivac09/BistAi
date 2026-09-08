@@ -25,6 +25,7 @@ const SIDEBAR: NavItem[] = [
   { href: '/portfolyo', label: 'Portföyüm' },
   { href: '/makro', label: 'Piyasa' },
   { href: '/viop', label: 'VIOP' },
+  { href: '/fonlar', label: 'Fonlar' },
   { href: '/ai-portfoyler', label: 'AI Portföyleri' },
   { href: '/sohbet', label: 'AI Asistan', ai: true },
 ];

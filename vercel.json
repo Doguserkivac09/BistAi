@@ -49,6 +49,14 @@
       "schedule": "50 14 * * 1-5"
     },
     {
+      "path": "/api/cron/fund-scan?universe=TEFAS",
+      "schedule": "30 18 * * 1-5"
+    },
+    {
+      "path": "/api/cron/fund-scan?universe=BES",
+      "schedule": "50 18 * * 1-5"
+    },
+    {
       "path": "/api/cron/viop-scan",
       "schedule": "5 9 * * 1-5"
     },
