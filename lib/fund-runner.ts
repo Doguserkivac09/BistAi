@@ -1,5 +1,5 @@
 /**
- * Fon precompute çalıştırıcısı (FON-ANALIZ-PLAN F5 + F7).
+ * Fon precompute çalıştırıcısı (FON-ANALIZ-PLAN F5/F7 + FON-BACKFILL-PLAN FAZ 2/3).
  *
  * İKİ GEÇİŞLİ (banka K2 dersi):
  *   1. geçiş — her fonun metrikleri hesaplanır (mutlak ölçümler)
@@ -10,34 +10,47 @@
  * ayrıştırıcı bayrak yalnız kendi kategorisindeki akranlara göre üretilir.
  * Kategoride n < MIN_PEER ise mutlak eşiğe düşülür ve rozet **sektör iddia ETMEZ**.
  *
- * DEPOLAMA (ölçüldü): ham NAV geçmişi tek `ai_cache` satırına SIĞMAZ
- * (1 yıl ≈ 33 MB, 5 yıl ≈ 165 MB). Bu yüzden Kademe 1'de **kayan pencere** ham
- * seri + **yalnız hesaplanmış metrikler** saklanır (~1,5 MB). Uzun geçmiş
- * (1y/3y/5y, rolling tutarlılık, alfa/IR) tablo ister → ayrı faz.
+ * DEPOLAMA (2026-09-09 değişti): ham NAV geçmişi artık **`fund_prices` tablosunda**.
+ * Önceki tasarım ham seriyi `ai_cache` içinde 75 günlük kayan pencere olarak
+ * tutuyordu; bu üç şeyi birden kilitliyordu — her koşu elindeki tarihi tekrar
+ * çekiyordu, 75 gün kırpması derinliği imkânsız kılıyordu, 5 günlük TTL biriken
+ * pencereyi silebiliyordu. `ai_cache` artık YALNIZ sunum önbelleği (hesaplanmış
+ * `items`); doğruluk kaynağı tablodur.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listFundsOnDate, POLITE_DELAY_MS, type FundDailyRow } from './fund-data';
 import { FUND_CATEGORIES, guessAccessibility, categoryLabel, type FundUniverse } from './fund-universe';
 import { computeFundMetrics, type NavPoint } from './fund-metrics';
+import {
+  businessDaysBack, pickMissingDays, isDayComplete, categoryStale,
+  getCoveredDays, getReferenceRowCount, recordDay, getSeries, getLatestSnapshot,
+  getMeta, upsertMetaNames, upsertMetaCategories, getCoverageSummary,
+} from './fund-store';
 
 /**
  * Evren eşiği — KULLANICI KARARI (2026-09-09), canlı ölçümle seçildi.
  * `kisiSayisi >= 1000`: TEFAS 2.034 → 639 fon, varlığın %76,8'i korunuyor ve
  * **hiçbir kategori n<5'e düşmüyor** (en küçüğü Karma: 8→7). Serbest fonların
  * %89'u (994→108) doğal olarak eleniyor — davranışsal ölçüt, ad tahmininden güvenilir.
- *
- * Evren SABİT LİSTE DEĞİL: her koşuda yeniden hesaplanır; eşiği yeni geçen fonun
- * geçmişi o an birikmeye başlar (TEFAS geçmişi geriye dönük çekilebildiği için
- * bu kayıp telafi edilebilir — fırsat sicilinden farkı budur).
  */
 export const MIN_INVESTORS = 1000;
 
 /** Kategori medyanının güvenilir sayılması için gereken akran sayısı. */
 export const MIN_PEER = 5;
 
-/** Kayan ham pencere (gün) — ai_cache sınırı içinde kalacak şekilde. */
-export const RAW_WINDOW_DAYS = 75;
+/** Varsayılan derinlik hedefi (iş günü) — ~1 yıl. Kullanıcı kararı 2026-09-09. */
+export const DEFAULT_TARGET_DAYS = 250;
+
+/**
+ * Bir günün ölçülen maliyeti (≈5 sayfa × 2,2 sn + günler arası 2,2 sn).
+ * Bütçe SÜRE tabanlı: tahmine değil gerçek saate bakılır, böylece TEFAS
+ * yavaşladığında koşu kendini keser (timeout'ta yazmadan ölmez).
+ */
+const DAY_COST_MS = 13_000;
+
+/** Metrik/okuma/yazma için ayrılan pay — gün çekimi bunu yemez. */
+const RESERVE_MS = 55_000;
 
 export type FundFlagTone = 'pos' | 'warn' | 'neutral';
 
@@ -80,27 +93,36 @@ export interface FundEntry {
   peerReliable: boolean;
 }
 
+export interface FundCoverage {
+  oldest: string | null;
+  newest: string | null;
+  completeDays: number;
+}
+
+/**
+ * `ai_cache` içeriği — artık YALNIZ sunum önbelleği.
+ * Ham seri ve kategori haritası tabloda; burada tutulmaz.
+ */
 export interface FundStore {
   scannedAt: string;
   universe: FundUniverse;
-  /** Ham kayan pencere — bir sonraki koşu bunun üstüne ekler */
-  raw: Record<string, Array<{ d: string; p: number; s: number | null; k: number | null }>>;
-  /**
-   * Fon → kategori kodu, KALICI. Kategori satırlarda gelmiyor, ayrı 12 sorguyla
-   * türetiliyor; bir koşuda 429 yiyen kategori (canlıda Para Piyasası'na oldu)
-   * tüm fonlarını kategorisiz bırakıyordu → emsal kıyası ve sıra kayboluyordu.
-   * Önceki koşudan devralınır, yeni gelen üzerine yazar.
-   */
-  cats?: Record<string, number>;
   items: FundEntry[];
   /** Makro bağlam (şeffaflık) */
   policyRate: number | null;
   inflation: number | null;
+  /** Kapsama — "yeterli geçmiş yok" mesajlarının dayanağı */
+  coverage?: FundCoverage;
   note?: string;
 }
 
-const rawKey = (u: FundUniverse) => `fund-store:${u}`;
-const TTL_MS = 5 * 24 * 60 * 60 * 1000;
+const cacheKey = (u: FundUniverse) => `fund-store:${u}`;
+
+/**
+ * Sunum önbelleği TTL'i cömert: doğruluk kaynağı tablo olduğu için süresi
+ * dolsa bile veri kaybolmaz, yalnız yeniden hesaplanır. Kısa TTL (5g) eski
+ * tasarımda ham pencereyi de sildiği için tehlikeliydi.
+ */
+const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -111,66 +133,13 @@ function median(xs: number[]): number | null {
   return a.length % 2 ? a[m]! : (a[m - 1]! + a[m]!) / 2;
 }
 
-/** İş günü geriye giderek tarih listesi (hafta sonu atlanır — fon fiyatı yok). */
-function recentBusinessDays(count: number, from = new Date()): Date[] {
-  const out: Date[] = [];
-  const d = new Date(from);
-  while (out.length < count) {
-    const dow = d.getUTCDay();
-    if (dow !== 0 && dow !== 6) out.push(new Date(d));
-    d.setUTCDate(d.getUTCDate() - 1);
-  }
-  return out;
-}
+// ── 1. GEÇİŞ yardımcıları ───────────────────────────────────────────────────
 
-// ── 1. GEÇİŞ: ham veri toplama ──────────────────────────────────────────────
-
-/**
- * Son `days` iş gününü tarih tarih çeker ve mevcut ham pencereye MERGE eder.
- *
- * NEDEN TARİH BAZLI (fon bazlı değil): tek tarih sorgusu TÜM evreni döndürüyor.
- * Ölçüm: fon-bazlı 1 yıl ≈ 18.400 istek, tarih-bazlı ≈ 1.250 istek → 15 kat ucuz.
- */
-export async function fetchRawWindow(
-  universe: FundUniverse,
-  days: number,
-  previous?: FundStore['raw'],
-): Promise<{ raw: FundStore['raw']; meta: Map<string, FundDailyRow>; fetchedDays: number; failedDays: number }> {
-  const raw: FundStore['raw'] = { ...(previous ?? {}) };
-  const meta = new Map<string, FundDailyRow>();
-  let fetchedDays = 0, failedDays = 0;
-
-  for (const [i, day] of recentBusinessDays(days).entries()) {
-    if (i > 0) await sleep(POLITE_DELAY_MS);
-    try {
-      const res = await listFundsOnDate(universe, day);
-      if (res.data.length === 0) { failedDays++; continue; }
-      fetchedDays++;
-      for (const row of res.data) {
-        meta.set(row.code, row); // en yeni tarih en son yazar
-        if (!raw[row.code]) raw[row.code] = [];
-        const arr = raw[row.code]!;
-        if (!arr.some((x) => x.d === row.date)) {
-          arr.push({ d: row.date, p: row.price, s: row.shares, k: row.investors });
-        }
-      }
-    } catch { failedDays++; }
-  }
-
-  // Kayan pencereyi kırp (ai_cache boyutu kontrol altında kalsın)
-  const cutoff = new Date(Date.now() - RAW_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
-  for (const code of Object.keys(raw)) {
-    raw[code] = raw[code]!.filter((x) => x.d >= cutoff).sort((a, b) => a.d.localeCompare(b.d));
-    if (raw[code]!.length === 0) delete raw[code];
-  }
-  return { raw, meta, fetchedDays, failedDays };
-}
-
-// ── 2. GEÇİŞ: kategori-göreli skor + bayraklar ──────────────────────────────
-
-interface Measured {
+export interface Measured {
   code: string;
-  meta: FundDailyRow;
+  name: string;
+  investors: number | null;
+  size: number | null;
   category: number | null;
   nominal: number | null;
   excess: number | null;
@@ -189,7 +158,46 @@ function relativeScore(value: number, med: number): number {
   return Math.max(0, Math.min(100, Math.round(50 + (vs / 0.5) * 50)));
 }
 
-function buildFlags(
+/**
+ * Risk-ayarlı bileşik skor (SAF — test edilebilir).
+ *
+ * ⚠️ RİSK BİLEŞENİ YOKSA SKOR ÜRETİLMEZ (canlıda yakalandı, 2026-09-09):
+ * pencere 11 gözlemken Sharpe/volatilite null kalıyordu, skor yalnız `excess`
+ * bileşeninden türüyordu ve **631 fonun tamamı 70** çıkıyordu. Evrenin
+ * tamamında aynı değeri veren gösterge bilgi taşımaz — üstelik adı
+ * "risk-ayarlı" olduğu için doğrudan YANILTICI. Skorun adı risk diyorsa
+ * riski ölçemediğimizde skor yoktur; ekran bunu açıkça söyler.
+ *
+ * Bileşen yoksa ağırlık YENİDEN NORMALİZE edilir (long-term-runner deseni) —
+ * eksik bileşen 0 sayılmaz.
+ */
+export function computeCompositeScore(
+  m: Pick<Measured, 'sharpe' | 'volatility' | 'excess'>,
+  peer: { sharpe: number | null; vol: number | null },
+  reliable: boolean,
+): number | null {
+  const parts: Array<{ v: number; w: number }> = [];
+  const riskVar = reliable && m.sharpe != null && peer.sharpe != null;
+  if (riskVar) parts.push({ v: relativeScore(m.sharpe!, peer.sharpe!), w: 60 });
+  if (reliable && m.volatility != null && peer.vol != null) parts.push({ v: relativeScore(peer.vol, m.volatility), w: 25 });
+  if (m.excess != null) parts.push({ v: m.excess >= 0 ? 70 : 30, w: 15 });
+  const tw = parts.reduce((s, p) => s + p.w, 0);
+  if (!riskVar || tw === 0) return null;
+  return Math.round(parts.reduce((s, p) => s + p.v * p.w, 0) / tw);
+}
+
+/**
+ * ⚠️ KÖTÜ KOŞU İYİ STORE'U EZMESİN (banka motorundaki aynı ders) — SAF.
+ * Bu koşu öncekinin yarısından az fon ölçebildiyse yayın yapılmaz; sayfa
+ * eldeki en iyi ölçümde kalır.
+ */
+export function selectPublished<T>(fresh: T[], previous: T[] | null | undefined): { items: T[]; weak: boolean } {
+  const oncekiSayi = previous?.length ?? 0;
+  const weak = oncekiSayi > 0 && fresh.length < oncekiSayi * 0.5;
+  return { items: weak ? previous! : fresh, weak };
+}
+
+export function buildFlags(
   m: Measured,
   peer: { sharpe: number | null; vol: number | null; n: number } | null,
 ): FundFlag[] {
@@ -222,46 +230,165 @@ function buildFlags(
   return flags;
 }
 
-export async function runFundScan(
+// ── Artımlı backfill ────────────────────────────────────────────────────────
+
+export interface BackfillResult {
+  fetched: number;
+  failed: number;
+  remaining: number;
+  /** Bütçe (süre) bittiği için mi durduk? */
+  budgetExhausted: boolean;
+}
+
+/**
+ * Eksik tarihleri hedefli çeker ve `fund_prices`'a yazar.
+ *
+ * Elde olan tarih **tekrar istenmez** — eski `fetchRawWindow` her koşuda son N
+ * iş gününü baştan çekiyor ve 429 yiyordu. Günlük cron burada 1-2 gün çeker
+ * (saniyeler), backfill koşusu bütçesini doldurur; **aynı kod yolu**.
+ */
+export async function backfillMissingDays(
   sb: SupabaseClient,
   universe: FundUniverse,
-  opts: { days?: number; policyRate?: number | null; inflation?: number | null } = {},
-): Promise<{ store: FundStore; scored: number; skipped: number; fetchedDays: number }> {
-  const previous = await getFundStore(sb, universe);
-  const { raw, meta, fetchedDays, failedDays } = await fetchRawWindow(universe, opts.days ?? 1, previous?.raw);
+  targetDays: number,
+  deadline: number,
+): Promise<BackfillResult> {
+  const target = businessDaysBack(targetDays);
+  const from = target[target.length - 1]!;
+  const covered = await getCoveredDays(sb, universe, from);
+  const ref = await getReferenceRowCount(sb, universe);
 
-  // Kategori haritası — satırlarda kategori alanı YOK, filtreyle türetilir
-  // Önceki koşunun haritası taban alınır; bu koşuda alınabilen kategoriler üstüne yazar.
-  const katMap = new Map<string, number>(Object.entries(previous?.cats ?? {}).map(([k, v]) => [k, v]));
-  const dun = recentBusinessDays(1)[0]!;
+  const allMissing = pickMissingDays(target, covered, Number.MAX_SAFE_INTEGER);
+  let fetched = 0, failed = 0, budgetExhausted = false;
+  const names = new Map<string, string>();
+
+  for (const [i, day] of allMissing.entries()) {
+    if (Date.now() + DAY_COST_MS > deadline) { budgetExhausted = true; break; }
+    if (i > 0) await sleep(POLITE_DELAY_MS);
+    try {
+      const res = await listFundsOnDate(universe, new Date(`${day}T00:00:00Z`));
+      const complete = isDayComplete(res.data.length, res.dataQuality, ref);
+      if (res.data.length === 0) {
+        // Tatil mi 429 mu ayırt edilemez → complete=false yazılır, tekrar denenir.
+        await recordDay(sb, universe, day, [], false);
+        failed++;
+        continue;
+      }
+      await recordDay(sb, universe, day, res.data, complete);
+      for (const r of res.data) if (r.name) names.set(r.code, r.name);
+      if (complete) fetched++; else failed++;
+    } catch {
+      failed++;
+    }
+  }
+
+  if (names.size > 0) {
+    await upsertMetaNames(sb, universe, [...names].map(([code, name]) => ({ code, name })));
+  }
+
+  const remaining = allMissing.length - fetched - failed;
+  return { fetched, failed, remaining: Math.max(0, remaining), budgetExhausted };
+}
+
+/**
+ * Kategori haritasını tazeler (12 kategori × ≤4 sayfa ≈ 100-130 sn).
+ *
+ * Eskiden bu **her koşuda** ödeniyordu ve 300 sn'nin üçte birini yiyordu.
+ * Artık `fund_meta.category_at` 7 günden tazeyse hiç çalışmaz.
+ */
+export async function refreshCategories(
+  sb: SupabaseClient,
+  universe: FundUniverse,
+  deadline: number,
+): Promise<number> {
+  const dun = businessDaysBack(1)[0]!;
+  const entries: Array<{ code: string; category: number }> = [];
   for (const [i, c] of FUND_CATEGORIES.entries()) {
+    if (Date.now() + 12_000 > deadline) break;
     if (i > 0) await sleep(POLITE_DELAY_MS);
     try {
       // Serbest kategorisi ~1000 fon → sayfa limiti geniş tutulmalı (ölçüldü)
-      const r = await listFundsOnDate(universe, dun, { sfonTurKod: c.code, maxPages: 4 });
-      for (const f of r.data) katMap.set(f.code, c.code);
-    } catch { /* önceki koşunun kategorisi korunur (yukarıdaki taban) */ }
+      const r = await listFundsOnDate(universe, new Date(`${dun}T00:00:00Z`), { sfonTurKod: c.code, maxPages: 4 });
+      for (const f of r.data) entries.push({ code: f.code, category: c.code });
+    } catch { /* bu kategori bu koşuda alınamadı; tablodaki önceki değeri KORUNUR */ }
+  }
+  if (entries.length > 0) await upsertMetaCategories(sb, universe, entries);
+  return entries.length;
+}
+
+// ── Ana koşu ────────────────────────────────────────────────────────────────
+
+export interface FundScanResult {
+  store: FundStore;
+  scored: number;
+  skipped: number;
+  backfill: BackfillResult;
+  coverage: FundCoverage;
+  categoryRefreshed: number;
+}
+
+export async function runFundScan(
+  sb: SupabaseClient,
+  universe: FundUniverse,
+  opts: {
+    targetDays?: number;
+    /** Toplam süre bütçesi (ms) — cron maxDuration'dan küçük verilmeli. */
+    budgetMs?: number;
+    policyRate?: number | null;
+    inflation?: number | null;
+  } = {},
+): Promise<FundScanResult> {
+  const startedAt = Date.now();
+  const budgetMs = opts.budgetMs ?? 270_000;
+  const deadline = startedAt + budgetMs - RESERVE_MS;
+  const targetDays = opts.targetDays ?? DEFAULT_TARGET_DAYS;
+
+  const previous = await getFundStore(sb, universe);
+  let meta = await getMeta(sb, universe);
+
+  // İLK KOŞU: kategori hiç yoksa emsal kıyası imkânsız → önce onu al.
+  // Aksi halde VERİ ÖNCELİKLİ: günler çekilir, kategori tazelemesi artan
+  // süreye bırakılır (kategori nadiren değişir, gün kaybı telafi edilemez).
+  const hicKategoriYok = [...meta.values()].every((m) => m.category == null);
+  let categoryRefreshed = 0;
+  if (hicKategoriYok) {
+    categoryRefreshed = await refreshCategories(sb, universe, deadline);
+    meta = await getMeta(sb, universe);
   }
 
-  // ── 1. GEÇİŞ: ölçüm ──
+  const backfill = await backfillMissingDays(sb, universe, targetDays, deadline);
+
+  // Artan süre varsa bayat kategorileri tazele
+  if (!hicKategoriYok) {
+    const enEski = [...meta.values()].map((m) => m.categoryAt).sort()[0] ?? null;
+    if (categoryStale(enEski) && Date.now() + 60_000 < deadline) {
+      categoryRefreshed = await refreshCategories(sb, universe, deadline);
+    }
+  }
+  if (categoryRefreshed > 0) meta = await getMeta(sb, universe);
+
+  // ── Ölçüm: seriler tablodan ──
+  const from = businessDaysBack(targetDays)[targetDays - 1]!;
+  const series = await getSeries(sb, universe, from);
+  const snapshot = await getLatestSnapshot(sb, universe, from);
+
   const measured: Measured[] = [];
   let skipped = 0;
-  for (const [code, points] of Object.entries(raw)) {
-    const onceki = previous?.items.find((x) => x.code === code);
-    const info = meta.get(code) ?? (onceki as unknown as FundDailyRow | undefined);
-    // Yatırımcı sayısı bu koşuda gelmediyse ÖNCEKİ koşudan devralınır.
-    // Canlıda yakalandı (2026-09-09): tek günlük kısmi çekimde `kisiSayisi` boş
-    // geldi, evren eşiği 2.034 fonun TAMAMINI eledi ve store 631 → 0'a düştü.
+  for (const [code, points] of series) {
+    const info = meta.get(code);
+    const snap = snapshot.get(code);
+    // Yatırımcı sayısı: son dolu gözlem (getLatestSnapshot boş günü devrediyor).
     // Veri yokluğu "eşiğin altında" demek DEĞİLDİR.
-    const investors = meta.get(code)?.investors ?? onceki?.investors ?? null;
-    // EVREN EŞİĞİ — dinamik, her koşuda yeniden değerlendirilir
+    const investors = snap?.investors ?? null;
     if ((investors ?? 0) < MIN_INVESTORS) { skipped++; continue; }
-    if (!info) { skipped++; continue; }
+    // ⚠️ Meta yoksa ATLA (eski kod `meta.get(code)!` ile non-null iddia ediyordu →
+    // hedefli backfill'de fon bu koşuda fiyat yayımlamadığında TypeError ile
+    // TÜM koşuyu çökertiyordu). Artık meta tabloda kalıcı; yine de guard var.
+    if (!info?.name) { skipped++; continue; }
 
-    const series: NavPoint[] = points.map((x) => ({ date: x.d, price: x.p }));
     const fm = computeFundMetrics({
-      series,
-      benchmark: null, // kategori medyanı serisi ayrı faz (uzun geçmiş gerektirir)
+      series: points as NavPoint[],
+      benchmark: null, // kategori medyanı serisi ayrı faz
       policyRateAnnualPct: opts.policyRate ?? null,
       inflationAnnualPct: opts.inflation ?? null,
     });
@@ -269,8 +396,10 @@ export async function runFundScan(
 
     measured.push({
       code,
-      meta: meta.get(code)!,
-      category: katMap.get(code) ?? null,
+      name: info.name,
+      investors,
+      size: snap?.size ?? null,
+      category: info.category ?? null,
       nominal: fm.layered.nominal,
       excess: fm.layered.excess,
       real: fm.layered.real,
@@ -304,27 +433,20 @@ export async function runFundScan(
     // pencere 11 gözlemken Sharpe/volatilite null kalıyordu, skor yalnız `excess`
     // bileşeninden türüyordu ve **631 fonun tamamı 70** çıkıyordu. Evrenin
     // tamamında aynı değeri veren gösterge bilgi taşımaz — üstelik adı
-    // "risk-ayarlı" olduğu için doğrudan YANILTICI. Skorun adı risk diyorsa
-    // riski ölçemediğimizde skor yoktur; ekran bunu açıkça söyler.
-    const parts: Array<{ v: number; w: number }> = [];
-    const riskVar = reliable && m.sharpe != null && peerSharpe != null;
-    if (riskVar) parts.push({ v: relativeScore(m.sharpe!, peerSharpe!), w: 60 });
-    if (reliable && m.volatility != null && peerVol != null) parts.push({ v: relativeScore(peerVol, m.volatility), w: 25 });
-    if (m.excess != null) parts.push({ v: m.excess >= 0 ? 70 : 30, w: 15 });
-    const tw = parts.reduce((s, p) => s + p.w, 0);
-    const score = riskVar && tw > 0 ? Math.round(parts.reduce((s, p) => s + p.v * p.w, 0) / tw) : null;
+    // "risk-ayarlı" olduğu için doğrudan YANILTICI.
+    const score = computeCompositeScore(m, { sharpe: peerSharpe, vol: peerVol }, reliable);
 
-    const accessibility = guessAccessibility(m.meta.name);
+    const accessibility = guessAccessibility(m.name);
     return {
       code: m.code,
-      name: m.meta.name,
+      name: m.name,
       universe,
       category: m.category,
       categoryLabel: categoryLabel(m.category),
       accessibility: accessibility.value,
       accessibilitySource: 'ad-tabanlı-tahmin' as const,
-      investors: m.meta.investors,
-      size: m.meta.size,
+      investors: m.investors,
+      size: m.size,
       asOf: m.asOf,
       observations: m.observations,
       nominal: m.nominal, excess: m.excess, real: m.real,
@@ -347,38 +469,39 @@ export async function runFundScan(
       .forEach((i, idx) => { i.rankByScore = idx + 1; });
   }
 
+  const coverage = await getCoverageSummary(sb, universe);
+
   // ⚠️ KÖTÜ KOŞU İYİ STORE'U EZMESİN (banka motorundaki aynı ders).
-  // TEFAS 429 verdiğinde koşu "hatasız ama boş" biter; ham pencere ve kategori
-  // haritası yine de değerli olduğu için MERGE edilir, ama zayıflamış `items`
-  // yayımlanmaz — sayfa eldeki en iyi ölçümde kalır.
-  const oncekiSayi = previous?.items.length ?? 0;
-  const zayif = oncekiSayi > 0 && items.length < oncekiSayi * 0.5;
-  const yayin = zayif ? previous!.items : items;
+  // Tablo artık doğruluk kaynağı olduğu için ham veri kaybı riski yok; ama
+  // tablo okuması kısmi kalırsa (sayfalama hatası) sayfa boşalmasın.
+  const { items: yayin, weak: zayif } = selectPublished(items, previous?.items);
 
   const store: FundStore = {
-    scannedAt: zayif ? (previous!.scannedAt) : new Date().toISOString(),
+    scannedAt: zayif ? previous!.scannedAt : new Date().toISOString(),
     universe,
-    raw,
-    cats: Object.fromEntries(katMap),
     items: [...yayin].sort((a, b) => (b.score ?? -1) - (a.score ?? -1)),
     policyRate: zayif ? previous!.policyRate : opts.policyRate ?? null,
     inflation: zayif ? previous!.inflation : opts.inflation ?? null,
+    coverage,
     note: zayif
-      ? `Bu koşu yalnız ${items.length} fon ölçebildi (${failedDays} gün alınamadı) — önceki ölçüm korundu`
-      : failedDays > 0 ? `${failedDays} gün alınamadı` : undefined,
+      ? `Bu koşu yalnız ${items.length} fon ölçebildi — önceki ölçüm korundu`
+      : backfill.remaining > 0
+        ? `Geçmiş dolduruluyor: ${coverage.completeDays}/${targetDays} gün hazır`
+        : undefined,
   };
   await storeFundStore(sb, store);
-  return { store, scored: yayin.length, skipped, fetchedDays };
+
+  return { store, scored: yayin.length, skipped, backfill, coverage, categoryRefreshed };
 }
 
-// ── ai_cache tek satır (MIGRATION YOK — Kademe 1 kapsamında) ────────────────
+// ── ai_cache tek satır — YALNIZ sunum önbelleği ─────────────────────────────
 
 export async function storeFundStore(sb: SupabaseClient, store: FundStore): Promise<void> {
   await sb.from('ai_cache').upsert(
     {
-      cache_key: rawKey(store.universe),
+      cache_key: cacheKey(store.universe),
       explanation: JSON.stringify(store),
-      version: 1,
+      version: 2,
       hit_count: 0,
       expires_at: new Date(Date.now() + TTL_MS).toISOString(),
     },
@@ -391,7 +514,7 @@ export async function getFundStore(sb: SupabaseClient, universe: FundUniverse): 
     const { data } = await sb
       .from('ai_cache')
       .select('explanation')
-      .eq('cache_key', rawKey(universe))
+      .eq('cache_key', cacheKey(universe))
       .gt('expires_at', new Date().toISOString())
       .maybeSingle();
     if (!data?.explanation) return null;

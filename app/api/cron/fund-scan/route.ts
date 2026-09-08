@@ -1,27 +1,31 @@
 /**
- * Fon precompute cron (FON-ANALIZ-PLAN F7).
+ * Fon precompute cron (FON-ANALIZ-PLAN F7 + FON-BACKFILL-PLAN FAZ 2).
  *
- * GET /api/cron/fund-scan?universe=TEFAS|BES&days=N
- *  - Varsayılan `days=1`: yalnız son iş günü çekilir (~5 istek, ~15 sn) ve
- *    kayan ham pencereye eklenir → metrikler yeniden hesaplanır.
- *  - İlk doldurma için elle **`?days=5`** birkaç kez çağrılır (pencere merge'lenir,
- *    tekrar zararsız). `days` büyük verilmemeli: her koşu AYRICA kategori haritası için
- *    12 kategori × ≤4 sayfa çeker; `days=20` ölçülerek 300 sn'yi AŞTI.
+ * GET /api/cron/fund-scan?universe=TEFAS|BES&target=250
+ *
+ * ARTIMLI: eksik tarih = hedef − (tamamlanmış tarihler). Elde olan gün
+ * **tekrar istenmez**. Bu yüzden tek kod yolu iki işi birden görür:
+ *   - günlük koşu → eksik 1-2 gün, saniyeler içinde biter
+ *   - backfill koşusu → süre bütçesini doldurur, `remaining` ile ilerleme bildirir
+ * `remaining > 0` olduğu sürece tekrar çağır (idempotent, tekrar zararsız).
  *
  * Fon fiyatları akşam yayımlanır → gece/sabah koşusu.
  *
  * ⚠️ NAZİK OL: TEFAS 429 veriyor. `fund-data` 2,2 sn aralık + üstel geri çekilme
- * uyguluyor; bu yüzden `days` büyüdükçe süre lineer artar (maxDuration'a dikkat).
+ * uyguluyor; runner SÜRE bütçesine göre kendini keser (timeout'ta yazmadan ölmez).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchPolicyRate, fetchTurkeyInflation } from '@/lib/turkey-macro';
-import { runFundScan } from '@/lib/fund-runner';
+import { runFundScan, DEFAULT_TARGET_DAYS } from '@/lib/fund-runner';
 import type { FundUniverse } from '@/lib/fund-universe';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
+
+/** Yanıtı yazmaya yetecek pay bırak — runner bunun içinde kendini keser. */
+const BUDGET_MS = 270_000;
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -45,7 +49,10 @@ export async function GET(request: NextRequest) {
   if (universe !== 'TEFAS' && universe !== 'BES') {
     return NextResponse.json({ error: 'universe TEFAS veya BES olmalı' }, { status: 400 });
   }
-  const days = Math.max(1, Math.min(25, Number(request.nextUrl.searchParams.get('days') ?? 1)));
+  const targetDays = Math.max(
+    5,
+    Math.min(1300, Number(request.nextUrl.searchParams.get('target') ?? DEFAULT_TARGET_DAYS)),
+  );
 
   const startedAt = Date.now();
   const sb = createAdmin();
@@ -56,24 +63,35 @@ export async function GET(request: NextRequest) {
 
   try {
     const res = await runFundScan(sb, universe, {
-      days,
+      targetDays,
+      budgetMs: BUDGET_MS,
       policyRate: pr?.value ?? null,
       inflation: inf?.value ?? null,
     });
     const durationMs = Date.now() - startedAt;
     console.log(
-      `[cron/fund-scan] ${universe}: ${res.scored} fon skorlandı, ${res.skipped} atlandı, ${res.fetchedDays}/${days} gün, ${durationMs}ms`,
+      `[cron/fund-scan] ${universe}: ${res.scored} fon skorlandı, ${res.skipped} atlandı, ` +
+      `+${res.backfill.fetched} gün (kalan ${res.backfill.remaining}), ` +
+      `kapsama ${res.coverage.completeDays}/${targetDays}, ${durationMs}ms`,
     );
     return NextResponse.json({
       ok: true,
       universe,
-      days,
-      fetchedDays: res.fetchedDays,
+      targetDays,
       scored: res.scored,
       skipped: res.skipped,
+      fetched: res.backfill.fetched,
+      failedDays: res.backfill.failed,
+      remaining: res.backfill.remaining,
+      budgetExhausted: res.backfill.budgetExhausted,
+      categoryRefreshed: res.categoryRefreshed,
+      coverage: res.coverage,
       policyRate: pr?.value ?? null,
       inflation: inf?.value ?? null,
       durationMs,
+      nextHint: res.backfill.remaining > 0
+        ? `Geçmiş henüz tam değil — aynı ucu tekrar çağır (kalan ${res.backfill.remaining} gün).`
+        : 'Hedef derinlik tamam.',
     });
   } catch (e) {
     return NextResponse.json(

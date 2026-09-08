@@ -53,6 +53,9 @@ export async function GET(req: NextRequest) {
       minPeer: MIN_PEER,
       count: store.items.length,
       funds: store.items,
+      // Kapsama: "yeterli geçmiş yok" mesajlarının dayanağı. Ham seri değil,
+      // yalnız kaç günün hazır olduğu bilgisi (ham veri yayınlanmaz).
+      coverage: store.coverage ?? null,
       note: store.note,
     },
     { headers: { 'Cache-Control': 'public, s-maxage=1800' } },
