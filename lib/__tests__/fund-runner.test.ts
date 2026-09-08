@@ -15,6 +15,7 @@ import {
   computeCompositeScore, selectPublished, buildFlags,
   MIN_PEER, type Measured,
 } from '../fund-runner';
+import { computeFlows } from '../fund-flows';
 
 function m(over: Partial<Measured> = {}): Measured {
   return {
@@ -22,6 +23,7 @@ function m(over: Partial<Measured> = {}): Measured {
     nominal: 40, excess: 3, real: 6,
     volatility: 12, sharpe: 0.8, maxDrawdown: -5,
     observations: 200, asOf: '2026-09-09',
+    flow: computeFlows([]),
     ...over,
   };
 }

@@ -44,6 +44,7 @@ export interface FlowPoint {
   price: number;
   shares: number | null;
   investors: number | null;
+  size: number | null;
 }
 
 // ── Saf yardımcılar (I/O yok — test edilebilir) ──────────────────────────────
@@ -207,11 +208,12 @@ export async function getFlowSeries(
   fromISO: string,
 ): Promise<Map<string, FlowPoint[]>> {
   const rows = await readPaged<{
-    code: string; date: string; price: number; shares: number | null; investors: number | null;
+    code: string; date: string; price: number; shares: number | null;
+    investors: number | null; size: number | null;
   }>(
     sb,
     'fund_prices',
-    'code,date,price,shares,investors',
+    'code,date,price,shares,investors,size',
     (q) => q.eq('universe', universe).gte('date', fromISO).order('code').order('date'),
   );
   const map = new Map<string, FlowPoint[]>();
@@ -222,6 +224,7 @@ export async function getFlowSeries(
       price: Number(r.price),
       shares: r.shares == null ? null : Number(r.shares),
       investors: r.investors == null ? null : Number(r.investors),
+      size: r.size == null ? null : Number(r.size),
     });
   }
   return map;

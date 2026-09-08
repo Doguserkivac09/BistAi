@@ -24,9 +24,11 @@ import { FUND_CATEGORIES, guessAccessibility, categoryLabel, type FundUniverse }
 import { computeFundMetrics, type NavPoint } from './fund-metrics';
 import {
   businessDaysBack, pickMissingDays, isDayComplete, categoryStale,
-  getCoveredDays, getReferenceRowCount, recordDay, getSeries, getLatestSnapshot,
+  getCoveredDays, getReferenceRowCount, recordDay, getFlowSeries,
   getMeta, upsertMetaNames, upsertMetaCategories, getCoverageSummary,
+  type FlowPoint,
 } from './fund-store';
+import { computeFlows, flowFlags, type FlowMetrics } from './fund-flows';
 
 /**
  * Evren eşiği — KULLANICI KARARI (2026-09-09), canlı ölçümle seçildi.
@@ -91,6 +93,11 @@ export interface FundEntry {
   flags: FundFlag[];
   /** Kategori emsali güvenilir mi (n>=MIN_PEER) */
   peerReliable: boolean;
+  /** F3 para akımı — Δ(pay adedi) × ort. fiyat. Büyüklük farkı DEĞİL. */
+  netFlowTL: number | null;
+  sharesChangePct: number | null;
+  investorsChangePct: number | null;
+  flowPattern: FlowMetrics['pattern'];
 }
 
 export interface FundCoverage {
@@ -149,6 +156,8 @@ export interface Measured {
   maxDrawdown: number | null;
   observations: number;
   asOf: string | null;
+  /** F3 para akımı — pay adedi tabanlı (fon büyüklüğünden DEĞİL) */
+  flow: FlowMetrics;
 }
 
 /** 0-100'e ölçekler: değer medyanın ne kadar üstünde/altında (±%50 tam aralık). */
@@ -228,6 +237,20 @@ export function buildFlags(
     flags.push({ id: 'fon-dusuk-dalga', tone: 'pos', text: 'Emsallerine göre daha az dalgalandı', detail: `Volatilite %${m.volatility} · kategori medyanı %${peer!.vol.toFixed(1)}` });
   }
   return flags;
+}
+
+/**
+ * Serinin son DOLU yatırımcı/büyüklük değerleri.
+ * O gün boş geldiyse önceki dolu değer korunur (veri yokluğu ≠ sıfır).
+ */
+function latestSnapshot(pts: FlowPoint[]): { investors: number | null; size: number | null } {
+  let investors: number | null = null;
+  let size: number | null = null;
+  for (const p of pts) {
+    if (p.investors != null) investors = p.investors;
+    if (p.size != null) size = p.size;
+  }
+  return { investors, size };
 }
 
 // ── Artımlı backfill ────────────────────────────────────────────────────────
@@ -369,25 +392,31 @@ export async function runFundScan(
 
   // ── Ölçüm: seriler tablodan ──
   const from = businessDaysBack(targetDays)[targetDays - 1]!;
-  const series = await getSeries(sb, universe, from);
-  const snapshot = await getLatestSnapshot(sb, universe, from);
+  // TEK OKUMA: NAV serisi + akım + son snapshot aynı satırlardan türetilir
+  // (~160k satır/yıl — üç ayrı tarama yapmanın anlamı yok).
+  const flowSeries = await getFlowSeries(sb, universe, from);
 
   const measured: Measured[] = [];
   let skipped = 0;
-  for (const [code, points] of series) {
+  for (const [code, pts] of flowSeries) {
     const info = meta.get(code);
-    const snap = snapshot.get(code);
-    // Yatırımcı sayısı: son dolu gözlem (getLatestSnapshot boş günü devrediyor).
-    // Veri yokluğu "eşiğin altında" demek DEĞİLDİR.
-    const investors = snap?.investors ?? null;
+    const snap = latestSnapshot(pts);
+    // Yatırımcı sayısı: son DOLU gözlem. Veri yokluğu "eşiğin altında" demek
+    // DEĞİLDİR — canlıda (2026-09-09) boş gelen kisiSayisi 2.034 fonun tamamını
+    // eleyip store'u 631 → 0'a düşürmüştü.
+    const investors = snap.investors;
     if ((investors ?? 0) < MIN_INVESTORS) { skipped++; continue; }
     // ⚠️ Meta yoksa ATLA (eski kod `meta.get(code)!` ile non-null iddia ediyordu →
     // hedefli backfill'de fon bu koşuda fiyat yayımlamadığında TypeError ile
     // TÜM koşuyu çökertiyordu). Artık meta tabloda kalıcı; yine de guard var.
     if (!info?.name) { skipped++; continue; }
 
+    const points: NavPoint[] = pts
+      .filter((x) => Number.isFinite(x.price) && x.price > 0)
+      .map((x) => ({ date: x.date, price: x.price }));
+
     const fm = computeFundMetrics({
-      series: points as NavPoint[],
+      series: points,
       benchmark: null, // kategori medyanı serisi ayrı faz
       policyRateAnnualPct: opts.policyRate ?? null,
       inflationAnnualPct: opts.inflation ?? null,
@@ -398,7 +427,7 @@ export async function runFundScan(
       code,
       name: info.name,
       investors,
-      size: snap?.size ?? null,
+      size: snap.size,
       category: info.category ?? null,
       nominal: fm.layered.nominal,
       excess: fm.layered.excess,
@@ -408,6 +437,7 @@ export async function runFundScan(
       maxDrawdown: fm.risk.maxDrawdown,
       observations: fm.observations,
       asOf: fm.asOf,
+      flow: computeFlows(pts),
     });
   }
 
@@ -424,6 +454,9 @@ export async function runFundScan(
     const n = peers.length;
     const peerSharpe = median(peers.map((p) => p.sharpe).filter((x): x is number => x != null));
     const peerVol = median(peers.map((p) => p.volatility).filter((x): x is number => x != null));
+    // Akım da EMSALE GÖRELİ okunur: piyasa genelinde çıkış varken "para çıkışı
+    // var" tüm evrende tetiklenir ve bilgi taşımaz (kalibrasyon kuralı).
+    const peerFlow = median(peers.map((p) => p.flow.sharesChangePct).filter((x): x is number => x != null));
     const reliable = n >= MIN_PEER;
 
     // Bileşik skor: risk-ayarlı getiri (emsale göre) + istikrar. Bileşen yoksa
@@ -454,8 +487,15 @@ export async function runFundScan(
       score,
       rankByReturn: null,
       rankByScore: null,
-      flags: buildFlags(m, reliable ? { sharpe: peerSharpe, vol: peerVol, n } : null),
+      flags: [
+        ...buildFlags(m, reliable ? { sharpe: peerSharpe, vol: peerVol, n } : null),
+        ...flowFlags(m.flow, reliable ? peerFlow : null, m.size),
+      ],
       peerReliable: reliable,
+      netFlowTL: m.flow.netFlowTL,
+      sharesChangePct: m.flow.sharesChangePct,
+      investorsChangePct: m.flow.investorsChangePct,
+      flowPattern: m.flow.pattern,
     };
   });
 
