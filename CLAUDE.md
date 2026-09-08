@@ -33,6 +33,34 @@ doğrulandı (`{"entries":[...],"hasNew":true}`).
 
 ---
 
+## 📨 TradingView alarm → Telegram özel mesaj köprüsü (2026-08-14) 🔵 KISMİ
+
+> TradingView'deki VIOP tarayıcı alarmlarının **doğrudan kişisel Telegram sohbetine**
+> düşmesi için webhook alıcı endpoint'i. Make.com'a bağımlılık yok, mesaj biçimi
+> tarayıcı betiklerinde üretilir (sembol + yön + skor + doğrudan grafik linki).
+
+| Bileşen | Dosya | Açıklama |
+|---------|-------|----------|
+| Webhook alıcı | `app/api/tradingview-alert/route.ts` | `POST ?key=<secret>` → gövdeyi (düz metin veya `{text\|message\|msg}` JSON) Telegram Bot API `sendMessage`'a iletir. 4000 karakterde böler, `disable_web_page_preview`, `parse_mode` YOK (serbest metinde Markdown kaçışı hataya açık). `GET ?key=...&test=1` test mesajı atar. |
+
+**Neden query param ile korunuyor:** TradingView webhook'ları **özel HTTP header
+gönderemez** — bu yüzden `x-api-key` deseni burada kullanılamadı. Secret URL'de
+(`?key=`), o yüzden URL paylaşılmamalı. Diğer route'ların aksine secret tanımlı
+değilse endpoint **kapalıdır** (dışarıya açık yazma yolu, açık bırakılamaz).
+
+**Gerekli env (Vercel'e eklenecek — BEKLEYEN MANUEL ADIM):**
+`TELEGRAM_BOT_TOKEN` · `TELEGRAM_CHAT_ID` (kişisel sohbet id'si) · `TRADINGVIEW_WEBHOOK_SECRET`
+
+**Durum (2026-09-09):** Kod `main`'e merge edildi (PR #11) ve `tsc`/`build` temiz.
+**BEKLEYEN:** env'ler (`TELEGRAM_BOT_TOKEN` · `TELEGRAM_CHAT_ID` ·
+`TRADINGVIEW_WEBHOOK_SECRET`) Vercel'e eklendi mi doğrulanmadı; uçtan uca test edilmedi.
+
+**Not (TradingView planı):** Webhook bildirimi tüm planlarda olmayabilir; alarm
+penceresindeki Bildirimler sekmesinde "Webhook URL" görünmüyorsa plan yükseltmesi
+gerekir. Alternatif: e-posta bildirimi + e-posta→Telegram yönlendirmesi.
+
+---
+
 ## 🎨 YENİ TASARIM — Frontend Redesign (Modern-Minimalist Açık Tema) — DEVAM EDİYOR
 
 > **Bu, AKTİF frontend iş akışıdır. Tasarım işine yeni pencerede devam ederken BURAYI oku.**
