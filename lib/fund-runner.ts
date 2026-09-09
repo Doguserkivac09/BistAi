@@ -20,7 +20,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listFundsOnDate, POLITE_DELAY_MS, type FundDailyRow } from './fund-data';
-import { FUND_CATEGORIES, guessAccessibility, categoryLabel, type FundUniverse } from './fund-universe';
+import { FUND_CATEGORIES, guessAccessibility, guessBesCategory, categoryLabel, type FundUniverse } from './fund-universe';
 import { computeFundMetrics, type NavPoint } from './fund-metrics';
 import {
   businessDaysBack, pickMissingDays, isDayComplete, categoryStale,
@@ -430,7 +430,10 @@ export async function runFundScan(
   const tumKategorilerTaze = FUND_CATEGORIES.every((c) => tazeKategoriler.has(c.code));
   // Kategori sorgusu VERİSİ OLAN bir tarih ister; hiç kapsama yoksa bu koşuda
   // yapılamaz (ilk koşu) — o zaman bütün bütçe backfill'e gider.
-  const katGerekli = !tumKategorilerTaze && covOnce.newest != null;
+  // ⚠️ BES'te `sfonTurKod` filtresi TEFAS tarafından YOK SAYILIYOR (canlıda
+  // ölçüldü: 12 sorgu × 400 fon = 4.800 çakışan kayıt, 400 fonun tamamı
+  // kategorisiz kaldı). BES kategorisi fon ADINDAN çıkarılır → tarama gereksiz.
+  const katGerekli = universe !== 'BES' && !tumKategorilerTaze && covOnce.newest != null;
   const katRezerv = katGerekli ? CATEGORY_BUDGET_MS : 0;
 
   // VERİ ÖNCELİKLİ (kategori rezervi düşüldükten sonra): kaçırılan gün telafi
@@ -498,7 +501,8 @@ export async function runFundScan(
       name: info.name,
       investors,
       size: snap.size,
-      category: info.category ?? null,
+      // BES: kategori TEFAS'tan gelmiyor (yukarıdaki nota bak) → addan çıkarılır.
+      category: universe === 'BES' ? guessBesCategory(info.name) : (info.category ?? null),
       nominal: fm.layered.nominal,
       excess: fm.layered.excess,
       real: fm.layered.real,

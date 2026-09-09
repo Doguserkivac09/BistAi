@@ -43,6 +43,49 @@ export function categoryLabel(code: number | null | undefined): string | null {
 }
 
 /**
+ * BES fon adından KATEGORİ çıkarımı.
+ *
+ * ⚠️ NEDEN GEREKLİ (canlıda ölçüldü, 2026-09-09): TEFAS'ın `sfonTurKod` filtresi
+ * **EMK (BES) evreninde ÇALIŞMIYOR** — geçersiz filtreyi yok sayıp her kategori
+ * sorgusuna TÜM evreni döndürüyor (12 sorgu × 400 fon = 4.800 çakışan kayıt →
+ * 400 fonun tamamı kategorisiz kaldı, dolayısıyla emsal grubu ve SKOR üretilemedi).
+ * Günlük satırda da kategori alanı YOK (ham yanıt dökümüyle doğrulandı).
+ *
+ * Bu yüzden ad-tabanlı çıkarım — `guessAccessibility` ile aynı desen ve aynı
+ * dürüstlük kuralı: sonuç bir TAHMİNDİR. Eşleşme yoksa `null` döner ve fon
+ * kategorisiz kalır (uydurma kategori ATANMAZ; skorsuz görünür, bu dürüsttür).
+ *
+ * Öncelik sırası TEFAS'ın kendi taksonomisini izler: **Katılım ayrı bir şemsiyedir**
+ * (varlık sınıfından önce gelir), sonra açık varlık sınıfı, en son çok-varlıklı
+ * OKS/dengeli türevleri Karma'ya düşer.
+ */
+export function guessBesCategory(name: string | null | undefined): number | null {
+  if (!name) return null;
+  const u = name.toLocaleUpperCase('tr');
+
+  // 1) Katılım — TEFAS'ta ayrı şemsiye (114); varlık sınıfından ÖNCE gelir
+  if (u.includes('KATILIM')) return 114;
+
+  // 2) Açık varlık sınıfları
+  if (u.includes('KIYMETLİ MADEN') || u.includes('ALTIN') || u.includes('GÜMÜŞ')) return 105;
+  if (u.includes('FON SEPETİ')) return 102;
+  if (u.includes('PARA PİYASASI') || u.includes('LİKİT')) return 107;
+  if (u.includes('HİSSE SENEDİ') || u.includes('ENDEKS')) return 104;
+  if (u.includes('BORÇLANMA') || u.includes('KAMU') || u.includes('ÖZEL SEKTÖR') ||
+      u.includes('TAHVİL') || u.includes('BONO') || u.includes('KATKI')) return 100;
+
+  // 3) Değişken
+  if (u.includes('DEĞİŞKEN')) return 101;
+
+  // 4) Çok varlıklı OKS/BES türevleri → Karma
+  if (u.includes('KARMA') || u.includes('DENGELİ') || u.includes('AGRESİF') ||
+      u.includes('TEMKİNLİ') || u.includes('ATAK') || u.includes('STANDART') ||
+      u.includes('BAŞLANGIÇ')) return 110;
+
+  return null; // eşleşme yok → kategorisiz (uydurma YOK)
+}
+
+/**
  * Erişilebilirlik — "sen bunu alabilir misin?" (plan F4-2 madde 7).
  *
  * ⚠️ TEFAS'ta bunu veren bir ALAN YOK (F0 spike'ında arandı, bulunamadı). Bu yüzden
