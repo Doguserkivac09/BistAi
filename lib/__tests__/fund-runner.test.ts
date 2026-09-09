@@ -25,6 +25,7 @@ function m(over: Partial<Measured> = {}): Measured {
     observations: 200, asOf: '2026-09-09',
     flow: computeFlows([]),
     categoryName: null, categoryRank: null,
+    sortino: null, calmar: null, worstMonth: null,
     periods: [], priceChangeShort: null, series: [],
     ...over,
   };

@@ -226,9 +226,17 @@ export function FonDetayScreen({ kod, universe: baslangic }: { kod: string; univ
   return (
     <div className="ie-ambient relative min-h-full overflow-hidden">
       <div className="relative px-6 py-5 lg:px-7 lg:py-[22px]">
-        <Link href="/fonlar" className="text-[12px] font-semibold text-t2 transition-colors hover:text-ink">
-          ← Fonlar
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Link href="/fonlar" className="text-[12px] font-semibold text-t2 transition-colors hover:text-ink">
+            ← Fonlar
+          </Link>
+          <Link
+            href={`/fonlar/karsilastir?universe=${data.universe ?? universe}&kod=${f.code}`}
+            className="ie-glass-flat rounded-[10px] px-3 py-1.5 text-[11.5px] font-semibold text-t2 transition-colors hover:text-ink"
+          >
+            Başka fonla karşılaştır →
+          </Link>
+        </div>
 
         {/* Başlık */}
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
@@ -358,17 +366,31 @@ export function FonDetayScreen({ kod, universe: baslangic }: { kod: string; univ
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {([
               ['Dalgalanma', f.volatility == null ? null : `%${f.volatility.toFixed(1)}`, 'Yıllık oynaklık'],
-              ['Sharpe', f.sharpe == null ? null : f.sharpe.toFixed(2), 'Risk başına getiri'],
+              ['Sharpe', f.sharpe == null ? null : f.sharpe.toFixed(2), 'Her birim risk için getiri'],
+              ['Sortino', f.sortino == null ? null : f.sortino.toFixed(2), 'Yalnız düşüşü cezalandırır'],
+              ['Calmar', f.calmar == null ? null : f.calmar.toFixed(2), 'Getiri ÷ en sert düşüş'],
               ['En sert düşüş', f.maxDrawdown == null ? null : `%${f.maxDrawdown.toFixed(1)}`, 'Zirveden dibe'],
+              ['En kötü ay', f.worstMonth == null ? null : `%${f.worstMonth.toFixed(1)}`, 'Tek ayda görülen en kötü'],
               ['Gözlem', String(f.observations), 'İşlem günü'],
+              ['Veri', f.asOf ? gun(f.asOf) : null, 'Son fiyat tarihi'],
             ] as const).map(([ad, v, alt]) => (
               <div key={ad} className="rounded-[12px] border border-hairline px-3 py-2.5">
                 <div className="text-[10.5px] font-semibold text-t3">{ad}</div>
                 <div className="mt-0.5 font-mono text-[15px] font-bold text-ink">{v ?? '—'}</div>
-                <div className="mt-0.5 text-[10px] font-medium text-t4">{alt}</div>
+                <div className="mt-0.5 text-[10px] font-medium leading-[1.3] text-t4">{alt}</div>
               </div>
             ))}
           </div>
+          <p className="mt-2.5 text-[11px] font-medium leading-[1.5] text-t3">
+            <strong className="font-semibold text-ink">Sharpe ile Sortino neden farklı?</strong>{' '}
+            Sharpe her tür dalgalanmayı risk sayar — fon sert <em>yükseldiğinde</em> bile ceza alır.
+            Sortino yalnız <strong className="font-semibold">aşağı yönlü</strong> sapmayı cezalandırır.
+            Sortino belirgin şekilde yüksekse, oynaklığın çoğu yukarı yönlüdür.
+            <strong className="font-semibold text-ink"> Calmar</strong> ise en somut soruyu sorar:
+            yaşattığı en sert düşüşe karşılık ne kazandırdı? Düşüşü %1'in altında kalan
+            fonlarda Calmar <strong className="font-semibold">gösterilmez</strong> — payda sıfıra
+            yaklaşınca oran bir ölçü olmaktan çıkıp yanıltıcı bir büyük sayıya döner.
+          </p>
         </section>
 
         {/* 5. Kategori içi konum — çifte sıra */}

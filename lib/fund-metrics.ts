@@ -21,6 +21,21 @@
 export const TRADING_DAYS = 252;
 
 /** Metrik üretmek için gereken en az gözlem (altında null döner). */
+/**
+ * Bir dönemin "kapsandı" sayılması için gereken oran.
+ *
+ * Tek yerde tutuluyor: `coversPeriod` ile `annualizedReturn` aynı eşiği
+ * kullanmazsa, bir metrik "1 yıllık veri var" derken diğeri "yok" der ve
+ * ona bağlı hesaplar (Calmar) sessizce null kalır — canlıda tam olarak bu oldu.
+ */
+export const PERIOD_COVERAGE = 0.9;
+
+/**
+ * Calmar için gereken en az düşüş (mutlak %, pozitif yazılır).
+ * Altında oran patlıyor ve ölçü olmaktan çıkıyor (bkz. `riskMetrics`).
+ */
+export const CALMAR_MIN_DD = 1;
+
 export const MIN_OBS = {
   /** Getiri: en az 2 fiyat noktası */
   return: 2,
@@ -103,7 +118,15 @@ export function cumulativeReturn(series: NavPoint[]): number | null {
 export function annualizedReturn(series: NavPoint[]): number | null {
   if (series.length < MIN_OBS.return) return null;
   const days = daySpan(series);
-  if (days < 365) return null;
+  //
+  // ⚠️ EŞİK `coversPeriod` İLE AYNI DİSİPLİNDE (%90) — önce katı 365 idi ve
+  // bu sessiz bir arızaya yol açıyordu: 240 iş günlük tam veri **349 takvim
+  // günü** ediyor (hafta sonu + tatil), yani "1 yıl" pratikte hiçbir zaman
+  // 365'e ulaşmıyordu. Sonuç: yıllık getiri sütunu HER fonda boştu ve ona
+  // bağlı olan **Calmar da hiç üretilemiyordu** (canlıda yakalandı).
+  // Yıllıklandırma zaten bir dönüşümdür; %95 kapsanan bir dönemi yıla
+  // çevirmek meşru, %25'ini çevirmek değildir — sınır oradan geçiyor.
+  if (days < 365 * PERIOD_COVERAGE) return null;
   const first = series[0]!.price, last = series.at(-1)!.price;
   if (first <= 0) return null;
   return round(((last / first) ** (365 / days) - 1) * 100, 2);
@@ -164,7 +187,7 @@ function sliceYtd(series: NavPoint[]): NavPoint[] {
  */
 export function coversPeriod(series: NavPoint[], days: number): boolean {
   if (series.length < MIN_OBS.return) return false;
-  return daySpan(series) >= days * 0.9;
+  return daySpan(series) >= days * PERIOD_COVERAGE;
 }
 
 export function periodReturns(series: NavPoint[]): PeriodReturn[] {
@@ -331,7 +354,17 @@ export function riskMetrics(
     sharpe,
     sortino,
     maxDrawdown: mdd,
-    calmar: annualRet != null && mdd != null && mdd < 0 ? round(annualRet / Math.abs(mdd), 2) : null,
+    //
+    // ⚠️ ÇOK KÜÇÜK DÜŞÜŞTE CALMAR ÜRETİLMEZ — sıfıra bölmeye yaklaşır.
+    // Canlıda görüldü: en sert düşüşü %0,08 olan bir para piyasası fonunda
+    // Calmar **589** çıkıyordu. Matematiksel olarak doğru ama bir ÖLÇÜ değil;
+    // kullanıcı 589 ile 206'yı kıyaslayamaz ve büyük sayı "çok iyi" sanılır.
+    // Böyle fonlarda anlamlı bilgi zaten "düşüş yok denecek kadar az"dır ve
+    // onu `maxDrawdown` alanı doğrudan söylüyor.
+    calmar:
+      annualRet != null && mdd != null && mdd <= -CALMAR_MIN_DD
+        ? round(annualRet / Math.abs(mdd), 2)
+        : null,
     worstMonth: months.length ? Math.min(...months.map((m) => m.ret)) : null,
     observations: rets.length,
   };

@@ -212,9 +212,17 @@ export function FonlarScreen() {
   return (
     <div className="ie-ambient relative min-h-full overflow-hidden">
       <div className="relative px-6 py-5 lg:px-7 lg:py-[22px]">
-        <h1 className="text-[26px] font-extrabold tracking-[-0.03em] text-ink lg:text-[22px]">
-          Fonlar <span className="hidden text-[13px] font-semibold text-t3 lg:inline">· karşılaştırma</span>
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-[26px] font-extrabold tracking-[-0.03em] text-ink lg:text-[22px]">
+            Fonlar
+          </h1>
+          <Link
+            href={`/fonlar/karsilastir?universe=${universe}`}
+            className="ie-glass-flat rounded-[11px] px-3.5 py-2 text-[12px] font-semibold text-t2 transition-colors hover:text-ink"
+          >
+            Fon karşılaştır →
+          </Link>
+        </div>
         <p className="mt-0.5 text-[12px] font-medium text-t3">
           {resp?.available
             ? `${resp.count} fon · risksiz getiri %${resp.policyRate ?? '—'} · enflasyon %${resp.inflation ?? '—'}`

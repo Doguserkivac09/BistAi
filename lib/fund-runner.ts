@@ -44,6 +44,14 @@ export const MIN_INVESTORS = 1000;
 /** Kategori medyanının güvenilir sayılması için gereken akran sayısı. */
 export const MIN_PEER = 5;
 
+/**
+ * Aynı anda karşılaştırılabilecek en fazla fon (F6-3).
+ * Daha fazlası hem tabloyu okunmaz yapar hem tek istekte çok seri döndürür.
+ * ⚠️ Burada duruyor çünkü Next.js route dosyaları HTTP metodu dışında sabit
+ * EXPORT EDEMİYOR (build type hatası); API ve ekran aynı kaynağı okumalı.
+ */
+export const MAX_KARSILASTIRMA = 4;
+
 /** Varsayılan derinlik hedefi (iş günü) — ~1 yıl. Kullanıcı kararı 2026-09-09. */
 export const DEFAULT_TARGET_DAYS = 250;
 
@@ -119,6 +127,12 @@ export interface FundEntry {
   volatility: number | null;
   sharpe: number | null;
   maxDrawdown: number | null;
+  /** Yalnız AŞAĞI yönlü sapmayı cezalandırır — yukarı oynaklık risk sayılmaz. */
+  sortino: number | null;
+  /** Yıllık getiri ÷ |en sert düşüş| — "acıya değdi mi" ölçüsü. */
+  calmar: number | null;
+  /** En kötü takvim ayı (%) — soyut oynaklığın somut karşılığı. */
+  worstMonth: number | null;
   /** Kategoriye göre risk-ayarlı bileşik skor 0-100 (varsayılan sıralama) */
   score: number | null;
   /** Kategori içi sıralar — çifte sıralama görünürlüğü (F5-2) */
@@ -199,6 +213,15 @@ export interface Measured {
   volatility: number | null;
   sharpe: number | null;
   maxDrawdown: number | null;
+  /**
+   * Sortino/Calmar/en kötü ay: `riskMetrics` bunları BAŞTAN BERİ hesaplıyordu
+   * ama hiçbir yere taşınmıyordu — motor üretiyor, ürün göstermiyordu.
+   * Sharpe tüm oynaklığı cezalandırır; Sortino yalnız AŞAĞI yönlü sapmayı
+   * cezalandırdığı için "yukarı oynaklık" ile "gerçek risk"i ayırır.
+   */
+  sortino: number | null;
+  calmar: number | null;
+  worstMonth: number | null;
   observations: number;
   asOf: string | null;
   /** F3 para akımı — pay adedi tabanlı (fon büyüklüğünden DEĞİL) */
@@ -593,6 +616,9 @@ export async function runFundScan(
       volatility: fm.risk.volatility,
       sharpe: fm.risk.sharpe,
       maxDrawdown: fm.risk.maxDrawdown,
+      sortino: fm.risk.sortino,
+      calmar: fm.risk.calmar,
+      worstMonth: fm.risk.worstMonth,
       observations: fm.observations,
       asOf: fm.asOf,
       flow: computeFlows(pts),
@@ -704,6 +730,7 @@ export async function runFundScan(
       observations: m.observations,
       nominal: m.nominal, excess: m.excess, real: m.real,
       volatility: m.volatility, sharpe: m.sharpe, maxDrawdown: m.maxDrawdown,
+      sortino: m.sortino, calmar: m.calmar, worstMonth: m.worstMonth,
       score,
       rankByReturn: null,
       rankByScore: null,
