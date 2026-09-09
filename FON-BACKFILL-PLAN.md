@@ -128,12 +128,23 @@ türetilebilir, ek sorgu yok) → `computeFundMetrics`'e `benchmark` olarak ver 
 ### 2️⃣ ~~BES backfill~~ ✅ TAMAM
 240 tam gün, 0 hata, 364 fon skorlanıyor (bkz. hata #9).
 
-### 3️⃣ FAZ 6 — Fon detay sayfası (`/fonlar/[kod]`)
+### 3️⃣ FAZ 6 — **ayrı plana taşındı → [`FON-FAZ6-PLAN.md`](FON-FAZ6-PLAN.md)**
+
+Kullanıcı geri bildirimi sonrası kapsam büyüdü: detay sayfası + **erken uyarı katmanı**
+(PHE vakası: fiyat 5 günde −%60, ama yatırımcı kaçışı haftalar ÖNCE başlamış — verimizde
+duruyor, motor görmüyor) + dönemsel tablo + `fonBilgiGetir` ile gerçek kategori.
+Portföy içeriği ("hangi hisselerde") **bulunamadı** — 15 uç adı denendi, ayrı keşif fazı.
+
+<details><summary>Eski (dar kapsamlı) FAZ 6 notu</summary>
+
+#### FAZ 6 — Fon detay sayfası (`/fonlar/[kod]`)
 `components/new/FonDetayScreen.tsx` + `app/fonlar/[kod]/page.tsx` + `new-design-routes`.
 Üç katmanlı getiri · dönemsel getiriler · risk · beceri (yukarıdaki 1. madde sonrası) ·
 **akım grafiği** · bayraklar · kategori emsalleri içindeki konum · erişilebilirlik
 uyarısı (`ad-tabanlı-tahmin`). Veri tablodan okunur, TEFAS'a istek YOK.
 Fon dili korunur: **AL/SAT, stop, R/R YOK.**
+
+</details>
 
 ### 4️⃣ F6-3 — Fon karşılaştırma (2-4 fon yan yana)
 
