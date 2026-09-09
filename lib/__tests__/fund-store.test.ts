@@ -49,6 +49,21 @@ describe('pickMissingDays — darboğazın çözümü', () => {
     assert.deepEqual(pickMissingDays(target, new Set(), 2), ['2026-09-09', '2026-09-08']);
   });
 
+  it('⚠️ REGRESYON: yakın zamanda BOŞ kaydedilen gün atlanır', () => {
+    // TEFAS bugünün fiyatlarını akşam yayımlıyor. Bugünün tarihi her koşuda
+    // yeniden denenip ~50 sn bütçe yakıyordu (canlıda ölçüldü, 2026-09-09).
+    const bosGunler = new Set(['2026-09-09']);
+    assert.deepEqual(
+      pickMissingDays(target, new Set(), 99, bosGunler),
+      ['2026-09-08', '2026-09-07', '2026-09-04', '2026-09-03'],
+    );
+  });
+
+  it('atlanan gün bütçeden de düşmez (yerine sıradaki alınır)', () => {
+    const r = pickMissingDays(target, new Set(), 2, new Set(['2026-09-09']));
+    assert.deepEqual(r, ['2026-09-08', '2026-09-07']);
+  });
+
   it('bütçe 0 veya negatifse boş döner', () => {
     assert.deepEqual(pickMissingDays(target, new Set(), 0), []);
     assert.deepEqual(pickMissingDays(target, new Set(), -3), []);

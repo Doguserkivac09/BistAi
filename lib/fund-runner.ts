@@ -24,7 +24,7 @@ import { FUND_CATEGORIES, guessAccessibility, categoryLabel, type FundUniverse }
 import { computeFundMetrics, type NavPoint } from './fund-metrics';
 import {
   businessDaysBack, pickMissingDays, isDayComplete, categoryStale,
-  getCoveredDays, getReferenceRowCount, recordDay, getFlowSeries,
+  getCoveredDays, getReferenceRowCount, getRecentlyEmptyDays, recordDay, getFlowSeries,
   getMeta, upsertMetaNames, upsertMetaCategories, getCoverageSummary,
   type FlowPoint,
 } from './fund-store';
@@ -45,11 +45,14 @@ export const MIN_PEER = 5;
 export const DEFAULT_TARGET_DAYS = 250;
 
 /**
- * Bir günün ölçülen maliyeti (≈5 sayfa × 2,2 sn + günler arası 2,2 sn).
+ * Bir günün BAŞLANGIÇ maliyet tahmini. İlk sürümde 13 sn'ydi; canlıda
+ * (2026-09-09, Vercel'den) gerçek maliyet **~50 sn** ölçüldü — TEFAS paylaşımlı
+ * IP'de 429 verip üstel geri çekilmeyi tetikliyor. Döngü ayrıca ÖLÇÜLEN
+ * ortalamaya göre kendini ayarlar (aşağıdaki adaptif tahmin).
  * Bütçe SÜRE tabanlı: tahmine değil gerçek saate bakılır, böylece TEFAS
  * yavaşladığında koşu kendini keser (timeout'ta yazmadan ölmez).
  */
-const DAY_COST_MS = 13_000;
+const DAY_COST_MS = 55_000;
 
 /** Metrik/okuma/yazma için ayrılan pay — gün çekimi bunu yemez. */
 const RESERVE_MS = 55_000;
@@ -279,14 +282,22 @@ export async function backfillMissingDays(
   const target = businessDaysBack(targetDays);
   const from = target[target.length - 1]!;
   const covered = await getCoveredDays(sb, universe, from);
+  const skipEmpty = await getRecentlyEmptyDays(sb, universe);
   const ref = await getReferenceRowCount(sb, universe);
 
-  const allMissing = pickMissingDays(target, covered, Number.MAX_SAFE_INTEGER);
+  const allMissing = pickMissingDays(target, covered, Number.MAX_SAFE_INTEGER, skipEmpty);
   let fetched = 0, failed = 0, budgetExhausted = false;
   const names = new Map<string, string>();
 
+  // Adaptif maliyet: ilk günden sonra GERÇEK ortalamayı kullan; sabit tahmin
+  // yanlışsa (canlıda 13 sn sanılıyordu, 50 sn çıktı) döngü ya erken durur ya
+  // da bütçeyi aşar. Ölçülen ortalama ikisini de engeller.
+  let costEstimate = DAY_COST_MS;
+  const loopStart = Date.now();
+
   for (const [i, day] of allMissing.entries()) {
-    if (Date.now() + DAY_COST_MS > deadline) { budgetExhausted = true; break; }
+    if (i > 0) costEstimate = Math.max(5_000, (Date.now() - loopStart) / i);
+    if (Date.now() + costEstimate > deadline) { budgetExhausted = true; break; }
     if (i > 0) await sleep(POLITE_DELAY_MS);
     try {
       const res = await listFundsOnDate(universe, new Date(`${day}T00:00:00Z`));
@@ -301,6 +312,9 @@ export async function backfillMissingDays(
       for (const r of res.data) if (r.name) names.set(r.code, r.name);
       if (complete) fetched++; else failed++;
     } catch {
+      // Kaydet ki throttle devreye girsin — aksi halde 429 alan gün her koşuda
+      // baştan denenip bütçeyi yiyordu.
+      try { await recordDay(sb, universe, day, [], false); } catch { /* yut */ }
       failed++;
     }
   }
@@ -318,20 +332,25 @@ export async function backfillMissingDays(
  *
  * Eskiden bu **her koşuda** ödeniyordu ve 300 sn'nin üçte birini yiyordu.
  * Artık `fund_meta.category_at` 7 günden tazeyse hiç çalışmaz.
+ *
+ * ⚠️ `onDate` VERİSİ OLDUĞU BİLİNEN bir tarih olmalı. İlk sürüm bugünün
+ * tarihini kullanıyordu; TEFAS fon fiyatlarını akşam yayımladığı için sorgu
+ * boş dönüyor ve kategori haritası HİÇ dolmuyordu (canlıda 2026-09-09:
+ * 2.034 fonun kategorisi boş kaldı → emsal kıyası ve skor üretilemedi).
  */
 export async function refreshCategories(
   sb: SupabaseClient,
   universe: FundUniverse,
   deadline: number,
+  onDate: string,
 ): Promise<number> {
-  const dun = businessDaysBack(1)[0]!;
   const entries: Array<{ code: string; category: number }> = [];
   for (const [i, c] of FUND_CATEGORIES.entries()) {
     if (Date.now() + 12_000 > deadline) break;
     if (i > 0) await sleep(POLITE_DELAY_MS);
     try {
       // Serbest kategorisi ~1000 fon → sayfa limiti geniş tutulmalı (ölçüldü)
-      const r = await listFundsOnDate(universe, new Date(`${dun}T00:00:00Z`), { sfonTurKod: c.code, maxPages: 4 });
+      const r = await listFundsOnDate(universe, new Date(`${onDate}T00:00:00Z`), { sfonTurKod: c.code, maxPages: 4 });
       for (const f of r.data) entries.push({ code: f.code, category: c.code });
     } catch { /* bu kategori bu koşuda alınamadı; tablodaki önceki değeri KORUNUR */ }
   }
@@ -367,28 +386,27 @@ export async function runFundScan(
   const targetDays = opts.targetDays ?? DEFAULT_TARGET_DAYS;
 
   const previous = await getFundStore(sb, universe);
-  let meta = await getMeta(sb, universe);
 
-  // İLK KOŞU: kategori hiç yoksa emsal kıyası imkânsız → önce onu al.
-  // Aksi halde VERİ ÖNCELİKLİ: günler çekilir, kategori tazelemesi artan
-  // süreye bırakılır (kategori nadiren değişir, gün kaybı telafi edilemez).
-  const hicKategoriYok = [...meta.values()].every((m) => m.category == null);
-  let categoryRefreshed = 0;
-  if (hicKategoriYok) {
-    categoryRefreshed = await refreshCategories(sb, universe, deadline);
-    meta = await getMeta(sb, universe);
-  }
-
+  // VERİ ÖNCELİKLİ: önce günler çekilir. Kategori tazelemesi artan süreye
+  // bırakılır — kategori nadiren değişir, kaçırılan gün ise telafi edilemez.
+  // Ayrıca kategori sorgusu VERİSİ OLAN bir tarih ister; o tarihi ancak
+  // backfill'den sonra kesin biliriz.
   const backfill = await backfillMissingDays(sb, universe, targetDays, deadline);
 
-  // Artan süre varsa bayat kategorileri tazele
-  if (!hicKategoriYok) {
-    const enEski = [...meta.values()].map((m) => m.categoryAt).sort()[0] ?? null;
-    if (categoryStale(enEski) && Date.now() + 60_000 < deadline) {
-      categoryRefreshed = await refreshCategories(sb, universe, deadline);
-    }
+  // ⚠️ META BACKFILL'DEN SONRA OKUNUR. İlk sürümde önce okunuyordu; adları
+  // backfill yazdığı için harita boş kalıyor ve ölçüm döngüsü `!info?.name`
+  // ile TÜM evreni eliyordu (canlıda 2026-09-09: scored 0 / skipped 2.034).
+  let meta = await getMeta(sb, universe);
+
+  // Kategori: yalnız hiç yoksa veya bayatsa, ve verisi OLDUĞU BİLİNEN bir tarihle.
+  let coverage = await getCoverageSummary(sb, universe);
+  let categoryRefreshed = 0;
+  const hicKategoriYok = meta.size === 0 || [...meta.values()].every((m) => m.category == null);
+  const enEski = [...meta.values()].map((m) => m.categoryAt).sort()[0] ?? null;
+  if ((hicKategoriYok || categoryStale(enEski)) && coverage.newest && Date.now() + 60_000 < deadline) {
+    categoryRefreshed = await refreshCategories(sb, universe, deadline, coverage.newest);
+    if (categoryRefreshed > 0) meta = await getMeta(sb, universe);
   }
-  if (categoryRefreshed > 0) meta = await getMeta(sb, universe);
 
   // ── Ölçüm: seriler tablodan ──
   const from = businessDaysBack(targetDays)[targetDays - 1]!;
@@ -509,7 +527,7 @@ export async function runFundScan(
       .forEach((i, idx) => { i.rankByScore = idx + 1; });
   }
 
-  const coverage = await getCoverageSummary(sb, universe);
+  coverage = await getCoverageSummary(sb, universe);
 
   // ⚠️ KÖTÜ KOŞU İYİ STORE'U EZMESİN (banka motorundaki aynı ders).
   // Tablo artık doğruluk kaynağı olduğu için ham veri kaybı riski yok; ama

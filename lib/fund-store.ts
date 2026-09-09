@@ -72,8 +72,15 @@ export function businessDaysBack(count: number, from: Date = new Date()): string
  * SIRALAMA KARARI: en yeni eksikten geriye. Güncel veri her zaman öncelikli
  * (sayfa bugünü göstermeli); güncel dolunca kendiliğinden geriye iner.
  */
-export function pickMissingDays(target: string[], covered: Set<string>, budget: number): string[] {
-  return target.filter((d) => !covered.has(d)).slice(0, Math.max(0, budget));
+export function pickMissingDays(
+  target: string[],
+  covered: Set<string>,
+  budget: number,
+  skip?: Set<string>,
+): string[] {
+  return target
+    .filter((d) => !covered.has(d) && !(skip?.has(d) ?? false))
+    .slice(0, Math.max(0, budget));
 }
 
 /**
@@ -112,6 +119,29 @@ export async function getCoveredDays(
   if (error || !data) return out;
   for (const r of data as Array<{ date: string }>) out.add(String(r.date).slice(0, 10));
   return out;
+}
+
+/**
+ * Yakın zamanda BOŞ (0 satır) kaydedilmiş tarihler — bu koşuda atlanır.
+ *
+ * NEDEN: TEFAS bugünün fiyatlarını akşam yayımlıyor. Bugünün tarihi her koşuda
+ * yeniden denenip ~50 sn bütçe yakıyordu (canlıda ölçüldü, 2026-09-09).
+ * `withinHours` sonrası tekrar denenir — veri yayımlanınca yakalanır, ama
+ * her koşuda değil.
+ */
+export async function getRecentlyEmptyDays(
+  sb: SupabaseClient,
+  universe: FundUniverse,
+  withinHours = 8,
+): Promise<Set<string>> {
+  const since = new Date(Date.now() - withinHours * 3_600_000).toISOString();
+  const { data } = await sb
+    .from('fund_scan_days')
+    .select('date')
+    .eq('universe', universe)
+    .eq('row_count', 0)
+    .gte('fetched_at', since);
+  return new Set((data as Array<{ date: string }> | null)?.map((r) => String(r.date).slice(0, 10)) ?? []);
 }
 
 /** Son tam günlerin medyan satır sayısı — kısmi gün tespitinin referansı. */
