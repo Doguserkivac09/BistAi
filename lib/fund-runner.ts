@@ -350,15 +350,22 @@ export async function backfillMissingDays(
  * tarihini kullanıyordu; TEFAS fon fiyatlarını akşam yayımladığı için sorgu
  * boş dönüyor ve kategori haritası HİÇ dolmuyordu (canlıda 2026-09-09:
  * 2.034 fonun kategorisi boş kaldı → emsal kıyası ve skor üretilemedi).
+ *
+ * ⚠️ KOŞULAR ARASI DEVAM: 12 kategori tek koşunun bütçesine sığmıyor (canlıda
+ * 150 sn'de yalnız 577 fon işaretlendi). `skipCats` ile bu koşuda ZATEN TAZE
+ * olan kategoriler atlanır; kalanlar sonraki koşuda alınır. Aksi halde döngü
+ * her koşuda baştan başlayıp aynı ilk kategorileri tekrar çekerdi.
  */
 export async function refreshCategories(
   sb: SupabaseClient,
   universe: FundUniverse,
   deadline: number,
   onDate: string,
+  skipCats?: Set<number>,
 ): Promise<number> {
   const entries: Array<{ code: string; category: number }> = [];
-  for (const [i, c] of FUND_CATEGORIES.entries()) {
+  const yapilacak = FUND_CATEGORIES.filter((c) => !(skipCats?.has(c.code) ?? false));
+  for (const [i, c] of yapilacak.entries()) {
     if (Date.now() + 12_000 > deadline) break;
     if (i > 0) await sleep(POLITE_DELAY_MS);
     try {
@@ -405,11 +412,18 @@ export async function runFundScan(
   // hiç dolmaz (bkz. CATEGORY_BUDGET_MS notu).
   const metaOnce = await getMeta(sb, universe);
   const covOnce = await getCoverageSummary(sb, universe);
-  const hicKategoriYok = metaOnce.size === 0 || [...metaOnce.values()].every((m) => m.category == null);
-  const enEski = [...metaOnce.values()].map((m) => m.categoryAt).sort()[0] ?? null;
+  // Hangi kategoriler ZATEN taze? (koşular arası devam için)
+  const tazeKategoriler = new Set<number>();
+  for (const m of metaOnce.values()) {
+    if (m.category != null && !categoryStale(m.categoryAt)) tazeKategoriler.add(m.category);
+  }
+  // Kategorisi HİÇ olmayan fon var mı? (577/2034 gibi kısmi durum — canlıda oldu)
+  const kategorisizVar = [...metaOnce.values()].some((m) => m.category == null);
+  const tumKategorilerTaze = FUND_CATEGORIES.every((c) => tazeKategoriler.has(c.code));
   // Kategori sorgusu VERİSİ OLAN bir tarih ister; hiç kapsama yoksa bu koşuda
   // yapılamaz (ilk koşu) — o zaman bütün bütçe backfill'e gider.
-  const katGerekli = (hicKategoriYok || categoryStale(enEski)) && covOnce.newest != null;
+  const katGerekli =
+    (metaOnce.size === 0 || kategorisizVar || !tumKategorilerTaze) && covOnce.newest != null;
   const katRezerv = katGerekli ? CATEGORY_BUDGET_MS : 0;
 
   // VERİ ÖNCELİKLİ (kategori rezervi düşüldükten sonra): kaçırılan gün telafi
@@ -424,7 +438,7 @@ export async function runFundScan(
   let categoryRefreshed = 0;
 
   if (katGerekli && coverage.newest) {
-    categoryRefreshed = await refreshCategories(sb, universe, deadline, coverage.newest);
+    categoryRefreshed = await refreshCategories(sb, universe, deadline, coverage.newest, tazeKategoriler);
     if (categoryRefreshed > 0) meta = await getMeta(sb, universe);
   }
 
