@@ -33,6 +33,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 .claude/worktrees/
+# Makineye özel Claude Code izin listesi — komut geçmişi barındırır ve
+# içine secret sızabilir (2026-09-09: TradingView webhook secret'ı yazılmıştı).
+# Paylaşılan ayarlar `.claude/settings.json`'da tutulur; bu dosya YEREL kalır.
+.claude/settings.local.json
 
 # Playwright E2E
 playwright-report/
