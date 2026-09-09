@@ -274,6 +274,61 @@ güncellenir). Tek yerde sabit (`VIOP_UNDERLYINGS`) — gerçek tutar beslemesi 
 
 ---
 
+## 💰 FON MOTORU — TEFAS + BES (2026-09-08 → 09-10) ✅ FAZ 0-6 CANLI
+
+> Planlar: `FON-ANALIZ-PLAN.md` (F0-F7) · `FON-BACKFILL-PLAN.md` (FAZ 0-5) ·
+> `FON-FAZ6-PLAN.md` (6A-6D). **Tez:** nominal getiri sektörün en büyük yanılgısı;
+> ürün "bu fon aldığı riski ve ücreti hak etti mi?" sorusunu yanıtlar.
+
+**Canlı durum:** TEFAS 643 fon · BES 364 fon · **240 tam gün** (2025-09-25 → 2026-09-09).
+Evren eşiği `kisiSayisi ≥ 1000` (kullanıcı kararı; varlığın %76,8'i korunuyor,
+hiçbir kategori n<5'e düşmüyor).
+
+| Katman | Dosya |
+|---|---|
+| Kaynak adaptörü (TEFAS `/api/funds/*`) | `lib/fund-data.ts` |
+| Evren/kategori/erişilebilirlik | `lib/fund-universe.ts` |
+| Saf metrik motoru (getiri/risk/beceri) | `lib/fund-metrics.ts` |
+| Para akımı (Δpay adedi × ort. fiyat) | `lib/fund-flows.ts` |
+| Erken uyarı (6A) | `lib/fund-alerts.ts` |
+| Kalıcı depolama | `lib/fund-store.ts` + `20260909_fund_prices.sql` |
+| İki geçişli runner | `lib/fund-runner.ts` |
+| Cron (21:30/21:50 TRT) | `app/api/cron/fund-scan` |
+| Okuma API'leri | `app/api/fonlar` · `app/api/fonlar/[kod]` |
+| Ekranlar | `components/new/FonlarScreen.tsx` · `FonDetayScreen.tsx` |
+| Derin geçmiş (yerel) | `scripts/fund-backfill.ts` |
+| Gerçek kategori (yerel, **yalnız BES**) | `scripts/fund-categories.ts` |
+| 6A-0 ölçüm betiği | `scripts/fund-alert-backtest.ts` |
+
+### ⚠️ BU MOTORDA ÖĞRENİLEN DERSLER (tekrar etme)
+
+1. **Akımı fon büyüklüğünden hesaplama.** Büyüklük fiyatla da değişir; yükselen
+   piyasada her fona sahte "para girişi" yazar. Tek doğru kaynak `tedPaySayisi`.
+   Teste kilitli ("pay sabit + fiyat değişti → akım SIFIR").
+2. **Risk ölçülemiyorsa "risk-ayarlı skor" ÜRETME.** 11 gözlemle Sharpe null kalınca
+   skor tek bileşenden türeyip **631 fonun tamamı 70** çıkmıştı — evrenin tamamında
+   aynı değeri veren gösterge bilgi taşımaz, üstelik adı yüzünden yanıltıcıdır.
+3. **Kötü koşu iyi store'u ezmesin.** Kısmi çekimde `kisiSayisi` boş gelince evren
+   eşiği 2.034 fonun tamamını eledi ve store 631 → 0'a düştü. Veri yokluğu "eşiğin
+   altında" demek DEĞİLDİR.
+4. **Sessiz boş yanıt tuzağı.** Tarih penceresi >31 gün → hata değil **boş** döner.
+   BES'te `sfonTurKod` filtresi → **yok sayılır**, 400 fonun tamamı döner (12 sorgu
+   × 400 fon = çakışan kayıt). `fonBilgiGetir`'de alan adı `fonKod` yazılırsa →
+   HTTP 200 + boş liste. Bu kaynakta "boş" çoğu zaman "yanlış sordun" demektir.
+5. **Alfa iddiası ölçülmeden yayınlanmaz (6A-0).** "Yatırımcı kaçışı çöküşü haber
+   verir" hipotezi 289 bin fon-günde **çürütüldü** (kötü sonuç %2,2 vs taban %3,5).
+   Yalnız `fon-sert-dusus` doğrulandı (%21,5 vs %3,5, evrenin %1,87'sinde tetikler).
+6. **WAF engeli 429 DEĞİLDİR.** 2026-09-10'da IP engellendi. Retry engeli pekiştirir;
+   `TefasBlockedError` + süreç içi devre kesici + jitterlı 4-6 sn gecikme eklendi.
+   Yerel betikler kullanıcının ev IP'sinden koşar — hacimli iş oradan yapılmaz.
+
+### 🔴 BEKLEYEN
+- `scripts/fund-categories.ts BES 400` koşusu (gerçek kategori; ad tahmini %30 yanlış)
+- F4 (ücret/TGO) **bloklu** — TEFAS'ta uç bulunamadı, uydurulmayacak
+- F6-3 fon karşılaştırma · portföy dağılımı ("hangi hisselerde?") ayrı keşif fazı
+
+---
+
 ## 📌 BEKLEYEN MANUEL ADIMLAR
 
 ### Supabase Migrations — Çalıştırılması Gerekenler

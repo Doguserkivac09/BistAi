@@ -2,6 +2,21 @@
   "stage": "Pre-Alpha",
   "versions": [
     {
+      "version": "0.2.0",
+      "date": "2026-09-10",
+      "type": "minor",
+      "items": [
+        { "category": "yeni", "text": "Fonlar bölümü açıldı — TEFAS ve BES fonları ayrı ayrı, kategori içi sıralamayla." },
+        { "category": "yeni", "text": "Her fonun getirisi üç katmanda gösteriliyor: nominal, risksiz getiriye göre ve enflasyona göre. Nominal getiri tek başına yanıltır." },
+        { "category": "yeni", "text": "Fon kartına tıklayınca detay sayfası açılıyor: dönemsel getiri tablosu, risk ölçüleri ve kategorideki konum." },
+        { "category": "yeni", "text": "Fon detayında fiyat ile yatırımcı sayısı aynı grafikte — paranın fona girip çıktığı gözle görülüyor." },
+        { "category": "yeni", "text": "Dönem tablosunda getirinin yanında o dönemin yatırımcı değişimi duruyor; fon kazandırırken insanlar çıkıyor mu, tek bakışta belli." },
+        { "category": "iyilestirme", "text": "Her fon iki sırayla birden gösteriliyor: getiriye göre ve risk-ayarlı. En çok kazandıran, çoğu zaman en mantıklısı değildir." },
+        { "category": "iyilestirme", "text": "Emsalinden belirgin şekilde ayrışan sert düşüşler uyarı olarak işaretleniyor. Bu uyarı geçmiş veriyle ölçüldü: kötü sonuç olasılığını 6 katına çıkarıyor." },
+        { "category": "iyilestirme", "text": "Ölçülemeyen dönemler için sıfır değil 'yeterli geçmiş yok' yazıyor — elimizde olmayan veriyi varmış gibi göstermiyoruz." }
+      ]
+    },
+    {
       "version": "0.1.0",
       "date": "2026-08-04",
       "type": "minor",
