@@ -300,6 +300,30 @@ Aşağıdaki migration'lar Supabase SQL Editor'a yapıştırılıp çalıştır�
 | `20260603_signal_performance_market.sql` | signal_performance.market kolonu + backfill (BUG-1 fix) | ✅ Çalıştırıldı (2026-06-03) |
 | `20260617_baby_picks.sql` | baby_picks tablosu (Bebek Hisseler forward-tracking, 4/12/26h + BIST benchmark) | ✅ Çalıştırıldı (2026-06-24) |
 | `20260804_changelog_publish_log.sql` | changelog_publish_log tablosu (Telegram yama notu yayın takibi) | ✅ Çalıştırıldı (2026-08-04) |
+| `20260816_scanner_signals(_quality).sql` | scanner_signals + v_score/session_phase/catalyst kolonları | ✅ Çalıştırıldı |
+| `20260909_fund_prices.sql` | fund_prices + fund_meta + fund_scan_days (fon kalıcı depolama) | ✅ Çalıştırıldı (2026-09-09) |
+| `20260910_fund_real_category.sql` | fund_meta: category_name/rank/size/name_at (6D gerçek kategori) | 🔴 **ÇALIŞTIRILMADI** |
+
+### 🔍 Migration denetimi (2026-09-10) — canlı şemaya sorularak yapıldı
+
+53 migration dosyasının tamamı, oluşturdukları tablo/kolonun Supabase'de **gerçekten
+var olup olmadığı** sorgulanarak denetlendi (tahmin değil, ölçüm).
+
+**Sonuç: yalnız `20260910_fund_real_category.sql` eksik.** Diğer her şey uygulanmış —
+`20260803_firsat_picks.sql` dahil (bu dosyada "bekliyor" yazıyordu, **yanlıştı**;
+`firsat_picks` tablosu canlıda mevcut).
+
+**Denetimde çıkan hata — `20260403_portfolyo_hedef_fiyat.sql` DÜZELTİLDİ:** dosya
+`portfolios` tablosuna yazıyordu ama öyle bir tablo yok; gerçek ad
+`portfolyo_pozisyonlar`. Olduğu gibi çalıştırılsaydı "relation does not exist" hatası
+verirdi. Kolon canlıda doğru tabloda zaten mevcut (vaktinde elle düzeltilerek
+uygulanmış), dosya geride yanlış hâliyle kalmış. Artık doğru ve idempotent.
+
+**Tablo adı tuzağı (denetimi yaparken düşülen):** migration adı ile tablo adı sık sık
+uyuşmuyor — `20260315_community` → `posts`/`comments`/`likes`, `20260315_subscriptions`
+→ `profiles`'a kolon, `20260328_newsletter` → `profiles.newsletter_enabled`,
+`20260320_community_ai` → `is_ai` **comments**'ta ama `ai_comment_generated` **posts**'ta.
+Tablo varlığını dosya adından çıkarma; dosyanın içine bak.
 
 ### AI Portföyü Doğrulama (2026-05-17 sonrası)
 - `/yapay-zeka-portfoyu` sayfası açılıyor mu?
