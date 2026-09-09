@@ -72,7 +72,8 @@ export async function GET(request: NextRequest) {
     console.log(
       `[cron/fund-scan] ${universe}: ${res.scored} fon skorlandı, ${res.skipped} atlandı, ` +
       `+${res.backfill.fetched} gün (kalan ${res.backfill.remaining}), ` +
-      `kapsama ${res.coverage.completeDays}/${targetDays}, ${durationMs}ms`,
+      `kapsama ${res.coverage.completeDays}/${targetDays}, ${durationMs}ms` +
+      (res.backfill.blocked ? ` ⛔ ENGELLENDİ: ${res.backfill.blocked}` : ''),
     );
     return NextResponse.json({
       ok: true,
@@ -84,14 +85,20 @@ export async function GET(request: NextRequest) {
       failedDays: res.backfill.failed,
       remaining: res.backfill.remaining,
       budgetExhausted: res.backfill.budgetExhausted,
+      // ⚠️ Doluysa TEFAS bizi engelledi ve koşu ERKEN kesildi. Kalan günler
+      // DENENMEDİ — "veri yok" sanılmamalı. Bu alan görülünce yeni koşu
+      // tetiklemek YASAK: engeli pekiştirir (2026-09-10 IP engeli dersi).
+      blocked: res.backfill.blocked ?? null,
       categoryRefreshed: res.categoryRefreshed,
       coverage: res.coverage,
       policyRate: pr?.value ?? null,
       inflation: inf?.value ?? null,
       durationMs,
-      nextHint: res.backfill.remaining > 0
-        ? `Geçmiş henüz tam değil — aynı ucu tekrar çağır (kalan ${res.backfill.remaining} gün).`
-        : 'Hedef derinlik tamam.',
+      nextHint: res.backfill.blocked
+        ? `ENGELLENDİK (${res.backfill.blocked}). Tekrar çağırma — engeli pekiştirir. Birkaç saat bekle.`
+        : res.backfill.remaining > 0
+          ? `Geçmiş henüz tam değil — aynı ucu tekrar çağır (kalan ${res.backfill.remaining} gün).`
+          : 'Hedef derinlik tamam.',
     });
   } catch (e) {
     return NextResponse.json(

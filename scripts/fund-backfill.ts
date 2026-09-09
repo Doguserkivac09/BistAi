@@ -26,7 +26,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { listFundsOnDate, POLITE_DELAY_MS } from '../lib/fund-data';
+import { listFundsOnDate, politeDelay, TefasBlockedError } from '../lib/fund-data';
 import {
   businessDaysBack, pickMissingDays, isDayComplete,
   getCoveredDays, getReferenceRowCount, recordDay, upsertMetaNames,
@@ -82,7 +82,7 @@ async function main() {
   let adlarYazildi = false;
 
   for (const [i, day] of missing.entries()) {
-    if (i > 0) await sleep(POLITE_DELAY_MS);
+    if (i > 0) await sleep(politeDelay());
     try {
       const res = await listFundsOnDate(universe, new Date(`${day}T00:00:00Z`));
       const complete = isDayComplete(res.data.length, res.dataQuality, ref);
@@ -94,6 +94,20 @@ async function main() {
       }
       if (complete) tam++; else bos++;
     } catch (e) {
+      // ⛔ ENGEL → ANINDA DUR (2026-09-10 IP engeli dersi).
+      // Bu betiğin döngüsü yüzlerce gün uzunluğunda; engellenmiş hâlde devam
+      // etmek yüzlerce reddedilen istek demek ve engeli pekiştirir. Ayrıca
+      // engellenen günü "boş" kaydetmek VERİ KAYBIDIR — o gün tatil değil,
+      // bize kapalıydı; `recordDay` bilinçli olarak ÇAĞRILMIYOR.
+      if (e instanceof TefasBlockedError) {
+        console.error(`
+⛔ TEFAS ERİŞİMİ ENGELLEDİ: ${e.detay}`);
+        console.error(`   ${tam} gün tamamlandı, ${day} gününde DURULDU.`);
+        console.error('   Yeni istek GÖNDERME. Birkaç saat bekle; betik idempotent,');
+        console.error('   kaldığı yerden devam eder.');
+        process.exitCode = 2;
+        return;
+      }
       hata++;
       console.log(`  ${day} HATA: ${(e as Error).message.slice(0, 70)}`);
     }

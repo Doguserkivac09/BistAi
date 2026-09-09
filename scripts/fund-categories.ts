@@ -1,27 +1,49 @@
 /**
- * FAZ 6D — GERÇEK kategori çekimi (haftalık, YEREL betik).
+ * FAZ 6D — GERÇEK kategori çekimi (YEREL betik, PARÇA PARÇA).
  *
- * ⚠️ NEDEN CRON DEĞİL: fon başına 1 istek × ~2.400 fon × 2,2 sn ≈ 90 dakika.
- * Vercel'in 300 sn sınırına sığmaz ve zaten kategori nadiren değişir.
- * `scripts/fund-backfill.ts` ile aynı desen: bütçesiz, kesilebilir, idempotent.
+ * ════════════════════════════════════════════════════════════════════════════
+ *  🛑 BU BETİK ŞU AN BEKLEMEDE — ÖNCE UCUZ YOL DENENMELİ.
+ *
+ *  2026-09-10'da TEFAS bağlantımızı engelledi ("The requested URL was
+ *  rejected", F5/Shape WAF). Bu betiğin tasarımı fon başına 1 istek — ~2.400
+ *  fon demek. Nezaket gecikmesi 4-6 sn'ye çıkarıldığı için süre ~3 SAATE
+ *  uzadı ve o kadar süre boyunca tek IP'den sabit tempolu istek, engeli
+ *  davet eden desenin ta kendisi.
+ *
+ *  ÖNCE ŞU ÖLÇÜLMELİ: `fonGnlBlgSiraliGetir` (toplu uç, tüm evren TEK istek)
+ *  yanıtındaki satırlarda `fonKategori` alanı var mı? Varsa 2.400 istek yerine
+ *  1 istek yeter ve bu betiğe hiç gerek kalmaz. Ölçüm yapılmadan çalıştırma.
+ * ════════════════════════════════════════════════════════════════════════════
  *
  * ⚠️ İDEMPOTENT VE KALDIĞI YERDEN DEVAM EDER: en eski `category_name_at`'ten
  * başlar (hiç çekilmemişler önce). Yarıda durdurup tekrar başlatabilirsin.
  *
+ * ⚠️ VARSAYILAN TAVAN VAR: argümansız çağrıda tüm evreni değil `VARSAYILAN_TAVAN`
+ * kadar fonu çeker. "Sınırsız" varsayılan, tek oturumda binlerce istek demekti.
+ *
  * Kullanım:
- *   npx tsx scripts/fund-categories.ts             # TEFAS, tüm eksikler
- *   npx tsx scripts/fund-categories.ts BES 300     # evren + en fazla N fon
+ *   npx tsx scripts/fund-categories.ts                 # TEFAS, en fazla 200 fon
+ *   npx tsx scripts/fund-categories.ts BES 150         # evren + tavan
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { getFundInfo, POLITE_DELAY_MS } from '../lib/fund-data';
+import { getFundInfo, politeDelay, TefasBlockedError } from '../lib/fund-data';
 import { getMeta, upsertRealCategories, CATEGORY_TTL_DAYS } from '../lib/fund-store';
 import type { FundUniverse } from '../lib/fund-universe';
 
 /** Bir seferde biriktirilip yazılan kayıt sayısı (kesilirse ilerleme kaybolmasın). */
 const FLUSH = 25;
+
+/**
+ * Tek koşuda çekilecek EN FAZLA fon.
+ *
+ * ⚠️ Argümansız çağrı önce `Infinity` idi — 2.400 istek, ~3 saat, tek IP.
+ * Engel yedikten sonra bunun savunulacak yanı yok. Gerekiyorsa birkaç güne
+ * yayılır; kategori zaten nadiren değişen bir veridir, acelesi yoktur.
+ */
+const VARSAYILAN_TAVAN = 200;
 
 function loadEnv(): Record<string, string> {
   const p = path.join(process.cwd(), '.env.local');
@@ -36,7 +58,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   const universe = (process.argv[2] ?? 'TEFAS') as FundUniverse;
-  const limit = Number(process.argv[3] ?? Infinity);
+  const limit = Number(process.argv[3] ?? VARSAYILAN_TAVAN);
   if (universe !== 'TEFAS' && universe !== 'BES') throw new Error('evren TEFAS veya BES olmalı');
 
   const env = loadEnv();
@@ -72,7 +94,7 @@ async function main() {
   };
 
   for (const [i, r] of hedef.entries()) {
-    if (i > 0) await sleep(POLITE_DELAY_MS);
+    if (i > 0) await sleep(politeDelay());
     try {
       const info = await getFundInfo(r.code);
       if (!info || info.categoryName == null) {
@@ -90,6 +112,18 @@ async function main() {
         ok++;
       }
     } catch (e) {
+      // ⛔ ENGELLENDİYSE ANINDA DUR VE YAZILANI KAYDET (2026-09-10 dersi).
+      // Bu betik fon başına 1 istek atıyor; engellenmiş hâlde devam etmek
+      // binlerce reddedilen istek demek ve engeli kalıcılaştırır.
+      if (e instanceof TefasBlockedError) {
+        await yaz();
+        console.error(`\n⛔ TEFAS ERİŞİMİ ENGELLEDİ: ${e.detay}`);
+        console.error(`   ${ok} kategori kaydedildi, ${i}/${hedef.length} noktasında DURULDU.`);
+        console.error('   Yeni istek GÖNDERME. Birkaç saat bekle, sonra betiği tekrar çalıştır');
+        console.error('   (idempotenttir, kaldığı yerden devam eder).');
+        process.exitCode = 2;
+        return;
+      }
       hata++;
       console.warn(`  ${r.code}: ${e instanceof Error ? e.message : String(e)}`);
     }

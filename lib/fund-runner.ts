@@ -19,7 +19,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { listFundsOnDate, POLITE_DELAY_MS, type FundDailyRow } from './fund-data';
+import { listFundsOnDate, politeDelay, TefasBlockedError, type FundDailyRow } from './fund-data';
 import { FUND_CATEGORIES, guessAccessibility, guessBesCategory, categoryLabel, type FundUniverse } from './fund-universe';
 import { computeFundMetrics, type NavPoint } from './fund-metrics';
 import {
@@ -328,6 +328,11 @@ export interface BackfillResult {
   remaining: number;
   /** Bütçe (süre) bittiği için mi durduk? */
   budgetExhausted: boolean;
+  /**
+   * WAF engeli görüldüyse nedeni. Doluysa koşu ERKEN kesildi ve kalan günler
+   * DENENMEDİ — "veri yok" ile karıştırılmamalı, çağıran bunu raporlamalı.
+   */
+  blocked?: string;
 }
 
 /**
@@ -351,6 +356,7 @@ export async function backfillMissingDays(
 
   const allMissing = pickMissingDays(target, covered, Number.MAX_SAFE_INTEGER, skipEmpty);
   let fetched = 0, failed = 0, budgetExhausted = false;
+  let blocked: string | null = null;
   const names = new Map<string, string>();
 
   // Adaptif maliyet: ilk günden sonra GERÇEK ortalamayı kullan; sabit tahmin
@@ -362,7 +368,7 @@ export async function backfillMissingDays(
   for (const [i, day] of allMissing.entries()) {
     if (i > 0) costEstimate = Math.max(5_000, (Date.now() - loopStart) / i);
     if (Date.now() + costEstimate > deadline) { budgetExhausted = true; break; }
-    if (i > 0) await sleep(POLITE_DELAY_MS);
+    if (i > 0) await sleep(politeDelay());
     try {
       const res = await listFundsOnDate(universe, new Date(`${day}T00:00:00Z`));
       const complete = isDayComplete(res.data.length, res.dataQuality, ref);
@@ -375,7 +381,13 @@ export async function backfillMissingDays(
       await recordDay(sb, universe, day, res.data, complete);
       for (const r of res.data) if (r.name) names.set(r.code, r.name);
       if (complete) fetched++; else failed++;
-    } catch {
+    } catch (e) {
+      // ⚠️ ENGELLENDİYSE DÖNGÜYÜ ANINDA KIR (2026-09-10 dersi).
+      // Eskiden bu catch her hatayı aynı sayıyordu; engellenmiş bir istemci
+      // kalan ~240 gün için istek atmaya devam ediyor ve engeli pekiştiriyordu.
+      // Ayrıca engellenen günü "denendi, boş" diye kaydetmek VERİ KAYBIDIR:
+      // o gün gerçekte tatil değil, bize kapalıydı.
+      if (e instanceof TefasBlockedError) { blocked = e.detay; break; }
       // Kaydet ki throttle devreye girsin — aksi halde 429 alan gün her koşuda
       // baştan denenip bütçeyi yiyordu.
       try { await recordDay(sb, universe, day, [], false); } catch { /* yut */ }
@@ -388,7 +400,10 @@ export async function backfillMissingDays(
   }
 
   const remaining = allMissing.length - fetched - failed;
-  return { fetched, failed, remaining: Math.max(0, remaining), budgetExhausted };
+  return {
+    fetched, failed, remaining: Math.max(0, remaining), budgetExhausted,
+    ...(blocked ? { blocked } : {}),
+  };
 }
 
 /**
@@ -419,7 +434,7 @@ export async function refreshCategories(
   const yapilacak = FUND_CATEGORIES.filter((c) => !(skipCats?.has(c.code) ?? false));
   for (const [i, c] of yapilacak.entries()) {
     if (Date.now() + 12_000 > deadline) break;
-    if (i > 0) await sleep(POLITE_DELAY_MS);
+    if (i > 0) await sleep(politeDelay());
     try {
       // Serbest kategorisi ~1000 fon → sayfa limiti geniş tutulmalı (ölçüldü)
       const r = await listFundsOnDate(universe, new Date(`${onDate}T00:00:00Z`), { sfonTurKod: c.code, maxPages: 4 });
@@ -427,7 +442,11 @@ export async function refreshCategories(
       // BOŞ dönse bile denendi sayılır — 103/172/173 TEFAS'ta boş, aksi halde
       // her koşuda yeniden sorgulanıp bütçe yakarlardı.
       denenen.push(c.code);
-    } catch { /* bu kategori bu koşuda alınamadı; tablodaki önceki değeri KORUNUR */ }
+    } catch (e) {
+      // Engellendiysek kalan kategorileri DENEME (2026-09-10 dersi).
+      if (e instanceof TefasBlockedError) break;
+      /* bu kategori bu koşuda alınamadı; tablodaki önceki değeri KORUNUR */
+    }
   }
   if (entries.length > 0) await upsertMetaCategories(sb, universe, entries);
   await recordCategorySweep(sb, universe, denenen);

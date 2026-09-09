@@ -133,6 +133,51 @@ sayfasında ek UI kodu gerekmeden görünür. Sade Türkçe, jargonsuz.
 
 ---
 
+## 🛑 2026-09-10 — TEFAS IP ENGELİ ve nezaket politikası
+
+Kullanıcının bağlantısı **engellendi**: `The requested URL was rejected` (F5/Shape WAF,
+support ID'li sayfa). 429 değil — WAF engeli. Kalıcıdır ve **tekrar denemek kötüleştirir.**
+
+### Kodumuzun payı (üç hata, hepsi düzeltildi)
+
+1. **Engeli 429 gibi ele alıyorduk.** `callTefas` yalnız 429'u özel görüyordu;
+   403 veya HTML yanıt "geçici hata" sayılıp **3 kez daha deneniyordu**. Üstelik
+   WAF ara sayfası HTML döndüğü için `res.json()` patlıyor, bu da retry'a giriyordu.
+   → `TefasBlockedError` + gövde imza kontrolü; engelde **retry YOK**.
+2. **Engellendikten sonra istek atmaya devam ediyorduk.** Backfill döngüsü 240 günün
+   kalanını, kategori döngüsü kalan kategorileri, 6D betiği kalan ~2.400 fonu istemeye
+   devam ediyordu. Engellenmiş bir istemcinin yüzlerce istek daha göndermesi WAF'ın
+   gözünde tam olarak bot davranışıdır. → **süreç içi devre kesici**; ilk engelde
+   tüm döngüler kırılır, betikler kaydedip çıkar (`exitCode 2`).
+3. **Sabit ritim.** 2.200 ms tam sabit aralık, insan trafiğinde bulunmayan bir imzadır.
+   → taban **4.000 ms + 0-2.000 ms jitter** (`politeDelay()`).
+
+**Ayrıca:** engellenen gün artık `recordDay(..., false)` ile "boş" kaydedilmiyor —
+o gün tatil değil, bize kapalıydı; boş kaydetmek veri kaybıydı.
+
+### Nerede kimin IP'si kullanılıyor (ban'in kaynağı buydu)
+
+| Yol | IP | Hacim | Risk |
+|---|---|---|---|
+| `vercel.json` cron (günde 2 koşu) | Vercel | koşu başına ~13 istek | düşük |
+| `scripts/fund-backfill.ts` | **kullanıcının evi** | yüzlerce | yüksek |
+| `scripts/fund-categories.ts` | **kullanıcının evi** | ~2.400 | **çok yüksek** |
+
+Backfill hedefi (240 gün) **zaten tamamlandı**; o betiğin tekrar koşmasına gerek yok.
+Günlük cron artık yalnız yeni günü ekliyor.
+
+### 6D yeniden değerlendirildi — ÖNCE UCUZ YOL
+
+`scripts/fund-categories.ts` fon başına 1 istek atıyor (~2.400). Yeni gecikmeyle bu
+**~3 saat kesintisiz tek-IP trafiği** demek ve engeli davet eder. Betik beklemeye
+alındı, varsayılan tavan `Infinity` → **200** yapıldı.
+
+**Önce ölçülecek (ban kalkınca, TEK istek):** `fonGnlBlgSiraliGetir` toplu yanıtındaki
+satırlarda `fonKategori` alanı var mı? Bizim `RawRow` tipimiz yalnız 7 alan okuyor;
+kategori orada geliyorsa 2.400 istek yerine **1 istek** yeter ve betiğe hiç gerek kalmaz.
+
+---
+
 ## ✅ DURUM (2026-09-10) — 6A/6B/6C/6D kodlandı
 
 | Faz | Durum | Dosya |

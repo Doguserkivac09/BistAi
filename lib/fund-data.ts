@@ -24,8 +24,24 @@ const UA = 'Mozilla/5.0 (compatible; Investable Edge/1.0)';
 
 /** Kaynağın sessizce boş döndüğü sınır — ÖLÇÜLDÜ (45g boş, 31g dolu). Marjla 28 gün. */
 export const MAX_WINDOW_DAYS = 28;
-/** Ölçülen güvenli aralık: 2 sn'de 8/8 başarılı. */
-export const POLITE_DELAY_MS = 2200;
+/**
+ * İstekler arası temel bekleme.
+ *
+ * ⚠️ 2.200 ms İDİ ve **IP engellendi** (2026-09-10, kullanıcının bağlantısı
+ * "The requested URL was rejected" ile bloklandı). 429 almamak yetmiyor:
+ * F5/Shape WAF hacim + DÜZENLİLİK bakıyor — milisaniyesi sabit bir ritim,
+ * insan trafiğinde görülmeyen bir imzadır. Artık taban süre yükseltildi ve
+ * üstüne rastgele jitter bindiriliyor (bkz. `politeDelay`).
+ */
+export const POLITE_DELAY_MS = 4000;
+
+/** Jitter aralığı — sabit ritmi kırar (0-2.000 ms eklenir). */
+const JITTER_MS = 2000;
+
+/** Bir sonraki isteğe kadar beklenecek süre (jitterlı). */
+export function politeDelay(): number {
+  return POLITE_DELAY_MS + Math.floor(Math.random() * JITTER_MS);
+}
 /**
  * Sayfa boyutu. **ÖLÇÜLDÜ (2026-09-09):** `bitSira=2500` tüm evreni (2.041 fon)
  * TEK istekte döndürüyor (1,4 sn). Önceki 500 değeri gün başına **5 istek**
@@ -85,11 +101,58 @@ interface RawRow {
 }
 
 /**
- * Tek API çağrısı — 429'da üstel geri çekilmeyle yeniden dener.
- * 429 sessizce yutulmaz: tüm denemeler tükenirse hata fırlatır ki çağıran
- * "veri yok" ile "kaynak bizi reddetti"yi karıştırmasın.
+ * WAF engeli — 429'dan TAMAMEN FARKLI bir olaydır.
+ *
+ * 429 "yavaşla" der ve beklemek çözer. WAF engeli ise "bu istemciyi
+ * istemiyorum" der; beklemek çözmez, TEKRAR DENEMEK DURUMU KÖTÜLEŞTİRİR.
+ */
+export class TefasBlockedError extends Error {
+  constructor(public readonly detay: string) {
+    super(`TEFAS erişimi engelledi (${detay}). İstek göndermeyi DURDURDUK.`);
+    this.name = 'TefasBlockedError';
+  }
+}
+
+/**
+ * SÜREÇ İÇİ DEVRE KESİCİ.
+ *
+ * ⚠️ 2026-09-10'da IP engellendi. Kök nedenin bir parçası şuydu: engel
+ * görüldükten sonra kod istek atmaya DEVAM ediyordu — `callTefas` her çağrıda
+ * 3 kez daha deniyordu ve backfill döngüsü 240 gün boyunca sıradaki günü
+ * istemeye devam ediyordu. Yani engellenmiş bir istemci, engellendiğini
+ * anlamadan yüzlerce istek daha gönderiyordu; bu, WAF'ın gözünde tam olarak
+ * kötü niyetli bot davranışıdır ve engeli pekiştirir.
+ *
+ * Bu bayrak bir kez kalkınca süreç boyunca TÜM istekler anında reddedilir.
+ */
+let engellendi: string | null = null;
+
+/** Engel durumunu sıfırlar — YALNIZ yeni bir koşuya bilinçli başlarken. */
+export function resetBlockState(): void { engellendi = null; }
+export function isBlocked(): string | null { return engellendi; }
+
+/** WAF engel imzaları: F5/Shape "requested URL was rejected" + support ID. */
+function engelMi(status: number, govde: string): string | null {
+  if (status === 403) return `HTTP 403`;
+  if (/requested URL was rejected/i.test(govde)) return 'WAF: requested URL was rejected';
+  if (/support ID/i.test(govde)) return 'WAF: support ID sayfası';
+  // JSON beklerken HTML gelmesi neredeyse her zaman WAF ara sayfasıdır.
+  if (/^\s*<(!doctype|html)/i.test(govde)) return 'JSON yerine HTML (WAF ara sayfası)';
+  return null;
+}
+
+/**
+ * Tek API çağrısı.
+ *
+ * Üç farklı başarısızlık AYRI ele alınır — hepsini "hata" sayıp aynı şekilde
+ * yeniden denemek bizi engelletti:
+ *   429  → yavaşla, cömertçe bekle, tekrar dene
+ *   WAF  → DUR. Tekrar deneme, devre kesiciyi aç, çağıranı haberdar et.
+ *   ağ   → normal geri çekilmeyle tekrar dene
  */
 async function callTefas(endpoint: string, payload: unknown, retries = 3): Promise<unknown> {
+  if (engellendi) throw new TefasBlockedError(engellendi);
+
   let lastErr: string = 'bilinmeyen';
   let rateLimited = false;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -97,7 +160,7 @@ async function callTefas(endpoint: string, payload: unknown, retries = 3): Promi
       // 429 için AYRI (çok daha cömert) bekleme: ölçümde ~40 sn sonra kova
       // doluyor; eski 4,4/8,8/17,6 sn yetmiyor ve gün "boş" sanılıp
       // kaydediliyordu (canlıda 8 Ağustos günü böyle kayboldu).
-      await sleep(rateLimited ? 20_000 * attempt : POLITE_DELAY_MS * 2 ** attempt);
+      await sleep(rateLimited ? 30_000 * attempt : politeDelay() * 2 ** attempt);
     }
     try {
       const res = await fetch(`${BASE}/api/funds/${endpoint}`, {
@@ -114,10 +177,28 @@ async function callTefas(endpoint: string, payload: unknown, retries = 3): Promi
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(30_000),
       });
+
       if (res.status === 429) { lastErr = 'hız sınırı (429)'; rateLimited = true; continue; }
+
+      // Gövdeyi bir kez metin olarak al: WAF ara sayfası HTML döner ve
+      // doğrudan `res.json()` çağırmak onu "parse hatası" gibi gösterip
+      // yeniden denemeye sokuyordu.
+      const govde = await res.text();
+      const engel = engelMi(res.status, govde);
+      if (engel) {
+        engellendi = engel;
+        throw new TefasBlockedError(engel);
+      }
       if (!res.ok) { lastErr = `HTTP ${res.status}`; continue; }
-      return await res.json();
+
+      try {
+        return JSON.parse(govde);
+      } catch {
+        lastErr = 'yanıt JSON değil';
+        continue;
+      }
     } catch (e) {
+      if (e instanceof TefasBlockedError) throw e; // ASLA yeniden deneme
       lastErr = e instanceof Error ? e.message : String(e);
     }
   }
