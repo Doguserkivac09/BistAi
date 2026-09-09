@@ -1,131 +1,145 @@
-# Fon Motoru — Kalıcı Depolama + Artımlı Backfill (ve kalan iş)
+# Fon Motoru — Kalıcı Depolama + Artımlı Backfill
 
-> Bu döküman **kodlama planıdır** — geliştirme oturumunda kaldığı yerden devam edilir.
-> Oluşturulma: 2026-09-09 · Son güncelleme: 2026-09-09
-
----
-
-## ⏳ İLERLEME DURUMU (2026-09-09)
-
-### ✅ FAZ 0 — Çalışma ağacı temizlendi
-Üç bağımsız iş üç ayrı commit'e bölündü: `ade485a` misafir girişi ·
-`68668a9` Telegram yama notu · `b6dd6f1` fon motoru (F0/F1/F2/F5/F6-1/F7).
-
-**Bilinçli olarak commit EDİLMEDİ:**
-- 🔴 **`.claude/settings.local.json`** — gitignore'da DEĞİL (yalnız `.claude/worktrees/`
-  ignore'lu) ve içine **TradingView webhook secret'ı** yazılmış (`?key=mvAXfOL...`).
-  Git geçmişinde henüz YOK. Kalıcı çözüm: `.gitignore`'a ekle + `git rm --cached`.
-- `package-lock.json` — yalnız `"dev": true` satırlarını siliyor, npm sürüm gürültüsü,
-  hiçbir işe ait değil.
-
-### ✅ FAZ 1 — Şema (`566779c`)
-`supabase/migrations/20260909_fund_prices.sql` — **kullanıcı tarafından çalıştırıldı
-(2026-09-09)**. Üç tablo, RLS **yalnız service_role** (public read YOK — ham veri
-yayınlanmaz, türetilmiş analiz servis edilir):
-`fund_prices` (NAV + pay adedi + yatırımcı + büyüklük) · `fund_meta` (kategori KALICI) ·
-`fund_scan_days` (gap tespitinin kesin kaynağı, `complete` bayrağıyla).
-
-> Not: `rows` kolon adı `row_count` yapıldı (PostgreSQL'de bağlama göre sorun çıkarabilir).
-
-### ✅ FAZ 2 — Artımlı backfill motoru (`566779c`)
-- **`lib/fund-store.ts` (YENİ):** saf yardımcılar (`businessDaysBack`, `pickMissingDays`,
-  `isDayComplete`, `categoryStale`) + I/O (`getCoveredDays`, `recordDay`, `getFlowSeries`,
-  `getMeta`, `upsertMeta*`, `getCoverageSummary`). Sayfalı okuma — Supabase 1000 satır
-  tavanı (~160k satır/yıl).
-- **`lib/fund-runner.ts` yeniden yazıldı:** `fetchRawWindow` **silindi**; yerine
-  `backfillMissingDays` (eksik = hedef − tamamlanmış) + `refreshCategories`.
-  Seriler tablodan okunuyor. `ai_cache` artık YALNIZ sunum önbelleği (TTL 5g → 30g).
-- **Kategori vergisi bitti:** `fund_meta.category_at` 7 günden tazeyse hiç çalışmaz
-  (koşu başına ~100-130 sn kazanç). İlk koşuda kategori yoksa **veri önceliği**:
-  günler önce çekilir, kategori tazelemesi artan süreye bırakılır.
-- **Bütçe SÜRE tabanlı:** tahmine değil gerçek saate bakılır → TEFAS yavaşlarsa koşu
-  kendini keser, timeout'ta yazmadan ölmez.
-- **TEK tablo okuması:** NAV + akım + son snapshot aynı satırlardan türetiliyor.
-- **Cron:** `?target=N`; yanıtta `fetched` · `remaining` · `coverage` · `nextHint`.
-
-### ✅ FAZ 3 — Sağlamlaştırma + testler (`566779c`)
-- **Latent crash kökten çözüldü:** `meta.get(code)!` non-null iddiası kaldırıldı; meta
-  artık `fund_meta`'da kalıcı, yoksa fon atlanır ve sayılır (koşu çökmez).
-- Korumalar saf/export fonksiyonlara çıkarıldı (Supabase mock'suz test edilebilir):
-  `computeCompositeScore` · `selectPublished` · `buildFlags`.
-- **`lib/__tests__/fund-store.test.ts`** + **`lib/__tests__/fund-runner.test.ts`** (YENİ).
-
-### ✅ FAZ 5 — Para akımı / F3 (`dd6e986`)
-**`lib/fund-flows.ts` (YENİ)** — `computeFlows` · `derivePattern` · `flowFlags`.
-Akım = **Δ(pay adedi) × ort. birim pay değeri**; fon büyüklüğü farkı DEĞİL (büyüklük
-fiyatla da değişir → yükselen piyasada her fona sahte giriş yazardı). Regresyon testi:
-*"pay sabit + fiyat ikiye katlandı → akım SIFIR"*. Desenler: kurumsal / perakende akını /
-kapasite baskısı / eriyen fon. Bayraklar **kategori medyanına göreli** (kalibrasyon kuralı).
-
-**Test sayısı: 387 → 436.** `tsc` + `npm run build` temiz.
+> Bu döküman **kodlama planıdır**. Oluşturulma: 2026-09-09 · Son güncelleme: 2026-09-09 (uygulama sonrası)
 
 ---
 
-## 🚧 KALAN İŞ (geliştirme oturumu buradan devam eder)
+## ✅ DURUM: FAZ 0-5 TAMAMLANDI, VERİ CANLI
 
-### 1️⃣ FAZ 4 — Backfill'i koştur + metrik açılımını doğrula  ← **ÖNCE BU**
+**TEFAS: 240 tam gün (2025-09-25 → 2026-09-09), 643 fon skorlanıyor, 471.673 fiyat satırı.**
+`/fonlar` ekranı canlı ve doğrulandı (açık/karanlık tema, mobil/masaüstü).
 
-Migration çalıştırıldı, kod hazır, **ama 5 commit henüz push/deploy edilmedi.**
-
-```bash
-# Deploy sonrası — remaining sıfırlanana dek TEKRARLA (~10 koşu ≈ 1 yıl)
-curl -H "Authorization: Bearer $CRON_SECRET"   "https://bistai.vercel.app/api/cron/fund-scan?universe=TEFAS"
-```
-
-Her koşuda doğrula: `remaining` **azalıyor** · `coverage.oldest` **geriye iniyor** ·
-aynı tarih **iki kez çekilmiyor**. Sonra BES için aynısı (`?universe=BES`).
-
-**Metrik açılımı (1 yıl dolunca) — tek tek kontrol et:**
-
-| Metrik | Eşik | Beklenti |
+| Faz | Durum | Commit |
 |---|---|---|
-| Volatilite · Sharpe · Sortino · maxDD | `MIN_OBS.risk = 20` | ✅ ~1 ayda açılır |
-| **Alfa · Beta · Information Ratio** | `regression = 60` ortak gün | ✅ açılmalı |
-| Yıllıklandırılmış getiri · Calmar | `daySpan ≥ 365` | ✅ sınırda açılır |
-| 1 yıllık dönem getirisi | `coversPeriod` %90 ≈ 329 gün | ✅ açılır |
+| FAZ 0 Temiz ağaç (3 ayrı commit) | ✅ | `ade485a` `68668a9` `b6dd6f1` |
+| FAZ 1 Şema (`fund_prices` · `fund_meta` · `fund_scan_days`) | ✅ migration çalıştırıldı | `566779c` |
+| FAZ 2 Artımlı backfill (gap tespiti, kategori vergisi, süre bütçesi) | ✅ | `566779c` |
+| FAZ 3 Sağlamlaştırma + testler (387 → 438) | ✅ | `566779c` |
+| FAZ 4 **1 yıl backfill + doğrulama** | ✅ | `5d19d90` `e04a45c` `24aacdc` |
+| FAZ 5 Para akımı (F3) | ✅ | `dd6e986` |
 
-**⚠️ 1 yılla AÇILMAYANLAR — UI "yeterli geçmiş yok" demeli, 0 veya tahmin GÖSTERMEMELİ:**
-rolling tutarlılık (~15 ay gerekir) · tek-yıl bağımlılığı (2 tam takvim yılı) · 3y/5y getiri.
-Tablo kalıcı olduğu için bunlar zamanla kendiliğinden açılır.
+### 📊 Metrik açılımı — ÖLÇÜLDÜ (n=643)
 
-**⚠️ KALİBRASYON ÖLÇÜMÜ (ZORUNLU — bu projede 2 kez yanıldık):**
-Her bayrak için **"evrenin yüzde kaçında tetikleniyor"** ölç. %70'in üstündeyse o bayrak
-ayrıştırıcı değil **bağlamdır** → emsale göreliye çevir. Özellikle:
-- `fon-fazla-neg` ("risksiz getirinin altında kaldı") — %37 faizde hisse fonlarının
-  çoğunda tetiklenmesi BEKLENİR; bu yüzden zaten bağlam olarak tasarlandı, veto değil.
-- `fon-kapasite` — eşik `KAPASITE_ESIK_PCT = 30` **canlı veriyle kalibre edilmemiş**
-  (kodda işaretli).
+| Metrik | Kapsam |
+|---|---|
+| Kategori · nominal · fazla getiri · reel getiri · akım | **%100** |
+| Volatilite · **Sharpe** · maxDrawdown · **risk-ayarlı skor** | **%100** (642/643) |
+| Gözlem sayısı | min 14 · **medyan 240** · max 240 |
 
-**Ekran doğrulama** (veri geldikten sonra): açık/karanlık · mobil/masaüstü · boş durum ·
-TEFAS↔BES geçişi · **çifte sıralama ayrışmasının gerçek bir örneği** (ör. "getiride 1.,
-risk-ayarlıda 7.") — ürünün tezi bu, ekranda görünmeli.
+*Tek eksik fon 14 gözlemli yeni bir fon — `MIN_OBS.risk = 20` altında olduğu için
+metrik ÜRETİLMEDİ (uydurulmadı). Tasarım böyle çalışıyor.*
 
-### 2️⃣ FAZ 6 — F6-2 Fon detay sayfası
-`app/fonlar/[kod]/page.tsx` + `components/new/FonDetayScreen.tsx` (`<AppShell>`),
-`lib/new-design-routes.ts`'e ekle. İçerik: üç katmanlı getiri (nominal → fazla → reel) ·
-dönemsel getiriler · risk · beceri (alfa/beta/IR) · **akım grafiği** · bayraklar ·
-kategori emsalleri içindeki konum · erişilebilirlik uyarısı (`ad-tabanlı-tahmin` etiketiyle).
+### ⭐ Ürün tezi canlı veriyle kanıtlandı
 
-Veri **tablodan** okunur (`getSeries` / `getFlowSeries`) — TEFAS'a istek YOK.
-`lib/fund-data.ts`'teki `getFundHistory` (yazılmış, hiç kullanılmamış) yalnız tabloda
-olmayan fon için yedek yol.
+Çifte sıralama ayrışması gerçek:
+- `AIS` (Katılım) → **getiride 13. · risk-ayarlıda 1.** (nominal %44,2 · Sharpe 4,82)
+- `DBP` (Değişken) → **getiride 47. · risk-ayarlıda 1.** (nominal %37,3 · Sharpe 0,35)
 
-**Fon dili korunur: AL/SAT, stop, R/R YOK** — karşılaştırma ve uygunluk dili.
+Ham getiri sıralaması kullanıcıyı bambaşka bir fona götürüyor. Ekranda üç katmanlı
+getiri (Nominal %44,2 → Risksize göre %9,1 → Enflasyona göre %11,6) yan yana duruyor.
 
-### 3️⃣ Sonraki (bu plan dışı, sırayla)
-- **F6-3 fon karşılaştırma** (2-4 fon yan yana) — fon yatırımcısının en çok istediği ekran
-- **3y/5y derin backfill** — aynı motorla `?target=` artırılır, TEFAS'ın geçmiş sınırı ölçülür
-- **F4 maliyet/ücret** — TEFAS'ta uç YOK (F0'da ölçüldü), **bloklu**; izahname/KAP ayrı keşif
+### 🎯 Kalibrasyon ölçümü — TAMAM, müdahale gerekmedi
+
+Planın zorunlu adımı: *"bayrak evrenin %70'inden fazlasında tetikleniyorsa ayrıştırıcı
+değil bağlamdır."* Ölçüm (n=643):
+
+| Bayrak | Tetiklenme | Karar |
+|---|---|---|
+| `fon-fazla-poz` | %53 | ✅ ayrıştırıcı |
+| `fon-fazla-neg` | %47 | ✅ ayrıştırıcı |
+| `fon-risk-ayarli-iyi` / `-zayif` | %44 / %42 | ✅ |
+| `fon-reel-neg` | %39 | ✅ |
+| `fon-akim-emsalalti` / `-emsalustu` | %27 / %24 | ✅ |
+| `fon-dusuk-dalga` | %23 | ✅ |
+| `fon-eriyor` · `fon-perakende-akini` · `fon-kapasite` | %7 · %5 · **%1** | ✅ |
+
+**Hiçbiri %70'i geçmedi — bağlama çevrilmesi gereken bayrak yok.** Emsale-göreli
+tasarım işe yaradı. Endişelenilen ikisi de temiz: "risksiz getirinin altında" evreni
+kaplamadı (%47), kalibre edilmemiş `KAPASITE_ESIK_PCT = 30` yalnız %1'de tetikledi.
 
 ---
 
-## 📌 Ölçümle düzeltilen iki not (2026-09-09)
+## 🐛 Çalıştırınca çıkan 8 hata (hepsi düzeltildi)
 
-1. **`20260803_firsat_picks.sql` zaten çalıştırılmış.** Tablo VAR, 0 satır. Boş olmasının
-   sebebi migration değil: cron **haftada bir** (`0 8 * * 1`, Pzt 08:00 UTC). Kod deploy
-   edilince ilk Pazartesi dolar. "Her gün veri kaybı" değil.
-2. **`ai_cache`'teki `fund-store:TEFAS`** hâlâ bozuk koşunun satırı (0 fon, TTL 13 Eylül).
-   İlk başarılı koşuda üzerine yazılır — müdahale gerekmez.
+Bunların hiçbiri kod okuyarak görünmezdi.
+
+| # | Hata | Belirti | Commit |
+|---|---|---|---|
+| 1 | `meta` backfill'den ÖNCE okunuyordu | `scored: 0`, 2.034 fon eleniyor | `c4e42dd` |
+| 2 | Kategori sorgusu BUGÜNÜN tarihini kullanıyordu (TEFAS akşam yayımlıyor) | kategori hiç dolmuyor | `c4e42dd` |
+| 3 | Boş gün her koşuda tekrar deneniyordu | ~50 sn/koşu boşa | `c4e42dd` |
+| 4 | Kategoriye bütçe ayrılmıyordu (backfill hepsini yiyor) | skorların TAMAMI null | `2ec171b` |
+| 5 | Kategori taraması koşular arası devam edemiyordu | 577/2034'te takılı | `a6e99f5` |
+| 6 | 12 kategoriden **3'ü TEFAS'ta boş** (103/172/173) → "hepsi taze mi?" ASLA true olamıyor | sonsuz tazeleme, backfill 0 güne düştü | `23c6a4f` |
+| 7 | **Sayfa boyutu 500** → gün başına 5 istek | sürekli 429 | `e04a45c` |
+| 8 | Cron 240 günde tüm evreni okuyor (471k satır) | `FUNCTION_INVOCATION_TIMEOUT` | `24aacdc` |
+
+### ⚠️ DERS: "host suçlu" demeden önce iki hostta aynı yükü ölç
+
+429'lar önce **"Vercel'in paylaşımlı IP'si engelleniyor"** diye teşhis edildi ve buna
+göre yerel betik yazıldı. **Yanlıştı.** Yerel backfill de aynı 429'ları aldı (10 günde
+4 hata). Yanıltan şey ilk probe'un 9 *seyrek* istek atmasıydı.
+
+Gerçek neden tek sabitti: **`bitSira` 500 → 2500**. TEFAS tüm evreni (2.041 fon) TEK
+istekte döndürüyor. Gün başına istek %80 azaldı → **10/10 gün, sıfır hata**.
+Tam koşu: 206 gün, **0 hata**, 18,8 sn/gün.
+
+İkinci düzeltme: 429 için ayrı ve cömert geri çekilme (20/40/60 sn). Eskisi
+4,4/8,8/17,6 sn'ydi; ölçümde kova ~40 sn'de doluyor. Yetersiz bekleme yüzünden gün
+"boş" sanılıp 8 saat throttle'a giriyordu — **8 Ağustos günü tam olarak böyle kayboldu.**
+
+---
+
+## 🚧 KALAN İŞ
+
+### 1️⃣ Alfa · Beta · Information Ratio — **VERİ VAR, KOD YOK**
+
+Plan "1 yıl ile alfa/beta/IR açılır" diyordu. **Veri açısından doğru** (240 gün ≥ 60
+ortak gün) ama **kod bunları hiç hesaplamıyor**: `fund-runner.ts:490` `benchmark: null`
+geçiyor ve `FundEntry`'de alan yok.
+
+Yapılacak: kategori medyanı NAV serisini kur (aynı `getFlowSeries` okumasından
+türetilebilir, ek sorgu yok) → `computeFundMetrics`'e `benchmark` olarak ver →
+`skill.alpha/beta/informationRatio` alanlarını `FundEntry`'ye ekle.
+`fund-metrics.ts` bu hesapları ZATEN içeriyor ve testleri var — yalnız beslenmiyor.
+
+**Bu, "beceri mi şans mı" sorusunun tek gerçek cevabı** (FON-ANALIZ-PLAN F2-4).
+
+### 2️⃣ BES backfill
+TEFAS ile aynı betik: `npx tsx scripts/fund-backfill.ts BES 250`
+*(2026-09-09'da başlatıldı, koşuyor.)*
+
+### 3️⃣ FAZ 6 — Fon detay sayfası (`/fonlar/[kod]`)
+`components/new/FonDetayScreen.tsx` + `app/fonlar/[kod]/page.tsx` + `new-design-routes`.
+Üç katmanlı getiri · dönemsel getiriler · risk · beceri (yukarıdaki 1. madde sonrası) ·
+**akım grafiği** · bayraklar · kategori emsalleri içindeki konum · erişilebilirlik
+uyarısı (`ad-tabanlı-tahmin`). Veri tablodan okunur, TEFAS'a istek YOK.
+Fon dili korunur: **AL/SAT, stop, R/R YOK.**
+
+### 4️⃣ F6-3 — Fon karşılaştırma (2-4 fon yan yana)
+
+### 5️⃣ Hâlâ açılmayanlar (dürüstçe etiketli kalmalı)
+- **Rolling tutarlılık** — 365g pencere × 30g adım × ≥3 pencere ≈ **~15 ay** gerekir
+- **Tek-yıl bağımlılığı** — 2 tam takvim yılı gerekir
+- **3y/5y getiri** — `?target=` artırılarak derinleşir (TEFAS 1 yıldan öteye veriyor mu ölçülmedi)
+
+### ⚠️ ÖLÇEK UYARISI (3 yıla çıkılırsa)
+Cron şu an 240 gün × 643 fon ≈ 154k satır okuyor (~124 sn). Supabase sayfa tavanı
+**range ne olursa olsun 1.000** (ölçüldü) → satır sayısı doğrudan istek sayısı.
+3 yılda ~460k satır = ~460 istek → yine timeout. Kalıcı çözüm: **sunucu tarafı
+toplama (Postgres RPC)** veya metrikleri yerel betikte hesaplayıp store'a yazmak.
+
+---
+
+## 📌 Bekleyen manuel adımlar
+
+| # | Adım | Durum |
+|---|---|---|
+| 1 | `20260803_firsat_picks.sql` | ✅ Çalıştırılmış (tablo doğrulandı; boş olması normal — cron haftalık, Pzt 08:00 UTC) |
+| 2 | `20260909_fund_prices.sql` | ✅ Çalıştırıldı |
+| 3 | `.claude/settings.local.json` gitignore | ✅ `8949dd2` (webhook secret geçmişe HİÇ girmedi, önlendi) |
+| 4 | Supabase **Google OAuth + anonim giriş** provider'ları | 🟠 Açılmadı — misafir girişi canlıda çalışmaz |
+| 5 | Make.com → `/api/changelog/latest` | 🟡 Çevrilmedi |
 
 ---
 
