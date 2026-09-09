@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import YasalFeragat from '@/components/new/YasalFeragat';
 import type { FundEntry } from '@/lib/fund-runner';
 import { MIN_OBS } from '@/lib/fund-metrics';
@@ -43,7 +44,7 @@ const pctColor = (v: number | null | undefined) =>
 const tl = (v: number | null | undefined) =>
   v == null ? '—' : v >= 1e9 ? `${(v / 1e9).toFixed(1)} mlr ₺` : `${Math.round(v / 1e6)} mn ₺`;
 
-function FundRow({ f, sort }: { f: Fund; sort: SortKey }) {
+function FundRow({ f, sort, universe }: { f: Fund; sort: SortKey; universe: Universe }) {
   // Rozetler: maks 4, UYARI mutlaka görünür (FIRSATLAR-SUNUM-PLAN ilkesi birebir)
   const secili = useMemo(() => {
     const s = f.flags.slice(0, 4);
@@ -53,7 +54,12 @@ function FundRow({ f, sort }: { f: Fund; sort: SortKey }) {
   }, [f.flags]);
 
   return (
-    <div className="ie-glass rounded-[16px] px-4 py-3.5">
+    // 6C: kart tıklanınca detay sayfası. `block` + Link — satır içindeki
+    // başlık/rozetler zaten metin, ayrı bir tıklama hedefi gerekmiyor.
+    <Link
+      href={`/fonlar/${f.code}?universe=${universe}`}
+      className="ie-glass block rounded-[16px] px-4 py-3.5 transition-colors hover:border-ai/30"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -143,7 +149,7 @@ function FundRow({ f, sort }: { f: Fund; sort: SortKey }) {
         {!f.peerReliable && <span className="text-warn">emsal az — kategori kıyası zayıf</span>}
         <span className="ml-auto">{tl(f.size)} · {f.investors?.toLocaleString('tr-TR') ?? '—'} yatırımcı · {f.observations} gözlem</span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -274,7 +280,7 @@ export function FonlarScreen() {
               Bu filtrede fon yok. {yalnizErisilebilir && 'Erişilebilirlik filtresini kapatmayı deneyebilirsin.'}
             </div>
           ) : (
-            gosterilen.map((f) => <FundRow key={f.code} f={f} sort={etkinSort} />)
+            gosterilen.map((f) => <FundRow key={f.code} f={f} sort={etkinSort} universe={universe} />)
           )}
         </div>
 

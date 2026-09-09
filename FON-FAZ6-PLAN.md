@@ -43,9 +43,46 @@ Bu, FAZ 6'nın en yüksek değerli parçasının gerekçesi.
 
 ---
 
-## FAZ 6A — Erken Uyarı katmanı
+## FAZ 6A — Erken Uyarı katmanı ✅ 6A-0/6A-1/6A-3 TAMAM (2026-09-09)
 
 **Yeni:** `lib/fund-alerts.ts` — saf/deterministik, `FlowPoint[]` alır.
+**Ölçüm:** `scripts/fund-alert-backtest.ts` · **Test:** `lib/__tests__/fund-alerts.test.ts` (19)
+
+### 🔬 6A-0 SONUCU — ayrışma hipotezi ÇÜRÜTÜLDÜ
+
+TEFAS 288.923 fon-gün · BES 58.395 fon-gün · sonraki 20 işlem günü · kötü sonuç = ≤ −%10.
+Epizot = ardışık tetikler tek olay (overlap düzeltmesi).
+
+| sinyal | epizot | kötü sonuç | taban | tetiklenme | karar |
+|---|---|---|---|---|---|
+| `fon-sert-dusus` | 1.390 | **%21,5** | %3,5 | %1,87 | ✅ yayınlanır |
+| `fon-yatirimci-kacisi` | 1.179 | %2,8 | %3,5 | %6,79 | ❌ yayınlanmaz |
+| `fon-ayrisma` | 1.157 | **%2,2** | %3,5 | %6,65 | ❌ yayınlanmaz |
+
+**PHE tek vakaydı.** 289 bin fon-günde desen tekrar etmiyor: ayrışma tetiklendikten
+sonra kötü sonuç olasılığı **taban orandan DAHA DÜŞÜK**. Aynı sinyal PHE'nin kendi
+geçmişinde Haziran'da da yandı ve sonraki 20 günde **+%29** geldi. BES teyit ediyor
+(%0,4 vs taban %0,8).
+
+**Karar (kullanıcı, 2026-09-09): rozet olarak HİÇ gösterilmez** — "nötr bağlam"
+etiketiyle bile değil, çünkü kullanıcı ekranda gördüğü her rozeti sinyal sayar.
+Ham veri kaybolmuyor: ayrışma 6C'deki fiyat/yatırımcı grafiğinde ve 6B dönemsel
+tablosunda gözle görülür — **iddia yok, veri var.** Kod ve ölçüm betiği korunuyor;
+daha derin geçmişle (3-5 yıl) yeniden ölçülebilir.
+
+**✅ `fon-sert-dusus` doğrulandı** ama ortalama getirisi **pozitif** (+%7,3) →
+bu bir YÖN tahmini değil, **dağılımın genişlediği** uyarısıdır. Metin buna göre
+yazıldı ("düşüşün süreceği anlamına gelmez") ve teste kilitlendi.
+
+### 🐛 Yol boyunca çıkan iki gerçek hata (düzeltildi)
+
+1. **Ayrışmada mutlak yön kapısı yoktu** — hızlı büyüyen bir fonda yatırımcı sayısı
+   **+%39 ARTMIŞKEN** "yatırımcı çıkışı var" deniyordu: fonun kendi dağılımında
+   ortalama günlük artış yüksek olduğu için +%39 bile "beklenenin altında" kalıp
+   z'yi −2'ye indiriyordu. *Göreli ölçüm yönü belirlemez.* Teste kilitlendi.
+2. **`getFlowSeries` tüm evrende çöküyordu** — `rows.push(...480bin)` spread'i
+   "Maximum call stack size exceeded" veriyordu. Kod-bazlı okumada dilimler küçük
+   olduğu için fark edilmemişti. Döngüyle eklemeye çevrildi (`lib/fund-store.ts`).
 
 ### ⚠️ ÖNCE DOĞRULA, SONRA YAYINLA
 
@@ -93,6 +130,38 @@ sayfasında ek UI kodu gerekmeden görünür. Sade Türkçe, jargonsuz.
 - Piyasa geneli düşüşte (tüm kategori düşmüş) → uyarı **üretilmez**
 - Yeterli geçmiş yoksa (z-skor hesaplanamaz) → uyarı **üretilmez**, uydurulmaz
 - Yatırımcı verisi eksik günler atlanır (0 sayılmaz)
+
+---
+
+## ✅ DURUM (2026-09-10) — 6A/6B/6C/6D kodlandı
+
+| Faz | Durum | Dosya |
+|---|---|---|
+| 6A-0 ölçüm | ✅ | `scripts/fund-alert-backtest.ts` |
+| 6A-1 sinyaller | ✅ | `lib/fund-alerts.ts` |
+| 6A-2 rozet | ✅ | `lib/fund-runner.ts` (yalnız `fon-sert-dusus` yayınlanır) |
+| 6A-3 testler | ✅ | `lib/__tests__/fund-alerts.test.ts` (19 test, PHE gerçek verisi) |
+| 6B dönemsel tablo | ✅ | `investorChangeOverDays` + `FundEntry.periods` |
+| 6C detay sayfası | ✅ | `app/api/fonlar/[kod]` · `FonDetayScreen` · `app/fonlar/[kod]` |
+| 6D gerçek kategori | 🔵 kod hazır, **migration bekliyor** | `20260910_fund_real_category.sql` · `scripts/fund-categories.ts` |
+
+**Doğrulama:** tsc + build temiz · **465 test** (446 → +19) · canlı veriyle uçtan uca
+(PHE: 1 hafta getiri −%60,1 · yatırımcı −%41,6 yan yana; `fon-sert-dusus` rozeti çıktı,
+çürütülen iki sinyal çıkmadı; 3y/5y "yeterli geçmiş yok"; 493 kart tıklanabilir; mobil +
+karanlık tema + konsol temiz).
+
+### 🔴 BEKLEYEN MANUEL ADIM
+`supabase/migrations/20260910_fund_real_category.sql` Supabase SQL Editor'da çalıştırılmalı,
+**sonra** `npx tsx scripts/fund-categories.ts TEFAS` ve `... BES` (~90 dk, kesilebilir).
+Migration çalışmadan sistem BOZULMAZ — `getMeta` eski şemaya zarif düşer ve ad tahmini
+yedeği devrede kalır (kolonsuz select cron'u komple öldürürdü, o yüzden guard eklendi).
+
+### 📌 Plan düzeltmeleri (uygulama sırasında çıktı)
+- **"Migration GEREKMEZ" yanlıştı** (6D): gerçek kategori bir METİN, mevcut `category`
+  ise INT. Metni int'e sıkıştırmak granülerliği ve BES taksonomisini yok ederdi.
+- **`fonBilgiGetir` payload alanı `fonKod` DEĞİL `fonKodu`** — yanlış adla uç HTTP 200 +
+  **boş liste** döndürüyor (hata değil). Bu kaynağın tekrar eden sessiz-boş davranışı.
+  `{fonKodu, dil:'TR'}` yeterli; başka alan gerekmiyor.
 
 ---
 

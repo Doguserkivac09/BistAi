@@ -38,8 +38,17 @@ export const CATEGORY_TTL_DAYS = 7;
 export interface FundMetaRow {
   code: string;
   name: string | null;
+  /** TEFAS şemsiye türü (12 kod) — 6D öncesi tek kaynaktı, artık YEDEK. */
   category: number | null;
   categoryAt: string | null;
+  /**
+   * 6D — kaynağın KENDİ kategorisi ("Hisse Senedi Fonu", BES'te "Başlangıç
+   * Katılım Fonu"). Emsal grubu artık buna göre kurulur; ad tahmini yedek.
+   */
+  categoryName: string | null;
+  categoryRank: number | null;
+  categorySize: number | null;
+  categoryNameAt: string | null;
 }
 
 /** Akım analizi için gereken günlük nokta (F3 — pay adedi ana kaynak). */
@@ -271,15 +280,22 @@ export async function getFlowSeries(
   };
   const cols = 'code,date,price,shares,investors,size';
   const rows: Row[] = [];
+  //
+  // ⚠️ SPREAD İLE EKLEME YOK: `rows.push(...dizi)` her elemanı ARGÜMAN olarak
+  // yığına koyar. Tüm evren okunduğunda (240 gün × ~2.000 fon ≈ 480 bin satır)
+  // bu "Maximum call stack size exceeded" ile patlıyor — 6A-0 backtest'inde
+  // canlıda yakalandı. Kod-bazlı okumada fark edilmemişti çünkü orada diliml
+  // küçük kalıyor. Döngüyle ekleme boyuttan bağımsız güvenlidir.
+  const ekle = (xs: Row[]) => { for (const x of xs) rows.push(x); };
   if (codes && codes.length > 0) {
     // `in` listesi URL'e gidiyor → 200'lük parçalara böl (uzunluk sınırı).
     for (let i = 0; i < codes.length; i += 200) {
       const dilim = codes.slice(i, i + 200);
-      rows.push(...await readPaged<Row>(sb, 'fund_prices', cols,
+      ekle(await readPaged<Row>(sb, 'fund_prices', cols,
         (q) => q.eq('universe', universe).gte('date', fromISO).in('code', dilim).order('code').order('date')));
     }
   } else {
-    rows.push(...await readPaged<Row>(sb, 'fund_prices', cols,
+    ekle(await readPaged<Row>(sb, 'fund_prices', cols,
       (q) => q.eq('universe', universe).gte('date', fromISO).order('code').order('date')));
   }
   const map = new Map<string, FlowPoint[]>();
@@ -334,19 +350,56 @@ export async function getMeta(
   sb: SupabaseClient,
   universe: FundUniverse,
 ): Promise<Map<string, FundMetaRow>> {
-  const rows = await readPaged<{
+  type Row = {
     code: string; name: string | null; category: number | null; category_at: string | null;
-  }>(
-    sb,
-    'fund_meta',
-    'code,name,category,category_at',
-    (q) => q.eq('universe', universe).order('code'),
-  );
+    category_name?: string | null; category_rank?: number | null; category_size?: number | null;
+    category_name_at?: string | null;
+  };
+  const YENI = 'code,name,category,category_at,category_name,category_rank,category_size,category_name_at';
+  const ESKI = 'code,name,category,category_at';
+
+  // ⚠️ ZARİF DÜŞÜŞ: 6D kolonları `20260910_fund_real_category.sql` ile geliyor.
+  // Migration çalıştırılmadan deploy edilirse bu select 42703 (undefined_column)
+  // ile patlar ve TÜM fon cron'u ölürdü. Eski şemayla devam edip gerçek kategoriyi
+  // yok sayıyoruz — ad tahmini yedeği zaten yerinde, sistem çalışmaya devam eder.
+  let rows: Row[];
+  try {
+    rows = await readPaged<Row>(sb, 'fund_meta', YENI, (q) => q.eq('universe', universe).order('code'));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/category_name|42703|column/i.test(msg)) throw e;
+    console.warn('[fund-store] 6D kolonları yok (migration bekliyor) — eski şemayla devam ediliyor');
+    rows = await readPaged<Row>(sb, 'fund_meta', ESKI, (q) => q.eq('universe', universe).order('code'));
+  }
   const map = new Map<string, FundMetaRow>();
   for (const r of rows) {
-    map.set(r.code, { code: r.code, name: r.name, category: r.category, categoryAt: r.category_at });
+    map.set(r.code, {
+      code: r.code, name: r.name, category: r.category, categoryAt: r.category_at,
+      categoryName: r.category_name ?? null, categoryRank: r.category_rank ?? null,
+      categorySize: r.category_size ?? null, categoryNameAt: r.category_name_at ?? null,
+    });
   }
   return map;
+}
+
+/**
+ * GERÇEK kategori yazımı (6D) — `scripts/fund-categories.ts` haftalık koşusu.
+ * Ad/int-kategori alanlarına DOKUNMAZ.
+ */
+export async function upsertRealCategories(
+  sb: SupabaseClient,
+  universe: FundUniverse,
+  entries: Array<{ code: string; categoryName: string | null; categoryRank: number | null; categorySize: number | null }>,
+): Promise<void> {
+  const now = new Date().toISOString();
+  for (let i = 0; i < entries.length; i += UPSERT_CHUNK) {
+    const chunk = entries.slice(i, i + UPSERT_CHUNK).map((r) => ({
+      universe, code: r.code,
+      category_name: r.categoryName, category_rank: r.categoryRank,
+      category_size: r.categorySize, category_name_at: now, updated_at: now,
+    }));
+    await sb.from('fund_meta').upsert(chunk, { onConflict: 'universe,code' });
+  }
 }
 
 /** Ad güncellemesi (her koşuda) — kategoriye DOKUNMAZ. */

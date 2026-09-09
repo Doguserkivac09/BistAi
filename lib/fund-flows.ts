@@ -203,3 +203,46 @@ export function flowFlags(
 
   return flags;
 }
+
+// ── FAZ 6B: dönemsel yatırımcı değişimi ─────────────────────────────────────
+
+/**
+ * `days` takvim günü öncesine göre yatırımcı sayısı değişimi (%).
+ *
+ * Dönemsel getiri tablosunun yanında gösterilir — ürünün asıl sorusu
+ * "getiri ne oldu" değil, **"getiri ne olurken yatırımcı ne yaptı"**.
+ *
+ * ⚠️ KAPSAMA DİSİPLİNİ (`coversPeriod` ile aynı kural): elde yalnız 10 günlük
+ * veri varken "1 yıllık değişim" diye 10 günün değişimini yazmak yalandır.
+ * Aralık, istenen dönemin %90'ını kapsamıyorsa **null** döner.
+ *
+ * ⚠️ Boş gözlemler ATLANIR, 0 SAYILMAZ (fund-flows'un temel kuralı).
+ *
+ * @param days -1 verilirse YTD (yılbaşından beri) — kapsama kuralı uygulanmaz,
+ *             çünkü YTD tanımı gereği kısmi bir dönemdir.
+ */
+export function investorChangeOverDays(series: FlowPoint[], days: number): number | null {
+  const dolu = [...series]
+    .filter((p) => p.investors != null && Number.isFinite(p.investors))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (dolu.length < 2) return null;
+
+  const son = dolu[dolu.length - 1]!;
+  let pencere: FlowPoint[];
+
+  if (days < 0) {
+    const yilBasi = `${son.date.slice(0, 4)}-01-01`;
+    pencere = dolu.filter((p) => p.date >= yilBasi);
+  } else {
+    const kesim = new Date(Date.parse(`${son.date}T00:00:00Z`) - days * 86_400_000)
+      .toISOString().slice(0, 10);
+    pencere = dolu.filter((p) => p.date >= kesim);
+    // Kapsama: en eski gözlem ile son gözlem arası dönemin %90'ı olmalı.
+    if (pencere.length < 2) return null;
+    const span = (Date.parse(pencere[pencere.length - 1]!.date) - Date.parse(pencere[0]!.date)) / 86_400_000;
+    if (span < days * 0.9) return null;
+  }
+
+  if (pencere.length < 2) return null;
+  return pct(pencere[pencere.length - 1]!.investors!, pencere[0]!.investors!);
+}

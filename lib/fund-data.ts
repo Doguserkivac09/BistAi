@@ -260,3 +260,44 @@ export async function listFundCodesByCategory(
 
 /** Fon adından türetilen erişilebilirlik — kaynağıyla birlikte (tahmin olduğu gizlenmez). */
 export const accessibilityOf = guessAccessibility;
+
+// ── FAZ 6D: gerçek kategori ─────────────────────────────────────────────────
+
+/**
+ * Fonun kaynaktan gelen GERÇEK kategorisi.
+ *
+ * ⚠️ Bu, `guessBesCategory` / ad tahmininin yerine geçer. Ad tahmini yalnızca
+ * kaynak kategori bulunamadığında yedek kalır.
+ *
+ * ⚠️ PAYLOAD: alan adı **`fonKodu`** — FON-FAZ6-PLAN'da `fonKod` yazıyordu ve
+ * o şekilde çağırınca uç HTTP 200 ile **boş liste** döndürüyor (hata değil!).
+ * Sessiz boş yanıt bu kaynağın tekrar eden davranışı; şema değişikliği "veri yok"
+ * gibi görünür. `dil` dışında başka alan gerekmiyor (ölçüldü 2026-09-09).
+ */
+export interface FundInfo {
+  code: string;
+  name: string | null;
+  /** "Hisse Senedi Fonu" · BES'te "Başlangıç Katılım Fonu" — kaynağın taksonomisi */
+  categoryName: string | null;
+  /** TEFAS'ın kendi kategori içi sıralaması (bonus) */
+  categoryRank: number | null;
+  categorySize: number | null;
+  marketSharePct: number | null;
+}
+
+export async function getFundInfo(code: string): Promise<FundInfo | null> {
+  const json = await callTefas('fonBilgiGetir', { fonKodu: code, dil: 'TR' });
+  const j = json as { resultList?: Array<Record<string, unknown>> } | null;
+  const r = j?.resultList?.[0];
+  if (!r) return null;
+  const s = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
+  return {
+    code,
+    name: s(r.fonUnvan),
+    categoryName: s(r.fonKategori),
+    categoryRank: num(r.kategoriDerece),
+    categorySize: num(r.kategoriFonSay),
+    marketSharePct: num(r.pazarPayi),
+  };
+}

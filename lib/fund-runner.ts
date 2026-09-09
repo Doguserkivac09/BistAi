@@ -29,7 +29,9 @@ import {
   getCategorySweep, recordCategorySweep,
   type FlowPoint,
 } from './fund-store';
-import { computeFlows, flowFlags, type FlowMetrics } from './fund-flows';
+import { computeFlows, flowFlags, investorChangeOverDays, type FlowMetrics } from './fund-flows';
+import { buildAlerts, alertsToFlags, measureAlerts } from './fund-alerts';
+import { PERIODS, type PeriodKey } from './fund-metrics';
 
 /**
  * Evren eşiği — KULLANICI KARARI (2026-09-09), canlı ölçümle seçildi.
@@ -86,7 +88,14 @@ export interface FundEntry {
   name: string;
   universe: FundUniverse;
   category: number | null;
+  /** Ekranda gösterilen kategori — 6D gerçek kategorisi varsa o, yoksa şemsiye türü. */
   categoryLabel: string | null;
+  /** 6D — kaynağın kendi kategorisi. null ise etiket ad tahminine dayanıyor demektir. */
+  categoryName: string | null;
+  /** TEFAS'ın kendi kategori içi sıralaması (bizim sıramızdan bağımsız, bonus). */
+  categoryRank: number | null;
+  /** Bizim emsal grubumuzdaki fon sayısı (TEFAS'ın kategoriFonSay'i DEĞİL). */
+  categorySize: number | null;
   accessibility: string;
   /** Erişilebilirlik AD TAHMİNİ — UI bunu göstermek zorunda */
   accessibilitySource: 'ad-tabanlı-tahmin';
@@ -110,6 +119,11 @@ export interface FundEntry {
   flags: FundFlag[];
   /** Kategori emsali güvenilir mi (n>=MIN_PEER) */
   peerReliable: boolean;
+  /**
+   * 6B dönemsel tablo — getiri ve aynı dönemin yatırımcı değişimi yan yana.
+   * Kapsanmayan dönem (ör. 240 günlük veriyle 3y/5y) `null` döner; **0 değil.**
+   */
+  periods: FundPeriod[];
   /** F3 para akımı — Δ(pay adedi) × ort. fiyat. Büyüklük farkı DEĞİL. */
   netFlowTL: number | null;
   sharesChangePct: number | null;
@@ -164,7 +178,11 @@ export interface Measured {
   name: string;
   investors: number | null;
   size: number | null;
+  /** TEFAS şemsiye türü (12 kod) — 6D öncesi tek kaynaktı, artık YEDEK. */
   category: number | null;
+  /** 6D — kaynağın gerçek kategorisi. Varsa emsal grubu BUNA göre kurulur. */
+  categoryName: string | null;
+  categoryRank: number | null;
   nominal: number | null;
   excess: number | null;
   real: number | null;
@@ -175,6 +193,38 @@ export interface Measured {
   asOf: string | null;
   /** F3 para akımı — pay adedi tabanlı (fon büyüklüğünden DEĞİL) */
   flow: FlowMetrics;
+  /** 6B dönemsel tablo — getiri ve yatırımcı değişimi YAN YANA */
+  periods: FundPeriod[];
+  /**
+   * 6A: son 5 iş günü fiyat değişimi. Sert düşüş uyarısının kategori kapısı
+   * bunun medyanına göre kurulur → 2. geçişte lazım.
+   */
+  priceChangeShort: number | null;
+  /** 6A: uyarı üretimi için ham seri (2. geçişte emsal medyanıyla birleşir). */
+  series: FlowPoint[];
+}
+
+/** 6B — bir dönemin getirisi ve aynı dönemdeki yatırımcı hareketi. */
+export interface FundPeriod {
+  key: PeriodKey;
+  label: string;
+  /** Kümülatif getiri (%) — dönem verisi yetmiyorsa null ("yeterli geçmiş yok") */
+  returnPct: number | null;
+  /** Yıllıklandırılmış (%) — yalnız ≥1 yıl dönemlerde */
+  annualizedPct: number | null;
+  /** Aynı dönemde yatırımcı sayısı değişimi (%) — ürünün asıl sorusu */
+  investorChangePct: number | null;
+  observations: number;
+}
+
+/**
+ * Emsal grubu anahtarı (6D). Gerçek kategori varsa o, yoksa şemsiye türü.
+ * Ön ek iki taksonominin aynı gruba düşmesini engeller.
+ */
+export function catKey(m: Pick<Measured, 'categoryName' | 'category'>): string | null {
+  if (m.categoryName) return `ad:${m.categoryName}`;
+  if (m.category != null) return `tur:${m.category}`;
+  return null;
 }
 
 /** 0-100'e ölçekler: değer medyanın ne kadar üstünde/altında (±%50 tam aralık). */
@@ -503,6 +553,11 @@ export async function runFundScan(
       size: snap.size,
       // BES: kategori TEFAS'tan gelmiyor (yukarıdaki nota bak) → addan çıkarılır.
       category: universe === 'BES' ? guessBesCategory(info.name) : (info.category ?? null),
+      // 6D: kaynağın gerçek kategorisi. Ad tahmini artık yalnız YEDEK — gerçek
+      // kategori hem daha doğru hem daha granüler emsal grubu verir ve BES'in
+      // kendi taksonomisini ("Başlangıç Katılım Fonu") korur.
+      categoryName: info.categoryName ?? null,
+      categoryRank: info.categoryRank ?? null,
       nominal: fm.layered.nominal,
       excess: fm.layered.excess,
       real: fm.layered.real,
@@ -512,25 +567,56 @@ export async function runFundScan(
       observations: fm.observations,
       asOf: fm.asOf,
       flow: computeFlows(pts),
+      // 6B: getiri zaten hesaplanıyordu ama store'a yazılmıyordu — yalnız
+      // bağlama işi. Yatırımcı değişimi AYNI pencerelerle ekleniyor ki
+      // "getiri ne olurken yatırımcı ne yaptı" tek satırda okunsun.
+      periods: PERIODS.map((p) => {
+        const pr = fm.periods.find((x) => x.period === p.key);
+        return {
+          key: p.key,
+          label: p.label,
+          returnPct: pr?.cumulative ?? null,
+          annualizedPct: pr?.annualized ?? null,
+          // Getiri kapsama kuralına takıldıysa yatırımcı değişimi de gösterilmez
+          // — yarısı dolu bir satır, dolu olan yarıyı da şüpheli yapar.
+          investorChangePct: pr?.cumulative == null ? null : investorChangeOverDays(pts, p.days),
+          observations: pr?.observations ?? 0,
+        };
+      }),
+      priceChangeShort: measureAlerts(pts).priceChangeShort,
+      series: pts,
     });
   }
 
   // ── 2. GEÇİŞ: kategori medyanları + göreli skor/bayrak/sıra ──
-  const byCat = new Map<number, Measured[]>();
+  //
+  // 6D: emsal grubu ÖNCE gerçek kategoriden (kaynağın kendi taksonomisi),
+  // yoksa eski şemsiye türünden kurulur. İkisi KARIŞTIRILMAZ — aynı gruba hem
+  // "Hisse Senedi Fonu" hem "tür:1" koymak elma-armut kıyası olurdu; anahtar
+  // ön ekle ayrıştırılıyor. Granüler grupta n<MIN_PEER olabilir; `peerReliable`
+  // bunu zaten yakalıyor ve emsal iddiası edilmiyor.
+  const byCat = new Map<string, Measured[]>();
   for (const m of measured) {
-    if (m.category == null) continue;
-    if (!byCat.has(m.category)) byCat.set(m.category, []);
-    byCat.get(m.category)!.push(m);
+    const key = catKey(m);
+    if (key == null) continue;
+    if (!byCat.has(key)) byCat.set(key, []);
+    byCat.get(key)!.push(m);
   }
 
   const items: FundEntry[] = measured.map((m) => {
-    const peers = m.category != null ? (byCat.get(m.category) ?? []) : [];
+    const mKey = catKey(m);
+    const peers = mKey != null ? (byCat.get(mKey) ?? []) : [];
     const n = peers.length;
     const peerSharpe = median(peers.map((p) => p.sharpe).filter((x): x is number => x != null));
     const peerVol = median(peers.map((p) => p.volatility).filter((x): x is number => x != null));
     // Akım da EMSALE GÖRELİ okunur: piyasa genelinde çıkış varken "para çıkışı
     // var" tüm evrende tetiklenir ve bilgi taşımaz (kalibrasyon kuralı).
     const peerFlow = median(peers.map((p) => p.flow.sharesChangePct).filter((x): x is number => x != null));
+    // 6A: sert düşüş uyarısının KATEGORİ KAPISI. Tüm kategori düştüyse bu
+    // piyasadır, fonun kusuru değildir — emsalsiz (n<MIN_PEER) hiç iddia edilmez.
+    const peerPriceShort = median(
+      peers.map((p) => p.priceChangeShort).filter((x): x is number => x != null),
+    );
     const reliable = n >= MIN_PEER;
 
     // Bileşik skor: risk-ayarlı getiri (emsale göre) + istikrar. Bileşen yoksa
@@ -549,7 +635,11 @@ export async function runFundScan(
       name: m.name,
       universe,
       category: m.category,
-      categoryLabel: categoryLabel(m.category),
+      // 6D: gerçek kategori varsa ekranda o gösterilir (ad tahmini yedek).
+      categoryLabel: m.categoryName ?? categoryLabel(m.category),
+      categoryName: m.categoryName,
+      categoryRank: m.categoryRank,
+      categorySize: m.categoryName ? peers.length : null,
       accessibility: accessibility.value,
       accessibilitySource: 'ad-tabanlı-tahmin' as const,
       investors: m.investors,
@@ -564,8 +654,15 @@ export async function runFundScan(
       flags: [
         ...buildFlags(m, reliable ? { sharpe: peerSharpe, vol: peerVol, n } : null),
         ...flowFlags(m.flow, reliable ? peerFlow : null, m.size),
+        // 6A-2 — YALNIZ 6A-0 ölçümünde ayrıştırıcı çıkan uyarı yayınlanır;
+        // ayrışma ve yatırımcı kaçışı `alertsToFlags` içinde eleniyor.
+        ...alertsToFlags(buildAlerts({
+          series: m.series,
+          peerMedianPriceChangePct: reliable ? peerPriceShort : null,
+        })),
       ],
       peerReliable: reliable,
+      periods: m.periods,
       netFlowTL: m.flow.netFlowTL,
       sharesChangePct: m.flow.sharesChangePct,
       investorsChangePct: m.flow.investorsChangePct,
