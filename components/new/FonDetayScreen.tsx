@@ -398,6 +398,13 @@ export function FonDetayScreen({ kod, universe: baslangic }: { kod: string; univ
           ) : (
             <p className="mt-1.5 text-[12px] font-medium text-t2">Kategori sırası hesaplanamadı.</p>
           )}
+          {f.peerScope === 'semsiye' && (
+            <p className="mt-2 text-[11.5px] font-medium text-t2">
+              Bu fonun kendi kategorisinde ({f.categoryLabel}) 5'ten az fon var, bu yüzden
+              kıyas <strong className="font-semibold">daha geniş bir gruba</strong> göre yapıldı.
+              Sıralama yine anlamlı ama kıyas kabalaşıyor.
+            </p>
+          )}
           {!f.peerReliable && (
             <p className="mt-2 text-[11.5px] font-medium text-warn">
               Bu kategoride yeterli emsal yok — kıyaslama zayıf, sıralamayı tek başına okuma.

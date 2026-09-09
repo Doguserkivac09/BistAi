@@ -75,6 +75,14 @@ const CATEGORY_BUDGET_MS = 150_000;
 
 export type FundFlagTone = 'pos' | 'warn' | 'neutral';
 
+/**
+ * Emsal kıyasının hangi kademede yapıldığı.
+ *  - `kategori` : fonun kendi (granüler, gerçek) kategorisi — en anlamlı kıyas
+ *  - `semsiye`  : granüler grup 5'in altında kaldı, geniş şemsiye türüne düşüldü
+ *  - `yetersiz` : ikisi de yetmedi — emsal İDDİA EDİLMEZ
+ */
+export type PeerScope = 'kategori' | 'semsiye' | 'yetersiz';
+
 export interface FundFlag {
   id: string;
   tone: FundFlagTone;
@@ -117,8 +125,10 @@ export interface FundEntry {
   rankByReturn: number | null;
   rankByScore: number | null;
   flags: FundFlag[];
-  /** Kategori emsali güvenilir mi (n>=MIN_PEER) */
+  /** Kategori emsali güvenilir mi (kıyas kurulabildi mi) */
   peerReliable: boolean;
+  /** Kıyas hangi kademede yapıldı — rozet dili bundan fazlasını iddia edemez. */
+  peerScope: PeerScope;
   /**
    * 6B dönemsel tablo — getiri ve aynı dönemin yatırımcı değişimi yan yana.
    * Kapsanmayan dönem (ör. 240 günlük veriyle 3y/5y) `null` döner; **0 değil.**
@@ -609,22 +619,45 @@ export async function runFundScan(
 
   // ── 2. GEÇİŞ: kategori medyanları + göreli skor/bayrak/sıra ──
   //
-  // 6D: emsal grubu ÖNCE gerçek kategoriden (kaynağın kendi taksonomisi),
-  // yoksa eski şemsiye türünden kurulur. İkisi KARIŞTIRILMAZ — aynı gruba hem
-  // "Hisse Senedi Fonu" hem "tür:1" koymak elma-armut kıyası olurdu; anahtar
-  // ön ekle ayrıştırılıyor. Granüler grupta n<MIN_PEER olabilir; `peerReliable`
-  // bunu zaten yakalıyor ve emsal iddiası edilmiyor.
-  const byCat = new Map<string, Measured[]>();
+  // ⭐ İKİ KADEMELİ EMSAL (6D sonrası eklendi, canlı veriyle ölçülerek).
+  //
+  // Gerçek kategori ad tahmininden çok daha DOĞRU ama çok daha DAR: BES'in ilk
+  // 150 fonunda 23 ayrı kategori çıktı ve çoğu 5 üyenin altında kaldı. Tek
+  // kademeli tasarımda bu fonların hepsi `peerReliable=false` olup **skorsuz**
+  // kalacaktı — yani kategoriyi düzeltmek, ürünün ana çıktısını yok edecekti.
+  //
+  // Çözüm: önce granüler grup denenir; n < MIN_PEER ise ŞEMSİYE grubuna düşülür
+  // (ör. "Katılım Hisse Senedi Fonu" n=2 → "Hisse Senedi" şemsiyesi). Kıyas
+  // kabalaşır ama var olur; hangi kademenin kullanıldığı `peerScope` ile
+  // taşınır, böylece rozet dili olduğundan fazlasını iddia etmez.
+  const byCat = new Map<string, Measured[]>();      // granüler (gerçek kategori)
+  const bySemsiye = new Map<string, Measured[]>();  // geniş (şemsiye türü)
   for (const m of measured) {
     const key = catKey(m);
-    if (key == null) continue;
-    if (!byCat.has(key)) byCat.set(key, []);
-    byCat.get(key)!.push(m);
+    if (key != null) {
+      if (!byCat.has(key)) byCat.set(key, []);
+      byCat.get(key)!.push(m);
+    }
+    if (m.category != null) {
+      const sk = `tur:${m.category}`;
+      if (!bySemsiye.has(sk)) bySemsiye.set(sk, []);
+      bySemsiye.get(sk)!.push(m);
+    }
+  }
+
+  /** Fonun emsal grubu: granüler yeterliyse o, değilse şemsiye. */
+  function emsalSec(m: Measured): { peers: Measured[]; scope: PeerScope } {
+    const k = catKey(m);
+    const dar = k != null ? (byCat.get(k) ?? []) : [];
+    if (dar.length >= MIN_PEER) return { peers: dar, scope: 'kategori' };
+    const genis = m.category != null ? (bySemsiye.get(`tur:${m.category}`) ?? []) : [];
+    if (genis.length >= MIN_PEER) return { peers: genis, scope: 'semsiye' };
+    return { peers: dar.length >= genis.length ? dar : genis, scope: 'yetersiz' };
   }
 
   const items: FundEntry[] = measured.map((m) => {
+    const { peers, scope: peerScope } = emsalSec(m);
     const mKey = catKey(m);
-    const peers = mKey != null ? (byCat.get(mKey) ?? []) : [];
     const n = peers.length;
     const peerSharpe = median(peers.map((p) => p.sharpe).filter((x): x is number => x != null));
     const peerVol = median(peers.map((p) => p.volatility).filter((x): x is number => x != null));
@@ -636,7 +669,7 @@ export async function runFundScan(
     const peerPriceShort = median(
       peers.map((p) => p.priceChangeShort).filter((x): x is number => x != null),
     );
-    const reliable = n >= MIN_PEER;
+    const reliable = peerScope !== 'yetersiz';
 
     // Bileşik skor: risk-ayarlı getiri (emsale göre) + istikrar. Bileşen yoksa
     // ağırlık YENİDEN NORMALİZE edilir (long-term-runner deseni) — 0 sayılmaz.
@@ -658,7 +691,11 @@ export async function runFundScan(
       categoryLabel: m.categoryName ?? categoryLabel(m.category),
       categoryName: m.categoryName,
       categoryRank: m.categoryRank,
-      categorySize: m.categoryName ? peers.length : null,
+      // Emsal sayısı, grup ister gerçek kategoriden ister şemsiye türünden
+      // kurulmuş olsun geçerlidir. Önce `categoryName ? … : null` yazılmıştı;
+      // 6D koşulmayan TEFAS'ta bu, var olan bilgiyi sebepsiz gizliyordu.
+      categorySize: peers.length > 0 ? peers.length : null,
+      peerScope,
       accessibility: accessibility.value,
       accessibilitySource: 'ad-tabanlı-tahmin' as const,
       investors: m.investors,

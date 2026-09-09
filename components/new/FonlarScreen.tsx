@@ -146,6 +146,11 @@ function FundRow({ f, sort, universe }: { f: Fund; sort: SortKey; universe: Univ
         ) : (
           <span>Kategori sırası hesaplanamadı</span>
         )}
+        {f.peerScope === 'semsiye' && (
+          <span title="Kendi kategorisinde 5'ten az fon var; kıyas geniş gruba göre yapıldı">
+            geniş kategoriye göre
+          </span>
+        )}
         {!f.peerReliable && <span className="text-warn">emsal az — kategori kıyası zayıf</span>}
         <span className="ml-auto">{tl(f.size)} · {f.investors?.toLocaleString('tr-TR') ?? '—'} yatırımcı · {f.observations} gözlem</span>
       </div>
@@ -156,7 +161,7 @@ function FundRow({ f, sort, universe }: { f: Fund; sort: SortKey; universe: Univ
 export function FonlarScreen() {
   const [universe, setUniverse] = useState<Universe>('TEFAS');
   const [sort, setSort] = useState<SortKey>('risk');
-  const [kategori, setKategori] = useState<number | 'hepsi'>('hepsi');
+  const [kategori, setKategori] = useState<string | 'hepsi'>('hepsi');
   const [yalnizErisilebilir, setYalnizErisilebilir] = useState(true);
   const [data, setData] = useState<Record<Universe, Resp | null>>({ TEFAS: null, BES: null });
   const [loading, setLoading] = useState(true);
@@ -175,10 +180,15 @@ export function FonlarScreen() {
   const resp = data[universe];
   const funds = resp?.funds ?? [];
 
+  // ⚠️ FİLTRE ETİKETE GÖRE, İNT KODA GÖRE DEĞİL.
+  // Önce `Map<number,string>` idi: 6D'den sonra BES'te 28 gerçek kategori
+  // yalnız 12 şemsiye int'ine eziliyordu — çiplerin çoğu kayboluyor, kalanlar
+  // da tıklanınca YANLIŞ grubu filtreliyordu (ör. "Endeks Fon" çipi, aynı int'i
+  // paylaşan tüm hisse fonlarını getiriyordu). Etiket artık tek doğruluk kaynağı.
   const kategoriler = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const f of funds) if (f.category != null && f.categoryLabel) m.set(f.category, f.categoryLabel);
-    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'tr'));
+    const sayac = new Map<string, number>();
+    for (const f of funds) if (f.categoryLabel) sayac.set(f.categoryLabel, (sayac.get(f.categoryLabel) ?? 0) + 1);
+    return [...sayac.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'tr'));
   }, [funds]);
 
   // Risk-ayarlı skor üretilebilmiş fon sayısı. Sıfırsa varsayılan sıralamanın adı
@@ -190,7 +200,7 @@ export function FonlarScreen() {
   const gosterilen = useMemo(() => {
     let x = funds;
     if (yalnizErisilebilir) x = x.filter((f) => f.accessibility === 'herkes');
-    if (kategori !== 'hepsi') x = x.filter((f) => f.category === kategori);
+    if (kategori !== 'hepsi') x = x.filter((f) => f.categoryLabel === kategori);
     return [...x].sort((a, b) =>
       etkinSort === 'risk' ? (b.score ?? -1) - (a.score ?? -1) : (b.nominal ?? -999) - (a.nominal ?? -999),
     );
@@ -241,8 +251,10 @@ export function FonlarScreen() {
         {kategoriler.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <button onClick={() => setKategori('hepsi')} className={chip(kategori === 'hepsi')}>Tüm kategoriler</button>
-            {kategoriler.map(([kod, ad]) => (
-              <button key={kod} onClick={() => setKategori(kod)} className={chip(kategori === kod)}>{ad}</button>
+            {kategoriler.map(([ad, n]) => (
+              <button key={ad} onClick={() => setKategori(ad)} className={chip(kategori === ad)} title={`${n} fon`}>
+                {ad} <span className="opacity-60">{n}</span>
+              </button>
             ))}
           </div>
         )}
