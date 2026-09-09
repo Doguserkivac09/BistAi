@@ -57,6 +57,19 @@ const DAY_COST_MS = 55_000;
 /** Metrik/okuma/yazma için ayrılan pay — gün çekimi bunu yemez. */
 const RESERVE_MS = 55_000;
 
+/**
+ * Kategori tazelemesi için AYRILAN pay (12 kategori × ≤4 sayfa, ölçülen ~100-130 sn).
+ *
+ * ⚠️ NEDEN REZERV: ilk sürümde kategori bloğu backfill'DEN SONRA "artan süre
+ * varsa" koşuluyla çalışıyordu. Backfill bütçenin tamamını yediği için
+ * (`budgetExhausted` her koşuda true) kategoriler **hiç** dolmuyordu — canlıda
+ * 2026-09-09: 643 fon ölçüldü ama kategorisi olmadığı için emsal kıyası
+ * kurulamadı ve skorların TAMAMI null kaldı. Kategori bir kerelik maliyet
+ * (sonra 7 gün taze); gün çekimi ise sonsuz — o yüzden kategori ÖNCELİKLİ
+ * rezerv alır, backfill kalanla çalışır.
+ */
+const CATEGORY_BUDGET_MS = 150_000;
+
 export type FundFlagTone = 'pos' | 'warn' | 'neutral';
 
 export interface FundFlag {
@@ -387,23 +400,30 @@ export async function runFundScan(
 
   const previous = await getFundStore(sb, universe);
 
-  // VERİ ÖNCELİKLİ: önce günler çekilir. Kategori tazelemesi artan süreye
-  // bırakılır — kategori nadiren değişir, kaçırılan gün ise telafi edilemez.
-  // Ayrıca kategori sorgusu VERİSİ OLAN bir tarih ister; o tarihi ancak
-  // backfill'den sonra kesin biliriz.
-  const backfill = await backfillMissingDays(sb, universe, targetDays, deadline);
+  // Kategori ihtiyacını ÖNCE ölç (ucuz okuma) — gerekiyorsa backfill'in
+  // bütçesinden pay ayrılır. Aksi halde backfill her şeyi yer ve kategori
+  // hiç dolmaz (bkz. CATEGORY_BUDGET_MS notu).
+  const metaOnce = await getMeta(sb, universe);
+  const covOnce = await getCoverageSummary(sb, universe);
+  const hicKategoriYok = metaOnce.size === 0 || [...metaOnce.values()].every((m) => m.category == null);
+  const enEski = [...metaOnce.values()].map((m) => m.categoryAt).sort()[0] ?? null;
+  // Kategori sorgusu VERİSİ OLAN bir tarih ister; hiç kapsama yoksa bu koşuda
+  // yapılamaz (ilk koşu) — o zaman bütün bütçe backfill'e gider.
+  const katGerekli = (hicKategoriYok || categoryStale(enEski)) && covOnce.newest != null;
+  const katRezerv = katGerekli ? CATEGORY_BUDGET_MS : 0;
+
+  // VERİ ÖNCELİKLİ (kategori rezervi düşüldükten sonra): kaçırılan gün telafi
+  // edilemez, kategori ise 7 günde bir yeter.
+  const backfill = await backfillMissingDays(sb, universe, targetDays, deadline - katRezerv);
 
   // ⚠️ META BACKFILL'DEN SONRA OKUNUR. İlk sürümde önce okunuyordu; adları
   // backfill yazdığı için harita boş kalıyor ve ölçüm döngüsü `!info?.name`
   // ile TÜM evreni eliyordu (canlıda 2026-09-09: scored 0 / skipped 2.034).
   let meta = await getMeta(sb, universe);
-
-  // Kategori: yalnız hiç yoksa veya bayatsa, ve verisi OLDUĞU BİLİNEN bir tarihle.
   let coverage = await getCoverageSummary(sb, universe);
   let categoryRefreshed = 0;
-  const hicKategoriYok = meta.size === 0 || [...meta.values()].every((m) => m.category == null);
-  const enEski = [...meta.values()].map((m) => m.categoryAt).sort()[0] ?? null;
-  if ((hicKategoriYok || categoryStale(enEski)) && coverage.newest && Date.now() + 60_000 < deadline) {
+
+  if (katGerekli && coverage.newest) {
     categoryRefreshed = await refreshCategories(sb, universe, deadline, coverage.newest);
     if (categoryRefreshed > 0) meta = await getMeta(sb, universe);
   }
