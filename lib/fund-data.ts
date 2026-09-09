@@ -26,7 +26,16 @@ const UA = 'Mozilla/5.0 (compatible; Investable Edge/1.0)';
 export const MAX_WINDOW_DAYS = 28;
 /** Ölçülen güvenli aralık: 2 sn'de 8/8 başarılı. */
 export const POLITE_DELAY_MS = 2200;
-export const MAX_PAGE_SIZE = 500;
+/**
+ * Sayfa boyutu. **ÖLÇÜLDÜ (2026-09-09):** `bitSira=2500` tüm evreni (2.041 fon)
+ * TEK istekte döndürüyor (1,4 sn). Önceki 500 değeri gün başına **5 istek**
+ * demekti ve asıl darboğaz buydu — TEFAS sürekli sayfalamada 429 veriyor.
+ *
+ * Yanlış teşhis uyarısı: bu 429'lar önce "Vercel IP'si engelleniyor" sanıldı;
+ * yerel backfill de aynı hatayı alınca gerçek neden ortaya çıktı — HOST değil
+ * İSTEK HACMİ. 5 istek → 1 istek, yani %80 azalma.
+ */
+export const MAX_PAGE_SIZE = 2500;
 
 export interface FundDailyRow {
   code: string;
@@ -82,8 +91,14 @@ interface RawRow {
  */
 async function callTefas(endpoint: string, payload: unknown, retries = 3): Promise<unknown> {
   let lastErr: string = 'bilinmeyen';
+  let rateLimited = false;
   for (let attempt = 0; attempt <= retries; attempt++) {
-    if (attempt > 0) await sleep(POLITE_DELAY_MS * 2 ** attempt);
+    if (attempt > 0) {
+      // 429 için AYRI (çok daha cömert) bekleme: ölçümde ~40 sn sonra kova
+      // doluyor; eski 4,4/8,8/17,6 sn yetmiyor ve gün "boş" sanılıp
+      // kaydediliyordu (canlıda 8 Ağustos günü böyle kayboldu).
+      await sleep(rateLimited ? 20_000 * attempt : POLITE_DELAY_MS * 2 ** attempt);
+    }
     try {
       const res = await fetch(`${BASE}/api/funds/${endpoint}`, {
         method: 'POST',
@@ -99,7 +114,7 @@ async function callTefas(endpoint: string, payload: unknown, retries = 3): Promi
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(30_000),
       });
-      if (res.status === 429) { lastErr = 'hız sınırı (429)'; continue; }
+      if (res.status === 429) { lastErr = 'hız sınırı (429)'; rateLimited = true; continue; }
       if (!res.ok) { lastErr = `HTTP ${res.status}`; continue; }
       return await res.json();
     } catch (e) {
