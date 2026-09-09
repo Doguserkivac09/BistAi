@@ -213,6 +213,28 @@ async function readPaged<T>(
   return out;
 }
 
+/**
+ * Tek bir günün satırları — EVRENİ belirlemek için (ucuz: ~2.041 satır).
+ *
+ * ⚠️ NEDEN: metrikler yalnız evren eşiğini geçen fonlar için hesaplanıyor ama
+ * eskiden TÜM fonların serisi okunuyordu. 240 günde bu 471.673 satır = 472
+ * Supabase isteği demek (sayfa tavanı 1.000, range ne olursa olsun) ve cron
+ * 300 sn'de TIMEOUT'a düştü. Önce evreni belirleyip yalnız onu okumak
+ * satır sayısını ~3 kat düşürür.
+ */
+export async function getDayRows(
+  sb: SupabaseClient,
+  universe: FundUniverse,
+  dateISO: string,
+): Promise<Array<{ code: string; investors: number | null; size: number | null }>> {
+  return readPaged<{ code: string; investors: number | null; size: number | null }>(
+    sb,
+    'fund_prices',
+    'code,investors,size',
+    (q) => q.eq('universe', universe).eq('date', dateISO).order('code'),
+  );
+}
+
 /** Fon → NAV serisi (metrik motoruna girdi). */
 export async function getSeries(
   sb: SupabaseClient,
@@ -240,16 +262,26 @@ export async function getFlowSeries(
   sb: SupabaseClient,
   universe: FundUniverse,
   fromISO: string,
+  /** Yalnız bu kodlar okunur (evren filtresi). Verilmezse TÜMÜ — pahalı. */
+  codes?: string[],
 ): Promise<Map<string, FlowPoint[]>> {
-  const rows = await readPaged<{
+  type Row = {
     code: string; date: string; price: number; shares: number | null;
     investors: number | null; size: number | null;
-  }>(
-    sb,
-    'fund_prices',
-    'code,date,price,shares,investors,size',
-    (q) => q.eq('universe', universe).gte('date', fromISO).order('code').order('date'),
-  );
+  };
+  const cols = 'code,date,price,shares,investors,size';
+  const rows: Row[] = [];
+  if (codes && codes.length > 0) {
+    // `in` listesi URL'e gidiyor → 200'lük parçalara böl (uzunluk sınırı).
+    for (let i = 0; i < codes.length; i += 200) {
+      const dilim = codes.slice(i, i + 200);
+      rows.push(...await readPaged<Row>(sb, 'fund_prices', cols,
+        (q) => q.eq('universe', universe).gte('date', fromISO).in('code', dilim).order('code').order('date')));
+    }
+  } else {
+    rows.push(...await readPaged<Row>(sb, 'fund_prices', cols,
+      (q) => q.eq('universe', universe).gte('date', fromISO).order('code').order('date')));
+  }
   const map = new Map<string, FlowPoint[]>();
   for (const r of rows) {
     if (!map.has(r.code)) map.set(r.code, []);

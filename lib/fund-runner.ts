@@ -24,7 +24,7 @@ import { FUND_CATEGORIES, guessAccessibility, categoryLabel, type FundUniverse }
 import { computeFundMetrics, type NavPoint } from './fund-metrics';
 import {
   businessDaysBack, pickMissingDays, isDayComplete, categoryStale,
-  getCoveredDays, getReferenceRowCount, getRecentlyEmptyDays, recordDay, getFlowSeries,
+  getCoveredDays, getReferenceRowCount, getRecentlyEmptyDays, recordDay, getFlowSeries, getDayRows,
   getMeta, upsertMetaNames, upsertMetaCategories, getCoverageSummary,
   getCategorySweep, recordCategorySweep,
   type FlowPoint,
@@ -451,9 +451,20 @@ export async function runFundScan(
 
   // ── Ölçüm: seriler tablodan ──
   const from = businessDaysBack(targetDays)[targetDays - 1]!;
-  // TEK OKUMA: NAV serisi + akım + son snapshot aynı satırlardan türetilir
-  // (~160k satır/yıl — üç ayrı tarama yapmanın anlamı yok).
-  const flowSeries = await getFlowSeries(sb, universe, from);
+
+  // ÖNCE EVREN, SONRA SERİ. Metrikler yalnız eşiği geçen fonlar için üretiliyor;
+  // eskiden yine de TÜM fonların serisi okunuyordu → 240 günde 471.673 satır =
+  // 472 istek (Supabase sayfa tavanı 1.000) ve cron TIMEOUT'a düştü.
+  // Son günün satırları ucuz (~2.041) ve evreni belirlemeye yetiyor.
+  const evrenGunu = coverage.newest;
+  let kodlar: string[] | undefined;
+  if (evrenGunu) {
+    const gun = await getDayRows(sb, universe, evrenGunu);
+    kodlar = gun.filter((r) => (r.investors ?? 0) >= MIN_INVESTORS).map((r) => r.code);
+  }
+
+  // TEK OKUMA: NAV serisi + akım + son snapshot aynı satırlardan türetilir.
+  const flowSeries = await getFlowSeries(sb, universe, from, kodlar);
 
   const measured: Measured[] = [];
   let skipped = 0;
