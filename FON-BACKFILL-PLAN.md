@@ -6,8 +6,15 @@
 
 ## ✅ DURUM: FAZ 0-5 TAMAMLANDI, VERİ CANLI
 
-**TEFAS: 240 tam gün (2025-09-25 → 2026-09-09), 643 fon skorlanıyor, 471.673 fiyat satırı.**
-`/fonlar` ekranı canlı ve doğrulandı (açık/karanlık tema, mobil/masaüstü).
+**İKİ EVREN DE CANLI — 240 tam gün (2025-09-25 → 2026-09-09), 0 backfill hatası.**
+
+| Evren | Fon | Kategorili | Sharpe | Skor | Fiyat satırı |
+|---|---|---|---|---|---|
+| TEFAS | 643 | %100 | %100 | **%100** | 471.673 |
+| BES | 364 | %99 | %100 | **%99** | 94.224 |
+
+`/fonlar` ekranı canlı doğrulandı: her iki sekme, açık/karanlık tema, mobil/masaüstü.
+Misafir girişi de uçtan uca çalışıyor (anonim oturum → `/bugun`).
 
 | Faz | Durum | Commit |
 |---|---|---|
@@ -53,6 +60,8 @@ değil bağlamdır."* Ölçüm (n=643):
 | `fon-dusuk-dalga` | %23 | ✅ |
 | `fon-eriyor` · `fon-perakende-akini` · `fon-kapasite` | %7 · %5 · **%1** | ✅ |
 
+**BES'te de aynı sonuç:** en yüksek `fon-fazla-neg` %54, hiçbiri %70'i geçmiyor.
+
 **Hiçbiri %70'i geçmedi — bağlama çevrilmesi gereken bayrak yok.** Emsale-göreli
 tasarım işe yaradı. Endişelenilen ikisi de temiz: "risksiz getirinin altında" evreni
 kaplamadı (%47), kalibre edilmemiş `KAPASITE_ESIK_PCT = 30` yalnız %1'de tetikledi.
@@ -73,6 +82,17 @@ Bunların hiçbiri kod okuyarak görünmezdi.
 | 6 | 12 kategoriden **3'ü TEFAS'ta boş** (103/172/173) → "hepsi taze mi?" ASLA true olamıyor | sonsuz tazeleme, backfill 0 güne düştü | `23c6a4f` |
 | 7 | **Sayfa boyutu 500** → gün başına 5 istek | sürekli 429 | `e04a45c` |
 | 8 | Cron 240 günde tüm evreni okuyor (471k satır) | `FUNCTION_INVOCATION_TIMEOUT` | `24aacdc` |
+| 9 | **BES'te `sfonTurKod` filtresi TEFAS tarafından yok sayılıyor** | 400 fonun tamamı kategorisiz → **skor %0** | `7a4263d` |
+
+**#9 detay:** BES backfill 240 günü doldurdu ve Sharpe %100 üretildi, ama emsal grubu
+kurulamadığı için skorların TAMAMI null kaldı. TEFAS geçersiz kategori filtresini yok
+sayıp her sorguya tüm evreni döndürüyor (12 × 400 = 4.800 çakışan kayıt). Günlük satırda
+kategori alanı YOK; `fonTurGetir` ucu YAT ve EMK için AYNI 12 kodu döndürüyor — yani kod
+listesi değil **filtre** bozuk. Çözüm: BES kategorisi fon ADINDAN çıkarılıyor
+(`guessBesCategory`, `guessAccessibility` ile aynı desen; eşleşme yoksa null, uydurma
+kategori ATANMAZ). Ölçülen: **397/400 (%99)**, tüm gruplar ≥12 fon.
+Canlı doğrulama: `MUHAFAZAKAR KATILIM DEĞİŞKEN` → Katılım · `OKS TEMKİNLİ DEĞİŞKEN` →
+Değişken · `ÖZEL SEKTÖR BORÇLANMA` → Borçlanma. Öncelik sırası teste kilitlendi (446 test).
 
 ### ⚠️ DERS: "host suçlu" demeden önce iki hostta aynı yükü ölç
 
@@ -105,9 +125,8 @@ türetilebilir, ek sorgu yok) → `computeFundMetrics`'e `benchmark` olarak ver 
 
 **Bu, "beceri mi şans mı" sorusunun tek gerçek cevabı** (FON-ANALIZ-PLAN F2-4).
 
-### 2️⃣ BES backfill
-TEFAS ile aynı betik: `npx tsx scripts/fund-backfill.ts BES 250`
-*(2026-09-09'da başlatıldı, koşuyor.)*
+### 2️⃣ ~~BES backfill~~ ✅ TAMAM
+240 tam gün, 0 hata, 364 fon skorlanıyor (bkz. hata #9).
 
 ### 3️⃣ FAZ 6 — Fon detay sayfası (`/fonlar/[kod]`)
 `components/new/FonDetayScreen.tsx` + `app/fonlar/[kod]/page.tsx` + `new-design-routes`.
@@ -138,7 +157,8 @@ toplama (Postgres RPC)** veya metrikleri yerel betikte hesaplayıp store'a yazma
 | 1 | `20260803_firsat_picks.sql` | ✅ Çalıştırılmış (tablo doğrulandı; boş olması normal — cron haftalık, Pzt 08:00 UTC) |
 | 2 | `20260909_fund_prices.sql` | ✅ Çalıştırıldı |
 | 3 | `.claude/settings.local.json` gitignore | ✅ `8949dd2` (webhook secret geçmişe HİÇ girmedi, önlendi) |
-| 4 | Supabase **Google OAuth + anonim giriş** provider'ları | 🟠 Açılmadı — misafir girişi canlıda çalışmaz |
+| 4a | Supabase **anonim giriş** | ✅ **Zaten açık** — misafir girişi canlıda uçtan uca doğrulandı |
+| 4b | Supabase **Google OAuth** | 🟠 Kapalı. Google Cloud Console'da OAuth client (callback: `https://atdhhojyrsrtptwyhhkl.supabase.co/auth/v1/callback`) → Supabase Auth → Providers → Google |
 | 5 | Make.com → `/api/changelog/latest` | 🟡 Çevrilmedi |
 
 ---
