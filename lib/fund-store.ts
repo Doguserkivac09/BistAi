@@ -25,8 +25,12 @@ import type { NavPoint } from './fund-metrics';
 /** Supabase varsayılan sayfa tavanı; daha fazlası sessizce kırpılır. */
 const PAGE = 1000;
 
-/** fund_prices upsert parti boyutu (tek istekte 2.000 satır göndermemek için). */
-const UPSERT_CHUNK = 500;
+/**
+ * fund_prices upsert parti boyutu. 500'de gün başına 2.041 satır = 5 round-trip
+ * ve backfill'in darboğazı TEFAS değil Supabase oluyordu (ölçüm: 16,9 sn/gün,
+ * bunun ~13 sn'si yazma). 1.000 ile round-trip yarıya iner.
+ */
+const UPSERT_CHUNK = 1000;
 
 /** Kategori haritası bu kadar gün tazeyse yeniden çekilmez (kategori vergisi). */
 export const CATEGORY_TTL_DAYS = 7;

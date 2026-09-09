@@ -1,15 +1,19 @@
 /**
  * Fon geçmişi backfill — YEREL çalıştırıcı (FON-BACKFILL-PLAN FAZ 4).
  *
- * ⚠️ NEDEN YEREL: TEFAS, Vercel'in paylaşımlı IP'sini kısıtlıyor. Ölçüm
- * (2026-09-09): Vercel'den 2026-08-25/21/19/13/11 tarihleri **0 satır**
- * dönerken aynı anda yerelden **499 satır** geldi (2025-09-15 dahil, yani veri
- * 1 yıl geriye MEVCUT). Cron'un 300 sn sınırı + kısıtlama yüzünden koşu başına
- * net ~1 gün ilerliyordu; 250 günlük hedef bu yolla ulaşılamaz.
+ * ⚠️ NEDEN AYRI BETİK: cron'un 300 sn sınırı derin geçmişe yetmiyor. Bu betiğin
+ * zaman sınırı yok, 429 olursa bekleyip devam edebilir.
  *
- * Bu betik AYNI kütüphaneleri kullanır (`lib/fund-data` + `lib/fund-store`) —
- * yeni mantık yok, yalnız farklı host ve zaman sınırı yok. Günlük cron
- * güncel günü eklemeye devam eder; bu betik yalnız derin geçmiş içindir.
+ * ⚠️ DÜZELTİLMİŞ TEŞHİS (2026-09-09): İlk sürümde bu dosya "TEFAS Vercel'in
+ * paylaşımlı IP'sini kısıtlıyor" diyordu. **Yanlıştı.** Yerel backfill de aynı
+ * 429'ları aldı. Gerçek neden İSTEK HACMİ idi: sayfa boyutu 500 olduğu için gün
+ * başına 5 istek atılıyordu. Ölçümle `bitSira=2500` tüm evreni (2.041 fon) TEK
+ * istekte döndürüyor → %80 azalma. Düzeltmeden sonra 10/10 gün, sıfır hata.
+ * Ders: "host suçlu" demeden önce iki hostta da aynı yükü ölç.
+ *
+ * Kalan darboğaz TEFAS değil Supabase: gün başına 2.041 satır yazımı ~13 sn
+ * (ölçülen toplam ~17 sn/gün). Günlük cron güncel günü eklemeye devam eder;
+ * bu betik yalnız derin geçmiş içindir.
  *
  * Kullanım:
  *   npx tsx scripts/fund-backfill.ts                 # TEFAS, 250 iş günü
@@ -73,6 +77,9 @@ async function main() {
 
   const basladi = Date.now();
   let tam = 0, bos = 0, hata = 0;
+  // Fon ADLARI her gün aynı — her günde yeniden yazmak gün başına 5 gereksiz
+  // round-trip demekti. Bir kez yazmak yeterli; yeni fon çıkarsa günlük cron yakalar.
+  let adlarYazildi = false;
 
   for (const [i, day] of missing.entries()) {
     if (i > 0) await sleep(POLITE_DELAY_MS);
@@ -80,9 +87,10 @@ async function main() {
       const res = await listFundsOnDate(universe, new Date(`${day}T00:00:00Z`));
       const complete = isDayComplete(res.data.length, res.dataQuality, ref);
       await recordDay(sb, universe, day, res.data, complete);
-      if (res.data.length > 0) {
+      if (res.data.length > 0 && !adlarYazildi) {
         await upsertMetaNames(sb, universe,
           res.data.filter((r) => r.name).map((r) => ({ code: r.code, name: r.name })));
+        adlarYazildi = true;
       }
       if (complete) tam++; else bos++;
     } catch (e) {
