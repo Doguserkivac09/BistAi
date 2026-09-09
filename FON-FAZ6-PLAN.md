@@ -166,15 +166,34 @@ o gün tatil değil, bize kapalıydı; boş kaydetmek veri kaybıydı.
 Backfill hedefi (240 gün) **zaten tamamlandı**; o betiğin tekrar koşmasına gerek yok.
 Günlük cron artık yalnız yeni günü ekliyor.
 
-### 6D yeniden değerlendirildi — ÖNCE UCUZ YOL
+### 6D yeniden değerlendirildi — ÖLÇÜLDÜ, KAPSAM DARALTILDI (2026-09-10)
 
-`scripts/fund-categories.ts` fon başına 1 istek atıyor (~2.400). Yeni gecikmeyle bu
-**~3 saat kesintisiz tek-IP trafiği** demek ve engeli davet eder. Betik beklemeye
-alındı, varsayılan tavan `Infinity` → **200** yapıldı.
+Engel kalkınca üç ölçüm yapıldı (toplam ~24 istek, jitterli):
 
-**Önce ölçülecek (ban kalkınca, TEK istek):** `fonGnlBlgSiraliGetir` toplu yanıtındaki
-satırlarda `fonKategori` alanı var mı? Bizim `RawRow` tipimiz yalnız 7 alan okuyor;
-kategori orada geliyorsa 2.400 istek yerine **1 istek** yeter ve betiğe hiç gerek kalmaz.
+**1. Ucuz yol KAPALI.** `fonGnlBlgSiraliGetir` satır başına 9 alan döndürüyor —
+`fonKodu, fonUnvan, tarih, fiyat, tedPaySayisi, kisiSayisi, portfoyBuyukluk,
+borsaBultenFiyat, rn`. **Kategori YOK.** Kategori yalnız `fonBilgiGetir`'den,
+fon başına 1 istekle geliyor.
+
+**2. TEFAS'ta 6D GEREKSİZ.** `sfonTurKod` filtresi TEFAS'ta çalışıyor; gerçek şemsiye
+kategorisi zaten **12 istekte** alınıyor. 2.043 tekil istek, marjinal bir granülerlik
+farkı için ban riski demek — betikte bilinçli engel kondu (`--yine-de` ile aşılabilir).
+
+**3. BES'te 6D ZORUNLU — ad tahmini %30 yanlış.** `sfonTurKod` BES'te **sessizce yok
+sayılıyor** (ölçüldü: `sfonTurKod=104` gönderildi, yine 400 fonun TAMAMI döndü), bu
+yüzden kategori addan tahmin ediliyor. 20 fonluk örneklemde 6 hata:
+
+| kod | ad tahmini | GERÇEK |
+|---|---|---|
+| ALI · ATE | Hisse Senedi | **Endeks Fon** |
+| AAJ · CHU | Karma | **OKS Standart Fon** |
+| GHU | **Katılım** | Değişken Fon |
+| BNS | Karma | Standart Fon |
+
+GHU özellikle kritik: faizsiz sanılan fon aslında değişken. Emsal grubunun %30'u
+yanlışsa skor ve sıralama da yanlıştır. **BES = 400 istek ≈ 35 dk** — kabul edilebilir.
+
+**Karar:** 6D yalnız BES için koşulur. Varsayılan evren `TEFAS` → **`BES`**.
 
 ---
 

@@ -2,17 +2,26 @@
  * FAZ 6D — GERÇEK kategori çekimi (YEREL betik, PARÇA PARÇA).
  *
  * ════════════════════════════════════════════════════════════════════════════
- *  🛑 BU BETİK ŞU AN BEKLEMEDE — ÖNCE UCUZ YOL DENENMELİ.
+ *  ⚠️ YALNIZ **BES** İÇİN ÇALIŞTIR. TEFAS İÇİN GEREKSİZ.
  *
- *  2026-09-10'da TEFAS bağlantımızı engelledi ("The requested URL was
- *  rejected", F5/Shape WAF). Bu betiğin tasarımı fon başına 1 istek — ~2.400
- *  fon demek. Nezaket gecikmesi 4-6 sn'ye çıkarıldığı için süre ~3 SAATE
- *  uzadı ve o kadar süre boyunca tek IP'den sabit tempolu istek, engeli
- *  davet eden desenin ta kendisi.
+ *  Ucuz yol arandı ve KAPALI çıktı (ölçüldü 2026-09-10, tek istek):
+ *  toplu uç `fonGnlBlgSiraliGetir` satır başına 9 alan döndürüyor
+ *  (fonKodu, fonUnvan, tarih, fiyat, tedPaySayisi, kisiSayisi,
+ *  portfoyBuyukluk, borsaBultenFiyat, rn) — **kategori YOK.**
+ *  Kategori yalnız `fonBilgiGetir`'den, fon başına 1 istekle geliyor.
  *
- *  ÖNCE ŞU ÖLÇÜLMELİ: `fonGnlBlgSiraliGetir` (toplu uç, tüm evren TEK istek)
- *  yanıtındaki satırlarda `fonKategori` alanı var mı? Varsa 2.400 istek yerine
- *  1 istek yeter ve bu betiğe hiç gerek kalmaz. Ölçüm yapılmadan çalıştırma.
+ *  TEFAS'ta buna GEREK YOK: `sfonTurKod` filtresi çalışıyor, 12 istekle
+ *  gerçek şemsiye kategorisi zaten alınıyor. 2.043 istek marjinal bir
+ *  granülerlik için harcanmaz.
+ *
+ *  BES'te ise ZORUNLU: `sfonTurKod` filtresi BES'te **sessizce yok sayılıyor**
+ *  (ölçüldü: sfonTurKod=104 gönderildi, yine 400 fonun TAMAMI döndü), bu
+ *  yüzden kategori fon adından TAHMİN ediliyor. 20 fonluk örneklemde
+ *  **6'sı yanlıştı (%30)**: "Hisse Senedi" sanılan ALI/ATE aslında Endeks
+ *  Fon, "Karma" sanılan AAJ/CHU aslında OKS Standart Fon, "Katılım" sanılan
+ *  GHU aslında Değişken Fon. Emsal grubunun %30'u yanlışsa skor da yanlıştır.
+ *
+ *  BES = 400 fon ≈ 35 dk. Kabul edilebilir; TEFAS'ın 2.043'ü değildir.
  * ════════════════════════════════════════════════════════════════════════════
  *
  * ⚠️ İDEMPOTENT VE KALDIĞI YERDEN DEVAM EDER: en eski `category_name_at`'ten
@@ -22,8 +31,8 @@
  * kadar fonu çeker. "Sınırsız" varsayılan, tek oturumda binlerce istek demekti.
  *
  * Kullanım:
- *   npx tsx scripts/fund-categories.ts                 # TEFAS, en fazla 200 fon
- *   npx tsx scripts/fund-categories.ts BES 150         # evren + tavan
+ *   npx tsx scripts/fund-categories.ts BES             # en fazla 200 fon
+ *   npx tsx scripts/fund-categories.ts BES 400         # tüm BES (~35 dk)
  */
 
 import fs from 'node:fs';
@@ -57,9 +66,18 @@ function loadEnv(): Record<string, string> {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  const universe = (process.argv[2] ?? 'TEFAS') as FundUniverse;
+  const universe = (process.argv[2] ?? 'BES') as FundUniverse;
   const limit = Number(process.argv[3] ?? VARSAYILAN_TAVAN);
   if (universe !== 'TEFAS' && universe !== 'BES') throw new Error('evren TEFAS veya BES olmalı');
+
+  // TEFAS'ta sfonTurKod filtresi zaten gerçek kategoriyi veriyor (12 istek).
+  // 2.043 tekil istek marjinal granülerlik için harcanmaz — bilinçli engel.
+  if (universe === 'TEFAS' && !process.argv.includes('--yine-de')) {
+    console.error('TEFAS için bu betik GEREKSİZ: kategori zaten sfonTurKod ile 12 istekte alınıyor.');
+    console.error('2.043 tekil istek ban riski taşır. Gerçekten istiyorsan: --yine-de');
+    process.exitCode = 1;
+    return;
+  }
 
   const env = loadEnv();
   const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
