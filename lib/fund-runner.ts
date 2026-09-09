@@ -26,6 +26,7 @@ import {
   businessDaysBack, pickMissingDays, isDayComplete, categoryStale,
   getCoveredDays, getReferenceRowCount, getRecentlyEmptyDays, recordDay, getFlowSeries,
   getMeta, upsertMetaNames, upsertMetaCategories, getCoverageSummary,
+  getCategorySweep, recordCategorySweep,
   type FlowPoint,
 } from './fund-store';
 import { computeFlows, flowFlags, type FlowMetrics } from './fund-flows';
@@ -364,6 +365,7 @@ export async function refreshCategories(
   skipCats?: Set<number>,
 ): Promise<number> {
   const entries: Array<{ code: string; category: number }> = [];
+  const denenen: number[] = [];
   const yapilacak = FUND_CATEGORIES.filter((c) => !(skipCats?.has(c.code) ?? false));
   for (const [i, c] of yapilacak.entries()) {
     if (Date.now() + 12_000 > deadline) break;
@@ -372,9 +374,13 @@ export async function refreshCategories(
       // Serbest kategorisi ~1000 fon → sayfa limiti geniş tutulmalı (ölçüldü)
       const r = await listFundsOnDate(universe, new Date(`${onDate}T00:00:00Z`), { sfonTurKod: c.code, maxPages: 4 });
       for (const f of r.data) entries.push({ code: f.code, category: c.code });
+      // BOŞ dönse bile denendi sayılır — 103/172/173 TEFAS'ta boş, aksi halde
+      // her koşuda yeniden sorgulanıp bütçe yakarlardı.
+      denenen.push(c.code);
     } catch { /* bu kategori bu koşuda alınamadı; tablodaki önceki değeri KORUNUR */ }
   }
   if (entries.length > 0) await upsertMetaCategories(sb, universe, entries);
+  await recordCategorySweep(sb, universe, denenen);
   return entries.length;
 }
 
@@ -412,18 +418,19 @@ export async function runFundScan(
   // hiç dolmaz (bkz. CATEGORY_BUDGET_MS notu).
   const metaOnce = await getMeta(sb, universe);
   const covOnce = await getCoverageSummary(sb, universe);
-  // Hangi kategoriler ZATEN taze? (koşular arası devam için)
-  const tazeKategoriler = new Set<number>();
-  for (const m of metaOnce.values()) {
-    if (m.category != null && !categoryStale(m.categoryAt)) tazeKategoriler.add(m.category);
-  }
-  // Kategorisi HİÇ olmayan fon var mı? (577/2034 gibi kısmi durum — canlıda oldu)
-  const kategorisizVar = [...metaOnce.values()].some((m) => m.category == null);
+  // Hangi kategoriler ZATEN DENENDİ ve taze? (koşular arası devam)
+  // Kaynak: açık tarama kaydı — fonların category_at'i DEĞİL. Gerekçe:
+  // 103/172/173 kodlarında TEFAS hiç fon döndürmüyor, dolayısıyla "her kodun
+  // taze fonu var mı" sorusu asla true olmuyor ve kategori tazelemesi sonsuz
+  // tetikleniyordu (canlıda backfill'i 0 güne düşürdü).
+  const sweep = await getCategorySweep(sb, universe);
+  const tazeKategoriler = new Set<number>(
+    FUND_CATEGORIES.filter((c) => !categoryStale(sweep[String(c.code)] ?? null)).map((c) => c.code),
+  );
   const tumKategorilerTaze = FUND_CATEGORIES.every((c) => tazeKategoriler.has(c.code));
   // Kategori sorgusu VERİSİ OLAN bir tarih ister; hiç kapsama yoksa bu koşuda
   // yapılamaz (ilk koşu) — o zaman bütün bütçe backfill'e gider.
-  const katGerekli =
-    (metaOnce.size === 0 || kategorisizVar || !tumKategorilerTaze) && covOnce.newest != null;
+  const katGerekli = !tumKategorilerTaze && covOnce.newest != null;
   const katRezerv = katGerekli ? CATEGORY_BUDGET_MS : 0;
 
   // VERİ ÖNCELİKLİ (kategori rezervi düşüldükten sonra): kaçırılan gün telafi

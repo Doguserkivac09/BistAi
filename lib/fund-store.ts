@@ -343,6 +343,49 @@ export async function upsertMetaCategories(
   }
 }
 
+/**
+ * Kategori TARAMA kaydı — hangi kategori kodu ne zaman DENENDİ.
+ *
+ * ⚠️ NEDEN AYRI KAYIT: tazeliği fonların `category_at`'inden çıkarmak yanlış.
+ * FUND_CATEGORIES'teki 12 koddan 3'ü (103/172/173) TEFAS'ta BOŞ — hiç fon
+ * dönmüyor. "Her kodun taze fonu var mı?" sorusu bu yüzden ASLA true olamıyordu
+ * → kategori tazelemesi her koşuda yeniden tetikleniyor, 150 sn rezerv yanıyor
+ * ve backfill aç kalıyordu (canlıda 2026-09-09, koşu 8: 0 gün çekildi).
+ * Burada DENEME kaydedilir; boş dönen kategori de "yapıldı" sayılır.
+ */
+const sweepKey = (u: FundUniverse) => `fund-cats:${u}`;
+
+export async function getCategorySweep(
+  sb: SupabaseClient,
+  universe: FundUniverse,
+): Promise<Record<string, string>> {
+  try {
+    const { data } = await sb.from('ai_cache').select('explanation').eq('cache_key', sweepKey(universe)).maybeSingle();
+    return data?.explanation ? (JSON.parse(data.explanation as string) as Record<string, string>) : {};
+  } catch { return {}; }
+}
+
+export async function recordCategorySweep(
+  sb: SupabaseClient,
+  universe: FundUniverse,
+  attempted: number[],
+): Promise<void> {
+  if (attempted.length === 0) return;
+  const cur = await getCategorySweep(sb, universe);
+  const now = new Date().toISOString();
+  for (const c of attempted) cur[String(c)] = now;
+  await sb.from('ai_cache').upsert(
+    {
+      cache_key: sweepKey(universe),
+      explanation: JSON.stringify(cur),
+      version: 1,
+      hit_count: 0,
+      expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString(),
+    },
+    { onConflict: 'cache_key' },
+  );
+}
+
 /** Kapsama özeti — backfill ilerlemesi görünür olsun. */
 export async function getCoverageSummary(
   sb: SupabaseClient,
