@@ -173,3 +173,99 @@ export function calculateVortex(
   }
   return { viPlus, viMinus };
 }
+
+// ── ADX / DMI (Wilder) ──────────────────────────────────────────────────────
+
+export interface AdxResult {
+  /** +DI — yükseliş yönlü hareket gücü (0-100). İlk `period` eleman NaN. */
+  plusDi: number[];
+  /** −DI — düşüş yönlü hareket gücü (0-100). */
+  minusDi: number[];
+  /**
+   * ADX — TREND GÜCÜ (0-100), YÖNSÜZDÜR. İlk `2*period - 1` eleman NaN.
+   *
+   * ⚠️ Sık yapılan hata: yüksek ADX "yükseliş" sanılır. ADX yalnız trendin
+   * ne kadar GÜÇLÜ olduğunu söyler; yönü +DI/−DI verir. ADX zirve yapıp
+   * düşerken trend zayıflıyordur — yön değişimi DEĞİL, momentum kaybıdır.
+   */
+  adx: number[];
+}
+
+/**
+ * ADX/DMI — Wilder (1978) orijinal yöntemi.
+ *
+ * Wilder yumuşatması (RMA) basit ortalama DEĞİLDİR:
+ *   ilk değer  = ilk `period` elemanın TOPLAMI
+ *   sonraki    = önceki − (önceki / period) + güncel
+ * Bu, TradingView/Matriks gibi platformlarla aynı sayıyı üretir; SMA kullanmak
+ * gözle görülür sapma yaratır (özellikle ADX'te).
+ *
+ * `period = 14` standart. Warmup: +DI/−DI `period`'dan, ADX `2*period-1`'den itibaren.
+ */
+export function calculateADX(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  period = 14,
+): AdxResult {
+  const n = closes.length;
+  const plusDi = new Array(n).fill(NaN);
+  const minusDi = new Array(n).fill(NaN);
+  const adx = new Array(n).fill(NaN);
+  if (n < period + 1) return { plusDi, minusDi, adx };
+
+  const tr = new Array(n).fill(0);
+  const plusDm = new Array(n).fill(0);
+  const minusDm = new Array(n).fill(0);
+
+  for (let i = 1; i < n; i++) {
+    const h = highs[i]!, l = lows[i]!, ph = highs[i - 1]!, pl = lows[i - 1]!, pc = closes[i - 1]!;
+    tr[i] = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+    const up = h - ph;      // yukarı hareket
+    const down = pl - l;    // aşağı hareket
+    // Yalnız BASKIN yön sayılır; ikisi de pozitifse büyük olan alınır, diğeri 0.
+    plusDm[i] = up > down && up > 0 ? up : 0;
+    minusDm[i] = down > up && down > 0 ? down : 0;
+  }
+
+  // Wilder yumuşatması — ilk pencere TOPLAM, sonrası kayan
+  let sTr = 0, sPlus = 0, sMinus = 0;
+  for (let i = 1; i <= period; i++) { sTr += tr[i]!; sPlus += plusDm[i]!; sMinus += minusDm[i]!; }
+
+  const dx = new Array(n).fill(NaN);
+  for (let i = period; i < n; i++) {
+    if (i > period) {
+      sTr = sTr - sTr / period + tr[i]!;
+      sPlus = sPlus - sPlus / period + plusDm[i]!;
+      sMinus = sMinus - sMinus / period + minusDm[i]!;
+    }
+    if (sTr > 0) {
+      const pdi = 100 * (sPlus / sTr);
+      const mdi = 100 * (sMinus / sTr);
+      plusDi[i] = pdi;
+      minusDi[i] = mdi;
+      const toplam = pdi + mdi;
+      dx[i] = toplam > 0 ? 100 * (Math.abs(pdi - mdi) / toplam) : 0;
+    }
+  }
+
+  // ADX = DX'in Wilder yumuşatması; ilk ADX = ilk `period` DX'in ORTALAMASI
+  const ilkAdxIdx = 2 * period - 1;
+  if (n > ilkAdxIdx) {
+    let toplamDx = 0;
+    let sayi = 0;
+    for (let i = period; i <= ilkAdxIdx; i++) {
+      if (Number.isFinite(dx[i])) { toplamDx += dx[i]!; sayi++; }
+    }
+    if (sayi > 0) {
+      adx[ilkAdxIdx] = toplamDx / sayi;
+      for (let i = ilkAdxIdx + 1; i < n; i++) {
+        if (Number.isFinite(dx[i]) && Number.isFinite(adx[i - 1])) {
+          adx[i] = (adx[i - 1]! * (period - 1) + dx[i]!) / period;
+        }
+      }
+    }
+  }
+
+  return { plusDi, minusDi, adx };
+}
