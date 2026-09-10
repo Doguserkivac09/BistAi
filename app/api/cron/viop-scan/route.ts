@@ -23,6 +23,7 @@ import { deriveProxyFutures, DEFAULT_ANNUAL_RATE } from '@/lib/viop-basis';
 import { fetchUnderlyingCandles } from '@/lib/viop-data';
 import { analyzeViop, type ViopMacroContext } from '@/lib/viop-engine';
 import { getMacroFull } from '@/lib/macro-service';
+import { isUnderMaintenance } from '@/lib/maintenance';
 
 export const maxDuration = 90;
 
@@ -39,6 +40,11 @@ function createAdminClient() {
 }
 
 export async function GET(request: NextRequest) {
+  // ⛔ BAKIM: bölüm kapalıyken tarama yapmanın anlamı yok (lib/maintenance.ts).
+  if (isUnderMaintenance('viop')) {
+    return NextResponse.json({ ok: true, skipped: 'bakım modu' });
+  }
+
   const isVercelCron = request.headers.get('x-vercel-cron') === '1';
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   const isManualAuth = CRON_SECRET && token === CRON_SECRET;

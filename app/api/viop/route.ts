@@ -13,10 +13,17 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
 import { hasTierAccess, type Tier } from '@/lib/tier-guard';
+import { isUnderMaintenance, MAINTENANCE_BODY } from '@/lib/maintenance';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  // ⛔ BAKIM: oturum/tier kontrolünden ÖNCE. Sayfayı gizlemek yetmez — API açık
+  // kalırsa içerik hâlâ yayınlanıyor demektir (lib/maintenance.ts).
+  if (isUnderMaintenance('viop')) {
+    return NextResponse.json(MAINTENANCE_BODY, { status: 503 });
+  }
+
   const supabase = await createServerClient();
 
   // 1) Oturum

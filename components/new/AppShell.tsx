@@ -11,11 +11,14 @@ import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/components/new/brand';
 import { SymbolSearch } from '@/components/new/SymbolSearch';
 import { MisafirSeridi } from '@/components/new/MisafirSeridi';
+import { MAINTENANCE } from '@/lib/maintenance';
 
 interface NavItem {
   href: string;
   label: string;
   ai?: boolean;
+  /** Bakımdaki bölüm — link kalır ama durumu görünür (bkz. lib/maintenance.ts) */
+  bakim?: boolean;
 }
 
 // Sidebar (masaüstü)
@@ -24,7 +27,7 @@ const SIDEBAR: NavItem[] = [
   { href: '/firsatlar', label: 'Fırsatlar' },
   { href: '/portfolyo', label: 'Portföyüm' },
   { href: '/makro', label: 'Piyasa' },
-  { href: '/viop', label: 'VIOP' },
+  { href: '/viop', label: 'VIOP', bakim: MAINTENANCE.viop },
   { href: '/fonlar', label: 'Fonlar' },
   { href: '/ai-portfoyler', label: 'AI Portföyleri' },
   { href: '/sohbet', label: 'AI Asistan', ai: true },
@@ -80,6 +83,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <span className={`h-[6px] w-[6px] rounded-full ${active ? 'bg-up' : 'bg-[#d4d7dc]'}`} />
                   )}
                   {it.label}
+                  {it.bakim && (
+                    <span className="ml-auto rounded-full bg-fill px-[6px] py-[2px] font-manrope text-[10px] font-semibold text-t3">
+                      bakımda
+                    </span>
+                  )}
                 </Link>
               );
             })}
