@@ -36,15 +36,22 @@
  * kaybedenleri de bulur (22 May −16,7% dip, 21 Tem −26,9% dip).
  *
  * BIST 1s (553 hisse, 2023-10 → 2026-09, SIRALI, hisse başına yılda ~13 işlem — SEYREK DEĞİL):
- *   tepe çıkışı   n=17.179 · kazanan %47 · KATKI −0,3 [−0,6, −0,0] · XU100'e göre −0,1 [−0,4, +0,1]
+ *   tepe çıkışı   n=17.179 · kazanan %47 · KATKI −0,3 [−0,6, −0,0] · endekse göre −0,1 [−0,4, +0,1]
  *   RSI≥70        n=14.654 · kazanan %64 (rastgele %68) · KATKI −0,3 [−0,6, −0,1]
  *   hedef/stop    n=12.483 · kazanan %46 · KATKI −0,3 [−1,0, +0,4]
  *   27 varyantın hiçbirinde anlamlı pozitif yok; 8 günlük pencerede anlamlı NEGATİF.
- * BIST 1g (587 hisse, 2021-09 → 2026-09, SIRALI): üç çıkışta da XU100'e göre katkı
+ * BIST 1g (587 hisse, 2021-09 → 2026-09, SIRALI): üç çıkışta da endekse göre katkı
  *   +0,1…+0,9, güven aralıkları sıfırı geniş kapsıyor; örneklem dışı −0,6…−0,7.
- * İlk 'bolge' tanımı (1s): tepe çıkışı XU100'e göre +0,8 [+0,1, +1,5] ama VRT dairelerini
+ * İlk 'bolge' tanımı (1s): tepe çıkışı endekse göre +0,8 [+0,1, +1,5] ama VRT dairelerini
  *   bulamadığı için kullanıcının kurulumu DEĞİL; ızgarada 9'da 4 anlamlı, dayanıksız.
  * KARAR: ❌ BIST'te bu giriş, rastgele girip aynı kuralla çıkmaktan iyi DEĞİL. Yayınlanmaz.
+ *
+ * ABD (yüksek hacim: 20g medyan ≥ $100M, endeks SPY):
+ *   1s (507 hisse, 2023-10 → 2026-09): katkı tepe +0,1 · RSI70 −0,0 · hedef/stop +0,2 — hiçbiri
+ *     anlamlı, 27 varyantın 0'ı anlamlı → ❌ kullanıcının grafik zaman diliminde fayda YOK.
+ *   1g (509 hisse, 5 yıl, hisse başına yılda 0,23 işlem): SPY'a göre katkı tepe +1,3 [−0,4,+3,1] ·
+ *     RSI70 +1,1 [−0,2,+2,4] · hedef/stop +0,5 [−0,5,+1,3]; 24 varyantın 24'ü pozitif, 5'i anlamlı;
+ *     iki yarıda da pozitif → ⚠️ ZAYIF OLUMLU İŞARET, kanıt değil. Yayın yok; ileriye dönük sicil adayı.
  *
  * Kullanım:
  *   npx tsx scripts/swing-backtest.ts fetch             # 1s veri (BIST + XU100 + VRT) → önbellek
@@ -58,6 +65,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { BIST_SYMBOLS } from '../types';
+import { US_SYMBOL_LIST } from '../lib/us-symbols';
 import { calculateADX, calculateOBV, calculateSMA, calculateVortex } from '../lib/indicators';
 
 const ROOT = process.env.SETUP_CACHE ?? path.join(os.tmpdir(), 'bistai-setup-backtest');
@@ -77,17 +85,24 @@ const CFG: Record<TF, { zone: number; maxHold: number; barsPerDay: number; split
   '1d': { zone: 5, maxHold: 60, barsPerDay: 1, split: '2024-03-01' },
 };
 
+type Piyasa = 'BIST' | 'US';
+/** ABD: "yüksek hacimli" = 20 günlük medyan dolar hacmi ≥ $100M (kullanıcı talebi, 2026-09-11). */
+const PIYASA: Record<Piyasa, { endeks: string; gunlukDir: string; saatlikDir: string; saatlikBpd: number; minHacim: number }> = {
+  BIST: { endeks: INDEX, gunlukDir: '', saatlikDir: '1h', saatlikBpd: 9, minHacim: MIN_TL_VOL },
+  US: { endeks: 'SPY', gunlukDir: '1d-us', saatlikDir: '1h-us', saatlikBpd: 7, minHacim: 100_000_000 },
+};
+
 interface Bar { key: string; day: string; open: number; high: number; low: number; close: number; volume: number }
 
 // ── Veri çekme ───────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function fetchHourly(ySym: string): Promise<Bar[]> {
+async function fetchChart(ySym: string, gunluk = false): Promise<Bar[]> {
   let son: Error | null = null;
   for (const host of ['query1', 'query2']) {
     try {
-      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${ySym}?range=730d&interval=60m`, {
+      const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${ySym}?range=${gunluk ? '5y' : '730d'}&interval=${gunluk ? '1d' : '60m'}`, {
         headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(45_000),
       });
       if (r.status === 404) return [];
@@ -102,8 +117,8 @@ async function fetchHourly(ySym: string): Promise<Bar[]> {
         if (o == null || h == null || l == null || c == null || c <= 0) continue;
         const iso = new Date(ts[i]! * 1000).toISOString();
         // Yarım kalan son mum saat başı :30'da değil (ör. 12:53) → atılır.
-        if (iso.slice(14, 16) !== '30') continue;
-        out.push({ key: iso.slice(0, 16), day: iso.slice(0, 10), open: o, high: h, low: l, close: c, volume: q.volume?.[i] ?? 0 });
+        if (!gunluk && iso.slice(14, 16) !== '30') continue;
+        out.push({ key: gunluk ? iso.slice(0, 10) : iso.slice(0, 16), day: iso.slice(0, 10), open: o, high: h, low: l, close: c, volume: q.volume?.[i] ?? 0 });
       }
       return out;
     } catch (e) { son = e as Error; }
@@ -111,20 +126,24 @@ async function fetchHourly(ySym: string): Promise<Bar[]> {
   throw son ?? new Error('bilinmeyen hata');
 }
 
-async function fetchAll() {
-  const hedefler: Array<[string, string, string]> = [
-    [INDEX, `${INDEX}.IS`, '1h'],
-    ...Array.from(new Set(BIST_SYMBOLS as readonly string[])).map((s): [string, string, string] => [s, `${s}.IS`, '1h']),
-    ['VRT', 'VRT', '1h-us'],
-  ];
+async function fetchAll(piyasa: Piyasa) {
+  // [sembol, yahoo sembolü, klasör, günlük mü]
+  type Hedef = [string, string, string, boolean];
+  const hedefler: Hedef[] = piyasa === 'BIST'
+    ? [
+      [INDEX, `${INDEX}.IS`, '1h', false],
+      ...Array.from(new Set(BIST_SYMBOLS as readonly string[])).map((s): Hedef => [s, `${s}.IS`, '1h', false]),
+      ['VRT', 'VRT', '1h-us', false],
+    ]
+    : ['SPY', ...new Set(US_SYMBOL_LIST)].flatMap((s): Hedef[] => [[s, s, '1d-us', true], [s, s, '1h-us', false]]);
   let ardisikHata = 0, cekilen = 0, atlanan = 0;
-  for (const [i, [sym, ySym, dir]] of hedefler.entries()) {
+  for (const [i, [sym, ySym, dir, gunluk]] of hedefler.entries()) {
     const klasor = path.join(ROOT, dir);
     fs.mkdirSync(klasor, { recursive: true });
     const file = path.join(klasor, `${sym}.json`);
     if (fs.existsSync(file) && Date.now() - fs.statSync(file).mtimeMs < 24 * 3600_000) { atlanan++; continue; }
     try {
-      fs.writeFileSync(file, JSON.stringify(await fetchHourly(ySym)));
+      fs.writeFileSync(file, JSON.stringify(await fetchChart(ySym, gunluk)));
       cekilen++; ardisikHata = 0;
     } catch (e) {
       ardisikHata++;
@@ -407,7 +426,7 @@ function farkGA(islemler: Islem[]): [number, number, number] {
  * girişe aynı çıkış kuralını uygulamak bu yanlılığı taşımaz.
  * Strateji tarafı tarih-kümeli, rastgele taraf basit bootstrap.
  *
- * `alan = 'exc'` → XU100'e göre fazla getiri üzerinden. ⚠️ Enflasyonlu piyasada
+ * `alan = 'exc'` → endekse göre fazla getiri üzerinden. ⚠️ Enflasyonlu piyasada
  * nominal getiri tutma SÜRESİYLE kendiliğinden büyür; dipten giren işlem RSI 70'e
  * daha geç ulaştığı için daha uzun tutulur ve yalnız bu yüzden puan kazanır.
  * Fazla getiri bu sürüklenmeyi çıkarır — iki ölçüt ayrışıyorsa fazla getiriye güven.
@@ -442,20 +461,20 @@ function rapor(baslik: string, sim: ReturnType<typeof simule>, tf: TF, hisseYil:
   const exc = I.map((i) => i.exc).filter((x): x is number => x != null);
   const [f, lo, hi] = farkGA(I);
   console.log(`  işlem ${I.length} · hisse başına yılda ${(I.length / hisseYil).toFixed(2)} · ort. süre ${(ort(I.map((i) => i.bar)) / bpd).toFixed(1)} gün · ${yuzde(I.filter((i) => i.sureDoldu).length / I.length)} süre dolunca çıktı`);
-  console.log(`  STRATEJİ  kazanan ${yuzde(I.filter((i) => i.ret - COST > 0).length / I.length)} · ort ${pct(ort(I.map((i) => i.ret)))}% (net ${pct(ort(I.map((i) => i.ret - COST)))}) · medyan ${pct(medyan(I.map((i) => i.ret)))}% · XU100'e göre ${pct(ort(exc))} · işlem içi tepe ort ${pct(ort(I.map((i) => i.mfe)))}% · +%15 gördü ${yuzde(I.filter((i) => i.mfe >= TARGET).length / I.length)} · −%10 dip ${yuzde(I.filter((i) => i.mae <= STOP).length / I.length)}`);
+  console.log(`  STRATEJİ  kazanan ${yuzde(I.filter((i) => i.ret - COST > 0).length / I.length)} · ort ${pct(ort(I.map((i) => i.ret)))}% (net ${pct(ort(I.map((i) => i.ret - COST)))}) · medyan ${pct(medyan(I.map((i) => i.ret)))}% · endekse göre ${pct(ort(exc))} · işlem içi tepe ort ${pct(ort(I.map((i) => i.mfe)))}% · +%15 gördü ${yuzde(I.filter((i) => i.mfe >= TARGET).length / I.length)} · −%10 dip ${yuzde(I.filter((i) => i.mae <= STOP).length / I.length)}`);
   console.log(`  RASTGELE  (aynı hisse · aynı süre) ort ${pct(ort(I.map((i) => i.rRet)))}% · tepe ort ${pct(ort(I.map((i) => i.rMfe)))}% · +%15 gördü ${yuzde(ort(I.map((i) => i.rMfe15)))}`);
   console.log(`  FARK      ${pct(f)} puan [${pct(lo)}, ${pct(hi)}] (tarih-kümeli 95% GA) · işlemlerin ${yuzde(I.filter((i) => i.ret > i.rRet).length / I.length)}'i kendi rastgelesini geçti`);
   if (RG.length) console.log(`  RASTGELE GİRİŞ + AYNI ÇIKIŞ  ort ${pct(ort(RG.map((x) => x.ret)))}% · kazanan ${yuzde(RG.filter((x) => x.ret - COST > 0).length / RG.length)} · ort. süre ${(ort(RG.map((x) => x.bar)) / bpd).toFixed(1)} gün · ${yuzde(RG.filter((x) => x.sureDoldu).length / RG.length)} süre doldu (n=${RG.length})`);
   const [k, klo, khi] = katkiGA(I, RG);
   const [kx, kxlo, kxhi] = katkiGA(I, RG, 'exc');
-  console.log(`  ★ GİRİŞ KATKISI  nominal ${pct(k)} puan [${pct(klo)}, ${pct(khi)}] · XU100'e göre ${pct(kx)} puan [${pct(kxlo)}, ${pct(kxhi)}]  ← ana ölçüt`);
+  console.log(`  ★ GİRİŞ KATKISI  nominal ${pct(k)} puan [${pct(klo)}, ${pct(khi)}] · endekse göre ${pct(kx)} puan [${pct(kxlo)}, ${pct(kxhi)}]  ← ana ölçüt`);
 }
 
 const satirKatki = (etiket: string, I: Islem[], RG: RgIslem[]) => {
   if (I.length < 10) return `  ${etiket} · yetersiz (${I.length})`;
   const [k, lo, hi] = katkiGA(I, RG);
   const [kx, lox, hix] = katkiGA(I, RG, 'exc');
-  return `  ${etiket} · n=${String(I.length).padStart(5)} · strateji ${pct(ort(I.map((i) => i.ret)))}% · rastgele giriş ${pct(ort(RG.map((x) => x.ret)))}% · KATKI ${pct(k)} [${pct(lo)}, ${pct(hi)}] · XU100'e göre ${pct(kx)} [${pct(lox)}, ${pct(hix)}]`;
+  return `  ${etiket} · n=${String(I.length).padStart(5)} · strateji ${pct(ort(I.map((i) => i.ret)))}% · rastgele giriş ${pct(ort(RG.map((x) => x.ret)))}% · KATKI ${pct(k)} [${pct(lo)}, ${pct(hi)}] · endekse göre ${pct(kx)} [${pct(lox)}, ${pct(hix)}]`;
 };
 
 function yukle(dir: string): Map<string, Bar[]> {
@@ -470,27 +489,29 @@ function yukle(dir: string): Map<string, Bar[]> {
   return out;
 }
 
-function likitGunler(daily: Bar[] | undefined): Set<string> | null {
+function likitGunler(daily: Bar[] | undefined, min: number): Set<string> | null {
   if (!daily) return null;
   const s = new Set<string>();
   const tl = daily.map((b) => b.close * b.volume);
-  for (let i = 19; i < daily.length; i++) if (medyan(tl.slice(i - 19, i + 1)) >= MIN_TL_VOL) s.add(daily[i]!.day);
+  for (let i = 19; i < daily.length; i++) if (medyan(tl.slice(i - 19, i + 1)) >= min) s.add(daily[i]!.day);
   return s;
 }
 
-function analyze(tf: TF) {
+function analyze(tf: TF, piyasa: Piyasa) {
+  const P = PIYASA[piyasa];
+  if (tf === '1h') { CFG['1h'].barsPerDay = P.saatlikBpd; CFG['1h'].maxHold = 40 * P.saatlikBpd; }
   const cfg = CFG[tf];
-  const gunluk = yukle(ROOT);
-  const veri = tf === '1d' ? gunluk : yukle(path.join(ROOT, '1h'));
-  const idxBars = veri.get(INDEX);
-  if (!idxBars) throw new Error('XU100 önbellekte yok');
+  const gunluk = yukle(path.join(ROOT, P.gunlukDir));
+  const veri = tf === '1d' ? gunluk : yukle(path.join(ROOT, P.saatlikDir));
+  const idxBars = veri.get(P.endeks);
+  if (!idxBars) throw new Error(`${P.endeks} önbellekte yok`);
   const idx: IdxMap = new Map(idxBars.map((b) => [b.key, { open: b.open, close: b.close }]));
 
   const pres: Pre[] = [];
   let toplamBar = 0;
   for (const [sym, bars] of veri) {
-    if (sym === INDEX) continue;
-    const likit = likitGunler(gunluk.get(sym));
+    if (sym === P.endeks) continue;
+    const likit = likitGunler(gunluk.get(sym), P.minHacim);
     if (!likit) continue; // likidite ölçülemeyen sembol ölçülmez
     const p = precompute(sym, bars, likit);
     if (!p) continue;
@@ -499,7 +520,7 @@ function analyze(tf: TF) {
   }
   const hisseYil = toplamBar / (252 * cfg.barsPerDay);
   const K: Kural = { tip: 'sirali', zone: 5 * cfg.barsPerDay, rsiLow: RSI_LOW };
-  console.log(`\n══════ ${tf} · ${pres.length} hisse · likit hisse-yıl ${hisseYil.toFixed(0)} · ${idxBars[0]!.day} → ${idxBars[idxBars.length - 1]!.day} ══════`);
+  console.log(`\n══════ ${piyasa} ${tf} · endeks ${P.endeks} · ${pres.length} hisse · likit hisse-yıl ${hisseYil.toFixed(0)} · ${idxBars[0]!.day} → ${idxBars[idxBars.length - 1]!.day} ══════`);
   console.log(`SIRALI: OBV yeşile döner + son 5 iş günü (${K.zone} mum) içinde RSI≤30, ADX tepeden dönüş (−DI), VI+ dipten dönüş · en uzun tutma ${cfg.maxHold / cfg.barsPerDay} gün · TV ayarları RSI14 / DMI14 anahtar 23 / VI7 / OBV-SMA21`);
 
   console.log('\n═══ A. ANA SONUÇ — aynı dip girişleri, üç farklı çıkış ═══');
@@ -539,7 +560,7 @@ function analyze(tf: TF) {
       toplam++; if (k > 0) pozitif++; if (lo > 0) anlamli++; if (kx > 0) pozitifX++; if (lox > 0) anlamliX++;
       console.log(satirKatki(etiket, I, RG));
     }
-    console.log(`  → ${CIKIS_ADI[kural]}: ${toplam} varyant · nominal katkı pozitif ${pozitif} (anlamlı ${anlamli}) · XU100'e göre pozitif ${pozitifX} (anlamlı ${anlamliX})`);
+    console.log(`  → ${CIKIS_ADI[kural]}: ${toplam} varyant · nominal katkı pozitif ${pozitif} (anlamlı ${anlamli}) · endekse göre pozitif ${pozitifX} (anlamlı ${anlamliX})`);
   }
 }
 
@@ -646,7 +667,7 @@ function diag(dir: string, sym: string, from: string, kalibKey?: string) {
 
 const [mode, a1, a2] = process.argv.slice(2);
 if (mode === 'diag' && a1 && a2) { diag(a1, a2, process.argv[5] ?? '2026-06-01', process.argv[6]); process.exit(0); }
-if (mode === 'fetch') fetchAll().catch((e) => { console.error('BAŞARISIZ:', e); process.exit(1); });
-else if (mode === 'analyze' && (a1 === '1h' || a1 === '1d')) analyze(a1);
+if (mode === 'fetch') fetchAll(a1 === 'US' ? 'US' : 'BIST').catch((e) => { console.error('BAŞARISIZ:', e); process.exit(1); });
+else if (mode === 'analyze' && (a1 === '1h' || a1 === '1d')) analyze(a1, a2 === 'US' ? 'US' : 'BIST');
 else if (mode === 'trades' && a1 && a2) trades(a1, a2);
 else console.log('kullanım: fetch | analyze 1h|1d | trades <klasör> <SEMBOL>');
