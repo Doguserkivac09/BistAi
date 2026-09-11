@@ -25,7 +25,11 @@
 | H11 | 2026-09-11 | Kısa Vade ham sinyalleri mutlak getiride kârlı | BIST, 118 bin sinyal, kanonik ufuk | Hayır (betimleyici) | ❌ %46,2 kazanan, −%0,44 net; evrene göre kıyas YAPILMADI | (geçici betik) |
 | H12 | 2026-09-11 | **DENEY-001:** confluence momentum'un üstüne kesitsel bilgi taşır | BIST 1g, 2000–2026 (karar dönemi veri kapısıyla), h=10 | **Evet (kilitli)** | ❌ **KILL** — kısmi IC −0,0001 [−0,0055, +0,0060], MDE 0,0039; bariyer −%0,51/dönem; kararlılık %36 | `deney-001-*.ts` |
 
-**Toplam (bu alan):** 12 hipotez, bunlardan 3'ü önceden kayıtlı (H1, H4, H12) + 1 ileriye dönük (H10).
+| H13 | 2026-09-11 | **DENEY-002 A:** 5 günlük geri dönüş 10g evren fazla getirisini pozitif sıralar (H12'de 2011–21'de görüldü → orada kirli) | BIST 1g, 2001–2010 (veri kapısıyla), h=10 | **Evet (kilitli)** | ⏳ | `deney-002-a.ts` |
+| E1 | 2026-09-11 | **DENEY-002 B (KEŞİF):** 8 basit fiyat özelliği + eşit ağırlıklı EW4 | BIST 1g, 2011-01 → 2021-08 | Keşif (karar vermez) | ⏳ (A'dan sonra) | `deney-002-b.ts` |
+
+**Toplam (bu alan):** 13 hipotez, bunlardan 4'ü önceden kayıtlı (H1, H4, H12, H13) + 1 ileriye dönük (H10)
++ 1 keşif bloğu (E1, ≈ 21 örtük test).
 H3'teki 36 varyant ve H6–H9'daki çıkış × zaman dilimi × ızgara kombinasyonları ayrıca
 **~150 örtük test** içerir; bu alanda "anlamlı" çıkacak herhangi bir geriye dönük sonuç bu
 sayıya göre düzeltilmelidir.
