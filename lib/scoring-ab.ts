@@ -66,11 +66,11 @@ function normDirection(d: string): 'yukari' | 'asagi' | 'notr' {
 /** Satırın kanonik ufuk, yön-düzeltmeli, net getirisi (gecmis-firsatlar ile aynı tanım). */
 export function netReturnOf(row: AbSignalRow): number | null {
   const field = getCanonicalField(row.signal_type);
-  const raw = (row as unknown as Record<string, number | null>)[field];
-  if (raw == null || !Number.isFinite(raw)) return null;
-  // Aşağı yönlü sinyalde getiri işareti çevrilir (düşüşten kazanç)
-  const dirAdj = row.direction === 'asagi' ? -raw : raw;
-  return dirAdj - AB_COMMISSION;
+  const net = (row as unknown as Record<string, number | null>)[field];
+  if (net == null || !Number.isFinite(net)) return null;
+  // ⚠️ return_* evaluate-engine'de ZATEN yön-düzeltmeli (asagi → düşüş pozitif).
+  // 2026-09-11'e kadar burada tekrar çevriliyordu → A/B raporunda short'lar TERSTİ.
+  return net - AB_COMMISSION;
 }
 
 /**

@@ -118,6 +118,7 @@ export default function TersPortfolyoPage() {
         ? '/api/firsatlar?excludeOwned=true'
         : '/api/firsatlar';
       const res = await fetch(url);
+      if (res.status === 503) throw new Error('Fırsatlar bölümü geçici olarak bakımda.');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: FirsatlarResponse = await res.json();
       setData(json);

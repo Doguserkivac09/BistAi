@@ -2,6 +2,15 @@
   "stage": "Pre-Alpha",
   "versions": [
     {
+      "version": "0.2.1",
+      "date": "2026-09-11",
+      "type": "patch",
+      "items": [
+        { "category": "iyilestirme", "text": "Kısa Vade Fırsatlar ve Geçmiş Fırsatlar bölümleri bakıma alındı. Geçmiş sinyallerin gerçek sonuçlarını ölçtük; listenin değerini daha güçlü kanıtlayana kadar kapalı tutuyoruz." },
+        { "category": "duzeltme", "text": "Düşüş yönlü sinyallerin geçmiş başarı oranı bazı ekranlarda ters hesaplanıyordu. Düzeltildi." }
+      ]
+    },
+    {
       "version": "0.2.0",
       "date": "2026-09-10",
       "type": "minor",

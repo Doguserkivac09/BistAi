@@ -139,9 +139,9 @@ async function fetchHistoricalWinRate(
     let wins = 0;
     for (const r of valid) {
       const rec = r as Record<string, unknown>;
-      const raw = rec[field] as number;
-      const dirAdj = (rec.direction as string) === 'asagi' ? -raw : raw;
-      if (dirAdj - COMMISSION > 0) wins++;
+      // ⚠️ return_* evaluate-engine'de ZATEN yön-düzeltmeli — tekrar çevirme (2026-09-11).
+      const net = rec[field] as number;
+      if (net - COMMISSION > 0) wins++;
     }
     // direction parametresi şimdilik döngüsel analiz için tutuldu; canonical field aynı kalır
     void direction;

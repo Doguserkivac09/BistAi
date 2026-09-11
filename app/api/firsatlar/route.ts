@@ -12,6 +12,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { isUnderMaintenance, isInternalCronRequest, MAINTENANCE_BODY } from '@/lib/maintenance';
 import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
 import { getSector, getSectorId, SECTOR_REPRESENTATIVES, type SectorId } from '@/lib/sectors';
@@ -225,9 +226,10 @@ function computeWinRates(
 
     let wins = 0;
     for (const r of valid) {
-      const raw = r[field] as number;
-      const dirAdj = r.direction === 'asagi' ? -raw : raw;
-      if (dirAdj - COMMISSION > 0) wins++;
+      // ⚠️ return_* evaluate-engine'de ZATEN yön-düzeltmeli yazılır — tekrar çevirme
+      // (2026-09-11'e kadar çevriliyordu → short sinyallerin isabeti TERS görünüyordu).
+      const net = r[field] as number;
+      if (net - COMMISSION > 0) wins++;
     }
     out.set(sigType, { winRate: wins / valid.length, n: valid.length });
   }
@@ -242,6 +244,11 @@ function computeWinRates(
 // eventRisks haritasından okunur (lib/news-impact deriveEventRisk).
 
 export async function GET(req: NextRequest) {
+  // ⛔ BAKIM: kamuya içerik servis edilmez. Tek istisna CRON_SECRET taşıyan iç ölçüm
+  // (fırsat sicili snapshot'ı) — geri açma kararının verisi birikmeye devam etmeli.
+  if (isUnderMaintenance('firsatlar') && !isInternalCronRequest(req)) {
+    return NextResponse.json(MAINTENANCE_BODY, { status: 503 });
+  }
   try {
     const url           = new URL(req.url);
     const excludeOwned  = url.searchParams.get('excludeOwned') === 'true';

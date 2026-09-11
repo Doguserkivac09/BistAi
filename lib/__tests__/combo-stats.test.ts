@@ -52,15 +52,25 @@ describe('computeComboStats — gruplama ve sayım', () => {
     assert.equal(combo.winRate, 50); // biri +, biri -
   });
 
-  it('asagi yön: fiyat düşüşü kazanç (işaret çevrilir)', () => {
-    const rows = [
-      row('BBB', '2026-07-01', 'asagi', 'Ölüm Çaprazı', -0.08), // fiyat düştü → kazanç
-      row('BBB', '2026-07-01', 'asagi', 'Bear Flag', -0.08),
+  // ⚠️ REGRESYON (2026-09-11): return_7d evaluate-engine'de ZATEN yön-düzeltmeli yazılır
+  // (asagi sinyalde fiyat düşüşü POZİTİF). Eskiden burada tekrar çevriliyordu → short'lar
+  // sitenin her yerinde TERS görünüyordu. Kayıtlı değer olduğu gibi okunmalı.
+  it('asagi yön: kayıtlı getiri zaten yön-düzeltmeli, TEKRAR çevrilmez', () => {
+    const kazanc = [
+      row('BBB', '2026-07-01', 'asagi', 'Ölüm Çaprazı', 0.08), // fiyat düştü → kayıtta +0.08
+      row('BBB', '2026-07-01', 'asagi', 'Bear Flag', 0.08),
     ];
-    const combo = computeComboStats(rows).find((s) => s.key === 'Bear Flag + Ölüm Çaprazı')!;
-    // net = -(-0.08) - 0.004 = 0.076 → %7.6, kazanan
-    assert.ok(combo.avgNet > 7 && combo.avgNet < 8);
-    assert.equal(combo.winRate, 100);
+    const k = computeComboStats(kazanc).find((s) => s.key === 'Bear Flag + Ölüm Çaprazı')!;
+    // net = 0.08 - 0.004 = 0.076 → %7.6, kazanan
+    assert.ok(k.avgNet > 7 && k.avgNet < 8);
+    assert.equal(k.winRate, 100);
+
+    const kayip = [
+      row('CCC', '2026-07-01', 'asagi', 'Ölüm Çaprazı', -0.08), // fiyat yükseldi → kayıtta −0.08
+      row('CCC', '2026-07-01', 'asagi', 'Bear Flag', -0.08),
+    ];
+    const y = computeComboStats(kayip).find((s) => s.key === 'Bear Flag + Ölüm Çaprazı')!;
+    assert.equal(y.winRate, 0, 'short\'ta fiyat yükselişi kayıptır');
   });
 
   it('tek sinyal (co-occurrence yok) → combo üretilmez', () => {

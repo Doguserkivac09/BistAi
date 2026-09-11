@@ -93,10 +93,9 @@ export async function GET(request: NextRequest) {
       let sumReturn = 0;
 
       for (const r of valid) {
-        const raw = r[field] as number;
-        // Yön düzeltmesi: asagi sinyali için fiyat düşüşü = kazanç
-        const dirAdj = r.direction === 'asagi' ? -raw : raw;
-        const net = dirAdj - COMMISSION;
+        // ⚠️ return_* evaluate-engine'de ZATEN yön-düzeltmeli (asagi sinyalde fiyat
+        // düşüşü pozitif yazılır) — tekrar çevirmek short'ları ters gösteriyordu (2026-09-11).
+        const net = (r[field] as number) - COMMISSION;
         sumReturn += net;
         if (net > 0) wins++;
       }

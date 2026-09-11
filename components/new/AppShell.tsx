@@ -24,7 +24,7 @@ interface NavItem {
 // Sidebar (masaüstü)
 const SIDEBAR: NavItem[] = [
   { href: '/bugun', label: 'Bugün' },
-  { href: '/firsatlar', label: 'Fırsatlar' },
+  { href: '/firsatlar', label: 'Fırsatlar', bakim: MAINTENANCE.firsatlar },
   { href: '/portfolyo', label: 'Portföyüm' },
   { href: '/makro', label: 'Piyasa' },
   { href: '/viop', label: 'VIOP', bakim: MAINTENANCE.viop },

@@ -22,12 +22,34 @@
 export const MAINTENANCE = {
   /** VIOP vadeli analiz — kaldıraçlı ürün sunumu gözden geçirilecek. */
   viop: true,
+  /**
+   * Kısa vade fırsatlar + geçmiş fırsatlar (2026-09-11, kullanıcı kararı).
+   * Ölçüm: signal_performance'ta 118 bin BIST sinyali, kazanan %46, ort. net −%0,44
+   * (komisyon kadar kayıp = yazı-tura). Avantajı kanıtlanmamış bir listeyi
+   * "AL / giriş fiyatı" diye sunmak yanıltıcı ve mevzuat riski.
+   * Fırsat sicili (firsat_picks) bakımda da birikmeye DEVAM eder — geri açma
+   * kararı o veriyle verilir (bkz. isInternalCronRequest).
+   */
+  firsatlar: true,
 } as const;
 
 export type MaintenanceKey = keyof typeof MAINTENANCE;
 
 export function isUnderMaintenance(key: MaintenanceKey): boolean {
   return MAINTENANCE[key];
+}
+
+/**
+ * İç ölçüm isteği mi? Bakımdaki bir API'yi YALNIZ CRON_SECRET taşıyan istek okuyabilir.
+ *
+ * ⚠️ NEDEN: fırsat sicili snapshot'ı listeyi kendi API'mizden alır ("gösterilen" ile
+ * "ölçülen" ayrışmasın diye). API tamamen kapansaydı sicil durur ve "ne zaman geri
+ * açalım?" sorusunun verisi hiç birikmezdi. Kamuya içerik yine SERVİS EDİLMEZ.
+ */
+export function isInternalCronRequest(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  const token = req.headers.get('authorization')?.replace('Bearer ', '').trim();
+  return !!secret && token === secret;
 }
 
 /** Bakımdaki özelliğin okuma API'lerinin döneceği gövde (503 ile birlikte). */

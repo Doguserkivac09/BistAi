@@ -66,11 +66,11 @@ export function GecmisFirsatlarScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Yön-düzeltmeli görünüm: 'asagi' sinyalde fiyat düşüşü KAZANÇtır → ham return
-  // işareti çevrilir. Böylece gösterilen % ile "Kazandı/Kaybetti" tutarlı olur ve
-  // sıralama başarısız short'ları "en iyi" göstermez (winRate zaten yön-düzeltmeli).
-  const adj = (v: number | null, d: string | null): number | null =>
-    v == null || !Number.isFinite(v) ? null : d === 'asagi' ? -v : v;
+  // ⚠️ return_* API'den ZATEN yön-düzeltmeli gelir (evaluate-engine 'asagi' sinyalde
+  // fiyat düşüşünü pozitif yazar). Burada TEKRAR çevirmek short'ları ters gösteriyordu
+  // (2026-09-11 düzeltildi). `d` imzada kalır — çağıranlar değişmesin.
+  const adj = (v: number | null, _d: string | null): number | null =>
+    v == null || !Number.isFinite(v) ? null : v;
 
   const view = useMemo(() => {
     const rows = (data?.items ?? []).map((it) => ({

@@ -15,6 +15,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCanonicalField } from '@/lib/signal-horizons';
+import { isUnderMaintenance, MAINTENANCE_BODY } from '@/lib/maintenance';
 
 function createAdmin() {
   return createClient(
@@ -62,6 +63,10 @@ export interface GecmisFirsatlarResponse {
 }
 
 export async function GET(req: NextRequest) {
+  // ⛔ BAKIM: sayfayı gizlemek yetmez — API açık kalırsa içerik hâlâ yayınlanıyor demektir.
+  if (isUnderMaintenance('firsatlar')) {
+    return NextResponse.json(MAINTENANCE_BODY, { status: 503 });
+  }
   const { searchParams } = new URL(req.url);
   const days          = Math.min(parseInt(searchParams.get('days') ?? '90'), 365);
   const minConfluence = parseInt(searchParams.get('minConfluence') ?? '50');
@@ -120,14 +125,17 @@ export async function GET(req: NextRequest) {
   /**
    * Sinyalin kanonik ufkundaki yön-düzeltilmiş net getirisi (komisyon dahil).
    * winRate ölçütü budur — signal-stats-summary / firsatlar ile aynı tanım (FAZ 0
-   * BUG-A/B/C tutarlılığı). 'asagi' sinyalde fiyat düşüşü kazançtır → işaret çevrilir.
+   * BUG-A/B/C tutarlılığı).
+   *
+   * ⚠️ return_* alanları evaluate-engine `calcReturn`'de ZATEN yön-düzeltmelidir
+   * ('asagi' sinyalde fiyat düşüşü pozitif yazılır). Burada TEKRAR çevirmek short'ları
+   * ters gösteriyordu (2026-09-11 düzeltildi).
    */
   function canonicalNetReturn(row: Omit<Row, 'daysAgo' | 'isWinner'>): number | null {
     const field = getCanonicalField(row.signal_type);
-    const raw = row[field];
-    if (raw == null || !Number.isFinite(raw)) return null;
-    const dirAdj = row.direction === 'asagi' ? -raw : raw;
-    return dirAdj - COMMISSION;
+    const net = row[field];
+    if (net == null || !Number.isFinite(net)) return null;
+    return net - COMMISSION;
   }
 
   const items: GecmisFirsat[] = rows.map((row) => {

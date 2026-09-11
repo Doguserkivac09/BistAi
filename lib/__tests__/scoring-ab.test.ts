@@ -74,10 +74,13 @@ describe('netReturnOf — kanonik ufuk + yön + komisyon', () => {
     assert.ok(Math.abs(r! - (0.2 - AB_COMMISSION)) < 1e-9);
   });
 
-  it('aşağı sinyalde getiri işareti çevrilir (düşüşten kazanç)', () => {
-    const r = netReturnOf({ ...base, direction: 'asagi', return_14d: -0.1 });
-    // −(−0.1) − komisyon = 0.1 − komisyon
-    assert.ok(Math.abs(r! - (0.1 - AB_COMMISSION)) < 1e-9);
+  // ⚠️ REGRESYON (2026-09-11): return_* evaluate-engine'de ZATEN yön-düzeltmeli.
+  // Eskiden tekrar çevriliyordu → A/B raporunda short'lar TERSTİ.
+  it('aşağı sinyalde kayıtlı getiri olduğu gibi okunur (tekrar çevrilmez)', () => {
+    const kazanc = netReturnOf({ ...base, direction: 'asagi', return_14d: 0.1 }); // fiyat düştü
+    assert.ok(Math.abs(kazanc! - (0.1 - AB_COMMISSION)) < 1e-9);
+    const kayip = netReturnOf({ ...base, direction: 'asagi', return_14d: -0.1 }); // fiyat yükseldi
+    assert.ok(kayip! < 0, 'short\'ta fiyat yükselişi kayıptır');
   });
 
   it('kanonik alan null → null (değerlendirilemez atlanır)', () => {

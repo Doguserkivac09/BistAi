@@ -274,6 +274,36 @@ güncellenir). Tek yerde sabit (`VIOP_UNDERLYINGS`) — gerçek tutar beslemesi 
 
 ---
 
+## 🛑 BAKIM MODU — VIOP + Kısa Vade Fırsatlar (2026-09-10 / 09-11)
+
+**Tek anahtar:** `lib/maintenance.ts` → `MAINTENANCE = { viop: true, firsatlar: true }`.
+Açmak için ilgili bayrağı `false` yap + deploy. Kod/motor SİLİNMEDİ.
+
+| Anahtar | Kapattığı yerler |
+|---|---|
+| `viop` | `/viop` sayfası (BakimEkrani) · `/api/viop` 503 · `cron/viop-scan` erken çıkış |
+| `firsatlar` | `/firsatlar` + `/gecmis-firsatlar` sayfaları · `/api/firsatlar` + `/api/firsatlar-us` + `/api/gecmis-firsatlar` 503 · AppShell "bakımda" rozeti |
+
+**Neden `firsatlar`:** 118 bin BIST sinyali (Nis-Eyl 2026) kazanan %46, ort. net −%0,44 =
+komisyon kadar kayıp, yani yazı-tura. Avantajı kanıtlanmamış listeyi "AL / giriş fiyatı"
+diye sunmak yanıltıcı + mevzuat riski (kullanıcı kararı).
+
+**⚠️ İstisna — fırsat sicili:** `/api/firsatlar` CRON_SECRET taşıyan isteğe açık kalır
+(`isInternalCronRequest`). `cron/firsat-picks-snapshot` bu yolla listeyi almaya devam eder;
+geri açma kararı `firsat_picks` verisiyle verilir. **Bulgu:** tablo hiç dolmamıştı —
+snapshot `NEXT_PUBLIC_SITE_URL` yoksa localhost'a gidiyordu; `VERCEL_PROJECT_PRODUCTION_URL`
+yedeği eklendi (ilk Pazartesi koşusunda doğrulanmalı).
+
+**🐛 Çift çevirme hatası düzeltildi (2026-09-11):** `signal_performance.return_*`
+evaluate-engine'de **zaten yön-düzeltmeli** yazılır (asagi → düşüş pozitif). 8 okuma noktası
+(firsatlar, firsatlar-us, gecmis-firsatlar API+ekran, hisse-analiz, signal-stats-summary,
+scoring-ab, combo-stats) bunu **tekrar çeviriyordu** → short sinyallerin isabeti sitenin her
+yerinde TERSTİ. **SCORING_V2 A/B sonuçları ve combo-stats "onaylı kurulum" listesi bu hatayla
+hesaplandı — yeniden ölçülmeli.** Kural: `return_*` okurken ASLA yön çevirme
+(`firsat_picks.ret_*` HAM fiyat getirisidir, orada `netReturn` çevirmesi doğru).
+
+---
+
 ## 🧪 Swing kurulumu — İLERİYE DÖNÜK GİZLİ SİCİL (2026-09-11) 🔵 KISMİ
 
 > Kullanıcının TradingView kurulumu (RSI dip + ADX tepeden dönüş + VI+ dipten dönüş +
@@ -388,7 +418,7 @@ Aşağıdaki migration'lar Supabase SQL Editor'a yapıştırılıp çalıştır�
 | `20260816_scanner_signals(_quality).sql` | scanner_signals + v_score/session_phase/catalyst kolonları | ✅ Çalıştırıldı |
 | `20260909_fund_prices.sql` | fund_prices + fund_meta + fund_scan_days (fon kalıcı depolama) | ✅ Çalıştırıldı (2026-09-09) |
 | `20260910_fund_real_category.sql` | fund_meta: category_name/rank/size/name_at (6D gerçek kategori) | 🔴 **ÇALIŞTIRILMADI** |
-| `20260911_swing_sicil.sql` | swing_sicil tablosu (gizli ileriye dönük swing sicili + kontrol grubu) | 🔴 **ÇALIŞTIRILMADI** |
+| `20260911_swing_sicil.sql` | swing_sicil tablosu (gizli ileriye dönük swing sicili + kontrol grubu) | ✅ Çalıştırıldı (2026-09-11) |
 
 ### 🔍 Migration denetimi (2026-09-10) — canlı şemaya sorularak yapıldı
 

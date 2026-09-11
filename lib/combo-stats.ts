@@ -106,7 +106,8 @@ export function computeComboStats(rows: ComboStatsInputRow[]): ComboStat[] {
     acc.get(key)!.nets.push(net);
   };
   for (const ev of events.values()) {
-    const net = (ev.dir === 'asagi' ? -ev.ret : ev.ret) - COMMISSION;
+    // ⚠️ return_7d evaluate-engine'de ZATEN yön-düzeltmeli — tekrar çevirme (2026-09-11).
+    const net = ev.ret - COMMISSION;
     const types = [...ev.types].sort();
     if (types.length < 2) continue;
     for (const c of kCombinations(types, 2)) add(c, 2, net);

@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getMacroFull } from '@/lib/macro-service';
 import { SIGNAL_CANONICAL_FIELD } from '@/lib/signal-horizons';
 import type { FirsatItem, FirsatlarResponse } from '@/app/api/firsatlar/route';
+import { isUnderMaintenance, MAINTENANCE_BODY } from '@/lib/maintenance';
 
 const MIN_CONFLUENCE = 50;
 const LOOKBACK_HOURS = 48;
@@ -49,9 +50,9 @@ function computeWinRates(records: PerfStatRow[]): Map<string, { winRate: number;
 
     let wins = 0;
     for (const r of valid) {
-      const raw = r[field] as number;
-      const dirAdj = r.direction === 'asagi' ? -raw : raw;
-      if (dirAdj - COMMISSION > 0) wins++;
+      // ⚠️ return_* evaluate-engine'de ZATEN yön-düzeltmeli — tekrar çevirme (2026-09-11).
+      const net = r[field] as number;
+      if (net - COMMISSION > 0) wins++;
     }
     out.set(sigType, { winRate: wins / valid.length, n: valid.length });
   }
@@ -259,6 +260,10 @@ function buildFirsatItem(
 }
 
 export async function GET(_req: NextRequest) {
+  // ⛔ BAKIM: BIST fırsatlarıyla aynı anahtar — AL/SAT listesi kamuya servis edilmez.
+  if (isUnderMaintenance('firsatlar')) {
+    return NextResponse.json(MAINTENANCE_BODY, { status: 503 });
+  }
   const admin  = createAdminClient();
   const cutoff = new Date(Date.now() - LOOKBACK_HOURS * 3_600_000).toISOString();
 

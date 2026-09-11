@@ -42,16 +42,28 @@ export async function GET(req: NextRequest) {
   const guard = bistGuard();
   if (guard) return guard;
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? `http://localhost:${process.env.PORT ?? 3000}`;
+  // ⚠️ 2026-09-11 BULGU: firsat_picks tablosu hiç dolmamıştı. NEXT_PUBLIC_SITE_URL yoksa
+  // eski kod localhost'a gidiyordu (Vercel'de her zaman başarısız). Vercel'in kendi
+  // üretim alan adı değişkeni yedek olarak kullanılır.
+  const base =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')
+    ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
+    ?? `http://localhost:${process.env.PORT ?? 3000}`;
 
   let payload: FirsatlarResponse;
   try {
-    const res = await fetch(`${base}/api/firsatlar`, { cache: 'no-store', signal: AbortSignal.timeout(60_000) });
+    // Fırsatlar bakımdayken API kamuya 503 döner; sicil CRON_SECRET ile okumaya devam eder
+    // (lib/maintenance.ts isInternalCronRequest) — geri açma kararının verisi birikmeli.
+    const res = await fetch(`${base}/api/firsatlar`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(60_000),
+      headers: CRON_SECRET ? { Authorization: `Bearer ${CRON_SECRET}` } : undefined,
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     payload = (await res.json()) as FirsatlarResponse;
   } catch (e) {
     return NextResponse.json(
-      { error: `Fırsat listesi alınamadı: ${e instanceof Error ? e.message : String(e)}` },
+      { error: `Fırsat listesi alınamadı (${new URL(base).host}): ${e instanceof Error ? e.message : String(e)}` },
       { status: 502 },
     );
   }
