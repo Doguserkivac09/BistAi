@@ -26,7 +26,7 @@
 | H12 | 2026-09-11 | **DENEY-001:** confluence momentum'un üstüne kesitsel bilgi taşır | BIST 1g, 2000–2026 (karar dönemi veri kapısıyla), h=10 | **Evet (kilitli)** | ❌ **KILL** — kısmi IC −0,0001 [−0,0055, +0,0060], MDE 0,0039; bariyer −%0,51/dönem; kararlılık %36 | `deney-001-*.ts` |
 
 | H13 | 2026-09-11 | **DENEY-002 A:** 5 günlük geri dönüş 10g evren fazla getirisini pozitif sıralar (H12'de 2011–21'de görüldü → orada kirli) | BIST 1g, 2001–2010 (veri kapısıyla), h=10 | **Evet (kilitli)** | ❌ **REDDEDİLDİ** — 2002–2010 IC −0,0033 [−0,0144, +0,0071], MDE 0,0052; ilk %10 net −%1,54/10g; kararlılık %28 | `deney-002-a.ts` |
-| E1 | 2026-09-11 | **DENEY-002 B (KEŞİF):** 8 basit fiyat özelliği + eşit ağırlıklı EW4 | BIST 1g, 2011-01 → 2021-08 | Keşif (karar vermez) | ⏳ (A'dan sonra) | `deney-002-b.ts` |
+| E1 | 2026-09-11 | **DENEY-002 B (KEŞİF):** 8 basit fiyat özelliği + eşit ağırlıklı EW4 | BIST 1g, 2011-01 → 2021-08 | Keşif (karar vermez) | 🔎 Adaylar: VOL20 +0,066 [+0,054, +0,078] · HACIM_SURPRIZ −0,025 [−0,035, −0,016] · SEKTOR_MOM20 +0,013 [+0,003, +0,022]; EW4 −0,009, net −%0,91 | `deney-002-b.ts` |
 
 **Toplam (bu alan):** 13 hipotez, bunlardan 4'ü önceden kayıtlı (H1, H4, H12, H13) + 1 ileriye dönük (H10)
 + 1 keşif bloğu (E1, ≈ 21 örtük test).

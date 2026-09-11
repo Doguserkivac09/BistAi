@@ -201,5 +201,42 @@ kod değiştirilmemek için yeniden koşulmadı).
 Bağımsız dönemde işareti bile tutmadı. En üst dilim (geçen haftanın en çok düşenleri) maliyetten
 ÖNCE evrenin %1 gerisinde. Sonradan bulunan desenin temiz veride çökmesinin somut örneği.
 
-### 6.2 B
-*(A commit'inden sonra yazılır.)*
+### 6.2 B — KEŞİF (2026-09-11) — karar vermez
+
+**Tekrarlanabilirlik:** kod `ee32fb4` (A sonucu `ff99495`'ten sonra) · önbellek sha256 `fea6a0fa…43c6` ·
+ham çıktı [deney-sonuclari/DENEY-002B-sonuc.json](deney-sonuclari/DENEY-002B-sonuc.json).
+Dönem 2011-01 → 2021-08, 2.760 gün, evren medyanı 212.
+
+**Tek özellik IC (h=10, 20g blok bootstrap GA):**
+| Özellik | IC | 95% GA | Pozitif gün | MOM63S'ye göre ayrıştırılmış IC |
+|---|---|---|---|---|
+| **VOL20** (düşük volatilite) | **+0,0657** | [+0,0537, +0,0785] | %73 | +0,0713 [+0,0601, +0,0839] |
+| **HACIM_SURPRIZ** | **−0,0253** | [−0,0351, −0,0161] | %40 | −0,0265 [−0,0358, −0,0176] |
+| **SEKTOR_MOM20** | **+0,0126** | [+0,0028, +0,0219] | %57 | +0,0119 [+0,0028, +0,0202] |
+| SEKTOR_RS20 | −0,0101 | [−0,0211, +0,0016] | %47 | −0,0120 [−0,0222, −0,0019] |
+| REV5 | +0,0078 | [−0,0009, +0,0170] | %52 | +0,0088 [−0,0001, +0,0179] |
+| MOM126S | +0,0060 | [−0,0087, +0,0214] | %53 | +0,0079 [−0,0035, +0,0205] |
+| MOM63S | +0,0008 | [−0,0135, +0,0152] | %52 | — |
+| MOM20 | −0,0026 | [−0,0165, +0,0106] | %50 | −0,0044 [−0,0167, +0,0078] |
+
+**EW4** (MOM63S + REV5 + HACIM_SURPRIZ + SEKTOR_RS20, eşit ağırlık): IC **−0,0095** [−0,0207, +0,0024].
+Bariyer (ilk %10, 10g): brüt −%0,42, **net −%0,91**. Drop-one: HACIM_SURPRIZ çıkarılınca +0,0011
+(fark −0,0106 [−0,0156, −0,0055]) — bileşim, yönü ters seçilmiş bir bileşen yüzünden negatif.
+
+**Korelasyon (günlük sıra korelasyonu ortalaması):** MOM20–SEKTOR_RS20 0,90 · MOM63S–MOM126S 0,66 ·
+MOM20–REV5 −0,43 · VOL20 ile diğerleri −0,25…+0,02 (VOL20 büyük ölçüde bağımsız bilgi).
+
+**§3.4 DENEY-003 adayları** (tek başına GA 0'ı dışlayan): **VOL20 (+)**, **HACIM_SURPRIZ (−)**, **SEKTOR_MOM20 (+)**.
+~21 örtük test düzeltmesiyle: VOL20 (~10 SE) ve HACIM_SURPRIZ (~5 SE) her makul düzeltmeden sağ çıkar;
+SEKTOR_MOM20 (~2,7 SE) sınırda.
+
+**Keşif yorumu (kanıt değil):**
+1. **Düşük volatilite anomalisi** literatürde bağımsız olarak iyi belgelenmiştir (güçlü önsel). Ancak şu
+   alternatif açıklamalar DENEY-003'te ayrıştırılmalı: veri hataları (bozuk mumlar yüksek volatilite üretip
+   sonra "düzelir"), düşük fiyatlı/manipüle hisselerin çöküşü, kuyruk etkisi (bilgi yalnız en yüksek
+   volatilite dilimindeyse long-only değeri sınırlı).
+2. **Hacim sürprizi negatif:** ani hacim artışı sonrası evrenin gerisinde kalma — pompala-boşalt / dikkat
+   tersine dönüşüyle uyumlu. Getiri değil **kaçınma (risk)** bilgisi olabilir.
+3. İki güçlü bulgunun ikisi de "neyden kaçınmalı" tarafında. Bu, fonlarda doğrulanan tek uyarının da
+   risk uyarısı olmasıyla aynı yönde.
+4. Momentum ailesi (20/63/126 gün) bu dönemde sıfırdan ayırt edilemiyor.
