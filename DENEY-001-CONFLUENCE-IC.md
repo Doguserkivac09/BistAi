@@ -225,6 +225,72 @@ bileşenlerinden geliyor."*
 
 ---
 
-## 12. Sonuç
+## 12. Sonuç (2026-09-11)
 
-*(Deney tamamlanınca bu bölüme yazılır; üst bölümler değişmez.)*
+> **"Bu deneyden sonra mevcut confluence'ı ÖLDÜRMELİYİZ."**
+> Confluence'ın 3 aylık momentum dışı bilgisi, ölçülebilir en küçük etkinin (MDE = 0,0039) altında.
+
+**Tekrarlanabilirlik:** analiz kodu `fafcd9d` · veri önbelleği sha256 `fea6a0fa…43c6` (618 sembol,
+2000-01 → 2026-09) · ham çıktı [deney-sonuclari/DENEY-001-sonuc.json](deney-sonuclari/DENEY-001-sonuc.json).
+
+### 12.1 Veri kalitesi
+- **Parite:** 2.036.586 hisse-günde formül kopyası = canlı `computeConfluence`, **0 hata**.
+- **Kapı:** 2005–2010 evren medyanı < 150 (124–145) → geçemedi. 2011–2020 hepsi geçti → **Y\* = 2011**.
+- Karar dönemi **2011-01 → 2021-08** (2.760 IC günü). Temizlikle elenen ≤ %4,3, sıfır hacim ≤ %5,8.
+
+### 12.2 Birincil ölçüt ve karar
+| | Değer |
+|---|---|
+| **Kısmi IC (h=10)** | **−0,0001** |
+| 95% GA (blok bootstrap) | [−0,0055, +0,0060] |
+| MDE (plasebo, 2,8×SE) | 0,0039 |
+| Pozitif IC günü | %50,3 |
+
+**KARAR: KILL** (GA 0'ı içeriyor). Bariyerler de başarısız:
+- 7.1 ekonomik: 10 günlük dönem başına net fazla getiri **−%0,51** (276 dönem, 0 nakit)
+- 7.2 kararlılık: yarıyılların **%36'sı** pozitif (eşik %60)
+- 7.3 ikincil dönem (2021-09 → 2025-12): **−0,0106**
+
+### 12.3 Zorunlu raporlar (karar vermez)
+| Rapor | Sonuç |
+|---|---|
+| Ham IC (ayrıştırmasız) | +0,0011 |
+| Sinyalli alt evren kısmi IC | −0,0001 |
+| Çoklu ayrıştırma (MOM3A+MOM20+REV1H) | +0,0003 [−0,0044, +0,0055] |
+| h=5 / h=20 | −0,0040 / +0,0030 |
+| XU100'e göre hedef | −0,0003 |
+| Rejim: boğa / yatay / ayı | +0,0048 (n=1311) / −0,0016 (545) / −0,0073 (817) |
+| 2026 kirli dönem | −0,0130 [−0,0313, −0,0005] |
+| Derin tarihsel 2001–2010 (KEŞİF) | +0,0072 [−0,0010, +0,0153] |
+
+**Kıyasların tek başına ham IC'si:** REV1H +0,0078 · RASTGELE +0,0012 · MOM3A +0,0008 · MOM20 −0,0026 · RSI −0,0033.
+
+**Drop-one (tam − varyant; negatif fark = bileşeni çıkarmak skoru İYİLEŞTİRİYOR):**
+| Varyant | Kısmi IC | Fark | 95% GA |
+|---|---|---|---|
+| −SAYI | −0,0019 | +0,0018 | [+0,0001, +0,0036] |
+| −ŞİDDET | +0,0037 | −0,0038 | [−0,0053, −0,0023] |
+| −TİP AĞIRLIĞI | −0,0014 | +0,0013 | [+0,0007, +0,0019] |
+| −UYUM | −0,0001 | −0,0000 | [−0,0007, +0,0006] |
+| −ÇELİŞKİ | −0,0006 | +0,0005 | [−0,0000, +0,0011] |
+| −KATEGORİ | +0,0006 | −0,0008 | [−0,0013, −0,0003] |
+| KABA-1 (sayı × yön) | +0,0026 | −0,0028 | [−0,0047, −0,0007] |
+| KABA-2 (yalnız yön) | +0,0038 | −0,0039 | [−0,0066, −0,0008] |
+
+**Aileler arası birlikte tetiklenme (Jaccard):** trend–yapı 0,61 · trend–formasyon 0,45 ·
+yapı–formasyon 0,42 · momentum–yapı 0,41 · hacim ile diğerleri 0,21–0,24.
+
+### 12.4 Gözlemler (KEŞİF — karar vermez, yeni ağırlık önerisi DEĞİLDİR)
+1. **Formülün kendisi zarar veriyor:** yalnız "sinyal var ve yönü şu" (KABA-2), tüm confluence
+   formülünden anlamlı biçimde iyi. Şiddet puanları ve kategori bonusu sıralamayı bozuyor.
+   Yine de en iyi varyant bile MDE civarında (0,004) — ekonomik değil.
+2. **Tek dikkat çeken kıyas kısa vadeli geri dönüş** (REV1H, ham IC +0,008). Literatürde bağımsız
+   olarak belgelenmiş bir anomali; ama bu değer bu veride görüldüğü için bir sonraki deneyin
+   önceden kayıtlı hipotezi yapılırsa bu kirlilik açıkça belirtilmeli.
+3. **Rejime bağımlılık:** boğada hafif pozitif, ayıda negatif — tutarlı bilgi değil, piyasa yönüne
+   duyarlılık. 2026 kirli dönemde (düşüş) anlamlı negatif.
+4. Trend ve yapı sinyalleri %61 birlikte tetikleniyor — "5 bağımsız kanıt" varsayımı veriyle çürüdü.
+
+### 12.5 Sınırlar
+Survivorship (bugünkü semboller) · Yahoo verisi · yalnız teknik çekirdek (haber/KAP/temel/karar
+motoru ayarları test edilmedi) · günlük kapanış tabanlı sinyal (canlıdaki 07:30/12:00 zamanlaması yok).

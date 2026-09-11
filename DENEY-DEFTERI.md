@@ -23,7 +23,7 @@
 | H9 | 2026-09-11 | Durum tanımı + siyah-beyaz kesişim çıkışı (kullanıcı düzeltmesi) | BIST 1s, ABD 1s + 1g | Hayır | ❌ BIST 1s, ABD 1s ~0; ⚠️ ABD 1g −DI>+DI +1,1 [+0,2, +2,1] | `swing-backtest.ts` |
 | H10 | 2026-09-11 | H9 ABD 1g, ileriye dönük | ABD 1g, canlı | **Evet (ileriye dönük)** | ⏳ birikiyor (`swing_sicil`) | `lib/swing-sicil-runner.ts` |
 | H11 | 2026-09-11 | Kısa Vade ham sinyalleri mutlak getiride kârlı | BIST, 118 bin sinyal, kanonik ufuk | Hayır (betimleyici) | ❌ %46,2 kazanan, −%0,44 net; evrene göre kıyas YAPILMADI | (geçici betik) |
-| H12 | 2026-09-11 | **DENEY-001:** confluence momentum'un üstüne kesitsel bilgi taşır | BIST 1g, 2000–2026 (karar dönemi veri kapısıyla), h=10 | **Evet (kilitli)** | ⏳ | `deney-001-*.ts` |
+| H12 | 2026-09-11 | **DENEY-001:** confluence momentum'un üstüne kesitsel bilgi taşır | BIST 1g, 2000–2026 (karar dönemi veri kapısıyla), h=10 | **Evet (kilitli)** | ❌ **KILL** — kısmi IC −0,0001 [−0,0055, +0,0060], MDE 0,0039; bariyer −%0,51/dönem; kararlılık %36 | `deney-001-*.ts` |
 
 **Toplam (bu alan):** 12 hipotez, bunlardan 3'ü önceden kayıtlı (H1, H4, H12) + 1 ileriye dönük (H10).
 H3'teki 36 varyant ve H6–H9'daki çıkış × zaman dilimi × ızgara kombinasyonları ayrıca
