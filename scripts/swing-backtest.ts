@@ -75,6 +75,7 @@ import path from 'node:path';
 import { BIST_SYMBOLS } from '../types';
 import { US_SYMBOL_LIST } from '../lib/us-symbols';
 import { calculateADX, calculateOBV, calculateSMA, calculateVortex } from '../lib/indicators';
+import { computeSwingSeries } from '../lib/swing-setup';
 
 const ROOT = process.env.SETUP_CACHE ?? path.join(os.tmpdir(), 'bistai-setup-backtest');
 const INDEX = 'XU100';
@@ -703,9 +704,52 @@ function diag(dir: string, sym: string, from: string, kalibKey?: string) {
   }
 }
 
+/**
+ * PARİTE — canlı kural (`lib/swing-setup.ts`) ölçülen tanımla AYNI sinyali mi üretiyor?
+ * (1) Tam 5 yıllık geçmişte bar bar: giriş, çıkış kesişimi, likidite.
+ * (2) Canlı cron yalnız ~1 yıllık mum çeker: son 250 mumla hesaplanan girişler, tam
+ *     geçmişle hesaplananlarla son 120 mumda örtüşüyor mu (Wilder ısınma etkisi).
+ */
+function parity() {
+  const gunluk = yukle(path.join(ROOT, '1d-us'));
+  let bar = 0, girisSay = 0, girisFark = 0, cikisFark = 0, likitFark = 0;
+  let pBar = 0, pGiris = 0, pFark = 0;
+  for (const [sym, bars] of gunluk) {
+    if (sym === 'SPY') continue;
+    const likit = likitGunler(bars, 100_000_000);
+    const p = precompute(sym, bars, likit);
+    if (!p) continue;
+    const z = bolgeler(p, { tip: 'durum', zone: 5, rsiLow: RSI_LOW, egim: 1 });
+    const candles = bars.map((b) => ({ date: b.key, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume }));
+    const s = computeSwingSeries(candles);
+    for (let t = WARM; t < p.n; t++) {
+      bar++;
+      const g = z.dip(t);
+      if (g) girisSay++;
+      if (g !== s.entry[t]) girisFark++;
+      const cx = p.mdi[t]! > p.pdi[t]! && p.mdi[t - 1]! <= p.pdi[t - 1]!;
+      if (cx !== s.exitCross[t]) cikisFark++;
+      if ((p.liquid[t] === 1) !== s.liquid[t]) likitFark++;
+    }
+    const W = 250;
+    if (candles.length > W + 120) {
+      const kisa = computeSwingSeries(candles.slice(-W));
+      const off = candles.length - W;
+      for (let i = W - 120; i < W; i++) {
+        pBar++;
+        if (s.entry[off + i]) pGiris++;
+        if (s.entry[off + i] !== kisa.entry[i]) pFark++;
+      }
+    }
+  }
+  console.log(`PARİTE (tam geçmiş): ${bar} mum · ölçülen giriş ${girisSay} · giriş farkı ${girisFark} · çıkış farkı ${cikisFark} · likidite farkı ${likitFark}`);
+  console.log(`CANLI PENCERE (250 mum, son 120): ${pBar} mum · giriş ${pGiris} · fark ${pFark}`);
+}
+
 const [mode, a1, a2] = process.argv.slice(2);
 if (mode === 'diag' && a1 && a2) { diag(a1, a2, process.argv[5] ?? '2026-06-01', process.argv[6]); process.exit(0); }
 if (mode === 'fetch') fetchAll(a1 === 'US' ? 'US' : 'BIST').catch((e) => { console.error('BAŞARISIZ:', e); process.exit(1); });
 else if (mode === 'analyze' && (a1 === '1h' || a1 === '1d')) analyze(a1, a2 === 'US' ? 'US' : 'BIST');
 else if (mode === 'trades' && a1 && a2) trades(a1, a2);
+else if (mode === 'parity') parity();
 else console.log('kullanım: fetch | analyze 1h|1d | trades <klasör> <SEMBOL>');

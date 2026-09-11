@@ -274,6 +274,36 @@ güncellenir). Tek yerde sabit (`VIOP_UNDERLYINGS`) — gerçek tutar beslemesi 
 
 ---
 
+## 🧪 Swing kurulumu — İLERİYE DÖNÜK GİZLİ SİCİL (2026-09-11) 🔵 KISMİ
+
+> Kullanıcının TradingView kurulumu (RSI dip + ADX tepeden dönüş + VI+ dipten dönüş +
+> OBV yeşile dönüş) ölçüldü. **BIST 1s/1g ve ABD 1s: rastgele girişten iyi DEĞİL.**
+> Tek anlamlı sonuç: **ABD günlük + "−DI, +DI'yı kesince çık"** → SPY'a göre işlem başına
+> +1,1 puan [+0,2, +2,1]. Kural aynı veride birkaç tur düzeltildiği için **YAYINLANMAZ**;
+> önce gerçek zamanlı sicil birikir. Ürün yüzeyinde HİÇBİR yerde görünmez.
+
+| Bileşen | Dosya |
+|---|---|
+| Ölçüm (sabit ufuk / işlem bazlı + parite) | `scripts/setup-backtest.ts` · `scripts/swing-backtest.ts` |
+| Canlı kural (tek kaynak) | `lib/swing-setup.ts` (+ `calculateRSIWilder` → `lib/indicators.ts`) |
+| Çalıştırıcı (işlem takibi + 5 rastgele kontrol/sinyal) | `lib/swing-sicil-runner.ts` |
+| Cron (22:30 UTC Pzt-Cum, `?dryRun=1` destekli) | `app/api/cron/swing-sicil` |
+| Gizli özet (CRON_SECRET) | `app/api/dev/swing-sicil` |
+| Tablo | `swing_sicil` ← `20260911_swing_sicil.sql` |
+
+**Kurallar:**
+- **Parite:** canlı kural ölçülen tanımla birebir (`npx tsx scripts/swing-backtest.ts parity`
+  → 594 bin mumda 0 fark). Kural değişirse pariteyi yeniden koş ve `SWING_RULE_VERSION` artır.
+- **Ana ölçüt "kârlı mı" DEĞİL, "kontrol girişlerinden iyi mi"** (giriş katkısı). Yükselen
+  piyasada rastgele giriş de kârlı; ölçümde kazanma oranları rastgeleyle aynı çıkmıştı.
+- Kapanmış sinyal < 30 iken sonuç yorumlanmaz (özet uç noktası bunu kendisi söyler).
+
+**BEKLEYEN (kullanıcı):** `20260911_swing_sicil.sql` Supabase'de çalıştırılmalı. Çalışana dek
+cron hata döner ve sicil birikmez. Doğrulama (2026-09-11): 493/493 test, tsc + build temiz,
+tüm ABD evreniyle yazmasız deneme koşusu 37 sn (511/539 sembol).
+
+---
+
 ## 💰 FON MOTORU — TEFAS + BES (2026-09-08 → 09-10) ✅ FAZ 0-6 CANLI
 
 > Planlar: `FON-ANALIZ-PLAN.md` (F0-F7) · `FON-BACKFILL-PLAN.md` (FAZ 0-5) ·
@@ -358,6 +388,7 @@ Aşağıdaki migration'lar Supabase SQL Editor'a yapıştırılıp çalıştır�
 | `20260816_scanner_signals(_quality).sql` | scanner_signals + v_score/session_phase/catalyst kolonları | ✅ Çalıştırıldı |
 | `20260909_fund_prices.sql` | fund_prices + fund_meta + fund_scan_days (fon kalıcı depolama) | ✅ Çalıştırıldı (2026-09-09) |
 | `20260910_fund_real_category.sql` | fund_meta: category_name/rank/size/name_at (6D gerçek kategori) | 🔴 **ÇALIŞTIRILMADI** |
+| `20260911_swing_sicil.sql` | swing_sicil tablosu (gizli ileriye dönük swing sicili + kontrol grubu) | 🔴 **ÇALIŞTIRILMADI** |
 
 ### 🔍 Migration denetimi (2026-09-10) — canlı şemaya sorularak yapıldı
 

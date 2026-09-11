@@ -52,6 +52,32 @@ export function calculateRSI(closes: number[], period = 14): number[] {
   return rsi;
 }
 
+/**
+ * RSI — Wilder (RMA) yumuşatması. TradingView/Matriks ile AYNI değeri verir.
+ *
+ * ⚠️ Yukarıdaki `calculateRSI` basit ortalamadır ve grafik platformlarından ciddi
+ * sapar (VRT 1s, 2026-09-11: 8,57 vs TradingView 26,15). Yeni kod bunu kullanmalı.
+ * İlk `period` eleman NaN — ısınmada uydurma 50 değeri YOK.
+ */
+export function calculateRSIWilder(closes: number[], period = 14): number[] {
+  const out = new Array<number>(closes.length).fill(NaN);
+  if (closes.length <= period) return out;
+  let g = 0, l = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i]! - closes[i - 1]!;
+    if (d > 0) g += d; else l -= d;
+  }
+  g /= period; l /= period;
+  out[period] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i]! - closes[i - 1]!;
+    g = (g * (period - 1) + Math.max(d, 0)) / period;
+    l = (l * (period - 1) + Math.max(-d, 0)) / period;
+    out[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  }
+  return out;
+}
+
 export interface BollingerBands {
   upper: number[];
   middle: number[];

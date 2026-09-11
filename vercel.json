@@ -207,6 +207,10 @@
     {
       "path": "/api/cron/scanner-evaluate",
       "schedule": "0 5 * * 1-5"
+    },
+    {
+      "path": "/api/cron/swing-sicil",
+      "schedule": "30 22 * * 1-5"
     }
   ]
 }
