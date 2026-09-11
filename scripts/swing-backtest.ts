@@ -53,6 +53,14 @@
  *     RSI70 +1,1 [−0,2,+2,4] · hedef/stop +0,5 [−0,5,+1,3]; 24 varyantın 24'ü pozitif, 5'i anlamlı;
  *     iki yarıda da pozitif → ⚠️ ZAYIF OLUMLU İŞARET, kanıt değil. Yayın yok; ileriye dönük sicil adayı.
  *
+ * ── DURUM tanımı + "siyah beyazı kesti" çıkışı (kullanıcı düzeltmesi, 2026-09-11) ──
+ *   BIST 1s: tüm çıkışlarda katkı ~+0,1 (anlamsız) → ❌
+ *   ABD 1s:  tüm çıkışlarda katkı ~0 → ❌
+ *   ABD 1g, çıkış −DI > +DI: n=447 · hisse başına yılda 0,22 · kazanan %56 (rastgele %43) ·
+ *     SPY'a göre katkı +1,1 [+0,2, +2,1] · iki yarıda +1,0 / +1,2 · 8/8 varyant anlamlı → ✅
+ *     BU ÇALIŞMADAKİ İLK ANLAMLI SONUÇ. Diğer ABD 1g çıkışları (VI kesişimi, ikisinden biri) ~0.
+ *   ⚠️ Tanım aynı veride birkaç tur düzeltildi → yayından önce ileriye dönük sicil şart.
+ *
  * Kullanım:
  *   npx tsx scripts/swing-backtest.ts fetch             # 1s veri (BIST + XU100 + VRT) → önbellek
  *   npx tsx scripts/swing-backtest.ts diag 1h-us VRT 2026-06-01 2026-06-26T14:30  # kalibrasyon
@@ -195,6 +203,8 @@ interface Pre {
   lAdxDown: Int32Array; lAdxUp: Int32Array; lViUp: Int32Array; lViDown: Int32Array; lObvUp: Int32Array; lObvDown: Int32Array; lObvKesUp: Int32Array; lObvKesDown: Int32Array;
   rsiCache: Map<number, { low: Int32Array; high: Int32Array }>;
   liquid: Uint8Array; gapPref: Int32Array;
+  /** Ham seriler — DURUM tanımı (giriş anında eğim) ve siyah/beyaz kesişim çıkışı için. */
+  pdi: number[]; mdi: number[]; adx: number[]; vip: number[]; vim: number[];
 }
 
 function precompute(sym: string, bars: Bar[], liquidDays: Set<string> | null): Pre | null {
@@ -203,7 +213,7 @@ function precompute(sym: string, bars: Bar[], liquidDays: Set<string> | null): P
   const o = bars.map((b) => b.open), h = bars.map((b) => b.high), l = bars.map((b) => b.low), c = bars.map((b) => b.close), v = bars.map((b) => b.volume);
   const rsi = wilderRSI(c, TV.rsi);
   const { plusDi, minusDi, adx } = calculateADX(h, l, c, TV.di);
-  const { viPlus } = calculateVortex(h, l, c, TV.vi);
+  const { viPlus, viMinus } = calculateVortex(h, l, c, TV.vi);
   const obv = calculateOBV(c, v);
   const obvSma = calculateSMA(obv, TV.obvSma);
 
@@ -247,6 +257,7 @@ function precompute(sym: string, bars: Bar[], liquidDays: Set<string> | null): P
     lAdxDown: lastTrue(adxDown), lAdxUp: lastTrue(adxUp), lViUp: lastTrue(viUp), lViDown: lastTrue(viDown),
     lObvUp: lastTrue(obvUp), lObvDown: lastTrue(obvDown), lObvKesUp: lastTrue(obvKesUp), lObvKesDown: lastTrue(obvKesDown),
     rsiCache: new Map(), liquid, gapPref,
+    pdi: plusDi, mdi: minusDi, adx, vip: viPlus, vim: viMinus,
   };
 }
 
@@ -262,7 +273,13 @@ function precompute(sym: string, bars: Bar[], liquidDays: Set<string> | null): P
  * üç dairenin üçünü de yakalar, henüz OBV dönmemiş Eylül dairesini doğru şekilde
  * yakalamaz. Tanım VRT'ye (ABD) bakılarak kuruldu → BIST ölçümü bağımsız testtir.
  */
-interface Kural { tip: 'bolge' | 'sirali'; zone: number; rsiLow: number }
+/**
+ * tip 'durum' → SIRALI + giriş anında HEPSİ HÂLÂ dönmüş olmalı (kullanıcı düzeltmesi,
+ *   2026-09-11): ADX düşüyor, −DI düşüyor, VI+ yükseliyor, VI− düşüyor (son `egim`
+ *   mumda). Kullanıcı: VRT 21 Tem'de RSI dipteydi ama ADX yükseliyor ve VI düşen tepe
+ *   yapıyordu → "düşüş bitmemiş", kriter dışı. `egim` = eğimin ölçüldüğü mum sayısı.
+ */
+interface Kural { tip: 'bolge' | 'sirali' | 'durum'; zone: number; rsiLow: number; egim?: number }
 
 function bolgeler(p: Pre, K: Kural) {
   let r = p.rsiCache.get(K.rsiLow);
@@ -272,6 +289,17 @@ function bolgeler(p: Pre, K: Kural) {
   }
   const R = r;
   const icinde = (a: Int32Array, j: number) => j - a[j]! < K.zone;
+  if (K.tip === 'durum') {
+    const S = K.egim ?? 3;
+    const dusuyor = (a: number[], j: number) => j >= S && a[j]! < a[j - S]!;
+    const yukseliyor = (a: number[], j: number) => j >= S && a[j]! > a[j - S]!;
+    return {
+      dip: (j: number) => p.lObvKesUp[j] === j && icinde(R.low, j) && icinde(p.lAdxDown, j) && icinde(p.lViUp, j)
+        && dusuyor(p.adx, j) && dusuyor(p.mdi, j) && yukseliyor(p.vip, j) && dusuyor(p.vim, j),
+      tepe: (j: number) => p.lObvKesDown[j] === j && icinde(R.high, j) && icinde(p.lAdxUp, j) && icinde(p.lViDown, j)
+        && dusuyor(p.adx, j) && dusuyor(p.pdi, j) && dusuyor(p.vip, j) && yukseliyor(p.vim, j),
+    };
+  }
   if (K.tip === 'sirali') {
     return {
       dip: (j: number) => p.lObvKesUp[j] === j && icinde(R.low, j) && icinde(p.lAdxDown, j) && icinde(p.lViUp, j),
@@ -286,9 +314,11 @@ function bolgeler(p: Pre, K: Kural) {
 
 // ── İşlem simülasyonu ────────────────────────────────────────────────────────
 
-type Cikis = 'tepe' | 'rsi70' | 'hedefstop';
+type Cikis = 'tepe' | 'rsi70' | 'hedefstop' | 'di' | 'vi' | 'herhangi';
 const CIKIS_ADI: Record<Cikis, string> = {
   tepe: 'tepe bölgesi (4\'lü ayna)', rsi70: 'RSI ≥ 70', hedefstop: '+%15 hedef / −%10 stop',
+  // Kullanıcı: "siyahlar beyazları kesmeye başlamış → çıkış sinyali" (VRT Mayıs örneği)
+  di: 'siyah kesti: −DI > +DI', vi: 'siyah kesti: VI− > VI+', herhangi: 'siyah kesti: DI veya VI',
 };
 
 interface CikisSonucu { son: number; px: number; sonrakiAcilis: boolean; sureDoldu: boolean; mfe: number; mae: number }
@@ -305,6 +335,13 @@ function cikisBul(p: Pre, e: number, kural: Cikis, K: Kural, z: ReturnType<typeo
       const stopPx = giris * (1 + STOP), hedefPx = giris * (1 + TARGET);
       if (p.l[k]! <= stopPx) return sonuc(Math.min(p.o[k]!, stopPx), false);
       if (p.h[k]! >= hedefPx) return sonuc(Math.max(p.o[k]!, hedefPx), false);
+    } else if (kural === 'di' || kural === 'vi' || kural === 'herhangi') {
+      // Kesişim OLAYI (durum değil): girişte siyah zaten üstteyse hemen çıkılmaz,
+      // beyaz öne geçip siyah yeniden yukarı kesince çıkılır.
+      const diKes = p.mdi[k]! > p.pdi[k]! && p.mdi[k - 1]! <= p.pdi[k - 1]!;
+      const viKes = p.vim[k]! > p.vip[k]! && p.vim[k - 1]! <= p.vip[k - 1]!;
+      const sinyal = kural === 'di' ? diKes : kural === 'vi' ? viKes : diKes || viKes;
+      if (sinyal) return k + 1 < p.n ? sonuc(p.o[k + 1]!, true) : null;
     } else {
       const sinyal = kural === 'tepe' ? z.tepe(k) : p.rsi[k]! >= 100 - K.rsiLow;
       if (sinyal) return k + 1 < p.n ? sonuc(p.o[k + 1]!, true) : null;
@@ -519,19 +556,20 @@ function analyze(tf: TF, piyasa: Piyasa) {
     toplamBar += p.liquid.reduce((a, x) => a + x, 0);
   }
   const hisseYil = toplamBar / (252 * cfg.barsPerDay);
-  const K: Kural = { tip: 'sirali', zone: 5 * cfg.barsPerDay, rsiLow: RSI_LOW };
+  const EGIM = tf === '1h' ? 3 : 1;
+  const K: Kural = { tip: 'durum', zone: 5 * cfg.barsPerDay, rsiLow: RSI_LOW, egim: EGIM };
   console.log(`\n══════ ${piyasa} ${tf} · endeks ${P.endeks} · ${pres.length} hisse · likit hisse-yıl ${hisseYil.toFixed(0)} · ${idxBars[0]!.day} → ${idxBars[idxBars.length - 1]!.day} ══════`);
-  console.log(`SIRALI: OBV yeşile döner + son 5 iş günü (${K.zone} mum) içinde RSI≤30, ADX tepeden dönüş (−DI), VI+ dipten dönüş · en uzun tutma ${cfg.maxHold / cfg.barsPerDay} gün · TV ayarları RSI14 / DMI14 anahtar 23 / VI7 / OBV-SMA21`);
+  console.log(`DURUM: OBV yeşile döner + son 5 iş günü (${K.zone} mum) içinde RSI≤30, ADX tepeden dönüş (−DI), VI+ dipten dönüş + girişte ADX↓ −DI↓ VI+↑ VI−↓ (son ${EGIM} mum) · en uzun tutma ${cfg.maxHold / cfg.barsPerDay} gün · TV ayarları RSI14 / DMI14 anahtar 23 / VI7 / OBV-SMA21`);
 
-  console.log('\n═══ A. ANA SONUÇ — aynı dip girişleri, üç farklı çıkış ═══');
+  console.log('\n═══ A. ANA SONUÇ — aynı dip girişleri, farklı çıkışlar ═══');
   const sims = new Map<Cikis, ReturnType<typeof simule>>();
-  for (const kural of ['tepe', 'rsi70', 'hedefstop'] as Cikis[]) {
+  const CIKISLAR: Cikis[] = ['herhangi', 'di', 'vi', 'tepe'];
+  for (const kural of CIKISLAR) {
     const s = simule(pres, idx, K, kural, tf);
     sims.set(kural, s);
     rapor(`ÇIKIŞ: ${CIKIS_ADI[kural]}`, s, tf, hisseYil);
   }
 
-  const CIKISLAR: Cikis[] = ['tepe', 'rsi70', 'hedefstop'];
   console.log(`\n═══ B. ÖRNEKLEM İÇİ / DIŞI (ayrım ${cfg.split}) — KATKI = strateji − rastgele giriş (aynı çıkış) ═══`);
   for (const kural of CIKISLAR) {
     const { islemler: I, rastgeleGiris: RG } = sims.get(kural)!;
@@ -549,10 +587,10 @@ function analyze(tf: TF, piyasa: Piyasa) {
   }
 
   console.log('\n═══ D. SAĞLAMLIK (seçim için DEĞİL) — pencere (iş günü) × RSI eşiği · KATKI ═══');
-  for (const kural of CIKISLAR) {
+  for (const kural of CIKISLAR.slice(0, 2)) {
     let pozitif = 0, anlamli = 0, pozitifX = 0, anlamliX = 0, toplam = 0;
     for (const gun of [3, 5, 8]) for (const rsiLow of [25, 30, 35]) {
-      const { islemler: I, rastgeleGiris: RG } = simule(pres, idx, { tip: 'sirali', zone: gun * cfg.barsPerDay, rsiLow }, kural, tf);
+      const { islemler: I, rastgeleGiris: RG } = simule(pres, idx, { tip: 'durum', zone: gun * cfg.barsPerDay, rsiLow, egim: EGIM }, kural, tf);
       const etiket = `${CIKIS_ADI[kural].padEnd(26)} pencere ${gun}g RSI ${rsiLow}`;
       if (I.length < 30) { console.log(`  ${etiket} · yetersiz (${I.length})`); continue; }
       const [k, lo] = katkiGA(I, RG);
@@ -571,7 +609,7 @@ function trades(dir: string, sym: string) {
   const p = precompute(sym, bars, null)!;
   const tf: TF = dir.startsWith('1h') ? '1h' : '1d';
   const bpd = dir === '1h-us' ? 7 : CFG[tf].barsPerDay; // ABD seansı günde 7 saatlik mum
-  const K: Kural = { tip: 'sirali', zone: 5 * bpd, rsiLow: RSI_LOW };
+  const K: Kural = { tip: 'durum', zone: 5 * bpd, rsiLow: RSI_LOW, egim: tf === '1h' ? 3 : 1 };
   const z = bolgeler(p, K);
   const trt = (key: string) => {
     if (key.length <= 10) return key;
@@ -592,7 +630,7 @@ function trades(dir: string, sym: string) {
       }
     }
   }
-  for (const kural of ['tepe', 'hedefstop'] as Cikis[]) {
+  for (const kural of ['herhangi', 'di', 'vi'] as Cikis[]) {
     console.log(`\nİŞLEMLER — çıkış: ${CIKIS_ADI[kural]}`);
     let t = basla;
     while (t < p.n - 2) {
