@@ -173,8 +173,33 @@ Değerlendirme bağlamı **araştırma / tarama / risk**. Ürüne giriş ayrı k
 
 ## 6. Sonuç
 
-### 6.1 A
-*(A tamamlanınca yazılır.)*
+### 6.1 A — ❌ REDDEDİLDİ (2026-09-11)
+
+**Tekrarlanabilirlik:** kod `d0b1d37` · önbellek sha256 `fea6a0fa…43c6` ·
+ham çıktı [deney-sonuclari/DENEY-002A-sonuc.json](deney-sonuclari/DENEY-002A-sonuc.json).
+
+**Kapı:** 2001 geçemedi (evren medyanı 61, temizlikle elenen %41, sıfır hacim %25). 2002–2010 hepsi geçti
+(evren 108–145) → **Y₂\* = 2002**, A dönemi **2002-01 → 2010-12** (2.316 IC günü, 9 yıl).
+
+| | Değer |
+|---|---|
+| **IC (h=10)** | **−0,0033** |
+| 95% GA | [−0,0144, +0,0071] |
+| MDE (plasebo) | 0,0052 |
+| Pozitif IC günü | %48,0 |
+| Ekonomik bariyer (ilk %10 kaybeden, 10g) | brüt **−%1,01**, net **−%1,54** / dönem (232 dönem, 0 nakit, ort. 12,7 hisse) |
+| Kararlılık | yarıyılların **%28'i** pozitif (eşik %60) |
+
+**Karar: REDDEDİLDİ** (GA 0'ı içeriyor; ayrıca iki bariyer de başarısız).
+
+**Raporlar (karar vermez):** rejim IC boğa −0,0110 (n=1346) · yatay −0,0038 (411) · ayı +0,0130 (494).
+KEŞİF h=20: −0,0072. KEŞİF h=5: **hesaplanamadı** — bazı günlerdeki NaN IC'ler ortalamadan önce
+filtrelenmedi (raporlama hatası; karar yalnız h=10'dan çıktığı için etkisiz; sonuç görüldükten sonra
+kod değiştirilmemek için yeniden koşulmadı).
+
+**Yorum:** H2, DENEY-001'in 2011–2021 döneminde görülen +0,0078'lik ham IC'den türetilmişti.
+Bağımsız dönemde işareti bile tutmadı. En üst dilim (geçen haftanın en çok düşenleri) maliyetten
+ÖNCE evrenin %1 gerisinde. Sonradan bulunan desenin temiz veride çökmesinin somut örneği.
 
 ### 6.2 B
 *(A commit'inden sonra yazılır.)*
