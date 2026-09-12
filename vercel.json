@@ -73,6 +73,18 @@
       "schedule": "0 17 * * 1-5"
     },
     {
+      "path": "/api/cron/veri-arsivi?part=1",
+      "schedule": "0 16 * * 1-5"
+    },
+    {
+      "path": "/api/cron/veri-arsivi?part=2",
+      "schedule": "10 16 * * 1-5"
+    },
+    {
+      "path": "/api/cron/veri-arsivi?part=3",
+      "schedule": "20 16 * * 1-5"
+    },
+    {
       "path": "/api/cron/evaluate",
       "schedule": "30 3 * * 1-5"
     },
