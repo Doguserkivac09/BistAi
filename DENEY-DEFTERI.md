@@ -28,7 +28,11 @@
 | H13 | 2026-09-11 | **DENEY-002 A:** 5 günlük geri dönüş 10g evren fazla getirisini pozitif sıralar (H12'de 2011–21'de görüldü → orada kirli) | BIST 1g, 2001–2010 (veri kapısıyla), h=10 | **Evet (kilitli)** | ❌ **REDDEDİLDİ** — 2002–2010 IC −0,0033 [−0,0144, +0,0071], MDE 0,0052; ilk %10 net −%1,54/10g; kararlılık %28 | `deney-002-a.ts` |
 | E1 | 2026-09-11 | **DENEY-002 B (KEŞİF):** 8 basit fiyat özelliği + eşit ağırlıklı EW4 | BIST 1g, 2011-01 → 2021-08 | Keşif (karar vermez) | 🔎 Adaylar: VOL20 +0,066 [+0,054, +0,078] · HACIM_SURPRIZ −0,025 [−0,035, −0,016] · SEKTOR_MOM20 +0,013 [+0,003, +0,022]; EW4 −0,009, net −%0,91 | `deney-002-b.ts` |
 
-**Toplam (bu alan):** 13 hipotez, bunlardan 4'ü önceden kayıtlı (H1, H4, H12, H13) + 1 ileriye dönük (H10)
+| H14 | 2026-09-12 | **DENEY-003 A:** VOL20 (düşük volatilite) 10g evren fazla getirisini pozitif sıralar | BIST 1g, 2021-09 → 2025-12 (ayrılmış), h=10 | **Evet (kilitli)** | ⏳ | `deney-003.ts` |
+| H15 | 2026-09-12 | **DENEY-003 B:** HACIM_SURPRIZ negatif sıralar | aynı | **Evet (kilitli)** | ⏳ | `deney-003.ts` |
+| H16 | 2026-09-12 | **DENEY-003 C:** SEKTOR_MOM20 pozitif sıralar | aynı | **Evet (kilitli)** | ⏳ | `deney-003.ts` |
+
+**Toplam (bu alan):** 16 hipotez, bunlardan 7'si önceden kayıtlı (H1, H4, H12, H13, H14-H16; H14-H16 Bonferroni ile düzeltilir) + 1 ileriye dönük (H10)
 + 1 keşif bloğu (E1, ≈ 21 örtük test).
 H3'teki 36 varyant ve H6–H9'daki çıkış × zaman dilimi × ızgara kombinasyonları ayrıca
 **~150 örtük test** içerir; bu alanda "anlamlı" çıkacak herhangi bir geriye dönük sonuç bu
