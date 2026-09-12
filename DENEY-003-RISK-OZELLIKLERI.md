@@ -103,4 +103,52 @@ Dönemdeki takvim yarıyıllarının (≥ 20 IC günü olan) **en az %60'ında**
 
 ## 11. Sonuç
 
-*(Deney tamamlanınca yazılır; üst bölümler değişmez.)*
+**Koşu:** 2026-09-12, kod kilidi `f7036f6` (gerçek veriden ÖNCE commit'lendi),
+çıktı `deney-sonuclari/DENEY-003-sonuc.json`. Karar dönemi 1.089 işlem günü,
+evren medyanı 284 hisse. Ayrılmış dönem bu koşuyla **tüketildi**.
+
+| Aday | IC (h=10) | %98,33 GA | V1 / V2 | Kararlılık | Bariyer (net/10g) | **Karar** |
+|---|---|---|---|---|---|---|
+| VOL20 | **+0,0770** | [+0,0528, +0,0985] | +0,082 / +0,085 | **9/9 yarıyıl** | −%0,25 (brüt +%0,29) | **FEATURE** |
+| HACIM_SURPRIZ | **−0,0628** | [−0,0814, −0,0445] | −0,065 / −0,062 | **9/9 yarıyıl** | +%0,38 (GA %95 0'ı içeriyor) | **FEATURE** |
+| SEKTOR_MOM20 | −0,0008 | [−0,0173, +0,0141] | +0,002 / −0,002 | 4/9 | −%0,35 | **REDDEDİLDİ** |
+
+### 11.1 Ne oldu
+
+- **İki aday ayrılmış dönemde tekrar etti.** VOL20 keşifteki +0,066'dan +0,077'ye,
+  HACIM_SURPRIZ −0,025'ten −0,063'e çıktı; ikisi de Bonferroni düzeltmesinden sonra da
+  0'ı dışlıyor ve **dokuz yarıyılın dokuzunda** beklenen yönde. Bu, DENEY-001 ve
+  DENEY-002 A'dan sonra çalışmanın ilk doğrulanmış kesitsel bulgusu.
+- **Ama hiçbiri para kazandırmıyor.** VOL20'nin ilk %10'u brüt +%0,29/10g üretiyor,
+  maliyet sonrası **−%0,25**. Sıralama gerçek, ama farkın tamamı komisyonun altında.
+  HACIM_SURPRIZ'in net +%0,38'i ise GA'sı 0'ı içerdiği için tesadüften ayrışmıyor.
+- **HACIM_SURPRIZ'in bilgisi uçlarda.** Desil profili D1 +%0,92 … D10 −%1,25, aradaki
+  sekiz desil ±%0,25 bandında düz. §4'te önceden yazıldığı gibi bu **kaçınma bilgisidir**:
+  hacmi 5 günde patlamış hisselerden uzak durmanın değeri var, en sakin hisseleri almanın yok.
+  **Kaçınma değeri: en kötü desili dışlamak +%0,141/10g [+%0,098, +%0,180]** — maliyetsiz
+  bir filtre olarak 0'dan anlamlı biçimde büyük tek sonuç.
+- **SEKTOR_MOM20 keşif gürültüsüymüş.** +0,0126 → −0,0008; işaret V1/V2 arasında bile
+  dönüyor, yarıyılların yalnız %44'ünde pozitif.
+- **Üç alternatif açıklamanın hiçbiri gerekmedi:** V1 (sıkı temizlik %15) ve V2 (≥2 TL +
+  ilk %40 likidite) etkiyi zayıflatmadı, **güçlendirdi**. Yani bulgu ne veri hatasından ne de
+  kuruşluk / manipüle hisselerden geliyor — likit, normal fiyatlı hisselerde de var.
+
+### 11.2 Ürün sonucu (§9'a göre — yeni karar değil, önceden yazılmış kuralın uygulanması)
+
+Her iki bulgu da **FEATURE**: AL listesi üretemez, **risk uyarısı / filtre** olarak
+değerlendirilebilir (fonlardaki `fon-sert-dusus` ile aynı çerçeve). Somut aday:
+*"bu hissenin hacmi son 5 günde 60 günlük ortalamasının çok üstüne çıkmış — tarihsel
+olarak bu grup sonraki 10 günde evrenin %1,25 gerisinde kalmış"* biçiminde bir uyarı.
+Yüzeye çıkarma ayrı karardır ve ileriye dönük kayıt şarttır.
+
+### 11.3 KEŞİF (karara giremez, §8)
+
+2026 (155 gün): VOL20 +0,050 · HACIM_SURPRIZ −0,077 · SEKTOR_MOM20 +0,014.
+İlk ikisinin yönü sürüyor; bu bir doğrulama değil, yalnız not.
+
+### 11.4 Bundan sonrası
+
+Ayrılmış dönem tüketildi. VOL20 / HACIM_SURPRIZ üzerine kurulacak herhangi bir iddia artık
+**yalnız ileriye dönük kayıtla** (swing sicili deseni) veya yeni bir veri kaynağıyla
+sınanabilir. Bu deney, saf fiyat/hacim özelliklerinin BIST'te ulaştığı tavanı da gösteriyor:
+**istatistiksel olarak sağlam, ekonomik olarak komisyonun altında.**
