@@ -334,6 +334,59 @@ tüm ABD evreniyle yazmasız deneme koşusu 37 sn (511/539 sembol).
 
 ---
 
+## 🗄️ VERİ ARŞİVİ — kendi point-in-time kaydımız (2026-09-12) ✅ CANLI
+
+> **Neden:** Temel veriyi ÇEKEBİLİYORUZ (İş Yatırım MaliTablo + Yahoo, ikisi de ölçüldü,
+> çalışıyor). Çekemediğimiz şey **"bu rakam hangi gün açıklandı / ne zaman revize edildi"**.
+> Bu bilgi geçmişe dönük hiçbir ücretsiz kaynakta yok → geriye dönük temel-veri backtest'i
+> **yapısal olarak sahtedir** (bugünkü tablo düzeltilmiş rakamı taşır, o gün piyasanın
+> bildiğini değil). Geçmişi satın alamayız; **geleceği bugünden kaydediyoruz.**
+
+| Bileşen | Dosya |
+|---|---|
+| Hash + toplayıcılar + çalıştırıcı | `lib/veri-arsivi.ts` |
+| Cron (hafta içi 19:00 TRT, tek koşu) | `app/api/cron/veri-arsivi` |
+| Tablo | `veri_arsivi` ← `20260912_veri_arsivi.sql` |
+| Testler (12) | `lib/__tests__/veri-arsivi.test.ts` |
+
+**Mekanizma:** içerik hash'lenir → **hash aynıysa yeni satır AÇILMAZ** (yalnız
+`son_gorulme`/`gorulme_sayisi` güncellenir), hash değiştiyse **yeni satır = revizyon**.
+`ilk_gorulme` bizim ürettiğimiz açıklanma/değişme damgasıdır. Tablo bir revizyon günlüğüdür.
+
+**İki kural (ikisi de teste kilitli):**
+1. **Fiyat türevi alan ARŞİVLENMEZ** (`marketCap`, F/K, PD-DD, 52H, hareketli ort., güncel
+   fiyat). Her gün değişip hash'i bozar, arşivi şişirir, "revizyon" kavramını anlamsızlaştırır.
+   Fiyat zaten OHLCV/scan_cache tarafında.
+2. **Semboller BAYATLIĞA göre sıralanır** (en uzun süredir görülmeyen önce). Canlı koşuda
+   yakalanan kusur: liste hep baştan gezilirse bütçe kesildiğinde dilimin SONUNDAKİ semboller
+   hiç arşivlenmez — sessiz, kalıcı eksik. Bayatlık sırası kendi kendini onarır.
+
+**Doğrulama (2026-09-12, gerçek veri + prod DB):** tam evren 617/619 sembol / 156 sn /
+2.286 satır / 2 hata. İkinci koşu **0 yeni satır**, 12 kayıt "değişmeyen". 505/505 test,
+tsc + build temiz.
+
+**İzlenecek:** ilk günlerde "bugün ne değişti" sayısı anormal yüksekse Yahoo alanlarından
+biri dalgalanıyordur → `YAHOO_ARSIV_ALANLARI` daraltılır (sahte revizyon arşivi çürütür).
+
+### 🔍 Kaynak fizibilitesi — ÖLÇÜLDÜ (2026-09-12) · `scripts/veri-fizibilite.ts`
+
+| Kaynak | Ölçüm | Sonuç |
+|---|---|---|
+| **KAP** | 200 + 1,1 MB ama içerik boş; veri Next **server action**'ıyla geliyor, API yok. `market-data-tracker.js` = **tarayıcı parmak izi** (UAParser + canvas + murmurhash → hash'li uca POST); `robots.txt` bile hata sayfası döndürüyor | ❌ **Aktif bot tespiti.** Aşılmaya ÇALIŞILMAYACAK. Meşru yol: `kapdestek@mkk.com.tr` |
+| İş Yatırım "Günlük Yabancı Oranları" | 619 hisseden **12-13** → kapsam **%2**, ek dosya yok (`scripts/yabanci-oran-kapsam.ts`, eşikler ölçümden önce sabit) | ❌ **NO-GO** — tam tablo değil, top-N listesi |
+| İş Yatırım takas analizi sayfası | 404; dizinde takas geçen tek bağlantı ürün tanıtımı | ❌ Yok |
+| MKK / Borsa İstanbul DataStore | Erişilebilir ama makine-okunur ücretsiz uç yok | ❌ |
+| Kurum bazlı takas (Matriks/Finnet) | — | 💰 Ücretli, ücretsiz muadili yok |
+| TCMB EVDS | 200 ama 1,3 KB SPA kabuğu | ❌ Hâlâ ölü (mevcut teşhis doğru) |
+| TradingEconomics scrape · İş Yatırım MaliTablo · Yahoo | Çalışıyor | ✅ Kullanımda |
+| **Dünya Bankası API** | Anahtarsız, JSON, uzun geçmiş | 🆕 Ücretsiz, bağlanabilir |
+
+**Kural:** ücretli takas verisi almak geriye dönük testi DÜZELTMEZ (o arşivler de düzeltilmiş
++ hayatta kalan hisselerden oluşur). Ücretli veri ancak ileriye dönük kayıtla anlam kazanır →
+önce arşiv birikir, IC sıfırdan farklı çıkarsa o zaman satın alma tartışılır.
+
+---
+
 ## 💰 FON MOTORU — TEFAS + BES (2026-09-08 → 09-10) ✅ FAZ 0-6 CANLI
 
 > Planlar: `FON-ANALIZ-PLAN.md` (F0-F7) · `FON-BACKFILL-PLAN.md` (FAZ 0-5) ·
@@ -419,6 +472,7 @@ Aşağıdaki migration'lar Supabase SQL Editor'a yapıştırılıp çalıştır�
 | `20260909_fund_prices.sql` | fund_prices + fund_meta + fund_scan_days (fon kalıcı depolama) | ✅ Çalıştırıldı (2026-09-09) |
 | `20260910_fund_real_category.sql` | fund_meta: category_name/rank/size/name_at (6D gerçek kategori) | 🔴 **ÇALIŞTIRILMADI** |
 | `20260911_swing_sicil.sql` | swing_sicil tablosu (gizli ileriye dönük swing sicili + kontrol grubu) | ✅ Çalıştırıldı (2026-09-11) |
+| `20260912_veri_arsivi.sql` | veri_arsivi tablosu (kendi point-in-time revizyon günlüğümüz) | ✅ Çalıştırıldı (2026-09-12) |
 
 ### 🔍 Migration denetimi (2026-09-10) — canlı şemaya sorularak yapıldı
 
