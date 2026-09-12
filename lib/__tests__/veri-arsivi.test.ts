@@ -9,7 +9,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { kanonikJson, icerikHash, yahooArsivIcerigi, FIYAT_TUREVI_ALANLAR, arsivle } from '../veri-arsivi';
+import { kanonikJson, icerikHash, yahooArsivIcerigi, FIYAT_TUREVI_ALANLAR, arsivle, bayatlikSirasi } from '../veri-arsivi';
 
 describe('kanonikJson / icerikHash', () => {
   it('alan sırası hash-i DEĞİŞTİRMEZ (yoksa her koşu sahte revizyon yazar)', () => {
@@ -98,6 +98,28 @@ describe('arsivle', () => {
     assert.equal(r.degismeyen, 1);
     assert.equal(eklenen.length, 0);
     assert.equal(guncellenen[0]?.gorulme_sayisi, 4);
+  });
+
+  it('bütçe kesilse de hiçbir sembol kalıcı olarak atlanmaz (bayatlık sırası)', async () => {
+    // C hiç görülmemiş, A dün, B bugün → sıra: C, A, B
+    const sb = {
+      from: () => ({
+        select: () => ({
+          order: () => ({
+            limit: async () => ({
+              data: [
+                { sembol: 'B', son_gorulme: '2026-09-12T10:00:00Z' },
+                { sembol: 'A', son_gorulme: '2026-09-11T10:00:00Z' },
+                { sembol: 'B', son_gorulme: '2026-09-10T10:00:00Z' },
+              ],
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    };
+    const sira = await bayatlikSirasi(sb as unknown as Parameters<typeof bayatlikSirasi>[0], ['A', 'B', 'C']);
+    assert.deepEqual(sira, ['C', 'A', 'B']);
   });
 
   it('içerik değiştiyse YENİ satır açar (revizyon)', async () => {

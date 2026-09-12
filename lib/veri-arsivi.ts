@@ -185,42 +185,82 @@ export interface ArsivKosuSonuc extends ArsivSonuc {
 }
 
 /**
+ * Sembolleri "en uzun süredir görülmeyen önce" sıralar.
+ *
+ * NEDEN KRİTİK: bütçe dolunca koşu kesilir. Liste hep aynı sırada gezilirse
+ * dilimin SONUNDAKİ semboller HİÇBİR ZAMAN arşivlenmez — arşiv kalıcı olarak
+ * eksik kalır ve bunu kimse fark etmez. Bayatlığa göre sıralama kendi kendini
+ * onarır: bir koşuda yetişilemeyen sembol, sonraki koşuda en öne geçer.
+ */
+export async function bayatlikSirasi(sb: SupabaseClient | null, symbols: string[]): Promise<string[]> {
+  if (!sb) return symbols;
+  const { data, error } = await sb
+    .from('veri_arsivi')
+    .select('sembol, son_gorulme')
+    .order('son_gorulme', { ascending: false })
+    .limit(20_000);
+  if (error) return symbols;
+
+  const enSonGorulme = new Map<string, string>();
+  for (const r of (data ?? []) as Array<{ sembol: string; son_gorulme: string }>) {
+    if (!enSonGorulme.has(r.sembol)) enSonGorulme.set(r.sembol, r.son_gorulme);
+  }
+  // Hiç görülmemiş sembol en önce (boş string her tarihten küçük)
+  return [...symbols].sort((a, b) => (enSonGorulme.get(a) ?? '').localeCompare(enSonGorulme.get(b) ?? ''));
+}
+
+/**
  * Sembol listesini gezer, bütçe dolunca durur ve `kalan` döndürür
  * (scan-cache/fon motorundaki bütçe deseni — timeout'ta hiçbir şey kaybolmaz).
+ * Semboller bayatlığa göre sıralanır → kesilen koşu bir sonrakinde telafi edilir.
  */
 export async function runVeriArsivi(
   sb: SupabaseClient | null,
-  opts: { symbols: string[]; budgetMs?: number; dryRun?: boolean; kaynaklar?: ArsivKaynak[] },
+  opts: { symbols: string[]; budgetMs?: number; dryRun?: boolean; kaynaklar?: ArsivKaynak[]; eszamanli?: number },
 ): Promise<ArsivKosuSonuc> {
   const t0 = Date.now();
   const butce = opts.budgetMs ?? 240_000;
   const kaynaklar = opts.kaynaklar ?? ['isyatirim-mali', 'yahoo-temel'];
+  const eszamanli = Math.max(1, Math.min(6, opts.eszamanli ?? 4));
   const sonuc: ArsivKosuSonuc = { bakilan: 0, yeni: 0, degismeyen: 0, hata: 0, sembol: 0, atlanan: 0, sureMs: 0, kalan: 0, dryRun: !!opts.dryRun };
 
+  const sirali = opts.dryRun ? opts.symbols : await bayatlikSirasi(sb, opts.symbols);
+
   let i = 0;
-  for (; i < opts.symbols.length; i++) {
+  while (i < sirali.length) {
     if (Date.now() - t0 > butce) break;
-    const sembol = opts.symbols[i]!;
-    const kayitlar: ArsivKaydi[] = [];
-    for (const kaynak of kaynaklar) {
-      try {
-        if (kaynak === 'isyatirim-mali') kayitlar.push(...(await toplaIsyatirim(sembol)));
-        else kayitlar.push(...(await toplaYahoo(sembol)));
-      } catch {
-        sonuc.hata++;
+    const grup = sirali.slice(i, i + eszamanli);
+    i += grup.length;
+
+    const toplananlar = await Promise.all(grup.map(async (sembol) => {
+      const kayitlar: ArsivKaydi[] = [];
+      let hata = 0;
+      for (const kaynak of kaynaklar) {
+        try {
+          if (kaynak === 'isyatirim-mali') kayitlar.push(...(await toplaIsyatirim(sembol)));
+          else kayitlar.push(...(await toplaYahoo(sembol)));
+        } catch { hata++; }
       }
+      return { kayitlar, hata };
+    }));
+
+    const hepsi: ArsivKaydi[] = [];
+    for (const t of toplananlar) {
+      sonuc.hata += t.hata;
+      if (t.kayitlar.length) { hepsi.push(...t.kayitlar); sonuc.sembol++; }
+      else sonuc.atlanan++;
     }
-    if (!kayitlar.length) { sonuc.atlanan++; continue; }
+    if (!hepsi.length) continue;
+
     try {
-      const r = await arsivle(sb, kayitlar, { dryRun: opts.dryRun });
+      const r = await arsivle(sb, hepsi, { dryRun: opts.dryRun });
       sonuc.bakilan += r.bakilan; sonuc.yeni += r.yeni; sonuc.degismeyen += r.degismeyen; sonuc.hata += r.hata;
-      sonuc.sembol++;
     } catch {
       sonuc.hata++;
     }
   }
 
-  sonuc.kalan = Math.max(0, opts.symbols.length - i);
+  sonuc.kalan = Math.max(0, sirali.length - i);
   sonuc.sureMs = Date.now() - t0;
   return sonuc;
 }

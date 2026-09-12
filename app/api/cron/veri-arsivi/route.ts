@@ -1,12 +1,14 @@
 /**
  * Veri arşivi cron'u — kendi point-in-time kaydımız (GİZLİ, ürün yüzeyinde yok).
  *
- * GET /api/cron/veri-arsivi?part=1|2|3      → evrenin ilgili dilimi
- * GET /api/cron/veri-arsivi?dryRun=1        → hesapla, YAZMA (migration öncesi test)
+ * GET /api/cron/veri-arsivi                 → tüm evren (ölçüldü: 617 sembol / ~156 sn)
+ * GET /api/cron/veri-arsivi?part=1|2|3      → elle bölmek gerekirse dilim
+ * GET /api/cron/veri-arsivi?dryRun=1        → hesapla, YAZMA
  * GET /api/cron/veri-arsivi?symbols=GARAN,ASELS&dryRun=1 → alt evrenle hızlı test
  *
- * Neden bölünüyor: 619 sembol × (İş Yatırım 4 çeyrek + Yahoo) tek koşuya sığmaz.
- * scan-cache'teki aynı ders — bütçe dolunca durur, `kalan` döndürür, veri kaybolmaz.
+ * Bütçe dolunca durur ve `kalan` döndürür (scan-cache timeout dersi). Semboller
+ * BAYATLIĞA göre sıralandığı için kesilen koşu bir sonrakinde telafi edilir —
+ * hiçbir sembol kalıcı olarak atlanmaz.
  *
  * Gerekçe ve tasarım: lib/veri-arsivi.ts · tablo: 20260912_veri_arsivi.sql
  */
