@@ -80,8 +80,11 @@ gerekir. Alternatif: e-posta bildirimi + e-posta→Telegram yönlendirmesi.
 3. `lib/new-design-routes.ts` → `NEW_DESIGN_ROUTES`'a route ekle → `components/ChromeGate.tsx`
    eski global `Navbar`/`Footer`'ı o rotada gizler (yeni ekran kendi kabuğunu getirir).
 4. Auth gerekiyorsa `middleware.ts` matcher + koruma listesine ekle.
-- **Kabuk:** `components/new/AppShell.tsx` — masaüstü sol sidebar + üst topbar, mobil alt tab bar.
-  Sidebar/tab route'ları: /bugun /firsatlar /portfolyo /makro /ai-portfoyler /sohbet /profil.
+- **Kabuk:** `components/new/AppShell.tsx` — masaüstü sol menü **ayrı yuvarlak ada** + üst bar (Bugün'de
+  üst bar yok, ekran kendi başlığını/aramasını taşır). **Mobil alt panel 3 sekme (v3, 2026-09-16):**
+  `Bugün · Portföyüm · Diğer`; "Diğer" alttan tam yükseklik pencere (`DigerPenceresi`) — yalnız
+  VAR OLAN sayfalar (Takas Analizi + Bilanço/Temettü Takvimi handoff'ta var ama sayfası yok → çıkarıldı).
+  `MarketChip` artık gerçek borsa durumunu gösteriyor (önce SABİT "BIST açık" yazıyordu).
 
 ### Tasarım token'ları (`tailwind.config.js`'te TANIMLI — bunları kullan)
 `ink` · `up #16a35b` · `up-on-dark #3fce8a` · `down #e5484d` · `ai #6b6ff5` ·
@@ -110,6 +113,20 @@ Bugün ambient'in `.dark` override'ları globals.css'te.
 | Piyasa | `/makro` | `PiyasaScreen` | /api/sectors + /api/movers + /api/macro(+history) + /api/haber + /api/kap | **✅ Piyasa hub (2026-07-20):** `design_handoff_piyasa_hub` — eski tek-görünüm makro sayfası yerine 3 sekmeli hub: **Sektörler** (kompozit skor sıralı tablo + lider hisse + 20G/60G% + diverging bar + öne çıkanlar `/api/movers`; sektör metni gerçek `reasoning` alanından), **Emtia** (Altın/Gümüş/Brent/USD-TRY/BIST100/EM-ETF gerçek kart+sparkline `/api/macro`+history — handoff'un EUR/TRY+Bitcoin'i gerçek kaynak yok diye dürüstçe çıkarıldı — + Makro göstergeler rayı, eski basit makro kart görünümünün yeni yeri), **Gündem** (Tümü/Haber/KAP/Takvim filtreli akış — `/api/haber`+`/api/kap` sembolsüz genel mod + `ENABLE_ECONOMIC_CALENDAR` flag'i arkasında `lib/ekonomi-takvimi`). Bonus fix: `/api/movers`'a BIST market filtresi eklendi (US sızıntısı — BUG-1 ile aynı kök neden, `/sektorler` eski sayfasını da düzeltti). |
 | AI Asistan | `/sohbet` | `AiAsistanScreen` | /api/chat (SSE) | **streaming sohbet** + öneri çipleri; oturum geçmişi sidebar'ı sadeleştirildi |
 | Profil | `/profil` | `ProfilScreen` | /api/profile + portfolyo/watchlist | tier + istatistik + **çalışan bildirim toggle** (newsletter_enabled, PATCH) + çıkış |
+
+### ✅ Bugün v3 (2026-09-16) — `design_handoff_bugun_v3`
+"Bugün ne yapmalıyım?" → **"Bugün öne çıkanlar — hüküm değil, gözlem"**. Verdict listesi,
+verdict ölçeği, fırsat skorları, Makro rüzgar/Rejim/Risk üçlüsü kaldırıldı.
+- `lib/bugun-ozet.ts` (saf, 18 test): gözlemler (hacim katı / 52H zirve / sert hareket / hacimli
+  düşüş), ivme kazananlar, en çok işlem (TL hacim), sektör **günlük medyanı**, genişlik, kural-tabanlı
+  özet, yaklaşan bilançolar, `borsaDurumu`. Çıktıda verdict/score alanı YOK (teste kilitli).
+- `app/api/bugun` tek istek toplayıcı (scan_cache + Yahoo endeks/döviz + firsatlar-fundamentals).
+- **Bilinçli sapmalar:** yabancı takas bloğu YOK (ücretsiz kaynak yok) · özet "✦ AI" DEMİYOR
+  (kural-tabanlı) · "Haftanın öne çıkanları" → "Gündemden" · hacim katı 5 günlük (20 değil).
+- **Canlı veride yakalanan 3 hata:** GMSTR **+%1.090** veri hatası sektör ortalamasını şişiriyordu
+  (`MAX_GUNLUK_DEGISIM=25` + medyan) · Yahoo XU100 için BAYAT fiyat (11 Eyl) döndü ve 15 Eyl taramasıyla
+  çelişen özet kurdu (`asOfDate` tarih kapısı) · tüm sektörler eksideyken "en iyi performans" dili.
+- Arama: önek yerine **içeren** eşleşme (önek önde) — handoff'un açık işi.
 
 ### Giriş / Kayıt + Onboarding (✅ TAMAMLANDI 2026-07-02) — yeni handoff `design_handoff_kalan_ekranlar/`
 | Ekran | Route | Component | Not |

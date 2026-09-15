@@ -123,6 +123,12 @@ type GundemSrc = 'all' | 'haber' | 'kap' | 'takvim';
 export function PiyasaScreen() {
   const [tab, setTab] = useState<PiyasaTab>('sektorler');
 
+  // `?tab=gundem` derin bağlantısı (Bugün "Haberler →" ve mobil "Diğer" penceresi).
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t && TABS.some((x) => x.key === t)) setTab(t as PiyasaTab);
+  }, []);
+
   // Sektörler
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [movers, setMovers] = useState<MoversResp | null>(null);

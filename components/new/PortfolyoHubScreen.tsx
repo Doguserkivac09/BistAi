@@ -457,6 +457,14 @@ const HUB_TABS: { key: HubTab; label: string }[] = [
 export function PortfolyoHubScreen() {
   const [tab, setTab] = useState<HubTab>('ozet');
 
+  // `?tab=alarmlar` derin bağlantısı (mobil "Diğer" penceresindeki Alarmlar düğmesi).
+  // Sunucu tarafında okunmuyor: sayfa istemci bileşeni, ilk boyamada varsayılan sekme
+  // görünür ve hemen doğru sekmeye geçer.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t && HUB_TABS.some((x) => x.key === t)) setTab(t as HubTab);
+  }, []);
+
   return (
     <div className="min-h-full">
       <div className="flex gap-1 overflow-x-auto border-b border-hairline bg-page px-6 lg:px-7">

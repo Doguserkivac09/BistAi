@@ -2,12 +2,45 @@
   "stage": "Pre-Alpha",
   "versions": [
     {
+      "version": "0.3.0",
+      "date": "2026-09-16",
+      "type": "minor",
+      "items": [
+        {
+          "category": "yeni",
+          "text": "Bugün ekranı yenilendi: \"Bugün ne yapmalıyım?\" yerine \"Bugün öne çıkanlar\". Al/sat hükmü yok — her satır yalnızca ne olduğunu söylüyor."
+        },
+        {
+          "category": "yeni",
+          "text": "Bugün ekranına ivme kazananlar, en çok işlem görenler, sektörlerin günlük performansı, döviz/altın ve yaklaşan bilançolar eklendi."
+        },
+        {
+          "category": "yeni",
+          "text": "Mobilde alt panel sadeleşti: Bugün · Portföyüm · Diğer. Diğer penceresinden tüm sayfalara ulaşılıyor."
+        },
+        {
+          "category": "iyilestirme",
+          "text": "Hisse aramasında artık sembolün içinde geçen harfler de eşleşiyor (ör. \"SEL\" yazınca ASELS geliyor)."
+        },
+        {
+          "category": "duzeltme",
+          "text": "Borsa durumu göstergesi her zaman \"açık\" yazıyordu; artık gerçek seans, hafta sonu ve tatil durumunu gösteriyor."
+        }
+      ]
+    },
+    {
       "version": "0.2.1",
       "date": "2026-09-11",
       "type": "patch",
       "items": [
-        { "category": "iyilestirme", "text": "Kısa Vade Fırsatlar ve Geçmiş Fırsatlar bölümleri bakıma alındı. Geçmiş sinyallerin gerçek sonuçlarını ölçtük; listenin değerini daha güçlü kanıtlayana kadar kapalı tutuyoruz." },
-        { "category": "duzeltme", "text": "Düşüş yönlü sinyallerin geçmiş başarı oranı bazı ekranlarda ters hesaplanıyordu. Düzeltildi." }
+        {
+          "category": "iyilestirme",
+          "text": "Kısa Vade Fırsatlar ve Geçmiş Fırsatlar bölümleri bakıma alındı. Geçmiş sinyallerin gerçek sonuçlarını ölçtük; listenin değerini daha güçlü kanıtlayana kadar kapalı tutuyoruz."
+        },
+        {
+          "category": "duzeltme",
+          "text": "Düşüş yönlü sinyallerin geçmiş başarı oranı bazı ekranlarda ters hesaplanıyordu. Düzeltildi."
+        }
       ]
     },
     {
@@ -15,14 +48,38 @@
       "date": "2026-09-10",
       "type": "minor",
       "items": [
-        { "category": "yeni", "text": "Fonlar bölümü açıldı — TEFAS ve BES fonları ayrı ayrı, kategori içi sıralamayla." },
-        { "category": "yeni", "text": "Her fonun getirisi üç katmanda gösteriliyor: nominal, risksiz getiriye göre ve enflasyona göre. Nominal getiri tek başına yanıltır." },
-        { "category": "yeni", "text": "Fon kartına tıklayınca detay sayfası açılıyor: dönemsel getiri tablosu, risk ölçüleri ve kategorideki konum." },
-        { "category": "yeni", "text": "Fon detayında fiyat ile yatırımcı sayısı aynı grafikte — paranın fona girip çıktığı gözle görülüyor." },
-        { "category": "yeni", "text": "Dönem tablosunda getirinin yanında o dönemin yatırımcı değişimi duruyor; fon kazandırırken insanlar çıkıyor mu, tek bakışta belli." },
-        { "category": "iyilestirme", "text": "Her fon iki sırayla birden gösteriliyor: getiriye göre ve risk-ayarlı. En çok kazandıran, çoğu zaman en mantıklısı değildir." },
-        { "category": "iyilestirme", "text": "Emsalinden belirgin şekilde ayrışan sert düşüşler uyarı olarak işaretleniyor. Bu uyarı geçmiş veriyle ölçüldü: kötü sonuç olasılığını 6 katına çıkarıyor." },
-        { "category": "iyilestirme", "text": "Ölçülemeyen dönemler için sıfır değil 'yeterli geçmiş yok' yazıyor — elimizde olmayan veriyi varmış gibi göstermiyoruz." }
+        {
+          "category": "yeni",
+          "text": "Fonlar bölümü açıldı — TEFAS ve BES fonları ayrı ayrı, kategori içi sıralamayla."
+        },
+        {
+          "category": "yeni",
+          "text": "Her fonun getirisi üç katmanda gösteriliyor: nominal, risksiz getiriye göre ve enflasyona göre. Nominal getiri tek başına yanıltır."
+        },
+        {
+          "category": "yeni",
+          "text": "Fon kartına tıklayınca detay sayfası açılıyor: dönemsel getiri tablosu, risk ölçüleri ve kategorideki konum."
+        },
+        {
+          "category": "yeni",
+          "text": "Fon detayında fiyat ile yatırımcı sayısı aynı grafikte — paranın fona girip çıktığı gözle görülüyor."
+        },
+        {
+          "category": "yeni",
+          "text": "Dönem tablosunda getirinin yanında o dönemin yatırımcı değişimi duruyor; fon kazandırırken insanlar çıkıyor mu, tek bakışta belli."
+        },
+        {
+          "category": "iyilestirme",
+          "text": "Her fon iki sırayla birden gösteriliyor: getiriye göre ve risk-ayarlı. En çok kazandıran, çoğu zaman en mantıklısı değildir."
+        },
+        {
+          "category": "iyilestirme",
+          "text": "Emsalinden belirgin şekilde ayrışan sert düşüşler uyarı olarak işaretleniyor. Bu uyarı geçmiş veriyle ölçüldü: kötü sonuç olasılığını 6 katına çıkarıyor."
+        },
+        {
+          "category": "iyilestirme",
+          "text": "Ölçülemeyen dönemler için sıfır değil 'yeterli geçmiş yok' yazıyor — elimizde olmayan veriyi varmış gibi göstermiyoruz."
+        }
       ]
     },
     {
@@ -30,7 +87,10 @@
       "date": "2026-08-04",
       "type": "minor",
       "items": [
-        { "category": "yeni", "text": "Yama notu sistemi kuruldu — bundan sonra geliştirmeler sürüm numarasıyla gruba paylaşılacak." }
+        {
+          "category": "yeni",
+          "text": "Yama notu sistemi kuruldu — bundan sonra geliştirmeler sürüm numarasıyla gruba paylaşılacak."
+        }
       ]
     }
   ]

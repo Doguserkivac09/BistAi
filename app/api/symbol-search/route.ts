@@ -31,19 +31,31 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+  // ⚠️ ÖNEK DEĞİL İÇEREN EŞLEŞME (design_handoff_bugun_v3 "bilinen açık iş"):
+  // önek eşleşmesinde "SEL" yazan kullanıcı ASELS'i bulamıyordu. Artık sembolün
+  // herhangi bir yerinde geçen eşleşir; sıralamada ÖNEK eşleşmeleri öne alınır ki
+  // "TH" yazınca THYAO, "ATHEN" gibi içinde geçenlerin önünde kalsın.
   const { data, error } = await admin
     .from('scan_cache')
     .select('sembol, last_close, change_percent, sector')
     .or('market.eq.BIST,market.is.null')
-    .like('sembol', `${q}%`)
+    .like('sembol', `%${q}%`)
     .order('sembol', { ascending: true })
-    .limit(8);
+    .limit(40);
 
   if (error) {
     return NextResponse.json({ results: [], error: 'Arama başarısız.' }, { status: 500 });
   }
 
-  const results = (data ?? []).map((row) => ({
+  const sirali = [...(data ?? [])]
+    .sort((a, b) => {
+      const ao = String(a.sembol).startsWith(q) ? 0 : 1;
+      const bo = String(b.sembol).startsWith(q) ? 0 : 1;
+      return ao - bo || String(a.sembol).localeCompare(String(b.sembol));
+    })
+    .slice(0, 8);
+
+  const results = sirali.map((row) => ({
     sym: row.sembol as string,
     price: row.last_close as number | null,
     changePercent: row.change_percent as number | null,

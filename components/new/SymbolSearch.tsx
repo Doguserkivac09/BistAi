@@ -21,7 +21,9 @@ interface Result {
 const fmt = (v: number | null, d = 2) =>
   v == null ? '—' : v.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
-export function SymbolSearch({ className = '', glass = false }: { className?: string; glass?: boolean }) {
+export function SymbolSearch({
+  className = '', glass = false, placeholder = 'Sembol yaz — THY, GAR…',
+}: { className?: string; glass?: boolean; placeholder?: string }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [open, setOpen] = useState(false);
@@ -77,7 +79,7 @@ export function SymbolSearch({ className = '', glass = false }: { className?: st
             if (e.key === 'Enter' && results.length > 0) go(results[0]!.sym);
             if (e.key === 'Escape') setOpen(false);
           }}
-          placeholder="Sembol yaz — THY, GAR…"
+          placeholder={placeholder}
           aria-label="Hisse sembolü ara"
           className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold uppercase tracking-[0.04em] text-ink outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-t3"
         />
@@ -98,8 +100,19 @@ export function SymbolSearch({ className = '', glass = false }: { className?: st
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-mono text-[13px] font-semibold text-ink">
-                  <span className="border-b-2 border-up/35 text-up">{r.sym.slice(0, prefix.length)}</span>
-                  {r.sym.slice(prefix.length)}
+                  {(() => {
+                    // Eşleşme artık içerende olabilir (ör. "SEL" → ASELS): vurgu eşleşen
+                    // parçanın GERÇEK konumunda; önceki kod hep ilk harfleri boyuyordu.
+                    const i = r.sym.indexOf(prefix);
+                    if (i < 0) return r.sym;
+                    return (
+                      <>
+                        {r.sym.slice(0, i)}
+                        <span className="border-b-2 border-up/35 text-up">{r.sym.slice(i, i + prefix.length)}</span>
+                        {r.sym.slice(i + prefix.length)}
+                      </>
+                    );
+                  })()}
                 </span>
                 <span className="block truncate text-[11px] font-medium text-t3">{r.sectorName ?? 'BIST'}</span>
               </span>

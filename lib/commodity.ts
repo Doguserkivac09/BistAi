@@ -16,6 +16,13 @@ export interface CommodityQuote {
   change1d: number | null;   // % günlük değişim
   change20d: number | null;  // % 20 günlük değişim
   candles: OHLCVCandle[];
+  /**
+   * Fiyatın ait olduğu işlem günü (YYYY-MM-DD, İstanbul saatiyle).
+   * ⚠️ Yahoo `meta.regularMarketPrice` ara sıra BAYAT dönüyor — canlıda XU100 için
+   * 15 Eylül'de 11 Eylül kapanışı (+%0,51) geldi, gerçek değer −%2,41'di. Başka bir
+   * veriyle aynı cümlede birleştirmeden önce tarihin tuttuğu bu alandan kontrol edilir.
+   */
+  asOfDate?: string | null;
 }
 
 export const COMMODITY_LIST: Array<{ symbol: string; label: string; unit: string }> = [
@@ -31,6 +38,7 @@ interface YahooFetchResult {
   candles: OHLCVCandle[];
   regularMarketPrice?: number;
   regularMarketChangePercent?: number;
+  regularMarketTime?: number;
 }
 
 async function fetchYahoo(symbol: string, days: number): Promise<YahooFetchResult> {
@@ -50,7 +58,7 @@ async function fetchYahoo(symbol: string, days: number): Promise<YahooFetchResul
     const json = await res.json() as {
       chart?: {
         result?: Array<{
-          meta?: { regularMarketPrice?: number; regularMarketChangePercent?: number };
+          meta?: { regularMarketPrice?: number; regularMarketChangePercent?: number; regularMarketTime?: number };
           timestamp?: number[];
           indicators?: { quote?: Array<{ open?: number[]; high?: number[]; low?: number[]; close?: number[]; volume?: number[] }> };
         }>;
@@ -62,6 +70,7 @@ async function fetchYahoo(symbol: string, days: number): Promise<YahooFetchResul
     const meta = result.meta;
     const regularMarketPrice = meta?.regularMarketPrice;
     const regularMarketChangePercent = meta?.regularMarketChangePercent;
+    const regularMarketTime = meta?.regularMarketTime;
 
     const timestamps = result.timestamp ?? [];
     const q = result.indicators?.quote?.[0] ?? {};
@@ -80,7 +89,7 @@ async function fetchYahoo(symbol: string, days: number): Promise<YahooFetchResul
         volume: q.volume?.[i] ?? 0,
       });
     }
-    return { candles, regularMarketPrice, regularMarketChangePercent };
+    return { candles, regularMarketPrice, regularMarketChangePercent, regularMarketTime };
   } catch {
     return { candles: [] };
   } finally {
@@ -97,30 +106,40 @@ function calcChange(candles: OHLCVCandle[], lookback: number): number | null {
   return Math.round(((last - base) / base) * 10000) / 100;
 }
 
+/**
+ * Tek sembol fiyatı (5 dk bellek önbelleği). `COMMODITY_LIST` dışındaki semboller
+ * için de kullanılır (ör. Bugün ekranında XU030) — listeye eklemek `/api/commodity`
+ * çıktısını ve onu tüketen Piyasa ekranını değiştirirdi.
+ */
+export async function fetchCommodityQuote(symbol: string, label: string, unit: string): Promise<CommodityQuote> {
+  const cached = cache.get(symbol);
+  if (cached && Date.now() < cached.expiry) return cached.data;
+
+  const { candles, regularMarketPrice, regularMarketChangePercent, regularMarketTime } = await fetchYahoo(symbol, 30);
+  const valid = candles.filter((c) => c.close > 0);
+  // regularMarketPrice her zaman güncel fiyat — candle close'dan daha doğru
+  const lastPrice = regularMarketPrice ?? (valid.length > 0 ? valid[valid.length - 1]!.close : null);
+  // regularMarketChangePercent günlük değişim — gün sonu %0.00 sorununu önler
+  const change1d = regularMarketChangePercent != null
+    ? Math.round(regularMarketChangePercent * 100) / 100
+    : calcChange(candles, 1);
+  const quote: CommodityQuote = {
+    symbol, label, unit,
+    lastPrice,
+    change1d,
+    change20d: calcChange(candles, 20),
+    candles,
+    asOfDate: regularMarketTime
+      ? new Date(regularMarketTime * 1000).toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' })
+      : null,
+  };
+  cache.set(symbol, { data: quote, expiry: Date.now() + CACHE_TTL_MS });
+  return quote;
+}
+
 export async function fetchAllCommodities(): Promise<CommodityQuote[]> {
   const results = await Promise.allSettled(
-    COMMODITY_LIST.map(async ({ symbol, label, unit }) => {
-      const cached = cache.get(symbol);
-      if (cached && Date.now() < cached.expiry) return cached.data;
-
-      const { candles, regularMarketPrice, regularMarketChangePercent } = await fetchYahoo(symbol, 30);
-      const valid = candles.filter((c) => c.close > 0);
-      // regularMarketPrice her zaman güncel fiyat — candle close'dan daha doğru
-      const lastPrice = regularMarketPrice ?? (valid.length > 0 ? valid[valid.length - 1]!.close : null);
-      // regularMarketChangePercent günlük değişim — gün sonu %0.00 sorununu önler
-      const change1d = regularMarketChangePercent != null
-        ? Math.round(regularMarketChangePercent * 100) / 100
-        : calcChange(candles, 1);
-      const quote: CommodityQuote = {
-        symbol, label, unit,
-        lastPrice,
-        change1d,
-        change20d: calcChange(candles, 20),
-        candles,
-      };
-      cache.set(symbol, { data: quote, expiry: Date.now() + CACHE_TTL_MS });
-      return quote;
-    })
+    COMMODITY_LIST.map(({ symbol, label, unit }) => fetchCommodityQuote(symbol, label, unit)),
   );
 
   return results.map((r, i) => {
